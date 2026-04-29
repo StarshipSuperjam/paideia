@@ -14,7 +14,7 @@ The graph needed an atomic unit that makes clean prerequisite claims. A thinker-
 
 The original prototype used thinker-level nodes (45 of them). It was deprecated because the edge claims were too coarse to be meaningful.
 
-**Decision expressed in:** architecture.md (Node Granularity Principle), CONTEXT.md (commitment 8)
+**Decision expressed in:** architecture.md (Node Granularity Principle), MISSION.md (commitment 8)
 
 ---
 
@@ -24,7 +24,7 @@ The alternative was tracking mastery per-concept-per-path — so a user could "m
 
 Path context is still recorded on events for analysis (which paths produce better mastery), but the mastery computation function has no path parameter.
 
-**Decision expressed in:** architecture.md (Portable Mastery), CONTEXT.md (commitment 9)
+**Decision expressed in:** architecture.md (Portable Mastery), MISSION.md (commitment 9)
 
 ---
 
@@ -32,7 +32,7 @@ Path context is still recorded on events for analysis (which paths produce bette
 
 Film, art, and music connections don't create prerequisite edges because the prerequisite test — "would a learner struggle without this?" — almost never holds for media. You can master Existentialism without watching Bergman. The rare exceptions (Aesthetics requires encountering actual art) are handled by making those encounters nodes in their own right, not by giving media structural graph power. If media created edges, the graph's topological sort would route learners through films and albums as mandatory prerequisites, which is pedagogically wrong and would make path generation unpredictable.
 
-**Decision expressed in:** CONTEXT.md (commitment 3), expansion.md (Supplementary Media Layer)
+**Decision expressed in:** MISSION.md (commitment 3), expansion.md (Supplementary Media Layer)
 
 ---
 
@@ -40,7 +40,7 @@ Film, art, and music connections don't create prerequisite edges because the pre
 
 The asymmetry of failure is directional. A freshman encountering content beyond their scope cannot proceed — and the failure feels like inadequacy, which is destructive. An autodidact encountering freshman-level calibration is mildly annoyed for a few exchanges before the adaptive system escalates. The cost of defaulting too low is brief annoyance; the cost of defaulting too high is a learner who quits. Both audiences are served by the same product because the diagnostic conversation and first few exchanges generate enough signal to recalibrate rapidly. Neither audience needs to know the other exists.
 
-**Decision expressed in:** pedagogy.md (V1 Calibration Defaults), business.md (Audience vs. Market), CONTEXT.md (commitment 12)
+**Decision expressed in:** pedagogy.md (V1 Calibration Defaults), business.md (Audience vs. Market), MISSION.md (commitment 12)
 
 ---
 
@@ -68,7 +68,7 @@ The app could theoretically host copyrighted texts under various licensing arran
 
 The clean separation means the mastery graph teaches parametrically with zero copyright exposure in every domain, forever, regardless of what happens with close reading.
 
-**Decision expressed in:** content-strategy.md (Copyright Model), reading-system.md (Architecture), CONTEXT.md (commitment 11)
+**Decision expressed in:** content-strategy.md (Copyright Model), reading-system.md (Architecture), MISSION.md (commitment 11)
 
 ---
 
@@ -86,7 +86,7 @@ The temptation was to build philosophy-specific data structures and generalize l
 
 Philosophy is first because it has the densest prerequisite structure, the richest cross-domain connections, and the best-understood corpus — making it the hardest test case for the architecture, not the easiest.
 
-**Decision expressed in:** CONTEXT.md (commitment 6), architecture.md (Cross-Domain Porosity)
+**Decision expressed in:** MISSION.md (commitment 6), architecture.md (Cross-Domain Porosity)
 
 ---
 

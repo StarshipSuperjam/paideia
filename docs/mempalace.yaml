@@ -1,0 +1,21 @@
+wing: paideia
+rooms:
+- name: operations
+  description: Procedural documentation under docs/operations/
+  keywords:
+  - operations
+  - session
+  - validate
+  - mempalace
+  - adr
+  - health-check
+- name: general
+  description: Design documents at docs/ root (architecture, pedagogy, learner-model, etc.)
+  keywords:
+  - architecture
+  - pedagogy
+  - learner
+  - mastery
+  - graph
+  - node
+  - edge

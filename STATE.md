@@ -57,6 +57,6 @@ See `docs/tensions.md`. As of S-0001 close, the active set includes 6 newly-adde
 
 ## Strong working commitments
 
-12 commitments inherited from pre-Foundation design plus 10 architectural decisions absorbed from prior design-reasoning. **Becoming ADRs 0001-0022 in S-0003.** During S-0001 the source content remains at `CONTEXT.md` (repo root, transitional) and `design-reasoning.md` (also transitional); S-0002 splits CONTEXT.md and deletes it; S-0003 absorbs design-reasoning.md into ADRs and deletes it.
+12 commitments inherited from pre-Foundation design plus 10 architectural decisions absorbed from prior design-reasoning. **Becoming ADRs 0001-0022 in S-0003.** As of S-0002 close: the 12 commitments live at `docs/MISSION.md` (Strong working commitments section) and `ROADMAP.md` (Strong working commitments referenced throughout). Architectural decisions remain at `design-reasoning.md` (transitional); S-0003 absorbs them into ADRs and deletes the file.
 
 See ROADMAP.md "Strong working commitments referenced throughout" for the canonical list.

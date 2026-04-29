@@ -116,6 +116,21 @@ git -C <parent-repo-path> push origin main
 
 Confirm push with the user. After the push completes, the session is closed.
 
+## Updating design docs during a session
+
+Design docs in `docs/` (not the operations procedures, the project-content docs: `architecture.md`, `pedagogy.md`, `tensions.md`, etc.) follow a maintenance protocol that applies throughout the session, not just at shutdown:
+
+- **Strong idea clarified or strengthened** → add to the relevant downstream file. If it rises to a core commitment, surface it in `docs/MISSION.md` (Strong working commitments) and `ROADMAP.md` (Strong working commitments referenced throughout).
+- **New tension** → add to `docs/tensions.md` with enough context for a future session to understand the stakes. Date the entry.
+- **Tension resolved** → move from `docs/tensions.md` to the relevant downstream file with a "Resolved: YYYY-MM-DD" line. Don't delete the entry from `tensions.md` — re-mark it `Resolved` so the historical record is preserved in place.
+- **New commitment + reasoning** → during S-0001 / S-0002, the *what* lands in the relevant design doc and the *why* lands in `design-reasoning.md`. From S-0003 onward, both land in an ADR per [`adr-authoring.md`](adr-authoring.md). `design-reasoning.md` retires.
+- **Idea surfaces but isn't ready for a file** → capture in `docs/ideation.md`. When consumed into a downstream file or rejected, update its status with a date.
+- **Deprecated files** → move to `_archive/` with a version suffix (e.g., `philosophy-graph-seed-v0.2.json`). Update references in CROSS_REFERENCES.md and any consuming docs in the same commit.
+- **Dead ends** → don't record. Design docs are forward-looking; MemPalace `exploration` drawers carry the dead-end reasoning if anyone ever needs it.
+- **Always note the date** when adding or revising any entry. ISO format (`2026-04-29`) when the date is a fact; section-headed `**Added:**` / `**Revised:**` lines when it's a status mark.
+
+These updates each generate a CHANGELOG entry per the material-change criteria above.
+
 ## Partial closure (budget cap reached)
 
 If a session hits its budget cap (per CLAUDE.md guidance) mid-work:
