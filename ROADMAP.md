@@ -88,6 +88,7 @@ Stack: Supabase migrations at `supabase/migrations/0001_*.sql` and forward.
 - `supabase db push` applies the migrations cleanly to dev DB
 - `\d+ nodes` shows expected columns including `confidence_level`
 - Migration rollback works
+- `tension_log` and `learner_events` schemas conform to ADR 0026 (`exchange_summary` as JSONB-with-named-fields; `learner_events.context` as structured columns; no free-text grab-bags); the OQ-PRIVACY-A erasure mechanism and OQ-PRIVACY-B institutional-regime column reservation are settled before migration authoring begins
 
 ---
 
@@ -249,6 +250,12 @@ Validation against your own authored criteria is weak signal (per ADR — closed
 **OQ-PHASE8-A** (open tension in `docs/tensions.md`): which baseline mix? Decided at Phase 8 entry.
 
 **Apple Developer Program enrollment starts here** (2-4 week lead time per `docs/business.md`). Don't defer to Phase 9 — the lead time risks blocking the UI prototype.
+
+### Phase 8 success criteria
+
+- Evaluation harness operational against the chosen external-baseline mix (per OQ-PHASE8-A resolution at Phase 8 entry)
+- Apple Developer Program enrollment in flight or complete
+- **Privacy policy and Apple App Store privacy questionnaire answers exist and align with the privacy ADR collection** (ADR 0026 and any superseding/extending ADRs that emerge from OQ-PRIVACY-A and OQ-PRIVACY-B) **before App Store submission.** This pins the privacy-policy authoring window against the Apple lead time so that submission is not blocked on policy work.
 
 ---
 

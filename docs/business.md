@@ -48,7 +48,7 @@ These are candidates, not commitments. The goal is net-zero operating costs befo
 
 **Classroom/institutional tier.** $5/seat/month for professors or reading groups. Philosophy departments are the natural first customer. This is the volume play — 30-student seminars at a price point low enough that department budgets absorb it.
 
-**Internal fine-tuning from session data.** Selling conversation data externally raises privacy/consent problems and requires volume guarantees. The practical version: use accumulated teaching sessions internally to fine-tune a smaller, cheaper model that handles routine interactions, reducing API costs rather than generating revenue. This connects to the cost mitigation ideas in architecture.md.
+**Internal fine-tuning from session data.** Selling conversation data externally raises privacy/consent problems and requires volume guarantees. The practical version: use accumulated teaching sessions internally to fine-tune a smaller, cheaper model that handles routine interactions, reducing API costs rather than generating revenue. This connects to the cost mitigation ideas in architecture.md. **Constrained by [ADR 0026](../adr/0026-persistent-learner-storage-structural-not-substantive.md):** any fine-tuning use draws on the structured event log and structured tension records, not on raw transcripts (which are not persisted as system-of-record data). This forecloses transcript-based fine-tuning of a session-specific model without a superseding ADR.
 
 ## Personal-Use Cost Estimates
 **Added: 2026-04-07**
@@ -78,7 +78,7 @@ Building under personal accounts (GitHub, Supabase, Vercel, Anthropic) is the co
 
 The one transfer path with real friction is the App Store. Apple requires a formal transfer request between developer accounts; both must be enrolled and the app must be in good standing. Budget 2–4 weeks lead time when that moment comes. Google Play is similar but lighter.
 
-The one thing to design intentionally before opening to general users: data ownership clarity. Users who interact with the app while it's under personal accounts need a clear record of who the data controller was at each point. This matters for privacy policy continuity and for any grant or non-profit filing that requires clean IP chain-of-title.
+The one thing to design intentionally before opening to general users: data ownership clarity. Users who interact with the app while it's under personal accounts need a clear record of who the data controller was at each point. This matters for privacy policy continuity and for any grant or non-profit filing that requires clean IP chain-of-title. The privacy *posture* — what kinds of data persist at all — is settled in [ADR 0026](../adr/0026-persistent-learner-storage-structural-not-substantive.md); the privacy *policy* (the ToS-adjacent legal document) is Phase 8 work pinned to Apple App Store submission per [ROADMAP.md](../ROADMAP.md) Phase 8 success criteria.
 
 ## Non-Profit Incorporation: Mechanics and Timing
 **Added: 2026-04-07**

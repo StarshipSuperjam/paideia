@@ -157,6 +157,35 @@ Per the principle "closed-loop validation is weak signal" (becomes ADR in S-0003
 
 ---
 
+## OQ-PRIVACY-A: Erasure mechanism for learner data
+**Added: 2026-04-29 (S-0007) | Status: Open | Decide before: Phase 3**
+
+ADR 0026 commits to "persistent learner storage is structural, not substantive" but does not settle the GDPR Article 17 right-of-erasure mechanism. Three candidates on the table:
+
+(a) **Crypto-shredding** — encrypt events with a per-learner key; delete the key on erasure. Strongest fit for the event-sourced architecture (`mastery_snapshots` derive from decrypted reads; deleting the key renders events permanently inert without a cascading event-delete). Implementation cost: per-learner KMS key, encrypted-at-rest column or table-level encryption. Compatible with the audit-trail benefit ADR 0015 calls out — events remain in the table, just unreadable.
+
+(b) **Hard-delete with cascade** — `DELETE FROM learner_events WHERE user_id = ?` plus recompute of affected `mastery_snapshots`. Simplest. Loses the audit trail; cohort-aggregated analytics that included the user retroactively change.
+
+(c) **Anonymize-and-aggregate** — strip user identifiers, retain events for graph-level signal. Preserves structural learning across users. Whether it constitutes "erasure" under GDPR Article 17 is the contested question — depends on whether the residual data is genuinely de-identifiable, which depends on event sparsity and the rest of the schema. Likely fails the test if a learner has a distinctive engagement pattern.
+
+Decide before Phase 3 schema authoring; the choice shapes whether `learner_events` needs an `encrypted_user_data_key` column (path a), a delete-cascade discipline (path b), or a nullable `user_id` post-erasure (path c). Decision lands as an ADR.
+
+---
+
+## OQ-PRIVACY-B: Institutional vs. individual data regime
+**Added: 2026-04-29 (S-0007) | Status: Open | Decide before: Phase 3 (column reservation); Phase 8 (policy specification)**
+
+Cohort-bound events (`cohort_id NOT NULL`, per the institutional schema provision in [`architecture.md`](architecture.md) Institutional Schema Provisions) may live under a different analytics-eligibility regime than individual events. The direction is itself open and worth not anchoring prematurely:
+
+- One reading: institutional cohorts arrive via Data Processing Agreement contracts that may grant aggregate analytics rights individuals (clicking through ToS) haven't granted. Cohort-bound events are *more* eligible.
+- Converse reading: institutional context (FERPA, minor users in some community-college populations) imposes stricter regime than individual ToS click. Cohort-bound events are *less* eligible.
+
+One concrete proposal to evaluate: a column on `learner_events` like `eligible_for_aggregate_analytics`, with Opus's batch review filtering on the column. Both the column shape and the default are open. Other proposals (a separate `cohort_consent` table, runtime policy lookup, regime per cohort_id rather than per event) are also on the table.
+
+Decide before Phase 3 to reserve any required columns (column slot is cheap to add then, expensive later). The policy specification (what governs eligibility, what defaults are correct, what runtime gates apply) defers to Phase 8 alongside actual institutional partner conversations — speculative regime design without a real partner produces brittle policy. Decision lands as an ADR (or two: one for the column at Phase 3, one for the policy at Phase 8).
+
+---
+
 ## OQ-WATCH-FLAG-FILE
 **Added: 2026-04-29 (S-0001) | Status: Open (tagged: `watch`) | Decide at: ~session 30 health check**
 
@@ -164,4 +193,4 @@ When the volume of "things to watch for in future evidence that aren't actionabl
 
 ---
 
-*Last updated: 2026-04-29 (S-0001 added 6 architecture-decision and watch-flag tensions)*
+*Last updated: 2026-04-29 (S-0007 added OQ-PRIVACY-A erasure mechanism and OQ-PRIVACY-B institutional vs individual data regime, both per ADR 0026)*

@@ -29,6 +29,7 @@ Multiple files depend on the same shared service or schema component. Changes to
 - [`docs/architecture.md`](architecture.md) entity resolution service → [`docs/reading-system.md`](reading-system.md) (outline generation), [`docs/architecture.md`](architecture.md) (syllabus upload pipeline), [`docs/self-correction.md`](self-correction.md) (teaching session context). Three consumers of the same shared capability.
 - [`docs/architecture.md`](architecture.md) rigor score computation → [`docs/learner-model.md`](learner-model.md) (mastery decay, mastery computation). The effective rigor score feeds decay rate, decay floor, and assessment calibration.
 - [`docs/architecture.md`](architecture.md) node schema (`status`, `superseded_by`) → [`docs/learner-model.md`](learner-model.md) (event remapping on node splits). Deprecated nodes with learner events need successor pointers.
+- [`adr/0026-persistent-learner-storage-structural-not-substantive.md`](../adr/0026-persistent-learner-storage-structural-not-substantive.md) privacy posture → [`docs/self-correction.md`](self-correction.md) (`tension_log.exchange_summary` JSONB shape), [`docs/learner-model.md`](learner-model.md) (`learner_events.context` schematization at Phase 3), [`docs/architecture.md`](architecture.md) (Institutional Schema Provisions inheritance), [`docs/business.md`](business.md) (Internal fine-tuning constraint, data ownership clarity), [`ROADMAP.md`](../ROADMAP.md) (Phase 3 schema-conformance success criterion, Phase 8 privacy-policy success criterion). Five consumers of the structural-not-substantive discipline.
 
 ## Procedural dependencies (project machinery)
 
@@ -44,7 +45,8 @@ Operational artifacts that depend on each other. Changes propagate.
 When a phase closes or opens, audit:
 
 - **Phase 0 → Phase 1** *(verified at S-0003 close)* — every commitment in [`docs/MISSION.md`](MISSION.md) (1–12) has a corresponding ADR in [`adr/`](../adr/) with `Status: Accepted`. Every entry that was in `design-reasoning.md` became an ADR (0013 Mastery Verification, 0014 Sonnet/Opus, 0015 Event-Sourced Learner Model, 0017 Postgres over OWL/RDF, 0018 Flat Domain Tags, 0019 Two-Column Rigor Score, 0020 Teaching Notes Separation, 0021 Node Status + Superseded_by); the file retired in CHANGELOG. ADRs 0016 (Graph construction needs live validation) and 0022 (Periodic project health checks) emerged in the S-0001 plan conversation. Final tally: 22 ADRs, all Accepted; `tools/validate.py` `adr_status` check returns 0 soft-warns.
-- **Phase 1 → Phase 2** — all open `OQ-DEC1-*` and `OQ-PHASE8-*` tensions in [`docs/tensions.md`](tensions.md) have an Accepted ADR or are explicitly tagged `deferred`.
+- **Phase 1 → Phase 2** — all open `OQ-DEC1-*` and `OQ-PHASE8-*` tensions in [`docs/tensions.md`](tensions.md) have an Accepted ADR or are explicitly tagged `deferred`. (Note: `OQ-DEC1-*` decide-before is Phase 6, not Phase 2 — this boundary check is about ADR-mapping completeness, not Phase 6 readiness.)
+- **Phase 2 → Phase 3** — `OQ-PRIVACY-A` (erasure mechanism) and `OQ-PRIVACY-B` (institutional vs individual regime, column reservation) in [`docs/tensions.md`](tensions.md) have an Accepted ADR. Both are decide-before-Phase 3 per ADR 0026.
 - **Phase 4 → Phase 5** — `tools/validate.py`'s graph audit is live; `supabase/migrations/PREDICATE_MANIFEST.md` and `supabase/migrations/ROUTING.md` are populated.
 
 ## When to update this file

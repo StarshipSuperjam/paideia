@@ -26,25 +26,37 @@ This architecture prevents reactive single-signal changes, ensures graph stabili
 
 ### Tension Log Schema
 
+**Revised: 2026-04-29 (S-0007 — `exchange_summary` shape constrained per ADR 0026 — persistent learner storage is structural, not substantive).**
+
 ```sql
 CREATE TABLE tension_log (
   id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   concept_id                TEXT NOT NULL REFERENCES nodes(id),
   session_id                UUID NOT NULL,
   tension_type              TEXT NOT NULL,  -- struggle_unresolved, unexpected_ease, spontaneous_connection, source_ineffective, mastery_contradiction
-  exchange_summary          TEXT NOT NULL,
-  learner_reference_node_id TEXT REFERENCES nodes(id),  -- populated when the learner references another concept
+  exchange_summary          JSONB NOT NULL, -- structured shape per ADR 0026; see field list below
+  learner_reference_node_id TEXT REFERENCES nodes(id),  -- populated when the learner references another concept and it resolved
   created_at                TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ```
 
 The `tension_type` values map to the five feedback loops: `struggle_unresolved` feeds prerequisite validation, `unexpected_ease` feeds path efficiency tracking, `spontaneous_connection` feeds cross-domain bridge discovery, `source_ineffective` feeds reading source effectiveness, and `mastery_contradiction` feeds mastery contradiction detection. Sonnet classifies at this coarse level without attempting deeper diagnosis — that is Opus's job during the batch review.
 
+**`exchange_summary` JSONB shape (per ADR 0026).** The required semantic fields:
+
+- `teaching_moves_tried` — array of enum values from a constrained vocabulary (authored at Phase 3 alongside the migration)
+- `friction_type` — enum value, more granular than `tension_type` (e.g. `prerequisite_gap`, `formula_vs_grounding`, `source_register_mismatch`)
+- `pattern_observed` — bounded-length structural description (target ~280 chars, hard cap ~600); third-person; descriptive, not quotational; **forbidden** from carrying first-person learner claims, contested doctrinal positions, or political/religious framings as substantive content
+- `suggested_review_focus` — enum value or null
+- `unresolved_reference` — string or null; populated when `tension_type = spontaneous_connection` and the reference did not resolve to a graph node (when it does resolve, `learner_reference_node_id` is populated instead)
+
+The constrained enum vocabularies and the `pattern_observed` writing policy are authored at Phase 3 alongside the schema migration. Phase 4 `tools/validate.py` adds a periodic-batch soft-warn category that scans `pattern_observed` for substantive-content markers (per ADR 0026 Consequences). The pre-S-0007 schema used `exchange_summary TEXT NOT NULL`; that shape is superseded — see ADR 0026 for the principle and the rationale.
+
 ### Teaching Session Context
 
 Sonnet's teaching session carries a bounded context sufficient for both effective teaching and tension logging: the current concept node, its immediate prerequisites and their mastery states for this learner, the learner's recent event history on the current concept, and a **shallow neighborhood of the local graph topology** — node IDs and labels within two hops of the current concept.
 
-The neighborhood serves entity resolution. When a learner spontaneously references a concept — including concepts not in their mastery history that they know from prior independent study — Sonnet resolves the reference against the local topology. References that resolve are engaged with pedagogically in the moment and logged as `cross_domain_connection` events in the learner event stream. References that don't resolve against the local neighborhood are logged as tension records with type `spontaneous_connection` and the unresolved reference in `exchange_summary`, for Opus to evaluate with full graph context.
+The neighborhood serves entity resolution. When a learner spontaneously references a concept — including concepts not in their mastery history that they know from prior independent study — Sonnet resolves the reference against the local topology. References that resolve are engaged with pedagogically in the moment and logged as `cross_domain_connection` events in the learner event stream. References that don't resolve against the local neighborhood are logged as tension records with type `spontaneous_connection` and the unresolved reference recorded in the `exchange_summary.unresolved_reference` field (per ADR 0026), for Opus to evaluate with full graph context.
 
 This context is lightweight — a few dozen node IDs and labels — and does not require Sonnet to carry the full graph or reason about graph structure. The two-hop boundary is a practical limit, not a theoretical one; it can be adjusted if entity resolution miss rates are too high in practice.
 
@@ -60,4 +72,4 @@ At current scale (n=1–3 users), the Opus review may surface patterns slowly. T
 Opus for graph construction, cross-domain edge generation, and periodic self-correction review — infrequent tasks requiring heavy reasoning and nuanced judgment about conceptual dependencies across frameworks. The self-correction review (see above) is an Opus responsibility: analyzing accumulated tension logs against the full graph state to propose structural edits. Sonnet for daily teaching interactions — high-volume, well-constrained tasks (Socratic dialogue, concept checks, syllabus lookups, learner state updates, tension logging) where Sonnet's capabilities are fully sufficient.
 
 ---
-*Last updated: 2026-04-09 (split from architecture.md)*
+*Last updated: 2026-04-29 (S-0007 — `tension_log.exchange_summary` shape constrained from `TEXT NOT NULL` to JSONB-with-named-fields per ADR 0026; spontaneous-connection unresolved-reference handling clarified)*
