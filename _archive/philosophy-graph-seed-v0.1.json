@@ -1,0 +1,373 @@
+{
+  "_meta": {
+    "domain": "philosophy",
+    "version": "0.1.0",
+    "created": "2026-04-07",
+    "node_count": 47,
+    "notes": "Seed dataset. Edges are pedagogical (must-understand-before), not historical (influenced-by). Each node needs expert review before production use. Key concepts and readings are illustrative — the syllabus generator will eventually replace static recommendations."
+  },
+
+  "domains": {
+    "foundations":  { "label": "Foundations",           "color": "#8B6914" },
+    "epistemology": { "label": "Epistemology",          "color": "#2B6CB0" },
+    "metaphysics":  { "label": "Metaphysics",           "color": "#6B21A8" },
+    "ethics":       { "label": "Ethics",                 "color": "#B91C1C" },
+    "political":    { "label": "Political Philosophy",   "color": "#C2410C" },
+    "logic":        { "label": "Logic",                  "color": "#0F766E" },
+    "aesthetics":   { "label": "Aesthetics",             "color": "#DB2777" },
+    "mind":         { "label": "Philosophy of Mind",     "color": "#7C3AED" },
+    "language":     { "label": "Philosophy of Language",  "color": "#0369A1" },
+    "science":      { "label": "Philosophy of Science",  "color": "#15803D" },
+    "continental":  { "label": "Continental",            "color": "#A16207" },
+    "eastern":      { "label": "Eastern",                "color": "#9F1239" }
+  },
+
+  "nodes": [
+    {
+      "id": "critical_thinking",
+      "label": "Critical Thinking",
+      "domain": "foundations",
+      "prereqs": [],
+      "description": "Argument analysis, fallacy identification, reasoning evaluation"
+    },
+    {
+      "id": "formal_logic",
+      "label": "Formal Logic",
+      "domain": "logic",
+      "prereqs": ["critical_thinking"],
+      "description": "Propositional and predicate logic, validity, soundness"
+    },
+    {
+      "id": "ancient_greek",
+      "label": "Ancient Greek Philosophy",
+      "domain": "foundations",
+      "prereqs": ["critical_thinking"],
+      "description": "Pre-Socratics, Socrates, the birth of Western philosophy"
+    },
+    {
+      "id": "plato",
+      "label": "Plato",
+      "domain": "foundations",
+      "prereqs": ["ancient_greek"],
+      "description": "Theory of Forms, the Republic, epistemology, political philosophy"
+    },
+    {
+      "id": "aristotle",
+      "label": "Aristotle",
+      "domain": "foundations",
+      "prereqs": ["plato", "formal_logic"],
+      "description": "Logic, metaphysics, ethics, natural philosophy, politics"
+    },
+
+    {
+      "id": "epistemology_intro",
+      "label": "Epistemology (Intro)",
+      "domain": "epistemology",
+      "prereqs": ["plato"],
+      "description": "Knowledge, belief, justification, truth, skepticism"
+    },
+    {
+      "id": "rationalism",
+      "label": "Rationalism",
+      "domain": "epistemology",
+      "prereqs": ["epistemology_intro"],
+      "description": "Descartes, Spinoza, Leibniz — reason as primary source of knowledge"
+    },
+    {
+      "id": "empiricism",
+      "label": "Empiricism",
+      "domain": "epistemology",
+      "prereqs": ["epistemology_intro"],
+      "description": "Locke, Berkeley, Hume — experience as primary source of knowledge"
+    },
+    {
+      "id": "kant_epistemology",
+      "label": "Kantian Epistemology",
+      "domain": "epistemology",
+      "prereqs": ["rationalism", "empiricism"],
+      "description": "Synthetic a priori, categories of understanding, transcendental idealism"
+    },
+    {
+      "id": "pragmatism",
+      "label": "Pragmatism",
+      "domain": "epistemology",
+      "prereqs": ["empiricism"],
+      "description": "Peirce, James, Dewey — truth as what works in practice"
+    },
+    {
+      "id": "epistemology_advanced",
+      "label": "Contemporary Epistemology",
+      "domain": "epistemology",
+      "prereqs": ["kant_epistemology", "pragmatism"],
+      "description": "Gettier problems, reliabilism, virtue epistemology, social epistemology"
+    },
+
+    {
+      "id": "metaphysics_intro",
+      "label": "Metaphysics (Intro)",
+      "domain": "metaphysics",
+      "prereqs": ["aristotle"],
+      "description": "Being, existence, substance, causation, identity, time"
+    },
+    {
+      "id": "dualism",
+      "label": "Mind-Body Dualism",
+      "domain": "metaphysics",
+      "prereqs": ["rationalism", "metaphysics_intro"],
+      "description": "Descartes's dualism, interaction problem, property dualism"
+    },
+    {
+      "id": "materialism",
+      "label": "Materialism / Physicalism",
+      "domain": "metaphysics",
+      "prereqs": ["empiricism", "metaphysics_intro"],
+      "description": "Everything is physical; eliminativism, reductionism"
+    },
+    {
+      "id": "idealism",
+      "label": "Idealism",
+      "domain": "metaphysics",
+      "prereqs": ["kant_epistemology", "metaphysics_intro"],
+      "description": "Berkeley, Hegel — reality is fundamentally mental or conceptual"
+    },
+    {
+      "id": "modal_logic",
+      "label": "Modal Logic & Possible Worlds",
+      "domain": "logic",
+      "prereqs": ["formal_logic", "metaphysics_intro"],
+      "description": "Necessity, possibility, Kripke semantics, essence"
+    },
+    {
+      "id": "free_will",
+      "label": "Free Will & Determinism",
+      "domain": "metaphysics",
+      "prereqs": ["metaphysics_intro", "materialism"],
+      "description": "Compatibilism, libertarianism, hard determinism, moral responsibility"
+    },
+
+    {
+      "id": "ethics_intro",
+      "label": "Ethics (Intro)",
+      "domain": "ethics",
+      "prereqs": ["aristotle"],
+      "description": "Moral reasoning, the good, right action, value theory"
+    },
+    {
+      "id": "virtue_ethics",
+      "label": "Virtue Ethics",
+      "domain": "ethics",
+      "prereqs": ["ethics_intro"],
+      "description": "Aristotle, MacIntyre — character, flourishing, the virtues"
+    },
+    {
+      "id": "deontology",
+      "label": "Deontology",
+      "domain": "ethics",
+      "prereqs": ["ethics_intro", "kant_epistemology"],
+      "description": "Kant's moral philosophy, categorical imperative, duty"
+    },
+    {
+      "id": "utilitarianism",
+      "label": "Utilitarianism",
+      "domain": "ethics",
+      "prereqs": ["ethics_intro", "empiricism"],
+      "description": "Bentham, Mill — maximizing happiness, consequentialism"
+    },
+    {
+      "id": "metaethics",
+      "label": "Metaethics",
+      "domain": "ethics",
+      "prereqs": ["virtue_ethics", "deontology", "utilitarianism"],
+      "description": "Moral realism, expressivism, error theory, constructivism"
+    },
+    {
+      "id": "applied_ethics",
+      "label": "Applied Ethics",
+      "domain": "ethics",
+      "prereqs": ["metaethics"],
+      "description": "Bioethics, environmental ethics, AI ethics, business ethics"
+    },
+
+    {
+      "id": "political_intro",
+      "label": "Political Philosophy (Intro)",
+      "domain": "political",
+      "prereqs": ["ethics_intro", "plato"],
+      "description": "Justice, authority, rights, the state, social contract"
+    },
+    {
+      "id": "social_contract",
+      "label": "Social Contract Theory",
+      "domain": "political",
+      "prereqs": ["political_intro"],
+      "description": "Hobbes, Locke, Rousseau — legitimacy of political authority"
+    },
+    {
+      "id": "liberalism",
+      "label": "Liberalism",
+      "domain": "political",
+      "prereqs": ["social_contract", "utilitarianism"],
+      "description": "Mill, Rawls — individual liberty, justice as fairness"
+    },
+    {
+      "id": "marxism",
+      "label": "Marxism",
+      "domain": "political",
+      "prereqs": ["idealism", "political_intro"],
+      "description": "Historical materialism, class struggle, alienation, ideology"
+    },
+    {
+      "id": "feminism_phil",
+      "label": "Feminist Philosophy",
+      "domain": "political",
+      "prereqs": ["political_intro", "metaethics"],
+      "description": "de Beauvoir, Butler — gender, power, knowledge, justice"
+    },
+    {
+      "id": "postcolonial",
+      "label": "Postcolonial Philosophy",
+      "domain": "political",
+      "prereqs": ["marxism", "feminism_phil"],
+      "description": "Fanon, Said, Spivak — power, identity, epistemic injustice"
+    },
+
+    {
+      "id": "phil_mind",
+      "label": "Philosophy of Mind",
+      "domain": "mind",
+      "prereqs": ["dualism", "materialism"],
+      "description": "Consciousness, intentionality, qualia, the hard problem"
+    },
+    {
+      "id": "functionalism",
+      "label": "Functionalism",
+      "domain": "mind",
+      "prereqs": ["phil_mind"],
+      "description": "Mental states as functional roles — Putnam, Fodor"
+    },
+    {
+      "id": "consciousness",
+      "label": "Consciousness Studies",
+      "domain": "mind",
+      "prereqs": ["functionalism", "phil_mind"],
+      "description": "Hard problem, neural correlates, panpsychism, IIT"
+    },
+
+    {
+      "id": "phil_language",
+      "label": "Philosophy of Language",
+      "domain": "language",
+      "prereqs": ["formal_logic", "epistemology_intro"],
+      "description": "Meaning, reference, truth, speech acts — Frege, Russell, Wittgenstein"
+    },
+    {
+      "id": "wittgenstein",
+      "label": "Wittgenstein",
+      "domain": "language",
+      "prereqs": ["phil_language"],
+      "description": "Tractatus, Philosophical Investigations, language games, forms of life"
+    },
+    {
+      "id": "hermeneutics",
+      "label": "Hermeneutics",
+      "domain": "continental",
+      "prereqs": ["wittgenstein", "idealism"],
+      "description": "Interpretation theory — Gadamer, Ricoeur, the hermeneutic circle"
+    },
+
+    {
+      "id": "phil_science",
+      "label": "Philosophy of Science",
+      "domain": "science",
+      "prereqs": ["empiricism", "formal_logic"],
+      "description": "Demarcation, explanation, theory change — Popper, Kuhn, Lakatos"
+    },
+    {
+      "id": "kuhn",
+      "label": "Kuhn & Scientific Revolutions",
+      "domain": "science",
+      "prereqs": ["phil_science"],
+      "description": "Paradigms, normal science, incommensurability"
+    },
+    {
+      "id": "phil_physics",
+      "label": "Philosophy of Physics",
+      "domain": "science",
+      "prereqs": ["phil_science", "metaphysics_intro"],
+      "description": "Space, time, quantum mechanics interpretation, laws of nature"
+    },
+
+    {
+      "id": "phenomenology",
+      "label": "Phenomenology",
+      "domain": "continental",
+      "prereqs": ["kant_epistemology", "metaphysics_intro"],
+      "description": "Husserl, intentionality, epoché, structures of experience"
+    },
+    {
+      "id": "existentialism",
+      "label": "Existentialism",
+      "domain": "continental",
+      "prereqs": ["phenomenology"],
+      "description": "Heidegger, Sartre, Camus — existence, authenticity, absurdity, freedom"
+    },
+    {
+      "id": "structuralism",
+      "label": "Structuralism",
+      "domain": "continental",
+      "prereqs": ["phil_language", "marxism"],
+      "description": "Saussure, Lévi-Strauss — underlying structures of culture and meaning"
+    },
+    {
+      "id": "poststructuralism",
+      "label": "Poststructuralism",
+      "domain": "continental",
+      "prereqs": ["structuralism", "existentialism"],
+      "description": "Derrida, Foucault, Deleuze — deconstruction, power, difference"
+    },
+    {
+      "id": "critical_theory",
+      "label": "Critical Theory",
+      "domain": "continental",
+      "prereqs": ["marxism", "phenomenology"],
+      "description": "Frankfurt School — Adorno, Habermas, reason, ideology, emancipation"
+    },
+
+    {
+      "id": "aesthetics",
+      "label": "Aesthetics",
+      "domain": "aesthetics",
+      "prereqs": ["kant_epistemology", "ethics_intro"],
+      "description": "Beauty, taste, art, the sublime — Kant, Hegel, Danto"
+    },
+
+    {
+      "id": "buddhist_phil",
+      "label": "Buddhist Philosophy",
+      "domain": "eastern",
+      "prereqs": ["critical_thinking"],
+      "description": "Dependent origination, emptiness, Nāgārjuna, consciousness"
+    },
+    {
+      "id": "confucianism",
+      "label": "Confucianism",
+      "domain": "eastern",
+      "prereqs": ["critical_thinking"],
+      "description": "Ren, li, junzi — virtue, ritual, social harmony"
+    },
+    {
+      "id": "daoism",
+      "label": "Daoism",
+      "domain": "eastern",
+      "prereqs": ["critical_thinking"],
+      "description": "Dao, wu-wei, Laozi, Zhuangzi — naturalness, spontaneity"
+    },
+    {
+      "id": "comparative_phil",
+      "label": "Comparative Philosophy",
+      "domain": "eastern",
+      "prereqs": ["buddhist_phil", "epistemology_advanced", "metaethics"],
+      "description": "Cross-tradition dialogue, translation problems, universal vs relative"
+    }
+  ]
+}

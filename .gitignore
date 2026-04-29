@@ -1,0 +1,34 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Claude Code per-project config
+.claude/
+
+# Node
+node_modules/
+dist/
+build/
+.next/
+.vercel/
+
+# Python (audit_graph.py and tooling will arrive in Phase 4)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
