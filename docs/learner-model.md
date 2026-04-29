@@ -111,7 +111,7 @@ The mastery computation function takes all events for a user-concept pair and re
 
 **Stage 2: Asymptotic aggregation.** Sum the decayed strengths, but through a concave function that prevents quantity from substituting for quality: `aggregate = ceiling * (1 - e^(-sum / ceiling))` where ceiling = 1.0. This ensures that fifty shallow mentions cannot outweigh three deep assessments. The aggregate asymptotically approaches 1.0 but cannot reach it through volume alone — only high-quality evidence pushes the score into the upper range.
 
-**Stage 3: Decay floor.** Apply the conditional floor: `final_score = max(aggregate, decay_floor)` where `decay_floor = max_floor * (1 - rigor_score)` — but only if the concept's historical maximum aggregate has ever reached the proficiency threshold (0.3). If the concept has never been understood, no floor applies.
+**Stage 3: Decay floor.** Apply the conditional floor: `final_score = max(aggregate, decay_floor)` where `decay_floor = max_floor * (1 - rigor_score)` — but only if the concept's historical maximum aggregate has ever reached the proficiency threshold (0.3). If the concept has never been understood, no floor applies. The historical maximum aggregate is the asymptotic cap on cumulative undecayed raw strength over **substantive** interaction types (per ADR 0025 — see "Historical maximum tracking" below).
 
 **Stage 4: State mapping.** Fixed thresholds map the continuous score to discrete states:
 - **Not encountered:** score = 0 (no events exist)
@@ -149,22 +149,29 @@ function compute_mastery(events, rigor_score):
     incidental_mention: 0.2
   }
 
+  // Substantive interaction types contribute to cumulative_substantive_raw
+  // (per ADR 0025). incidental_mention and backward_inference are excluded —
+  // neither represents "learner once genuinely engaged" evidence.
+  substantive_types = { direct_teaching, callback_reference,
+                        cross_domain_connection, assessment }
+
   sum = 0
-  max_historical = 0
+  cumulative_substantive_raw = 0
   for event in events:
     depth = compute_engagement_depth(event)
     raw = type_weights[event.type] * depth
+    if event.type in substantive_types:
+      cumulative_substantive_raw += raw
     half_life = BASE_HALF_LIFE * depth * (1 / (0.5 + rigor_score))
     lambda = ln(2) / half_life
     decayed = raw * exp(-lambda * time_since(event.timestamp))
     sum += decayed
-    // track historical max using undecayed running aggregate
-    max_historical = max(max_historical, <running undecayed aggregate at event time>)
 
   aggregate = 1.0 * (1 - exp(-sum / 1.0))
+  max_historical = 1.0 * (1 - exp(-cumulative_substantive_raw / 1.0))  // per ADR 0025
 
   floor = 0
-  if max_historical >= 0.3:  // ever reached proficiency
+  if max_historical >= 0.3:  // ever reached proficiency (per ADR 0025)
     floor = MAX_FLOOR * (1 - rigor_score)
 
   final = max(aggregate, floor)
@@ -179,7 +186,7 @@ function compute_mastery(events, rigor_score):
 
 **Verified at S-0005 (2026-04-29)** against five realistic trajectory scenarios (active low-rigor, active high-rigor, abandoned mid-rigor, mastery verification, backward inference) using the engagement-depth distribution settled in ADR 0023. All scenarios match design intent; no parameter revisions warranted. See the S-0005 entry in `CHANGELOG.md` for the verification summary. Notes from the run: a single `direct_teaching` event at `engagement_depth = 0.6` on a low-rigor concept already crosses the 0.3 proficiency threshold (aggregate 0.343) and activates the floor — consistent with the design ("simple concepts stick once grasped") but more permissive than a colloquial reading might suggest. Mastery on high-rigor concepts is unreachable through `callback_reference` events alone at typical depth (~0.4); it requires an `assessment` event or sustained callbacks at depth ≥ 0.5 — also matching design intent (high-rigor demands verified understanding, not passive reinforcement). The mid-rigor floor (0.30) sits exactly at the proficiency threshold, so an abandoned mid-rigor concept stays technically `PROFICIENCY` by the inclusive `≥ 0.3` boundary; the continuous score, not the discrete state, is the signal of fading.
 
-**Historical maximum tracking.** The decay floor is conditional on the concept having *ever* reached proficiency. This requires tracking the historical maximum aggregate, which means either storing a high-water mark per user-concept pair (a simple cache) or recomputing from the full event history (correct but heavier). At current scale, recomputation is fine. If performance becomes an issue, a `max_historical_score` column on a `user_concept_cache` table is a clean optimization.
+**Historical maximum tracking.** The decay floor's proficiency precondition is tracked via a `max_historical_score` column (`NUMERIC(3,2) NOT NULL DEFAULT 0`) on the existing `mastery_snapshots` table (per ADR 0025). The historical maximum aggregate is the asymptotic cap on the cumulative undecayed raw strength of **substantive** interaction types: `max_historical_score = 1 − exp(−Σ_e raw_strength(e) / 1.0)` where the sum runs over events `e` with `e.interaction_type ∈ {direct_teaching, callback_reference, cross_domain_connection, assessment}`. `incidental_mention` and `backward_inference` are excluded — neither represents the "learner once genuinely engaged" evidence the floor is intended to protect, and the substantive set matches the interaction types where the engagement-depth composite applies (per ADR 0023). The value is monotonically non-decreasing under event ingest; the closed-form incremental update is `max_new = 1 − (1 − max_old) · exp(−raw_new)` for substantive events, `max_new = max_old` otherwise. Offline-sync clients receive `max_historical_score` in the cached snapshot and derive `floor_active = max_historical_score ≥ 0.3` locally (per ADR 0015's no-client-side-mastery-computation principle).
 
 ## Offline and Sync
 **Added: 2026-04-09**
@@ -195,4 +202,4 @@ Mastery computation runs server-side. Native clients are thin: they emit events 
 **No client-side mastery computation.** The client never runs the mastery function. This eliminates versioning headaches (different client builds computing differently), prevents client-server disagreement on mastery state, and keeps the native app's logic minimal. The client is an event emitter and a snapshot consumer; the server is the source of truth.
 
 ---
-*Last updated: 2026-04-29 (S-0004 — engagement-depth aggregation settled per ADR 0023; sub-signals stored raw per ADR 0024; `scaffolding_proximity` renamed to `scaffolding_distance` for direct composition into the formula)*
+*Last updated: 2026-04-29 (S-0006 — historical maximum tracking settled per ADR 0025; Stage 3 floor precondition formalized as the asymptotic cap on cumulative undecayed raw strength over substantive interaction types; pseudocode updated. Prior: S-0005 — V1 decay parameters verified; S-0004 — engagement-depth aggregation per ADR 0023; sub-signals stored raw per ADR 0024.)*

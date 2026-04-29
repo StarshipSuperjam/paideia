@@ -8,8 +8,8 @@
 |---|---|
 | **Project** | Paideia — knowledge mastery app on a pedagogical dependency graph |
 | **GitHub** | https://github.com/StarshipSuperjam/paideia (private) |
-| **Current phase** | Phase 0 — closed (S-0003); Phase 1 — Contract Lock (in progress); prompt-pack Sessions 9 + 10 closed at S-0004 / S-0005 |
-| **Last build session** | S-0005 (2026-04-29) — V1 decay parameters (`BASE_HALF_LIFE = 60 days`, `MAX_FLOOR = 0.6`) verified across five realistic trajectory scenarios under the engagement-depth distribution settled in ADR 0023; all scenarios match design intent, no parameter revisions; closes prompt-pack Session 10 without an ADR per ROADMAP.md §1.1. Procedure side-fix: `/start-engine` no longer requires per-push user confirmation — invocation is itself the authorization (docs + `.claude/settings.json` permission rules updated). |
+| **Current phase** | Phase 0 — closed (S-0003); Phase 1 — Contract Lock (in progress); §1.1 fully closed — prompt-pack Sessions 9, 10, 11 settled across S-0004 / S-0005 / S-0006 |
+| **Last build session** | S-0006 (2026-04-29) — Phase 1.1 prompt-pack Session 11: historical maximum tracking. Settled `max_historical_score` on the existing `mastery_snapshots` table (per ADR 0015), defined as the asymptotic cap on cumulative undecayed raw strength over **substantive** interaction types (excludes `incidental_mention` and `backward_inference`); `docs/learner-model.md` Stage 3 pseudocode updated; ADR 0025 lands as the next Phase 1 ADR. Closes prompt-pack Session 11 per ROADMAP.md §1.1. Sessions 12–14 remain deferred. |
 | **Last commit on main** | (see `git log --oneline -1` on main) |
 | **Backup tag** | `pre-foundation-v0.0.0` at commit `fa70b8c` (pre-foundation state; recoverable via `git reset --hard pre-foundation-v0.0.0`) |
 
@@ -25,23 +25,31 @@
 
 ## Next session work item
 
-**S-0006 — Phase 1.1 continuation: prompt-pack Session 11 (Historical Maximum Tracking)**
+**S-0007 — Phase 1.2: `AGENT_INSTRUCTIONS.md` rendering policy**
 
-Boot procedure: type `Start Engine` (or `/start-engine`) in a fresh Claude Code session. CLAUDE.md is auto-loaded; MemPalace `mempalace_search` is queryable from boot; the ADR collection in `adr/` (24 ADRs) is the contract layer. The `/start-engine` procedure no longer requires per-push user confirmation — invocation is itself the authorization (per the S-0005 procedure fix).
+Boot procedure: type `Start Engine` (or `/start-engine`) in a fresh Claude Code session. CLAUDE.md is auto-loaded; MemPalace `mempalace_search` is queryable from boot; the ADR collection in `adr/` (25 ADRs) is the contract layer. Invocation of `/start-engine` is itself the authorization for the lifecycle's pushes — no per-push confirmation.
 
-Phase 1.1 continues with prompt-pack Session 11 because Session 10 (S-0005) confirmed V1 decay parameters. Session 11 settles a small schema decision: how to track the historical maximum aggregate that the decay floor's proficiency precondition depends on. Two options on the table per `docs/learner-model.md` ("Historical maximum tracking" paragraph): (a) stored high-water mark on a `user_concept_cache` table — simple, mutable, philosophically a compromise; or (b) recomputation from event history at query time — correct by construction but heavier than it sounds (requires simulating the running aggregate at each event's timestamp). Session 11 also interacts with `docs/learner-model.md` Offline and Sync because cached snapshots need to carry floor-active state.
+Phase 1.1 closed at S-0006 (prompt-pack Sessions 9, 10, 11 settled). Phase 1.2 authors a standalone `AGENT_INSTRUCTIONS.md` rendering-policy file extracted from `docs/pedagogy.md`. The file specifies what tokens the teaching agent may surface to the learner versus what stays internal to the system — the prompt-layer contract that keeps mastery-state names, evidence-event references, edge-confidence values, and graph-machinery tokens out of learner-facing prose.
 
-Session prompt: `docs/prep-paideia-prompt-pack.md` Session 11. Source documents: `docs/learner-model.md` (Mastery Computation Stage 3 — Decay Floor; Offline and Sync), `docs/infrastructure.md` (scale-appropriate engineering principle), `adr/0015-event-sourced-learner-model.md` (the discipline that option (a) bends slightly), `adr/0017-postgres-recursive-ctes-over-owl-rdf.md` (the substrate cost of option (b)).
+Source documents:
+- `docs/pedagogy.md` (extraction source — find the rendering-policy material currently embedded there)
+- ADR 0010 (continuous and contextual assessment — the rubric that defines forbidden assessment-mechanic tokens)
+- ADR 0014 (Sonnet teaches, Opus reviews — the two-agent split that affects what each surface emits)
+- ADR 0023 (engagement-depth aggregation — `scaffolding_distance` is the canonical surviving variable name; `scaffolding_proximity` language is forbidden)
+- `docs/MISSION.md` (audience framing — freshman-default rendering posture)
 
-Scope (S-0006):
-- Walk the tradeoffs concretely. At n=1–3 (current scale), recomputation is fine — but does this answer change at n=10,000? At n=100,000?
-- Specify how the decision interacts with the offline-sync model: cached mastery snapshot pushed to clients must include floor-active state, so the tracking mechanism must feed snapshot generation in either branch.
-- Land a concrete decision. If option (a): land an ADR documenting the schema addition (a `max_historical_score` column on whatever cache table emerges) and the philosophical compromise plus its bounds. If option (b): land an ADR documenting the recomputation algorithm and the scale at which it must be revisited.
-- Either way: ADR is warranted because this decision has structural propagation across schema + sync + computation.
+Scope (S-0007):
+- Identify the rendering-policy material currently in `docs/pedagogy.md` and decide what gets extracted vs what stays.
+- Author `AGENT_INSTRUCTIONS.md` at production quality (end-state-quality first-pass per CLAUDE.md):
+  - **Forbidden tokens** with explicit rationale per ADR: mastery-state names (`exposed`/`proficiency`/`mastery`), prerequisite-edge framing, evidence-event references (`learner_events`, `engagement_depth`, `raw_strength`), scaffolding-proximity/scaffolding-distance language, weight/confidence/provenance exposure, `graph_version` references, tension-log mechanism (`tension_log` table, `OQ-*` IDs).
+  - **Surviving tokens**: concept names, domain-area names. Citation rules. Uncertainty posture.
+  - **Worked example** showing the policy in operation against a stub learner-state input.
+- Cross-link `docs/pedagogy.md` → `AGENT_INSTRUCTIONS.md`.
+- An ADR is warranted: the rendering policy is the prompt-layer contract for the teaching agent, with structural propagation to every Sonnet teaching session. Number ADR 0026 if accepted.
 
-S-0006 success criteria: prompt-pack Session 11 closed; concrete decision recorded as a Phase 1 ADR (numbered 0025 if accepted as the next ADR slot); `docs/learner-model.md` Stage-3 paragraph updated to point at the ADR; `tools/validate.py` returns clean.
+S-0007 success criteria: `AGENT_INSTRUCTIONS.md` exists at repo root with the forbidden/surviving token lists, citation rules, uncertainty posture, and worked example; `docs/pedagogy.md` cross-links to it; ADR 0026 lands as the rendering-policy contract; `tools/validate.py` returns clean.
 
-After S-0006: Phase 1.2 (`AGENT_INSTRUCTIONS.md` rendering policy) and Phase 1.3 (`confidence_level` column on node schema) close out Phase 1. Sessions 12–14 stay deferred (per `ROADMAP.md` §1.1).
+After S-0007: Phase 1.3 (`confidence_level` column on node schema in `docs/architecture.md`) closes out Phase 1. Sessions 12–14 remain deferred (per `ROADMAP.md` §1.1).
 
 ## Open tensions and deferred decisions
 
