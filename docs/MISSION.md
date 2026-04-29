@@ -31,22 +31,22 @@ V1 priority is the teaching system, not the institutional wrapper. LMS integrati
 
 ## Strong working commitments
 
-These are the strongest current ideas — not closed questions, but the positions that would require substantial new thinking to displace. The full set lives in `ROADMAP.md` ("Strong working commitments referenced throughout"). Each becomes an ADR in S-0003.
+These are the strongest current ideas — not closed questions, but the positions that would require substantial new thinking to displace. The full set lives in `ROADMAP.md` ("Strong working commitments referenced throughout"). Each is recorded as an ADR; this list is the audience-facing summary, the ADR is the contract.
 
-1. **Pedagogical edges, not historical.** The graph encodes "must understand X before Y" — never just "X influenced Y."
-2. **Commercial sustainability without pedagogical compromise.** Revenue logic must never change what the product teaches or how it teaches.
-3. **Supplementary media is metadata, not structure.** Film, art, music attach to concept nodes as companions; never structural prerequisites.
-4. **The learner model is relational.** Tracks connections between concepts and forward-looking teaching opportunities, not a flat checklist.
-5. **Each text gets its own interpretive outline.** No templates. Generated from parametric knowledge of the scholarly tradition, optionally enhanced by user-supplied commentary.
-6. **Domain-agnostic architecture.** Philosophy is the first domain, not the only one.
-7. **All domains are mutually porous.** Cross-domain prerequisite edges are first-class graph elements.
-8. **Nodes are concepts, not thinkers.** The atomic unit is an idea, never a person or school.
-9. **Mastery is portable.** One mastery state per concept, regardless of path.
-10. **Assessment is continuous and contextual.** Three-dimensional rubric (reconstruction, application, boundary awareness), discounted by scaffolding proximity, scaled by rigor score.
-11. **The app never hosts or distributes copyrighted material.** Mastery graph teaches parametrically; close reading uses bring-your-own-book.
-12. **Freshman defaults, autodidact ceiling.** Cold-start defaults; adaptive escalation.
+1. **Pedagogical edges, not historical.** The graph encodes "must understand X before Y" — never just "X influenced Y." ([ADR 0001](../adr/0001-pedagogical-edges-not-historical.md))
+2. **Commercial sustainability without pedagogical compromise.** Revenue logic must never change what the product teaches or how it teaches. ([ADR 0002](../adr/0002-commercial-sustainability-without-pedagogical-compromise.md))
+3. **Supplementary media is metadata, not structure.** Film, art, music attach to concept nodes as companions; never structural prerequisites. ([ADR 0003](../adr/0003-supplementary-media-as-metadata-not-structure.md))
+4. **The learner model is relational.** Tracks connections between concepts and forward-looking teaching opportunities, not a flat checklist. ([ADR 0004](../adr/0004-relational-learner-model.md))
+5. **Each text gets its own interpretive outline.** No templates. Generated from parametric knowledge of the scholarly tradition, optionally enhanced by user-supplied commentary. ([ADR 0005](../adr/0005-per-text-interpretive-outline.md))
+6. **Domain-agnostic architecture.** Philosophy is the first domain, not the only one. ([ADR 0006](../adr/0006-domain-agnostic-architecture.md))
+7. **All domains are mutually porous.** Cross-domain prerequisite edges are first-class graph elements. ([ADR 0007](../adr/0007-cross-domain-porosity.md))
+8. **Nodes are concepts, not thinkers.** The atomic unit is an idea, never a person or school. ([ADR 0008](../adr/0008-concept-nodes-not-thinkers.md))
+9. **Mastery is portable.** One mastery state per concept, regardless of path. ([ADR 0009](../adr/0009-portable-mastery.md))
+10. **Assessment is continuous and contextual.** Three-dimensional rubric (reconstruction, application, boundary awareness), discounted by scaffolding proximity, scaled by rigor score. ([ADR 0010](../adr/0010-continuous-contextual-assessment.md))
+11. **The app never hosts or distributes copyrighted material.** Mastery graph teaches parametrically; close reading uses bring-your-own-book. ([ADR 0011](../adr/0011-no-hosted-copyrighted-material.md))
+12. **Freshman defaults, autodidact ceiling.** Cold-start defaults; adaptive escalation. ([ADR 0012](../adr/0012-freshman-defaults-autodidact-ceiling.md))
 
-The reasoning behind each lives in `design-reasoning.md` (transitional; absorbed into ADRs in S-0003).
+The reasoning behind each — including the architectural decisions that flowed from them — lives in [`adr/`](../adr/) (Nygard format, status-tracked). The conversational story behind each decision is recoverable from MemPalace `decision`-tagged drawers.
 
 ## What's settled, what's open
 

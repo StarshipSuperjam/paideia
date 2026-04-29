@@ -10,6 +10,23 @@ This project does not yet follow [Semantic Versioning](https://semver.org/) — 
 
 ## [Unreleased]
 
+### Added (S-0003)
+- `adr/` directory with 23 markdown files: `adr/README.md` indexing the collection (with status-conventions table, links to `docs/operations/adr-authoring.md` for full Nygard guidance) plus 22 ADRs (`0001`–`0022`). All ADRs `Status: Accepted`.
+- ADRs 0001–0012 — strong working commitments: pedagogical edges, commercial sustainability without pedagogical compromise, supplementary media as metadata, relational learner model, per-text interpretive outline, domain-agnostic architecture, cross-domain porosity, concept nodes (not thinkers), portable mastery, continuous contextual assessment, no hosted copyrighted material, freshman defaults / autodidact ceiling.
+- ADRs 0013–0022 — architectural decisions: mastery verification as organic escalation, Sonnet teaches / Opus reviews, event-sourced learner model, graph construction needs live validation (the contract behind `tools/validate.py`'s `validate_graph` stub), Postgres + recursive CTEs over OWL/RDF, flat domain tags + community detection, two-column rigor score override, teaching notes separate from summary, node deprecation via `status` + `superseded_by`, periodic project health checks (the cadence-trigger machinery built in S-0001).
+
+### Changed (S-0003)
+- `tools/validate.py` `adr_status` regex updated to accept the documented Nygard template's bold form (`- **Status:** Accepted`). The original regex required plain `Status:` and produced 22 false-positive soft-warns against the canonical template; fixed regex passes all 22 ADRs cleanly.
+- `docs/MISSION.md` — Strong working commitments list now carries inline ADR cross-references (one per commitment, linking to the corresponding ADR file).
+- `docs/CROSS_REFERENCES.md` — Phase 0 → Phase 1 boundary check marked `verified at S-0003 close` with the full ADR-mapping audit recorded inline. Commitments → downstream-files entries updated to include ADR links.
+- `ROADMAP.md` — S-0003 entry rewritten to describe the landed work (adr/README.md indexes; ADR breakdown includes ADR 0016 + ADR 0022 emerged in S-0001 plan); architectural-decisions list updated to point at ADRs 0013–0022.
+- `docs/operations/adr-authoring.md` — opening paragraph updated to describe the landed collection rather than the pending one; "Source material" entry no longer references `design-reasoning.md`.
+- `docs/operations/session-shutdown-sequence.md` — "New commitment + reasoning" maintenance entry rewritten now that S-0003 has landed; both *what* and *why* now land in an ADR; the conversational story lands in MemPalace under the `decision` tag.
+- `STATE.md` — current-phase pointer flips to "Phase 0 — closed (S-0003); Phase 1 — Contract Lock pending"; last-build-session pointer updated to S-0003; next-session work item replaced with S-0004 scope (prompt-pack Session 9 — Engagement Depth Aggregation); strong-working-commitments section rewritten to point at the ADR collection.
+
+### Removed (S-0003)
+- `design-reasoning.md` — retired. Eight entries became ADRs 0013, 0014, 0015, 0017, 0018, 0019, 0020, 0021. (ADR 0016 graph-construction-validation and ADR 0022 periodic-health-checks emerged separately in the S-0001 plan conversation.)
+
 ### Added (S-0002)
 - `CLAUDE.md` — AI orientation; auto-loaded; ~80 lines covering the startup ceremony, the standing pushback rule, auto-mode interrupt criteria, budget guidance, end-state-quality first-pass, two-layer decision recording (ADR + MemPalace), and commit conventions.
 - `docs/operations/` library — index README plus 11 topic files: session-build-lifecycle, session-shutdown-sequence, escalation-criteria, mempalace-operations, mempalace-tagging-conventions, tools-validate-interpretation, tools-sweep-worktrees, adr-authoring, sub-agent-validation, seed-chunked-authoring (Phase 4 placeholder), health-check.

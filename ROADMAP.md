@@ -16,7 +16,7 @@ This document names every phase, its scope, its success criteria, and the archit
 
 - **S-0001** — structural foundation + retirement of obsolete pre-foundation source files. Top-level industry-standard files (this file, README.md, LICENSE, CHANGELOG.md, SECURITY.md, STATE.md, HANDOFF.md), session/ + tools/ + pre-commit hook + slash command, supabase/migrations/ placeholders, repo reorganization into `docs/`.
 - **S-0002** — procedural layer + MemPalace indexing + CONTEXT.md split. CLAUDE.md + 11-file `docs/operations/` library + `docs/MISSION.md` + `docs/CROSS_REFERENCES.md` + MemPalace wing/rooms/drawers indexed against the relocated docs.
-- **S-0003** — ADR collection (22 ADRs absorbing the 12 working commitments + design-reasoning entries + new architectural decisions). adr/README.md with index + Nygard template + status conventions.
+- **S-0003** — ADR collection (22 ADRs absorbing the 12 working commitments + the 8 entries from the transitional `design-reasoning.md` + 2 architectural decisions that emerged in the S-0001 plan conversation, ADRs 0016 and 0022). `adr/README.md` indexes the collection; full Nygard guidance and status conventions live in `docs/operations/adr-authoring.md`. `design-reasoning.md` retired at S-0003 close.
 
 **Phase 0 closes when:** a fresh Claude Code session can type `Start Engine` (or `/start-engine`), boot cold from `STATE.md` + MemPalace, claim the next slot via the eager-claim ritual, do its work, and close cleanly with audit + commit + push — without human briefing.
 
@@ -294,7 +294,7 @@ These are the 12 working commitments inherited from pre-Foundation design and ab
 11. No hosted copyrighted material (ADR 0011)
 12. Freshman defaults, autodidact ceiling (ADR 0012)
 
-Plus architectural decisions absorbed from prior design-reasoning:
+Plus architectural decisions (ADRs 0013–0022, recorded in S-0003 from the transitional `design-reasoning.md` and the S-0001 plan conversation):
 
 - Mastery verification as organic escalation (ADR 0013)
 - Sonnet teaches, Opus reviews (ADR 0014)

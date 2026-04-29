@@ -183,13 +183,19 @@ def validate_repo_structure() -> ValidationResult:
                 "STATE.md missing 'Current phase' field",
             )
 
-    # ADR Status fields (only when adr/ exists — S-0003 onward)
+    # ADR Status fields (only when adr/ exists — S-0003 onward).
+    # Accepts the Nygard template's bold form (`- **Status:** Accepted`),
+    # plain form (`Status: Accepted`), and the bold-around-label variant
+    # (`- **Status**: Accepted`). Any of: leading list-bullet/whitespace/
+    # asterisks, the literal "Status", optional whitespace/asterisks, a
+    # colon, optional whitespace/asterisks, then a non-whitespace value.
     r.add_check("adr_status")
     if ADR_DIR.is_dir():
         for adr_file in sorted(ADR_DIR.glob("[0-9][0-9][0-9][0-9]-*.md")):
             text = adr_file.read_text()
-            # Look for "Status:" line
-            if not re.search(r"^[*-]?\s*Status:\s*\S", text, re.MULTILINE):
+            if not re.search(
+                r"^[\s*\-]*Status[\s*]*:[\s*]*\S", text, re.MULTILINE
+            ):
                 r.soft_warn(
                     "adr_missing_status",
                     f"{adr_file.relative_to(REPO_ROOT)}: no Status field found",

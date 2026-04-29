@@ -2,7 +2,7 @@
 
 > Architecture Decision Records: durable, structured, citable. The contract layer in two-layer decision recording (per CLAUDE.md). The story layer is MemPalace `decision`-tagged drawers.
 
-ADRs live in `adr/`. The collection lands in S-0003. ADRs 0001-0022 absorb the 12 strong working commitments (`docs/MISSION.md` / `ROADMAP.md`) plus 10 architectural decisions from `design-reasoning.md` plus any new decisions made during S-0003 itself.
+ADRs live in `adr/`. The initial 22-ADR collection landed in S-0003: ADRs 0001–0012 absorb the 12 strong working commitments (`docs/MISSION.md` / `ROADMAP.md`); ADRs 0013–0022 absorb the architectural decisions held in the (now retired) `design-reasoning.md` plus two decisions that emerged in the S-0001 plan conversation (ADR 0016 graph construction needs live validation; ADR 0022 periodic project health checks). New decisions from S-0004 onward land directly as ADRs.
 
 ## Template (Nygard)
 
@@ -30,7 +30,7 @@ If superseding a prior ADR, include a brief reference to what changed and why.
 ## See also
 
 - Related ADRs.
-- Source material (design-reasoning.md entries, tension.md resolutions, MemPalace drawer IDs if useful).
+- Source material (`docs/tensions.md` resolutions, MemPalace drawer IDs if useful).
 ```
 
 Filename pattern: `adr/NNNN-kebab-case-title.md` (e.g., `adr/0001-pedagogical-edges-not-historical.md`).

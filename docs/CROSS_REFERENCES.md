@@ -6,13 +6,13 @@ The validator (`tools/validate.py`) checks that every `.md` link in this file re
 
 ## Commitments → downstream files
 
-Commitments live in [`docs/MISSION.md`](MISSION.md) (numbered list, audience framing) and [`ROADMAP.md`](../ROADMAP.md) (Strong working commitments referenced throughout). Each commitment becomes an ADR in S-0003.
+Commitments live in [`docs/MISSION.md`](MISSION.md) (numbered list, audience framing) and [`ROADMAP.md`](../ROADMAP.md) (Strong working commitments referenced throughout). Each commitment is recorded as an ADR in [`adr/`](../adr/) (the contract); MISSION.md is the audience-facing summary.
 
-- **Commitments 8 / 9** (node granularity, portable mastery) → [`docs/architecture.md`](architecture.md) (Node Granularity Principle, Portable Mastery, Edge Schema, Node Schema), [`docs/pedagogy.md`](pedagogy.md) (assessment rubric assumes concept-level nodes).
-- **Commitment 3** (media as metadata) → [`docs/expansion.md`](expansion.md), [`docs/architecture.md`](architecture.md) (graph traversal assumes no media edges).
-- **Commitment 11** (no hosted copyrighted material) → [`docs/content-strategy.md`](content-strategy.md) (Copyright Model), [`docs/reading-system.md`](reading-system.md) (bring-your-own-book architecture).
-- **Commitment 7** (cross-domain porosity) → [`docs/architecture.md`](architecture.md) (Cross-Domain Porosity), [`docs/MISSION.md`](MISSION.md) (cross-domain section is load-bearing).
-- **Commitment 12** (audience defaults) → [`docs/business.md`](business.md) (Audience vs. Market), [`docs/pedagogy.md`](pedagogy.md) (V1 Calibration Defaults).
+- **Commitments 8 / 9** (node granularity, portable mastery) → [`adr/0008`](../adr/0008-concept-nodes-not-thinkers.md), [`adr/0009`](../adr/0009-portable-mastery.md), [`docs/architecture.md`](architecture.md) (Node Granularity Principle, Portable Mastery, Edge Schema, Node Schema), [`docs/pedagogy.md`](pedagogy.md) (assessment rubric assumes concept-level nodes).
+- **Commitment 3** (media as metadata) → [`adr/0003`](../adr/0003-supplementary-media-as-metadata-not-structure.md), [`docs/expansion.md`](expansion.md), [`docs/architecture.md`](architecture.md) (graph traversal assumes no media edges).
+- **Commitment 11** (no hosted copyrighted material) → [`adr/0011`](../adr/0011-no-hosted-copyrighted-material.md), [`docs/content-strategy.md`](content-strategy.md) (Copyright Model), [`docs/reading-system.md`](reading-system.md) (bring-your-own-book architecture).
+- **Commitment 7** (cross-domain porosity) → [`adr/0007`](../adr/0007-cross-domain-porosity.md), [`docs/architecture.md`](architecture.md) (Cross-Domain Porosity), [`docs/MISSION.md`](MISSION.md) (cross-domain section is load-bearing).
+- **Commitment 12** (audience defaults) → [`adr/0012`](../adr/0012-freshman-defaults-autodidact-ceiling.md), [`docs/business.md`](business.md) (Audience vs. Market), [`docs/pedagogy.md`](pedagogy.md) (V1 Calibration Defaults).
 
 ## Bidirectional sync requirements
 
@@ -43,7 +43,7 @@ Operational artifacts that depend on each other. Changes propagate.
 
 When a phase closes or opens, audit:
 
-- **Phase 0 → Phase 1** — every commitment in [`docs/MISSION.md`](MISSION.md) has a corresponding ADR in `adr/`. Every entry in `design-reasoning.md` either became an ADR or was explicitly retired in CHANGELOG.
+- **Phase 0 → Phase 1** *(verified at S-0003 close)* — every commitment in [`docs/MISSION.md`](MISSION.md) (1–12) has a corresponding ADR in [`adr/`](../adr/) with `Status: Accepted`. Every entry that was in `design-reasoning.md` became an ADR (0013 Mastery Verification, 0014 Sonnet/Opus, 0015 Event-Sourced Learner Model, 0017 Postgres over OWL/RDF, 0018 Flat Domain Tags, 0019 Two-Column Rigor Score, 0020 Teaching Notes Separation, 0021 Node Status + Superseded_by); the file retired in CHANGELOG. ADRs 0016 (Graph construction needs live validation) and 0022 (Periodic project health checks) emerged in the S-0001 plan conversation. Final tally: 22 ADRs, all Accepted; `tools/validate.py` `adr_status` check returns 0 soft-warns.
 - **Phase 1 → Phase 2** — all open `OQ-DEC1-*` and `OQ-PHASE8-*` tensions in [`docs/tensions.md`](tensions.md) have an Accepted ADR or are explicitly tagged `deferred`.
 - **Phase 4 → Phase 5** — `tools/validate.py`'s graph audit is live; `supabase/migrations/PREDICATE_MANIFEST.md` and `supabase/migrations/ROUTING.md` are populated.
 
