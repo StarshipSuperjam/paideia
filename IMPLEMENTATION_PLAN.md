@@ -6,10 +6,10 @@
 
 ## Status
 
-**Current phase:** Pre-Phase 0 — not yet started
-**Last session:** 2026-04-28 (plan authored)
-**Next action:** Begin Pre-Phase 0.1 (initialize git locally)
-**Blockers:** None for Pre-0.1; Pre-0.2 onward needs user account actions (GitHub, Supabase)
+**Current phase:** Pre-Phase 0 — in progress (Pre-0.1 local steps complete; awaiting GitHub remote)
+**Last session:** 2026-04-28 (Pre-Phase 0.1 — `git init`, `.gitignore`, `.env.example`, initial commit `b91426e` with all 21 design-pack files + `_archive/`)
+**Next action:** User creates private GitHub repo (or installs `gh` CLI), provides remote URL. Then `git remote add origin <url> && git push -u origin main` closes Pre-0.1. Then Pre-0.2 (Supabase project + env vars) and Pre-0.3 (Supabase MCP wiring).
+**Blockers:** `gh` CLI not installed on this machine — user must `brew install gh && gh auth login` OR create the repo via github.com web UI and pass back the remote URL. Also: git committer identity is auto-derived from `shanekidd@Shanes-MacBook-Air.local` — user may want to set `user.email` globally before further commits land.
 
 When picking up a session, update this block at the end with the date, what was completed, and what's next. After Phase 0 closes, this block is replaced by the SA/CL workflow (the most recent SA entry's `next_session.recommended_step` becomes authoritative).
 
