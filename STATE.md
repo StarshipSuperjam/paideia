@@ -8,8 +8,8 @@
 |---|---|
 | **Project** | Paideia — knowledge mastery app on a pedagogical dependency graph |
 | **GitHub** | https://github.com/StarshipSuperjam/paideia (private) |
-| **Current phase** | Phase 0 — closed (S-0003); Phase 1 — Contract Lock (in progress); prompt-pack Session 9 closed at S-0004 |
-| **Last build session** | S-0004 (2026-04-29) — engagement-depth aggregation settled (ADR 0023: floored weighted geometric mean); sub-signal storage shape settled (ADR 0024: sub-signals stored raw, composite derived); `scaffolding_proximity` renamed to `scaffolding_distance` across living docs |
+| **Current phase** | Phase 0 — closed (S-0003); Phase 1 — Contract Lock (in progress); prompt-pack Sessions 9 + 10 closed at S-0004 / S-0005 |
+| **Last build session** | S-0005 (2026-04-29) — V1 decay parameters (`BASE_HALF_LIFE = 60 days`, `MAX_FLOOR = 0.6`) verified across five realistic trajectory scenarios under the engagement-depth distribution settled in ADR 0023; all scenarios match design intent, no parameter revisions; closes prompt-pack Session 10 without an ADR per ROADMAP.md §1.1. Procedure side-fix: `/start-engine` no longer requires per-push user confirmation — invocation is itself the authorization (docs + `.claude/settings.json` permission rules updated). |
 | **Last commit on main** | (see `git log --oneline -1` on main) |
 | **Backup tag** | `pre-foundation-v0.0.0` at commit `fa70b8c` (pre-foundation state; recoverable via `git reset --hard pre-foundation-v0.0.0`) |
 
@@ -25,22 +25,23 @@
 
 ## Next session work item
 
-**S-0005 — Phase 1.1 continuation: prompt-pack Session 10 (Decay Parameter Verification)**
+**S-0006 — Phase 1.1 continuation: prompt-pack Session 11 (Historical Maximum Tracking)**
 
-Boot procedure: type `Start Engine` (or `/start-engine`) in a fresh Claude Code session. CLAUDE.md is auto-loaded; MemPalace `mempalace_search` is queryable from boot; the ADR collection in `adr/` (now 24 ADRs) is the contract layer.
+Boot procedure: type `Start Engine` (or `/start-engine`) in a fresh Claude Code session. CLAUDE.md is auto-loaded; MemPalace `mempalace_search` is queryable from boot; the ADR collection in `adr/` (24 ADRs) is the contract layer. The `/start-engine` procedure no longer requires per-push user confirmation — invocation is itself the authorization (per the S-0005 procedure fix).
 
-Phase 1.1 continues with prompt-pack Session 10 because Session 9 (S-0004) settled the engagement-depth aggregation. Session 10 verifies whether the V1 decay parameters (`BASE_HALF_LIFE = 60 days`, `MAX_FLOOR = 0.6`) produce correct trajectories under realistic usage patterns — pure arithmetic, run the numbers. Session prompt: `docs/prep-paideia-prompt-pack.md` Session 10. Source documents: `docs/learner-model.md` (Mastery Decay, Mastery Computation, Active-Use Decay Suppression, **and the new compute_engagement_depth helper from S-0004**), `adr/0023-engagement-depth-aggregation.md` (so the engagement_depth distribution scenarios use the settled formula), `adr/0015-event-sourced-learner-model.md` (the storage discipline), `adr/0019-two-column-rigor-score-override.md` (the rigor signal that modulates decay).
+Phase 1.1 continues with prompt-pack Session 11 because Session 10 (S-0005) confirmed V1 decay parameters. Session 11 settles a small schema decision: how to track the historical maximum aggregate that the decay floor's proficiency precondition depends on. Two options on the table per `docs/learner-model.md` ("Historical maximum tracking" paragraph): (a) stored high-water mark on a `user_concept_cache` table — simple, mutable, philosophically a compromise; or (b) recomputation from event history at query time — correct by construction but heavier than it sounds (requires simulating the running aggregate at each event's timestamp). Session 11 also interacts with `docs/learner-model.md` Offline and Sync because cached snapshots need to carry floor-active state.
 
-Scope (S-0005):
-- Run five concrete trajectory calculations: (1) active learner / low-rigor concept with weekly callbacks, (2) active learner / high-rigor concept with weekly callbacks, (3) abandoned concept (6-month silence), (4) mastery verification trajectory across multiple events, (5) backward-inference event impact on prerequisite mastery state.
-- For each: verify floor activates correctly, decay rate matches phenomenology, callbacks suppress decay sufficiently, mastery threshold (0.7) is reachable through realistic event chains.
-- **New constraint from S-0004:** trajectories must be computed using the engagement-depth distribution that ADR 0023's aggregation actually produces (roughly 0.1–0.9 for real teaching exchanges; 0.5 fixed for `backward_inference`; 0.3 fixed for `incidental_mention`). The double-leverage of `engagement_depth` (multiplies `raw_strength` AND modulates `half_life`) means BASE_HALF_LIFE was set assuming a particular depth distribution; verify that `BASE_HALF_LIFE = 60 days` still produces correct phenomenology under the settled formula.
-- If any V1 parameters need adjustment, propose revised values and re-run the scenarios. Land revised parameters as a revision to `docs/learner-model.md` V1 defaults paragraph + a CHANGELOG entry. If the parameter system itself needs structural change (e.g., MAX_FLOOR should be rigor-specific), author an ADR.
-- If parameters survive verification: record the verification calculations in MemPalace (`decision`-tagged) and close Session 10 without an ADR (verification of pre-existing parameters does not require a new ADR; the verification record + CHANGELOG note is sufficient).
+Session prompt: `docs/prep-paideia-prompt-pack.md` Session 11. Source documents: `docs/learner-model.md` (Mastery Computation Stage 3 — Decay Floor; Offline and Sync), `docs/infrastructure.md` (scale-appropriate engineering principle), `adr/0015-event-sourced-learner-model.md` (the discipline that option (a) bends slightly), `adr/0017-postgres-recursive-ctes-over-owl-rdf.md` (the substrate cost of option (b)).
 
-S-0005 success criteria: prompt-pack Session 10 closed; five scenario trajectories computed; V1 parameters either confirmed or revised with rationale; `tools/validate.py` returns clean.
+Scope (S-0006):
+- Walk the tradeoffs concretely. At n=1–3 (current scale), recomputation is fine — but does this answer change at n=10,000? At n=100,000?
+- Specify how the decision interacts with the offline-sync model: cached mastery snapshot pushed to clients must include floor-active state, so the tracking mechanism must feed snapshot generation in either branch.
+- Land a concrete decision. If option (a): land an ADR documenting the schema addition (a `max_historical_score` column on whatever cache table emerges) and the philosophical compromise plus its bounds. If option (b): land an ADR documenting the recomputation algorithm and the scale at which it must be revisited.
+- Either way: ADR is warranted because this decision has structural propagation across schema + sync + computation.
 
-After S-0005: prompt-pack Session 11 (Historical Maximum Tracking) — small schema decision, can run anytime per `ROADMAP.md` §1.1. Sessions 12–14 stay deferred. Phase 1.2 (`AGENT_INSTRUCTIONS.md`) and Phase 1.3 (`confidence_level` on node schema) follow.
+S-0006 success criteria: prompt-pack Session 11 closed; concrete decision recorded as a Phase 1 ADR (numbered 0025 if accepted as the next ADR slot); `docs/learner-model.md` Stage-3 paragraph updated to point at the ADR; `tools/validate.py` returns clean.
+
+After S-0006: Phase 1.2 (`AGENT_INSTRUCTIONS.md` rendering policy) and Phase 1.3 (`confidence_level` column on node schema) close out Phase 1. Sessions 12–14 stay deferred (per `ROADMAP.md` §1.1).
 
 ## Open tensions and deferred decisions
 
