@@ -24,7 +24,7 @@ If the decision is irreversible but the path is clear from existing material —
 ### Worked examples — escalate
 
 - "Should the audit category for missing teaching_notes be `missing_teaching_notes` or fold into `missing_summary`?" — names a category that downstream sessions will reference; once committed, renaming requires migration. The user's editorial preference is unknown.
-- "Should we keep the deprecated v0.2 seed JSON in `_archive/` or delete it?" — once deleted, it's gone from history except via `pre-foundation-v0.0.0` tag recovery. The signal a future session might draw from it is impossible to predict.
+- "Should this retirement leave a structural artifact behind for in-tree side-by-side comparison, or is git tag/history recovery sufficient?" — the answer depends on whether a current artifact (an ADR, a doc) needs to reference the retired one as a *thing to look at*, not just as history. The escape-hatch pattern in `session-shutdown-sequence.md` allows one-off archives; the call to invoke it is a value judgment.
 - "About to write a prerequisite edge claim that I'm not confident is pedagogically correct — is this within scope to commit, or should it sit in `docs/tensions.md` first?" — writing the wrong claim into the seed graph propagates structurally.
 
 ### Worked examples — don't escalate

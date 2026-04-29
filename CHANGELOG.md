@@ -10,6 +10,15 @@ This project does not yet follow [Semantic Versioning](https://semver.org/) — 
 
 ## [Unreleased]
 
+### Changed (S-0003 continuation — post-foundation cleanup)
+- `README.md` — staleness sweep. Foundation status flipped from "in progress" to "closed (S-0003)"; all `(lands in S-NNNN)` parentheticals removed (every referenced artifact now exists); repo map updated to include `_archive/` removal, `docs/entities.json`, `docs/mempalace.yaml`, `docs/prep-paideia-prompt-pack.md`, `tools/validate-history.jsonl`, `.claude/settings.json`; `session/current.json` correctly described as session-scoped; ADR collection (22 ADRs) added to repo-map and Project History; "How to start a session" updated to reflect the now-extant procedural layer.
+- `docs/operations/session-shutdown-sequence.md` — "Deprecated files" maintenance entry rewritten to the **absorption + delete** pattern with git-tag/`git show` recovery as primary; `_archive/` retained only as a one-off escape hatch (named cases referenced by current artifacts) rather than the default. CONTEXT.md (S-0002) and design-reasoning.md (S-0003) cited as exemplars of absorption + delete.
+- `docs/operations/escalation-criteria.md` — "_archive/ v0.2 keep-or-delete" worked-example replaced with the more general "should this retirement leave a structural artifact behind, or is git tag/history sufficient?" — now points at the escape-hatch pattern in `session-shutdown-sequence.md`.
+
+### Removed (S-0003 continuation — post-foundation cleanup)
+- `_archive/philosophy-graph-seed-v0.1.json` and `_archive/philosophy-graph-seed-v0.2.json` — pre-foundation thinker-level seed JSONs. Recoverable via `git show pre-foundation-v0.0.0:_archive/<filename>`. ADR 0008 (concept nodes, not thinkers) preserves the reasoning behind the v0.2 retirement.
+- `_archive/` directory — decommissioned as a default protocol. Two pre-foundation JSONs were the only contents and the only candidates the repo had ever produced. Foundation work has consistently followed absorption + delete (CONTEXT.md, design-reasoning.md) without invoking `_archive/`. Future structural-artifact archives use the one-off escape hatch.
+
 ### Added (S-0003)
 - `adr/` directory with 23 markdown files: `adr/README.md` indexing the collection (with status-conventions table, links to `docs/operations/adr-authoring.md` for full Nygard guidance) plus 22 ADRs (`0001`–`0022`). All ADRs `Status: Accepted`.
 - ADRs 0001–0012 — strong working commitments: pedagogical edges, commercial sustainability without pedagogical compromise, supplementary media as metadata, relational learner model, per-text interpretive outline, domain-agnostic architecture, cross-domain porosity, concept nodes (not thinkers), portable mastery, continuous contextual assessment, no hosted copyrighted material, freshman defaults / autodidact ceiling.

@@ -9,7 +9,7 @@
 | **Project** | Paideia — knowledge mastery app on a pedagogical dependency graph |
 | **GitHub** | https://github.com/StarshipSuperjam/paideia (private) |
 | **Current phase** | Phase 0 — closed (S-0003); Phase 1 — Contract Lock pending |
-| **Last build session** | S-0003 (2026-04-29) — 22-ADR collection, MISSION/CROSS_REFERENCES updates, design-reasoning.md retirement |
+| **Last build session** | S-0003 (2026-04-29) — 22-ADR collection, MISSION/CROSS_REFERENCES updates, design-reasoning.md retirement; **continuation:** README staleness sweep + `_archive/` decommission |
 | **Last commit on main** | (see `git log --oneline -1` on main) |
 | **Backup tag** | `pre-foundation-v0.0.0` at commit `fa70b8c` (pre-foundation state; recoverable via `git reset --hard pre-foundation-v0.0.0`) |
 
