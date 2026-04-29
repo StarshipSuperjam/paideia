@@ -196,17 +196,18 @@ def validate_repo_structure() -> ValidationResult:
                 )
 
     # docs/CROSS_REFERENCES.md entries resolve (S-0002 onward)
+    # Links are resolved relative to the file's directory (standard markdown
+    # behavior), then normalized so paths above repo-root flag as broken.
     r.add_check("cross_references_resolve")
     cross_ref_path = REPO_ROOT / "docs" / "CROSS_REFERENCES.md"
     if cross_ref_path.is_file():
         text = cross_ref_path.read_text()
-        # Find [link](path) targets, verify they exist
+        link_dir = cross_ref_path.parent
         for match in re.finditer(r"\]\(([^)]+\.md)\)", text):
             target = match.group(1)
-            # Skip URLs and anchors-only
             if target.startswith(("http://", "https://", "#")):
                 continue
-            target_path = REPO_ROOT / target
+            target_path = (link_dir / target).resolve()
             if not target_path.is_file():
                 r.soft_warn(
                     "cross_reference_broken",

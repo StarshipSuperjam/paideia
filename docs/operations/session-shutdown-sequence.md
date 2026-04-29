@@ -1,0 +1,135 @@
+# Session shutdown sequence
+
+> How a build session closes cleanly. Boot procedure lives in [`session-build-lifecycle.md`](session-build-lifecycle.md).
+
+## When this runs
+
+At the end of every build session — once substantive work is at a commitable checkpoint, before the conversation ends. Run in order. Do not skip steps; the shutdown produces the durable artifacts that downstream sessions read.
+
+## Sequence
+
+### 1. Audit pass
+
+Run `tools/validate.py` from the repo root. Resolve any hard-fails — these are blocking by default in the pre-commit hook anyway, so reaching shutdown means the working tree should already be clean of hard-fails. If somehow a hard-fail surfaces (e.g., a file referenced in CROSS_REFERENCES.md that you intended to create but didn't), fix it before continuing.
+
+Soft-warns are not blocking but must be recorded — they feed health-check telemetry. Note the per-category counts; you'll write them into `outcome_summary` below.
+
+### 2. Spot-check
+
+For every artifact created or modified in this session, ask:
+
+- **Confidence labels honest?** If a doc claims "settled," it's settled; if it's a working hypothesis, it says so. Don't overclaim certainty.
+- **Type framing correct?** A reference doc reads as reference (declarative). A procedure reads as procedure (imperative). A decision record reads as a decision (Status field, Context, Consequences).
+- **Cross-references resolve?** Every link or `path/file.md` mention points at something real. Particularly important for `docs/CROSS_REFERENCES.md` — the validator catches missing files but not wrong paths to existing ones.
+- **Voice consistent with the file's purpose?** Operations docs are AI-facing; design docs are human-and-AI-facing; ADRs are decision-of-record.
+
+The audit catches structural mistakes. The spot-check catches judgment mistakes.
+
+### 3. Update `STATE.md`
+
+Edit the `## Current` table:
+
+- **Last build session** → `S-<this session's id> (<date>) — <one-line summary>`.
+- **Last commit on main** → leave the placeholder pointing at `git log --oneline -1 main`; the next session reads it live.
+
+Edit the `## Next session work item` block:
+
+- Replace with the next session's scope. Be concrete: what files get authored, what files get retired, what success looks like. The next session reads this cold; it should be sufficient.
+- If this session uncovered new work that should sit before what was previously next, surface it here and update `ROADMAP.md` if the change crosses a phase boundary.
+
+### 4. Update `CHANGELOG.md`
+
+Under `[Unreleased]`, add entries by category (Added / Changed / Removed / Deprecated / Fixed / Security). Material-change criteria — log it if it meets *any* of these:
+
+- New top-level file or directory.
+- New or removed ADR.
+- New or removed entry in `docs/`.
+- Breaking change to a schema, predicate, or commitment.
+- New session-protocol behavior (hooks, commands, register fields).
+- New or changed CHANGELOG-tracked design commitment.
+
+Skip these — not material:
+
+- In-session commit messages on application code (Phase 9+; tracked in git only).
+- Typo fixes, formatting cleanups, link repairs.
+- Minor wording revisions inside an existing doc.
+
+At the next release tag (e.g., `0.1.0` at Phase 0 close), the `[Unreleased]` block gets promoted to a dated section.
+
+### 5. Fill `session/current.json` `outcome_summary`
+
+~50 words. What got done, soft-warn category counts, anything noteworthy for health-check telemetry. Example shape:
+
+```
+"outcome_summary": "Procedural layer landed: CLAUDE.md + 11 operations docs + MISSION.md + CROSS_REFERENCES.md. Hooks wired for MemPalace capture. CONTEXT.md retired. validate.py: 0 hard-fails, 2 soft-warns (expected_future_file_missing for adr/, will resolve in S-0003). Next: S-0003 ADR collection."
+```
+
+Honest summaries beat flattering ones — health-check trend analysis depends on them.
+
+### 6. Archive the claim
+
+```bash
+mv session/current.json session/archive/S-<NNNN>.json
+```
+
+Add a `closed_at` timestamp and update `status` to `closed` (or `closed_partial` if you hit a budget cap mid-work):
+
+```json
+{
+  "id": "S-<NNNN>",
+  "started_at": "...",
+  "closed_at": "<ISO-8601 UTC>",
+  "status": "closed",
+  ...
+  "outcome_summary": "..."
+}
+```
+
+Update `session/register_state.json`:
+
+```json
+{
+  "next_id": "<unchanged from claim>",
+  "last_claimed": "S-<NNNN>",
+  "current_status": "closed"
+}
+```
+
+### 7. Final commit + main FF + push
+
+Commit message uses Conventional Commits with the session ID:
+
+```
+<type>(<scope>): <summary>
+
+S-<NNNN> close: <one-line outcome>
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+```
+
+Then:
+
+```bash
+git -C <parent-repo-path> merge --ff-only <worktree-branch>
+git -C <parent-repo-path> push origin main
+```
+
+Confirm push with the user. After the push completes, the session is closed.
+
+## Partial closure (budget cap reached)
+
+If a session hits its budget cap (per CLAUDE.md guidance) mid-work:
+
+1. Halt at the next sensible boundary (don't leave the working tree in an unparseable state).
+2. Run validate.py. Address any hard-fails.
+3. Fill `outcome_summary` with what got done **and** what remains. Mark status `closed_partial`.
+4. Update STATE.md's next-session work item to the unfinished portion plus context for the picking-up session.
+5. Archive, commit (`<type>(<scope>): <summary> — partial close`), FF, push.
+
+The next session picks up cleanly from STATE.md without re-deriving where things left off.
+
+## See also
+
+- [`session-build-lifecycle.md`](session-build-lifecycle.md) — open-of-session protocol.
+- [`tools-validate-interpretation.md`](tools-validate-interpretation.md) — soft-warn category meanings.
+- [`health-check.md`](health-check.md) — what telemetry feeds the periodic audit.
