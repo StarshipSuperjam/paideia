@@ -19,7 +19,7 @@ Commitments live in [`docs/MISSION.md`](MISSION.md) (numbered list, audience fra
 Some pairs of files must stay synchronized — one defines a principle and the other operationalizes it.
 
 - [`docs/pedagogy.md`](pedagogy.md) expression contract (three teaching modes) ↔ [`docs/session-lifecycle.md`](session-lifecycle.md) (mode transition signals). pedagogy.md states the principle; session-lifecycle.md operationalizes the triggers.
-- [`docs/learner-model.md`](learner-model.md) engagement depth / scaffolding proximity ↔ [`docs/pedagogy.md`](pedagogy.md) (assessment rubric, mastery verification). Both define and consume the same evidentiary model.
+- [`docs/learner-model.md`](learner-model.md) engagement depth / scaffolding distance ↔ [`docs/pedagogy.md`](pedagogy.md) (assessment rubric, mastery verification). Both define and consume the same evidentiary model. (Variable renamed from `scaffolding_proximity` per [ADR 0023](../adr/0023-engagement-depth-aggregation.md), S-0004.)
 - [`docs/business.md`](business.md) audience defaults ↔ [`docs/pedagogy.md`](pedagogy.md) (V1 Calibration Defaults). The audience decision drives the pedagogical starting posture.
 
 ## Shared capability consumers

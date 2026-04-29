@@ -35,11 +35,12 @@ The AI continuously evaluates the learner's responses along three dimensions. Th
 
 **Boundary awareness.** Does the learner see where the concept stops working — its limits, tensions with other ideas, the questions it opens but cannot answer? This is the hardest dimension and the one that most reliably separates proficiency from mastery. A learner who can reconstruct and apply eudaimonia but cannot articulate why someone might disagree with Aristotle's account of flourishing has not yet reached the edges of the concept.
 
-### Scaffolding Proximity
+### Scaffolding Distance
+**Revised: 2026-04-29 (S-0004 — renamed from "Scaffolding Proximity" per ADR 0023; pedagogical concept unchanged, value direction now matches evidentiary direction)**
 
-Each exchange carries an implicit scaffolding proximity — a measure of how much the AI's recent output could have shaped the learner's response. A response produced moments after the AI explained the concept has high scaffolding proximity. A spontaneous cross-domain connection the learner makes unprompted has low scaffolding proximity. The AI treats high-scaffolding-proximity evidence as weaker than low-scaffolding-proximity evidence, even when the response itself is sophisticated.
+Each exchange carries an implicit `scaffolding_distance` — a measure of how detached the learner's response is from recent AI scaffolding. A response produced moments after the AI explained the concept has *low* scaffolding distance. A spontaneous cross-domain connection the learner makes unprompted has *high* scaffolding distance. The AI treats low-scaffolding-distance evidence as weaker than high-scaffolding-distance evidence, even when the response itself is sophisticated.
 
-This is why initial teaching almost never produces mastery-grade evidence. The entire conversation is scaffolded — the learner has the AI's reasoning visible in the thread, can pattern-match its analytical moves, and can reproduce them without owning them. The same three-dimensional evaluation applied in a boss encounter (where scaffolding is zero) carries full evidentiary weight.
+This is why initial teaching almost never produces mastery-grade evidence. The entire conversation is scaffolded — the learner has the AI's reasoning visible in the thread, can pattern-match its analytical moves, and can reproduce them without owning them. The same three-dimensional evaluation applied in a mastery verification moment (where the zero-scaffolding constraint locks `scaffolding_distance = 1.0`) carries full evidentiary weight.
 
 ### Rigor Score
 **Added: 2026-04-07 | Revised: 2026-04-09**
@@ -88,7 +89,7 @@ The learner model is empty on first use. The system cannot assume the user knows
 ### V1 Calibration Defaults
 **Added: 2026-04-08**
 
-The v1 default calibration assumes a learner encountering these ideas for the first time — a community college freshman, not an experienced autodidact. This means mode 1 (direct explanation of sentence-level confusion) frequency starts high, scaffolding proximity baselines assume the learner needs more support rather than less, and the diagnostic conversation probes rather than assumes prior knowledge.
+The v1 default calibration assumes a learner encountering these ideas for the first time — a community college freshman, not an experienced autodidact. This means mode 1 (direct explanation of sentence-level confusion) frequency starts high, scaffolding-distance baselines assume the learner needs more support rather than less (responses tend to be co-located with AI scaffolding), and the diagnostic conversation probes rather than assumes prior knowledge.
 
 This is the right default because the asymmetry of failure is directional. A freshman encountering content beyond their scope cannot proceed — and should not be made to feel inadequate for a gap they are specifically there to close. An autodidact encountering freshman-level calibration is mildly annoyed at worst, and the annoyance is short-lived: the diagnostic conversation and the first few exchanges generate enough signal to escalate rapidly. A system that starts at freshman defaults and ramps based on engagement quality is indistinguishable from a system "built for autodidacts" by the end of the first concept engagement.
 
@@ -108,9 +109,9 @@ This failure mode has a name: **immediate echoing as false mastery**. A learner 
 
 ### Structural Separation of Proficiency and Mastery
 
-Initial teaching can grant proficiency but almost never grants mastery. This is not a policy choice — it is an evidentiary constraint. During a teaching conversation, the scaffolding proximity of every exchange is high. The learner has the AI's reasoning visible in the thread. Even a genuinely novel application produced in-session might be partly scaffolded by the conversational context. The system treats in-session evidence as inherently weaker than time-delayed evidence.
+Initial teaching can grant proficiency but almost never grants mastery. This is not a policy choice — it is an evidentiary constraint. During a teaching conversation, the scaffolding distance of every exchange is low (the response is co-located with recent AI explanation). The learner has the AI's reasoning visible in the thread. Even a genuinely novel application produced in-session might be partly scaffolded by the conversational context. The system treats in-session evidence as inherently weaker than time-delayed evidence.
 
-The exception exists: a learner who already owns a concept (the professor who has taught the allegory of the cave for twenty years) produces low-scaffolding, high-sophistication evidence from the first exchange. The system does not impose a minimum elapsed time before mastery — it imposes a minimum evidence quality, and that quality is almost impossible to reach within a scaffolded teaching session. The constraint is evidentiary, not temporal.
+The exception exists: a learner who already owns a concept (the professor who has taught the allegory of the cave for twenty years) produces high-scaffolding-distance, high-sophistication evidence from the first exchange — they are not drawing on the AI's recent output, they are drawing on prior ownership. The system does not impose a minimum elapsed time before mastery — it imposes a minimum evidence quality, and that quality is almost impossible to reach within a scaffolded teaching session. The constraint is evidentiary, not temporal.
 
 ### Mastery Verification as Organic Escalation
 
@@ -124,7 +125,7 @@ The system never names this mechanic to the user. The user experiences it as the
 
 ### The Zero-Scaffolding Constraint
 
-During a mastery verification moment, the AI's behavioral rules change. It may only ask questions. It may not explain, scaffold, hint, or close the gap. It can probe and push back, but it cannot produce the understanding for the learner. This is the same three-dimensional rubric (reconstruction, application, boundary awareness) applied with scaffolding proximity set to zero. What the learner produces under this constraint is mastery-grade evidence.
+During a mastery verification moment, the AI's behavioral rules change. It may only ask questions. It may not explain, scaffold, hint, or close the gap. It can probe and push back, but it cannot produce the understanding for the learner. This is the same three-dimensional rubric (reconstruction, application, boundary awareness) applied with `scaffolding_distance` locked at 1.0 — the maximum evidentiary weight. What the learner produces under this constraint is mastery-grade evidence.
 
 The AI's tonal shift does the work of signaling the mode change. The constraint is legible through the AI's behavior — it becomes deliberately less helpful, more demanding — without the system ever labeling the moment. A subtle UI signal (a shift in background tone or header treatment) may reinforce this, but should be understated enough that a first-time user might not consciously notice it.
 
@@ -155,4 +156,4 @@ Proficiency is quiet. Mastery is a moment.
 - The outline must account for dialectical texts that undermine their own earlier framing on purpose (e.g., Hegel).
 
 ---
-*Last updated: 2026-04-09 (rigor score continuous; learner-relative assessment principle added)*
+*Last updated: 2026-04-29 (S-0004 — `scaffolding_proximity` renamed to `scaffolding_distance` per ADR 0023; pedagogical concept unchanged, value direction now matches evidentiary direction)*

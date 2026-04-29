@@ -23,17 +23,40 @@ Each event carries at minimum: user ID, concept node ID, timestamp, interaction 
 Mastery is computed by aggregating events for a given user-concept pair, applying temporal decay (see below), and returning a score that maps onto the four mastery states.
 
 ## Engagement Depth
-**Added: 2026-04-07**
+**Added: 2026-04-07 | Revised: 2026-04-29 (S-0004 — aggregation settled per ADR 0023, storage shape per ADR 0024)**
 
-Engagement depth is a composite variable recorded on each learner event. It determines how much the event contributes to mastery computation and how slowly it decays. Three signals compose it:
+Engagement depth is a composite variable derived from three sub-signals stored raw on each learner event (per ADR 0024 — sub-signals stored raw, composite derived). It determines how much the event contributes to mastery computation and how slowly it decays. Each sub-signal is on `[0, 1]` in **direct evidentiary direction** (higher = stronger evidence of depth):
 
-**Generative ratio.** What proportion of the substantive content in the exchange was produced by the learner versus the AI? A response where the learner generates a novel explanation scores high. A response where the learner confirms or paraphrases what the AI said scores low. The AI estimates this per exchange.
+**Generative ratio.** What proportion of the substantive content in the exchange was produced by the learner versus the AI? A response where the learner generates a novel explanation scores high (toward 1). A response where the learner confirms or paraphrases what the AI said scores low (toward 0). The AI estimates this per exchange.
 
-**Scaffolding proximity.** How recently did the AI explain or scaffold the concept being discussed? A response produced moments after the AI's explanation has high scaffolding proximity (low evidentiary weight). A spontaneous reference to the concept several exchanges or several concepts later has low scaffolding proximity (high evidentiary weight). During mastery verification moments (zero-scaffolding constraint), scaffolding proximity is zero — the maximum evidentiary weight.
+**Scaffolding distance.** How detached the response is from recent AI scaffolding. A response produced moments after the AI's explanation has *low* scaffolding distance (low evidentiary weight). A spontaneous reference to the concept several exchanges or several concepts later has *high* scaffolding distance (high evidentiary weight). During mastery verification moments, the zero-scaffolding constraint locks `scaffolding_distance` at 1.0 — the maximum evidentiary weight. (This variable was named `scaffolding_proximity` pre-S-0004 with the inverse value/evidentiary direction; ADR 0023 renames it for direct composition into the formula. The pedagogical concept is unchanged.)
 
-**Novelty.** Did the learner apply the concept to something not present in the conversation? A cross-domain connection the AI didn't set up, an example the learner generated independently, or an objection the learner raised that the AI hadn't introduced — all score high on novelty. Restating the concept in the terms the conversation already established scores low.
+**Novelty.** Did the learner apply the concept to something not present in the conversation? A cross-domain connection the AI didn't set up, an example the learner generated independently, or an objection the learner raised that the AI hadn't introduced — all score high on novelty (toward 1). Restating the concept in the terms the conversation already established scores low (toward 0).
 
-The aggregate engagement depth for an event is a function of these three signals. The specific aggregation (weighted sum, minimum-of-three, or other) is an implementation decision that can be tuned without changing the schema — the event log stores raw interaction data and the application layer computes depth.
+### Aggregation
+**Added: 2026-04-29 (S-0004 — per ADR 0023)**
+
+The composite is a **floored weighted geometric mean**:
+
+```
+engagement_depth = max(
+  0.05,
+  scaffolding_distance^0.5 · generative_ratio^0.3 · novelty^0.2
+)
+```
+
+The geometric form treats sub-signals as **complements** (a low signal pulls the composite down sharply) rather than substitutes (a high signal compensating for low ones). This is the design intent: a chatty paraphrase produced just-scaffolded should not read as deep mastery, even with a high generative ratio. The 0.5 weight on `scaffolding_distance` reflects ADR 0010's "scaffolding-proximity discount is the single most important calibration." The 0.05 floor prevents zero-collapse — without it, a sub-signal at 0 would zero out both `raw_strength` and `half_life` simultaneously, producing infinite decay rate.
+
+Weights and floor are V1 defaults. Tuning is application-layer only; no schema migration required (per ADR 0024).
+
+### Fixed engagement_depth for non-composite interaction types
+
+Two interaction types bypass the composite (per ADR 0023):
+
+- `backward_inference`: **fixed `engagement_depth = 0.5`**. Synthetic event; no learner exchange. The interaction-type weight already rigor-attenuates (`0.4 · (1 − rigor_score)`); composite would double-attenuate.
+- `incidental_mention`: **fixed `engagement_depth = 0.3`**. Concept appeared but learner didn't engage. If the learner *did* engage, classify as `direct_teaching` or `callback_reference` instead.
+
+For these events, the three sub-signal columns are NULL on the event row; the application layer substitutes the fixed value at compute time. NULL sub-signals on a composite-applicable interaction type are a data error.
 
 ## Interaction Types
 **Added: 2026-04-07 | Revised: 2026-04-09**
@@ -42,13 +65,13 @@ The `interaction_type` field on learner events distinguishes the context in whic
 
 **direct_teaching** — The concept was the focus of a concept engagement. The AI was actively teaching it. This is the primary event type during initial learning.
 
-**assessment** — The concept was evaluated under the zero-scaffolding constraint during a mastery verification moment. These events carry full evidentiary weight with zero scaffolding proximity discount.
+**assessment** — The concept was evaluated under the zero-scaffolding constraint during a mastery verification moment. These events carry full evidentiary weight: `scaffolding_distance` is locked at 1.0 by the zero-scaffolding constraint.
 
 **callback_reference** — The concept was referenced by the AI while teaching a downstream concept. The learner engaged with the reference (not just acknowledged it). These events have moderate engagement depth and serve double duty: they are reinforcing encounters that suppress decay, and they are probes that feed mastery verification readiness.
 
 **incidental_mention** — The concept appeared in conversation but was not the focus. The learner may have mentioned it in passing or the AI referenced it without probing. Low engagement depth. Provides weak decay suppression but little mastery evidence.
 
-**cross_domain_connection** — The learner connected this concept to something in a different domain without the AI prompting the connection. High novelty, low scaffolding proximity. These events are both strong mastery evidence and candidate signals for the cross-domain bridge discovery feedback loop.
+**cross_domain_connection** — The learner connected this concept to something in a different domain without the AI prompting the connection. High novelty, high scaffolding distance. These events are both strong mastery evidence and candidate signals for the cross-domain bridge discovery feedback loop.
 
 **backward_inference** — A synthetic event generated on a concept's immediate prerequisites when the concept itself is verified at mastery. Not produced by a teaching interaction — the system generates it automatically. The event's raw strength is modulated by the prerequisite's rigor score: low-rigor prerequisites receive high-strength inference events (simple concepts are hard to route around), high-rigor prerequisites receive low-strength events (complex concepts may have been only partially engaged by the downstream work). These events enter the standard mastery computation and are defeasible — contradictory direct evidence from later interactions naturally outweighs them through the aggregation function. Backward inference propagates through immediate prerequisites only, not the full transitive closure; natural attenuation through rigor-score modulation prevents cascading inference from reaching concepts the learner may not actually own.
 
@@ -100,6 +123,20 @@ These thresholds are fixed, not adaptive. The rigor score does its work upstream
 
 **Pseudocode:**
 ```
+function compute_engagement_depth(event):
+  // Fixed values for non-composite interaction types (per ADR 0023)
+  if event.type == backward_inference: return 0.5
+  if event.type == incidental_mention: return 0.3
+
+  // Composite: floored weighted geometric mean (per ADR 0023)
+  // Sub-signals stored raw on the event (per ADR 0024)
+  return max(
+    0.05,
+    event.scaffolding_distance^0.5
+    * event.generative_ratio^0.3
+    * event.novelty^0.2
+  )
+
 function compute_mastery(events, rigor_score):
   if events is empty: return (0.0, NOT_ENCOUNTERED)
 
@@ -115,8 +152,9 @@ function compute_mastery(events, rigor_score):
   sum = 0
   max_historical = 0
   for event in events:
-    raw = type_weights[event.type] * event.engagement_depth
-    half_life = BASE_HALF_LIFE * event.engagement_depth * (1 / (0.5 + rigor_score))
+    depth = compute_engagement_depth(event)
+    raw = type_weights[event.type] * depth
+    half_life = BASE_HALF_LIFE * depth * (1 / (0.5 + rigor_score))
     lambda = ln(2) / half_life
     decayed = raw * exp(-lambda * time_since(event.timestamp))
     sum += decayed
@@ -137,7 +175,7 @@ function compute_mastery(events, rigor_score):
   return (final, MASTERY)
 ```
 
-**V1 parameter defaults** (tunable without schema changes): `BASE_HALF_LIFE = 60 days`, `MAX_FLOOR = 0.6`. At these defaults, a deep assessment event on a low-rigor concept (rigor 0.15) has a half-life of ~92 days and a floor of ~0.51. A shallow incidental mention on a high-rigor concept (rigor 0.85) has a half-life of ~11 days and a floor of ~0.09.
+**V1 parameter defaults** (tunable without schema changes per ADR 0024): `BASE_HALF_LIFE = 60 days`, `MAX_FLOOR = 0.6`. At these defaults, a deep `assessment` event on a low-rigor concept (rigor 0.15, `engagement_depth ≈ 0.95`) has a half-life of ~88 days and a floor of ~0.51. An `incidental_mention` event (`engagement_depth = 0.3` fixed) on a high-rigor concept (rigor 0.85) has a half-life of ~13 days and a floor of ~0.09.
 
 **Historical maximum tracking.** The decay floor is conditional on the concept having *ever* reached proficiency. This requires tracking the historical maximum aggregate, which means either storing a high-water mark per user-concept pair (a simple cache) or recomputing from the full event history (correct but heavier). At current scale, recomputation is fine. If performance becomes an issue, a `max_historical_score` column on a `user_concept_cache` table is a clean optimization.
 
@@ -155,4 +193,4 @@ Mastery computation runs server-side. Native clients are thin: they emit events 
 **No client-side mastery computation.** The client never runs the mastery function. This eliminates versioning headaches (different client builds computing differently), prevents client-server disagreement on mastery state, and keeps the native app's logic minimal. The client is an event emitter and a snapshot consumer; the server is the source of truth.
 
 ---
-*Last updated: 2026-04-09 (split from architecture.md; rigor score continuous, backward inference interaction type, mastery computation function, offline/sync model)*
+*Last updated: 2026-04-29 (S-0004 — engagement-depth aggregation settled per ADR 0023; sub-signals stored raw per ADR 0024; `scaffolding_proximity` renamed to `scaffolding_distance` for direct composition into the formula)*

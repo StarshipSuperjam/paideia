@@ -42,7 +42,7 @@ These are the strongest current ideas — not closed questions, but the position
 7. **All domains are mutually porous.** Cross-domain prerequisite edges are first-class graph elements. ([ADR 0007](../adr/0007-cross-domain-porosity.md))
 8. **Nodes are concepts, not thinkers.** The atomic unit is an idea, never a person or school. ([ADR 0008](../adr/0008-concept-nodes-not-thinkers.md))
 9. **Mastery is portable.** One mastery state per concept, regardless of path. ([ADR 0009](../adr/0009-portable-mastery.md))
-10. **Assessment is continuous and contextual.** Three-dimensional rubric (reconstruction, application, boundary awareness), discounted by scaffolding proximity, scaled by rigor score. ([ADR 0010](../adr/0010-continuous-contextual-assessment.md))
+10. **Assessment is continuous and contextual.** Three-dimensional rubric (reconstruction, application, boundary awareness), discounted by scaffolding distance (per [ADR 0023](../adr/0023-engagement-depth-aggregation.md), high distance → high evidentiary weight), scaled by rigor score. ([ADR 0010](../adr/0010-continuous-contextual-assessment.md))
 11. **The app never hosts or distributes copyrighted material.** Mastery graph teaches parametrically; close reading uses bring-your-own-book. ([ADR 0011](../adr/0011-no-hosted-copyrighted-material.md))
 12. **Freshman defaults, autodidact ceiling.** Cold-start defaults; adaptive escalation. ([ADR 0012](../adr/0012-freshman-defaults-autodidact-ceiling.md))
 

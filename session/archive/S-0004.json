@@ -1,0 +1,11 @@
+{
+  "id": "S-0004",
+  "started_at": "2026-04-29T19:14:31Z",
+  "closed_at": "2026-04-29T19:42:49Z",
+  "status": "closed",
+  "working_on": "Phase 1 entry: prompt-pack Session 9 — settle engagement-depth aggregation function, signal ranges, and fixed values for non-teaching interaction types; author ADR(s); update learner-model.md / pedagogy.md.",
+  "outcome_summary": "Closed prompt-pack Session 9 (engagement-depth aggregation). Settled: floored weighted geometric mean (scaffolding_distance^0.5 * generative_ratio^0.3 * novelty^0.2, floor 0.05) per ADR 0023; sub-signals stored raw on learner_events with composite derived at query time per ADR 0024; fixed engagement_depth values for non-composite types (backward_inference=0.5, incidental_mention=0.3); scaffolding_proximity renamed to scaffolding_distance across 5 living docs (learner-model, pedagogy, MISSION, CROSS_REFERENCES, reading-system) for direct composition into the formula. Mastery Computation pseudocode in learner-model.md updated with compute_engagement_depth helper. tools/validate.py: 9 checks, 0 hard fails, 0 soft warns. Session 10 (decay parameter verification) unblocked.",
+  "approved_plan": null,
+  "branch": "claude/sharp-tharp-eb80f4",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/sharp-tharp-eb80f4"
+}
