@@ -30,9 +30,11 @@ The "dungeon master" insight is compelling — learning as RPG, badges as record
 ---
 
 ## Multi-Domain Expansion
-**Added: 2026-04-07**
+**Added: 2026-04-07 | Partially addressed: 2026-04-29 (S-0009)**
 
 The architecture is domain-agnostic but every new domain requires its own curated graph, corpus sourcing, and potentially its own supplementary media connections. Cross-domain edges (philosophy ↔ theology, mathematics ↔ physics) are architecturally simple but editorially complex. No prioritization of which domains come after philosophy, or whether the owner curates them personally or finds another path.
+
+**Partial addressing (S-0009):** the per-domain *cross-reference inventory* sub-question (which authoritative source plays the SEP role for theology, history, economics, etc.) gets a forcing function in [ROADMAP.md](../ROADMAP.md) Phase 4.5 (Input Dataset Survey for Phase 5 Seed Authoring). Tier 2 of that survey requires at least one named candidate per non-philosophy domain in [`docs/expansion.md`](expansion.md), with license check. The survey scaffolding lands in [`docs/content-strategy.md`](content-strategy.md) "Cross-Domain Reference Inventories — Survey." The remaining tension is unchanged: prioritization order, *who* curates each domain, and the editorial complexity of cross-domain edges that no single reference work covers.
 
 ---
 
@@ -265,4 +267,4 @@ Revisit when: the registry crosses ~30 entries (the population is genuinely comp
 
 ---
 
-*Last updated: 2026-04-29 (S-0008 added four tension entries: OQ-BYOK-REGIME institutional-vs-consumer; OQ-WALL-BEHAVIOR soft-wall degradation ladder; OQ-CONTEXT-COMPRESSION token-amplification mitigation; OQ-PEDAGOGY-INFERENCE-LOCUS rule layer vs distributed inference. Three are tied to ADR 0029 cost-ceiling; the fourth opens the pedagogy-inference architecture question with a registry as the cheap intermediate step.)*
+*Last updated: 2026-04-29 (S-0009 — Multi-Domain Expansion tension partially addressed by the new ROADMAP Phase 4.5 Input Dataset Survey, which forcing-functions per-domain cross-reference inventory identification). Prior update 2026-04-29 (S-0008 added four tension entries: OQ-BYOK-REGIME institutional-vs-consumer; OQ-WALL-BEHAVIOR soft-wall degradation ladder; OQ-CONTEXT-COMPRESSION token-amplification mitigation; OQ-PEDAGOGY-INFERENCE-LOCUS rule layer vs distributed inference. Three are tied to ADR 0029 cost-ceiling; the fourth opens the pedagogy-inference architecture question with a registry as the cheap intermediate step.)*

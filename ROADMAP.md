@@ -149,6 +149,54 @@ Per-session migration workflow: read SEP article → identify concepts at granul
 
 ---
 
+## Phase 4.5 — Input Dataset Survey (for Phase 5 seed authoring)
+**Added: 2026-04-29 (S-0009)**
+
+**Output:** a tiered survey of external datasets useful as **cross-reference inventories and prerequisite-shape priors** for Phase 5 seed authoring. Lands as a new section in [`docs/content-strategy.md`](docs/content-strategy.md) ("Cross-Domain Reference Inventories — Survey") with per-candidate assessment against the five usability axes.
+
+This phase **does not** revise the "Generative Graph Independence" position (`business.md`) or the SEP-as-structural-reference posture (`content-strategy.md`). Concept nodes and prerequisite edges remain generatively seeded; the survey gives that generation pass better starting inventories per domain and surfaces any prerequisite-shaped graph priors worth consulting.
+
+### Five usability axes (constrain every candidate)
+
+1. **Graph-shape orientation.** Prerequisite-shaped (per ADR 0001) vs. influence / agreement / dialectical / citation / co-occurrence. Filter aggressively — influence-shaped data drags the modeler dialectical even when intended only as vocabulary.
+2. **License.** Ingestable (CC0/CC-BY/MIT/PD) vs. mineable-for-facts-only (citations, taxonomies — facts about works are not copyrightable, prose summarizing them often is) vs. consultable-only (all-rights-reserved, non-commercial like SEP).
+3. **Form.** Structured graph data vs. structured taxonomy/tags vs. long-form prose. Long-form prose has low novel value — already parametrically accessible to Sonnet/Opus.
+4. **Coverage breadth.** Single-domain vs. cross-domain native. Commitment 7 (cross-domain porosity per ADR 0007) makes cross-domain-native sources disproportionately valuable.
+5. **Depth uniformity / methodology transparency.** Sources that disclose uneven depth (Önduygu's "some philosophers more beginner-level…") are higher-trust than sources that don't.
+
+### Tiered survey scope (not exhaustive)
+
+Decision-quality return plateaus quickly past the prerequisite-shaped tier. Survey depth is proportional to graph-shape value.
+
+- **Tier 1 — exhaustive on prerequisite-shaped graphs.** Small, load-bearing, novel value. Known candidates to evaluate: Khan Academy knowledge map (math-dense, pedagogical-prerequisite, license verification needed); ConceptNet's `Prerequisite` relation (CC BY-SA); university CS curriculum prerequisite graphs (often JSON-public, narrow); Mathlib / Metamath dependency graphs (literally logical-prerequisite, math-only).
+- **Tier 2 — comprehensive on per-domain cross-reference inventories outside philosophy.** For each non-philosophy domain Paideia plans (history, theology, literature, economics, poetry, political theory, law, psychology — per `docs/expansion.md`), identify the SEP/Oxford-dictionary equivalent. Per-domain license check.
+- **Tier 3 — representative sample on bibliographies and citation graphs.** Önduygu's reference page (~800 works), Open Syllabus Project, Semantic Scholar / OpenAlex. Reading-list and co-occurrence priors, not content.
+- **Tier 4 — minimal on long-form prose references already parametrically accessible.** SEP, IEP, Wikipedia. Note as *consult-during-validation*, not as survey targets.
+
+### Önduygu philo-browser as worked example
+
+Deniz Cem Önduygu's `denizcemonduygu.com/philo` (Western philosophy graph: ~800 works, ~400+ authors, propositions linked by green/red agree-or-disagree edges, twelve-year autodidact project) is the worked example that surfaced the axes. Specific to Paideia:
+
+- **Propositions+edges layer is graph-shape-incompatible** (dialectical, not prerequisite). Consciously not consulted during seed authoring per the contamination caution in axis 1.
+- **Tag layer (named -isms, theses, paradoxes) is usable as a concept-vocabulary checklist** during Phase 5 Western-philosophy authoring.
+- **Reference list is usable as a starting reading list** — bibliographic facts are clean territory under the all-rights-reserved shield.
+- **Author's own caveat** — "Browsing this visual summary cannot substitute reading a good book of history of philosophy" — is rhetorical prior art for [ADR 0011](adr/0011-no-hosted-copyrighted-material.md) and the BYO-book commitment.
+- **Calibration evidence:** twelve disciplined autodidact years produced ~800 works at uneven depth. Phase 5 throughput projections should be set against this prior, not against optimistic LLM-augmentation assumptions.
+
+### Phase 4.5 success criteria
+
+- `docs/content-strategy.md` has a new "Cross-Domain Reference Inventories — Survey" section that names the five axes, the four tiers, and the per-tier candidate assessments
+- Tier 1 (prerequisite-shaped) is exhaustive: every known candidate is named, license-checked, graph-shape-evaluated, and either tagged for Phase 5 consultation or explicitly excluded with reason
+- Tier 2 has at least one named candidate per non-philosophy domain in `docs/expansion.md`
+- The survey output cross-links to Phase 5.2 ("Source approach") so seed-authoring sessions consult it
+- No survey finding requires revising "Generative Graph Independence" or the SEP-structural-reference posture; if one does, it lands as an ADR in this phase
+
+### Phase 4.5 scope discipline
+
+The survey is **research and recording**, not commitment. Specific dataset *adoption* decisions (e.g., "use ConceptNet's Prerequisite relation as Tier-1 input for the math service-node subdomain") are deferred to the Phase 5 sessions that consume them; if such a decision involves a non-trivial tradeoff, it lands as an ADR at that point. The Phase 4.5 deliverable is the inventory, not the bindings.
+
+---
+
 ## Phase 5 — Seed Graph Build (parallelizable)
 
 **Output:** concept-level seed graph across philosophy subdomains. Hundreds of nodes per subdomain. Cross-domain edges first-class.
@@ -171,6 +219,7 @@ Per the chunked-authoring + eager-claim discipline, multiple subdomain sessions 
 - **SEP** as **structural reference only** (concept inventory, cross-references) — not a content corpus. SEP does not become hosted text.
 - **Wikipedia** for accessible summaries (CC BY-SA — permits use with attribution).
 - **Generate first-pass prerequisite edges via Claude;** mark `confidence_level: INTERPRETED` until validated against learner outcomes or expert review.
+- **Phase 4.5 survey output** ([`docs/content-strategy.md`](docs/content-strategy.md) "Cross-Domain Reference Inventories — Survey") names the per-domain inventories and any prerequisite-shaped graph priors worth consulting at session start. Sessions consult it as a checklist; specific adoption decisions land as ADRs in-session if they involve non-trivial tradeoffs.
 
 ### 5.3 Per-session migration workflow
 

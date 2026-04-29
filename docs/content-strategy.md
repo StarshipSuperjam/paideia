@@ -64,6 +64,63 @@ Existing academic reference works serve as curated idea inventories with cross-r
 
 This makes initial graph construction a decomposition-and-linking problem, not a scholarship problem. Cross-domain connections (where philosophy meets psychology meets literature) are the part no existing dataset covers — these emerge through the self-correcting feedback loops and the user's own intellectual work.
 
+## Cross-Domain Reference Inventories — Survey
+**Added: 2026-04-29 (S-0009) | Operationalized in: ROADMAP Phase 4.5**
+
+The Philosophy-Domain table above and the SEP/IEP/Oxford-dictionary commitments specifically cover *philosophy*. The settled posture in the section above ("Source licensing will need to be evaluated per domain as new domains are added") is the gap this section closes. A tiered survey runs in **ROADMAP Phase 4.5** (between Phase 4 validation utility and Phase 5 seed authoring) and lands its output here.
+
+**The survey targets cross-reference inventories and prerequisite-shape priors, not corpus dependencies.** "Generative Graph Independence" (`business.md`) and "SEP as Structural Reference, Not Content Source" (above) remain in force — concept nodes and prerequisite edges are generatively seeded by Claude. The survey gives that generation pass better starting inventories per domain.
+
+### Five usability axes
+
+Every candidate dataset is evaluated against these. The Önduygu philo-browser case (worked example below) extracted them.
+
+1. **Graph-shape orientation.** Prerequisite-shaped (per [ADR 0001](../adr/0001-pedagogical-edges-not-historical.md)) vs. influence / agreement / dialectical / citation / co-occurrence. Influence-shaped data drags the modeler dialectical even when intended only as vocabulary. Filter aggressively.
+2. **License.** Three buckets:
+   - **Ingestable** (CC0 / CC-BY / MIT / public domain) — usable as direct seed input or RAG corpus.
+   - **Mineable for facts only** — bibliographic citations, topic taxonomies. Facts about works are not copyrightable; the prose summarizing them often is.
+   - **Consultable only** (all-rights-reserved, scrape-restricted, non-commercial like SEP) — usable as structural cross-reference per the SEP precedent above; never reproduced.
+3. **Form.** Structured graph data vs. structured taxonomy/tags vs. long-form prose. Long-form prose has low novel value — already parametrically accessible to Sonnet/Opus.
+4. **Coverage breadth.** Single-domain vs. cross-domain native. Commitment 7 (cross-domain porosity per [ADR 0007](../adr/0007-cross-domain-porosity.md)) makes cross-domain-native sources disproportionately valuable.
+5. **Depth uniformity / methodology transparency.** Sources that disclose their own uneven depth are higher-trust than sources that don't. Hidden unevenness produces silent depth holes in derived inventories.
+
+### Tiered survey scope (not exhaustive)
+
+Decision-quality return on surveying everything plateaus quickly past the prerequisite-shaped tier. Survey depth is proportional to graph-shape value.
+
+- **Tier 1 — exhaustive on prerequisite-shaped graphs.** Small, load-bearing, novel value. Known candidates to evaluate: Khan Academy knowledge map (math-dense, pedagogical-prerequisite, license verification needed); ConceptNet's `Prerequisite` relation (CC BY-SA); university CS curriculum prerequisite graphs; Mathlib / Metamath dependency graphs (literally logical-prerequisite, math-only).
+- **Tier 2 — comprehensive on per-domain cross-reference inventories outside philosophy.** For each non-philosophy domain in `docs/expansion.md` (history, theology, literature, economics, poetry, political theory, law, psychology), identify the SEP/Oxford-dictionary equivalent and run the license check.
+- **Tier 3 — representative sample on bibliographies and citation graphs.** Önduygu's reference page (~800 works, ~400+ authors), Open Syllabus Project, Semantic Scholar / OpenAlex. Reading-list and co-occurrence priors, not content.
+- **Tier 4 — minimal on long-form prose references already parametrically accessible.** SEP, IEP, Wikipedia. Note as *consult-during-validation*, not as survey targets.
+
+### Önduygu philo-browser — worked example
+
+Deniz Cem Önduygu's `denizcemonduygu.com/philo` (Western philosophy graph: ~800 works, ~400+ authors, propositions linked by green/red agree-or-disagree edges, twelve-year autodidact project, all-rights-reserved, no API) is the worked example that surfaced the axes.
+
+- **Propositions+edges layer:** graph-shape-incompatible (dialectical, not prerequisite). **Consciously not consulted during seed authoring** — the contamination risk in axis 1 applies precisely to this layer.
+- **Tag layer (named -isms, theses, paradoxes):** usable as a concept-vocabulary checklist during Phase 5 Western-philosophy authoring. Mineable-for-facts (axis 2) — names of named ideas are facts about the field.
+- **Reference list (~800 works):** usable as a starting reading list. Bibliographic facts are clean territory under the all-rights-reserved shield.
+- **Author's own caveat** — "Browsing this visual summary cannot substitute reading a good book of history of philosophy, let alone studying the original texts" — is rhetorical prior art for [ADR 0011](../adr/0011-no-hosted-copyrighted-material.md) and the BYO-book commitment. A Dennett-endorsed twelve-year project explicitly disclaiming the pedagogical role is citable evidence the visual-summary approach has known limits — Paideia is positioned in the gap.
+- **Calibration evidence:** twelve disciplined autodidact years produced ~800 works at uneven depth. Phase 5 throughput projections should be set against this prior, not against optimistic LLM-augmentation-as-multiplier assumptions.
+
+### Per-candidate assessment template
+
+When the survey populates this section in Phase 4.5, each candidate dataset gets a record of the form:
+
+```
+**<Dataset name>** ([URL])
+- Tier: 1 / 2 / 3 / 4
+- Graph-shape: prerequisite | influence | agreement | citation | co-occurrence | none
+- License: ingestable | mineable-for-facts | consultable-only — [specific terms]
+- Form: structured-graph | tag-taxonomy | long-form-prose | bibliography
+- Coverage: <domain(s) covered>; cross-domain native? Y/N
+- Depth disclosure: explicit | implicit | absent
+- Verdict: usable as <use> in <phase> | excluded for <reason>
+- Authoring contact / scrape policy: <if relevant>
+```
+
+The template anchors the survey to a comparable shape across candidates. It is not a contract — categories may extend if a candidate surfaces a relevant axis the five didn't anticipate, recorded explicitly.
+
 ## User Library as Optional Signal Layer
 **Added: 2026-04-07**
 
@@ -88,4 +145,4 @@ This separation is clean across every domain. Philosophy, literature, history, p
 - For new domains, Claude can propose graph structures as starting points for expert review.
 
 ---
-*Last updated: 2026-04-08 (user text ingestion pipeline added; copyright model added; commerce layer revised to connect to close reading acquisition path)*
+*Last updated: 2026-04-29 (S-0009 — Cross-Domain Reference Inventories survey scaffolding added per ROADMAP Phase 4.5: five usability axes, tiered survey scope, Önduygu worked example, per-candidate assessment template). Prior update 2026-04-08 (user text ingestion pipeline added; copyright model added; commerce layer revised to connect to close reading acquisition path).*
