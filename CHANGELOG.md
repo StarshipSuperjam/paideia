@@ -10,6 +10,22 @@ This project does not yet follow [Semantic Versioning](https://semver.org/) — 
 
 ## [Unreleased]
 
+### Verified (S-0005 — Phase 1.1: prompt-pack Session 10 — Decay Parameter Verification)
+- V1 decay parameters (`BASE_HALF_LIFE = 60 days`, `MAX_FLOOR = 0.6` from `docs/learner-model.md`) verified against five realistic trajectory scenarios using the engagement-depth distribution settled in ADR 0023. **All scenarios match design intent. No parameter revisions.** Session 10 closes without an ADR per `ROADMAP.md` §1.1 ("verification of pre-existing parameters does not require a new ADR; the verification record + CHANGELOG note is sufficient").
+- **Scenarios run** (computation: standard `compute_mastery` per `docs/learner-model.md`):
+  1. **Active low-rigor** (Cartesian Dualism, rigor 0.15) — 2 `direct_teaching` @ depth 0.6 + 6 weekly `callback_reference` @ depth 0.4. Holds proficiency throughout active use; brief `MASTERY` excursion at weeks 4–7; drifts to floor 0.51 after callbacks stop. ✓
+  2. **Active high-rigor** (Transcendental Idealism, rigor 0.85) — same pattern. Holds proficiency during active use (~0.55–0.61); `MASTERY` is unreachable through callbacks at depth 0.4 alone (peak 0.614). Crashes to `EXPOSED` four weeks after callbacks stop. Sensitivity sweep confirms callbacks at depth ≥ 0.5 reach mastery briefly. ✓ (matches design — high-rigor mastery requires verified understanding, not passive reinforcement.)
+  3. **Abandoned mid-rigor** (rigor 0.5) — proficiency reached, then 6 months silence. Aggregate falls below 0.3 around day 60; floor (0.30) catches it. Score sits exactly at the proficiency/exposed boundary indefinitely. ✓
+  4. **Mastery verification** — proficiency through teaching, 3 weeks later `assessment` @ depth 0.9. Single assessment event crosses to `MASTERY` at all rigor levels (low: 0.510 → 0.789; mid: 0.436 → 0.770; high: 0.394 → 0.753). ✓
+  5. **Backward inference** (rigor 0.4 prerequisite) — single `backward_inference` @ fixed depth 0.5 yields aggregate 0.113 (`EXPOSED`). Across rigors 0.05–0.85: aggregate 0.03–0.17, all `EXPOSED`. ✓ (matches design — defeasible soft-evidence injection, attenuated by rigor.)
+- **Findings worth noting** (none triggered parameter changes):
+  - Single `direct_teaching` event at depth 0.6 on a low-rigor concept already crosses the 0.3 proficiency threshold (aggregate 0.343) and activates the floor. Consistent with the design ("simple concepts stick once grasped") but more permissive than the Session 10 prompt's "two events" framing suggested.
+  - Mid-rigor floor sits *exactly* at proficiency threshold (0.30 = 0.30). Abandoned mid-rigor concepts stay technically `PROFICIENCY` by the inclusive `≥ 0.3` boundary; the continuous score is the fading signal, not the discrete state.
+  - Callbacks at typical depth (~0.4) cannot push high-rigor concepts to `MASTERY`. Mastery on high-rigor requires assessment-quality events (depth ~0.9) or sustained callbacks at depth ≥ 0.5.
+
+### Changed (S-0005 — Phase 1.1)
+- [`docs/learner-model.md`](docs/learner-model.md) — V1 parameter-defaults paragraph extended with a "Verified at S-0005 (2026-04-29)" note linking back to the verification entry above. No parameter values changed.
+
 ### Changed (S-0005 — procedure fix: /start-engine push gating)
 - `.claude/commands/start-engine.md` — eager-claim step 5f and shutdown step 13 no longer require per-push user confirmation. Invoking `/start-engine` is itself the authorization for the lifecycle's pushes (eager-claim, in-session checkpoints, shutdown). Destructive operations (force-push, `git reset --hard`, branch deletion) still require explicit confirmation per auto-mode interrupt criteria.
 - `docs/operations/session-build-lifecycle.md` — eager-claim step 6 and "Push policy within a session" rewritten to match. The first-push-of-session confirmation gate is removed; routine pushes proceed unconfirmed.
