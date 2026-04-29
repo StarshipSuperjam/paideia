@@ -4,7 +4,11 @@
 .env.*.local
 
 # Claude Code per-project config
-.claude/
+# Top-level .claude/ contents are local-only EXCEPT .claude/commands/, which
+# ships project-scoped slash commands (e.g., /start-engine) with the repo.
+.claude/*
+!.claude/commands/
+!.claude/commands/*
 
 # MCP server config — contains secret access tokens, kept local-only
 .mcp.json
@@ -35,3 +39,6 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Per-clone validate.py telemetry (consumed by health checks; per-AI-local).
+tools/validate-history.jsonl

@@ -2,6 +2,8 @@
 
 Each prompt below is designed to paste into a fresh session with MCP filesystem access to the Paideia project files. Sessions should be run roughly in order — earlier sessions may produce file updates that later sessions depend on.
 
+> **Updated 2026-04-29 during S-0001 foundation reorganization:** design documents have moved from the repository root into `docs/`. Where this file says "architecture.md", read "docs/architecture.md", and so on for all design documents. References to `CONTEXT.md` (deleted during S-0002 split) are replaced below with `STATE.md` (current state pointer) + `ROADMAP.md` (phase sequence) + relevant ADRs in `adr/` (S-0003). The historical references to "commitment N added in CONTEXT.md" should be read as "absorbed into ADR 000N during S-0003."
+
 **Completed sessions:**
 - ~~Schema Foundations~~ (2026-04-07): Node granularity principle, concrete edge schema, node versioning (graph_version counter), portable mastery. Decisions recorded in architecture.md.
 - ~~Session Lifecycle & Interaction Design~~ (2026-04-07): Globe as home screen, concept engagement as atomic learning unit, mode transition signals (textual only, no timing inference), proficiency as implied transition, boss encounter UX, five-syllabus hard cap, routing after concept completion, cross-syllabus convergence surfacing. Decisions recorded in session-lifecycle.md; globe vs syllabus tension resolved in tensions.md.
@@ -23,7 +25,7 @@ learner-model.md defines three signals composing engagement depth (generative ra
 ```
 You are a design partner for the Paideia project — a knowledge mastery app built on a pedagogical dependency graph.
 
-Read CONTEXT.md and learner-model.md from the Paideia project folder on the MCP filesystem. Focus on the Engagement Depth section and the Mastery Computation function.
+Read STATE.md, ROADMAP.md, and learner-model.md from the Paideia project folder on the MCP filesystem. Focus on the Engagement Depth section and the Mastery Computation function.
 
 Engagement depth is a composite of three signals — generative ratio, scaffolding proximity, and novelty — but the aggregation function is deferred. I need to settle it. The choice matters because engagement depth feeds both the mastery computation (as a multiplier on raw event strength) and the decay model (as a modifier on half-life). A bad aggregation makes the entire evidentiary pipeline unreliable.
 
@@ -51,7 +53,7 @@ The decay model and mastery computation function have concrete parameters (BASE_
 ```
 You are a design partner for the Paideia project — a knowledge mastery app built on a pedagogical dependency graph.
 
-Read CONTEXT.md and learner-model.md from the Paideia project folder on the MCP filesystem. Focus on Mastery Decay, Mastery Computation, and Active-Use Decay Suppression.
+Read STATE.md, ROADMAP.md, and learner-model.md from the Paideia project folder on the MCP filesystem. Focus on Mastery Decay, Mastery Computation, and Active-Use Decay Suppression.
 
 The V1 parameters are set (BASE_HALF_LIFE = 60 days, MAX_FLOOR = 0.6) but nobody has verified they produce correct behavior under realistic usage patterns. I need you to run the numbers. Use the mastery computation pseudocode in learner-model.md as the specification.
 
@@ -81,7 +83,7 @@ The decay floor only activates if a concept has ever reached proficiency. This r
 ```
 You are a design partner for the Paideia project — a knowledge mastery app built on a pedagogical dependency graph.
 
-Read CONTEXT.md and learner-model.md from the Paideia project folder on the MCP filesystem. Focus on Mastery Computation (Stage 3: Decay Floor), Offline and Sync, and the scale-appropriate engineering principle in infrastructure.md.
+Read STATE.md, ROADMAP.md, and learner-model.md from the Paideia project folder on the MCP filesystem. Focus on Mastery Computation (Stage 3: Decay Floor), Offline and Sync, and the scale-appropriate engineering principle in infrastructure.md.
 
 The mastery computation's decay floor is conditional: it only activates if the concept's historical maximum aggregate has ever reached the proficiency threshold (0.3). I need to decide how to track this. Two options exist:
 
@@ -103,7 +105,7 @@ I want a concrete decision and, if it's the stored high-water mark, the schema a
 ```
 You are a design partner for the Paideia project — a knowledge mastery app built on a pedagogical dependency graph.
 
-Read CONTEXT.md, infrastructure.md (Implementation Base: DeepTutor Fork), and tensions.md (Fork Maintenance) from the Paideia project folder on the MCP filesystem.
+Read STATE.md, ROADMAP.md, infrastructure.md (Implementation Base: DeepTutor Fork), and tensions.md (Fork Maintenance) from the Paideia project folder on the MCP filesystem.
 
 DeepTutor is actively developed. The fork will diverge because the guided reading agent and pedagogical layer are architecturally different from upstream. The tension has been open since the project started. I need to close it.
 
@@ -127,7 +129,7 @@ I want to resolve this tension and move it out of tensions.md. Give me a concret
 ```
 You are a design partner for the Paideia project — a knowledge mastery app built on a pedagogical dependency graph.
 
-Read CONTEXT.md, tensions.md (Gamification Tone), session-lifecycle.md (Mastery Verification Through Downstream Teaching), and pedagogy.md (Mastery Verification — After Mastery Verification) from the Paideia project folder on the MCP filesystem.
+Read STATE.md, ROADMAP.md, tensions.md (Gamification Tone), session-lifecycle.md (Mastery Verification Through Downstream Teaching), and pedagogy.md (Mastery Verification — After Mastery Verification) from the Paideia project folder on the MCP filesystem.
 
 The mastery verification design implicitly answers some of the gamification question — mastery glow activates, tendrils appear, the AI's tone is recognition not congratulation. But the broader tension is still open: where does the line fall between "emotionally resonant milestone" and "gamification that alienates serious learners"?
 
@@ -153,7 +155,7 @@ Push me to close this if it can be closed. Tell me to leave it open if closing i
 ```
 You are a design partner for the Paideia project — a knowledge mastery app built on a pedagogical dependency graph.
 
-Read CONTEXT.md, tensions.md (Media Edge Quality), and expansion.md (Supplementary Media Layer) from the Paideia project folder on the MCP filesystem.
+Read STATE.md, ROADMAP.md, tensions.md (Media Edge Quality), and expansion.md (Supplementary Media Layer) from the Paideia project folder on the MCP filesystem.
 
 Film/art/music connections to concept nodes range from well-documented intellectual relationships (Wagner and Nietzsche were in direct conversation) to loose thematic rhyming (this film "feels existentialist"). The open question is whether to formally distinguish these in the schema.
 

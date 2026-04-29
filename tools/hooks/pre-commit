@@ -1,0 +1,103 @@
+#!/bin/bash
+#
+# Paideia pre-commit hook.
+#
+# Enforces the bimodal session protocol and runs tools/validate.py.
+#
+# Three modes detected from session/ state + staged changes:
+#
+#   build     — current.json exists with status: in_progress.
+#               All commits permitted (subject to validate.py passing).
+#
+#   closing   — current.json was deleted in the staged commit (via git mv to
+#               session/archive/) AND register_state.json transitions to
+#               current_status: "closed". This is the legitimate session-close
+#               commit; allowed.
+#
+#   exploration — neither of the above. Default mode for design-partner work.
+#               Restricts commits to: .claude/plans/, HANDOFF.md, docs/tensions.md,
+#               docs/ideation.md. Anything else triggers a refusal with a
+#               pointer to /start-engine.
+#
+# Validation always runs, regardless of mode. Hard-fails block the commit;
+# soft-warns are advisory.
+
+set -e
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+CURRENT_FILE="session/current.json"
+REGISTER_FILE="session/register_state.json"
+
+# ---------------------------------------------------------------------------
+# Mode detection
+# ---------------------------------------------------------------------------
+
+MODE="exploration"
+
+if [ -f "$CURRENT_FILE" ]; then
+    if grep -q '"status": *"in_progress"' "$CURRENT_FILE" 2>/dev/null; then
+        MODE="build"
+    fi
+fi
+
+# Detect close commit: staged changes include deletion or rename of current.json
+# AND register_state.json (staged) shows current_status: "closed"
+STAGED_CURRENT_OP=$(git diff --cached --name-status -- "$CURRENT_FILE" 2>/dev/null | awk '{print $1}' | head -1)
+if [ "$MODE" != "build" ]; then
+    if [ "$STAGED_CURRENT_OP" = "D" ] || [ "${STAGED_CURRENT_OP:0:1}" = "R" ]; then
+        STAGED_REGISTER=$(git show :"$REGISTER_FILE" 2>/dev/null || echo "")
+        if echo "$STAGED_REGISTER" | grep -q '"current_status": *"closed"'; then
+            MODE="closing"
+        fi
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# Mode enforcement
+# ---------------------------------------------------------------------------
+
+if [ "$MODE" = "exploration" ]; then
+    # Restrict to: .claude/plans/, HANDOFF.md, docs/tensions.md, docs/ideation.md
+    DISALLOWED=$(git diff --cached --name-only \
+        | grep -v -E '^\.claude/plans/' \
+        | grep -v -E '^HANDOFF\.md$' \
+        | grep -v -E '^docs/tensions\.md$' \
+        | grep -v -E '^docs/ideation\.md$' \
+        || true)
+    if [ -n "$DISALLOWED" ]; then
+        echo "[pre-commit] Exploration-mode commit blocked." >&2
+        echo "" >&2
+        echo "  Default-mode posture is design partner — no commits to tracked" >&2
+        echo "  project files. Allowed paths in this mode:" >&2
+        echo "    .claude/plans/   (plan files)" >&2
+        echo "    HANDOFF.md       (running log)" >&2
+        echo "    docs/tensions.md (open questions)" >&2
+        echo "    docs/ideation.md (captured ideas)" >&2
+        echo "" >&2
+        echo "  Disallowed staged paths:" >&2
+        echo "$DISALLOWED" | sed 's/^/    /' >&2
+        echo "" >&2
+        echo "  Run /start-engine to convert to a build session, then retry." >&2
+        exit 1
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# Run validate.py
+# ---------------------------------------------------------------------------
+
+if [ -f tools/validate.py ]; then
+    if ! python3 tools/validate.py; then
+        STATUS=$?
+        if [ "$STATUS" -ge 2 ]; then
+            echo "[pre-commit] tools/validate.py reported hard-fails. Commit blocked." >&2
+            exit 1
+        fi
+        # exit 1 from validate.py = soft-warns only; advisory, don't block
+    fi
+fi
+
+echo "[pre-commit] Mode: $MODE — OK"
+exit 0

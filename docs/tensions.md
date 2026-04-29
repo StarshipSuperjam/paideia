@@ -122,4 +122,46 @@ Resolved. Mastery is portable — per-concept, not per-concept-per-path. One glo
 
 ---
 
-*Last updated: 2026-04-08 (Self-Learner Product vs. Institutional Product resolved)*
+## OQ-DEC1-A: Server-side mastery computation — confirm or revisit?
+**Added: 2026-04-29 (S-0001) | Status: Open | Decide before: Phase 6**
+
+Current architecture (per `learner-model.md`) computes mastery server-side with thin native clients (event emitters and snapshot consumers). Phase DEC.1 (between Phase 5 and Phase 6) is the natural moment to revisit. Reasons to confirm: keeps clients thin, allows mastery formula updates without client deploys, single source of truth. Reasons to revisit: client-side could enable richer offline UX, lower API cost. Decision lands as an ADR with Status: Accepted, implementation tag Phase 6.
+
+---
+
+## OQ-DEC1-B: Two-hop neighborhood retrieval shape for teaching session context
+**Added: 2026-04-29 (S-0001) | Status: Open | Decide before: Phase 6**
+
+`self-correction.md` names "current concept + prerequisites + two-hop local neighborhood for entity resolution of spontaneous learner references" as the teaching context. Phase DEC.1 settles the concrete retrieval shape: which prerequisites count (immediate only, all-recursive-up-to-rigor-floor, etc.), which two-hop edges count (prerequisite-only, also `enables` and `informed_by`), how aliases are resolved, what the per-turn token cost is. Decision lands as an ADR.
+
+---
+
+## OQ-DEC1-C: Embedding strategy for entity resolution
+**Added: 2026-04-29 (S-0001) | Status: Open | Decide before: Phase 6**
+
+The entity-resolution service (per `architecture.md`) needs embeddings to map spontaneous learner references ("the categorical imperative") onto graph node IDs. pgvector is the leaning option (already a Supabase extension, already enabled). Open question: which embedding model? OpenAI ada-002, voyage-3, claude-3-5-sonnet-embeddings, or open-weights (BGE / Nomic / Stella)? Trade-offs: API cost, dimensionality (storage), domain-fit for philosophical vocabulary, control over future model changes. Decision lands as an ADR.
+
+---
+
+## OQ-DEC1-D: Chunk-resolver index vs direct SEP URL pointers
+**Added: 2026-04-29 (S-0001) | Status: Open | Decide before: Phase 6**
+
+When the teaching layer wants to point a learner at SEP for onward reading, two options: (a) maintain a chunk-resolver index that maps node IDs → SEP article section anchors (more retrieval precision, more upfront indexing work), or (b) store direct SEP URL pointers per node and let the learner browse from the section landing (simpler, less precise). Decision lands as an ADR.
+
+---
+
+## OQ-PHASE8-A: Evaluation baseline choice
+**Added: 2026-04-29 (S-0001) | Status: Open | Decide at: Phase 8 entry**
+
+Per the principle "closed-loop validation is weak signal" (becomes ADR in S-0003), Phase 8 evaluation must use external baselines. Three candidates: (a) external rubric — community college instructor blind review of teaching transcripts, (b) head-to-head against DeepTutor unmodified (same input, both systems' output graded blind), (c) head-to-head against stock Sonnet without rendering policy (same input, control vs treatment). Or some combination. Decision deferred to Phase 8 entry; needs at least the (a)+ (c) pair to have signal at all (a) tests teaching-quality absolutely; (c) isolates the rendering policy's contribution).
+
+---
+
+## OQ-WATCH-FLAG-FILE
+**Added: 2026-04-29 (S-0001) | Status: Open (tagged: `watch`) | Decide at: ~session 30 health check**
+
+When the volume of "things to watch for in future evidence that aren't actionable yet but shouldn't be forgotten" justifies a separate `docs/watch-flags.md` file (vs. the current "fold into tensions.md with explicit `watch` tag"), separate it. The session-30 health check (per ADR 0022) should re-evaluate this. If `watch`-tagged tensions exceed ~10 entries, separating reduces the cognitive load of scanning tensions.md. If fewer, the unified file is simpler.
+
+---
+
+*Last updated: 2026-04-29 (S-0001 added 6 architecture-decision and watch-flag tensions)*
