@@ -6,10 +6,10 @@
 
 ## Status
 
-**Current phase:** Pre-Phase 0 — in progress (Pre-0.1 closed; Pre-0.2 and Pre-0.3 pending)
-**Last session:** 2026-04-28 (Pre-Phase 0.1 closed — `git init`, `.gitignore`, `.env.example`, initial commit `b91426e`, pushed to `StarshipSuperjam/paideia` private. Homebrew + `gh` 2.92.0 installed and authenticated.)
-**Next action:** Pre-0.2 — user confirms `ANTHROPIC_API_KEY` in shell env, creates Supabase project `paideia-dev` (free tier), enables `pgvector` extension, copies URL + anon key + service role key into a local `.env` (gitignored). Then Pre-0.3 — install Supabase MCP server in `~/.claude/settings.json`. Then a fresh `Start Engine` opens Phase 0.
-**Blockers:** None for Claude — Pre-0.2 and Pre-0.3 are user-handled (account creation, dashboard work, global config edits). Optional cleanup: git committer identity is `shanekidd@Shanes-MacBook-Air.local` — set `git config --global user.email` before further commits if a different attribution is wanted.
+**Current phase:** Pre-Phase 0 — Pre-0.1 + Pre-0.2 closed; Pre-0.3 pending MCP verification on fresh session
+**Last session:** 2026-04-28 (Pre-0.2 closed — Supabase project `paideia-dev` provisioned with `vector` 0.8.0 enabled; runtime keys (publishable + secret named `paideia_dev_server`) in local `.env` along with `ANTHROPIC_API_KEY` (named `paideia-dev`, auto-reload off). Pre-0.3 substrate written — `.mcp.json` (gitignored) created with Supabase MCP server config scoped to project ref `ozooosgnuzxqqypotlke`; PAT placeholder awaits user paste in TextEdit. Git identity set to `shanekidd702@gmail.com` / `StarshipSuperjam` for future commits.)
+**Next action:** User opens `.mcp.json` in TextEdit, replaces `PASTE_YOUR_PAT_HERE` with their Supabase Personal Access Token (`claude-code-mcp` PAT), saves. Quits Claude.app fully and reopens it for the new MCP server to load. New session: `Start Engine` triggers MCP connectivity verification (e.g., `SELECT current_database()`); on success, Pre-Phase 0 closes and Phase 0 (session-discipline scaffolding) opens.
+**Blockers:** None for Claude. User actions: paste PAT into `.mcp.json`, restart Claude.app.
 
 When picking up a session, update this block at the end with the date, what was completed, and what's next. After Phase 0 closes, this block is replaced by the SA/CL workflow (the most recent SA entry's `next_session.recommended_step` becomes authoritative).
 

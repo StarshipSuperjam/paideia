@@ -6,6 +6,9 @@
 # Claude Code per-project config
 .claude/
 
+# MCP server config — contains secret access tokens, kept local-only
+.mcp.json
+
 # Node
 node_modules/
 dist/
