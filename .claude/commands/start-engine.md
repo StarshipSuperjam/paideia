@@ -40,7 +40,7 @@ Convert the current Claude Code conversation from default exploration mode (no c
 
    e. Fast-forward main on the parent repo: `git -C <parent-repo-path> merge --ff-only <branch>`.
 
-   f. Push: `git -C <parent-repo-path> push origin main`. Confirm with the user before pushing if this is the first push of a session — pushing is shared-state.
+   f. Push: `git -C <parent-repo-path> push origin main`. No per-push confirmation. Invoking `/start-engine` is the authorization for the lifecycle's pushes (eager-claim, in-session checkpoints, shutdown). Destructive operations (force-push, `git reset --hard`, branch deletion) still require explicit confirmation per the auto-mode interrupt criteria.
 
 6. **Begin substantive work.** The slot is held atomically; concurrent sessions cannot collide. Make file edits, run tools, commit incrementally as work progresses. Each commit must pass `tools/validate.py` (enforced by pre-commit hook).
 
@@ -58,7 +58,7 @@ Convert the current Claude Code conversation from default exploration mode (no c
 
 12. **Archive the claim.** Move `session/current.json` to `session/archive/S-<NNNN>.json`. Update `session/register_state.json` to `current_status: closed`.
 
-13. **Final commit + main FF + push.** Conventional commit message. Confirm push with the user.
+13. **Final commit + main FF + push.** Conventional commit message. No per-push confirmation — the `/start-engine` invocation already authorizes the shutdown push.
 
 ## Default-mode posture (when this command is NOT invoked)
 

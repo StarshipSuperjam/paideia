@@ -1,4 +1,15 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(git -C /Users/shanekidd/Documents/Claude_Files/Paideia merge --ff-only *)",
+      "Bash(git -C /Users/shanekidd/Documents/Claude_Files/Paideia push origin main)",
+      "Bash(git -C /Users/shanekidd/Documents/Claude_Files/Paideia log:*)",
+      "Bash(git -C /Users/shanekidd/Documents/Claude_Files/Paideia status:*)",
+      "Bash(git -C /Users/shanekidd/Documents/Claude_Files/Paideia rev-parse:*)",
+      "Bash(git -C /Users/shanekidd/Documents/Claude_Files/Paideia fetch:*)",
+      "Bash(git -C /Users/shanekidd/Documents/Claude_Files/Paideia diff:*)"
+    ]
+  },
   "hooks": {
     "Stop": [
       {

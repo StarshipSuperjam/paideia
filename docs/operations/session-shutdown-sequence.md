@@ -114,7 +114,7 @@ git -C <parent-repo-path> merge --ff-only <worktree-branch>
 git -C <parent-repo-path> push origin main
 ```
 
-Confirm push with the user. After the push completes, the session is closed.
+No per-push confirmation — the `/start-engine` invocation at session boot already authorizes the shutdown push (per `session-build-lifecycle.md` Push policy). After the push completes, the session is closed.
 
 ## Updating design docs during a session
 

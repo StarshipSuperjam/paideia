@@ -59,11 +59,13 @@ Atomic slot reservation. Run before any substantive work edits.
    git -C <parent-repo-path> merge --ff-only <branch>
    ```
 
-6. **Confirm with the user before pushing the first time per session** — pushing is shared-state. Subsequent pushes within the same session don't need re-confirmation.
+6. Push:
 
    ```bash
    git -C <parent-repo-path> push origin main
    ```
+
+   No per-push confirmation. Invoking `/start-engine` (or typing `Start Engine`) is the authorization for the lifecycle's pushes — eager-claim, in-session checkpoints, and shutdown. Destructive operations (force-push, `git reset --hard`, branch deletion) still require explicit confirmation per the auto-mode interrupt criteria in `escalation-criteria.md`.
 
 The slot is now reserved. Concurrent sessions reading `register_state.json` will see `next_id` already bumped and pick the following slot.
 
@@ -82,8 +84,8 @@ Before pushing, fast-forward main locally first; resolve any divergence in the w
 
 ## Push policy within a session
 
-- First push of session: confirm with user.
-- Subsequent pushes within the same session: no re-confirmation needed unless the change is destructive (force-push, amends to public commits, branch deletion).
+- All routine pushes within a build session proceed without per-push confirmation. The `/start-engine` invocation is the authorization for the lifecycle.
+- Destructive operations remain gated: force-push, amends to published commits, branch deletion, `git reset --hard`. These require explicit confirmation regardless of session mode.
 - Always FF main locally before pushing. Never push the worktree branch directly to remote main without going through the parent repo's main.
 
 ## See also
