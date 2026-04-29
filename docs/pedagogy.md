@@ -14,15 +14,20 @@ A good teacher switches between these unconsciously. The contract makes the AI d
 
 ## Layered Instruction Architecture
 
+**Revised: 2026-04-29 (S-0008 — table updated to reflect the API-app architecture: rendering policy lives in [`AGENT_INSTRUCTIONS.md`](../AGENT_INSTRUCTIONS.md) per [ADR 0027](../adr/0027-rendering-policy-prompt-layer-contract.md); interaction-surface scope is structural per [ADR 0028](../adr/0028-input-side-scope-structural-not-prompt.md); learner model lives in Postgres per [ADR 0015](../adr/0015-event-sourced-learner-model.md). The original table assumed the Claude.ai project surface; the entries below assume the production architecture.)**
+
+The prompt-layer contract for the teaching agent is [`AGENT_INSTRUCTIONS.md`](../AGENT_INSTRUCTIONS.md) (per [ADR 0027](../adr/0027-rendering-policy-prompt-layer-contract.md)). It ships verbatim as Sonnet's system prompt at Phase 7 and constrains output (forbidden / surviving tokens, voice and prose discipline, citation rules, uncertainty posture, scope-discipline behavior, tension-emission shape). Input-side scope is the structural complement (per [ADR 0028](../adr/0028-input-side-scope-structural-not-prompt.md)) — the surface bounds what the user can ask, not the prompt. Together they form the bidirectional contract for the teaching surface.
+
 Each layer does one job cleanly:
 
 | Layer | What it controls | Where it lives |
 |-------|-----------------|----------------|
-| **Style** | Surface: no lists, no hedging, prose that thinks out loud | Claude Style feature |
-| **Project instruction** | Pedagogy: when to lead, explain, or test | Project system prompt |
-| **Text-specific outline** | Interpretive spine for the current work | Project knowledge file (per text) |
-| **Commentary** | Scholarly grounding and accuracy | Project knowledge file (per text) |
-| **Learner model** | What the learner knows, connections made, forward plan | MCP filesystem |
+| **Rendering policy** | Output-side: forbidden / surviving tokens; voice and prose discipline; citation rules; uncertainty posture; scope-discipline behavior; tension-emission shape | [`AGENT_INSTRUCTIONS.md`](../AGENT_INSTRUCTIONS.md) — ships as Sonnet's system prompt (per [ADR 0027](../adr/0027-rendering-policy-prompt-layer-contract.md)) |
+| **Interaction-surface scope** | Input-side: which surfaces accept free-form input (concept engagement, diagnostic, bring-your-own-book close reading); the exit-affordance UI primitive | UI surfaces — structural, not prompt-policed (per [ADR 0028](../adr/0028-input-side-scope-structural-not-prompt.md)) |
+| **Three-mode classification** | Mode 1 / 2 / 3 selection per turn from textual signals in the learner's most recent response | Within the rendering policy; signal definitions in [`session-lifecycle.md`](session-lifecycle.md) Mode Transitions |
+| **Text-specific outline** | Interpretive spine for the current work in close-reading mode | Per-text artifact (per [ADR 0005](../adr/0005-per-text-interpretive-outline.md)) |
+| **Commentary** | Scholarly grounding and accuracy | Per-text artifact |
+| **Learner model** | What the learner knows, connections made, forward plan | Postgres / Supabase, event-sourced (per [ADR 0015](../adr/0015-event-sourced-learner-model.md)) |
 
 ## Assessment Rubric
 **Added: 2026-04-07**
@@ -156,4 +161,4 @@ Proficiency is quiet. Mastery is a moment.
 - The outline must account for dialectical texts that undermine their own earlier framing on purpose (e.g., Hegel).
 
 ---
-*Last updated: 2026-04-29 (S-0004 — `scaffolding_proximity` renamed to `scaffolding_distance` per ADR 0023; pedagogical concept unchanged, value direction now matches evidentiary direction)*
+*Last updated: 2026-04-29 (S-0008 — Layered Instruction Architecture table revised to reflect API-app architecture; rendering policy points at [`AGENT_INSTRUCTIONS.md`](../AGENT_INSTRUCTIONS.md) per ADR 0027; interaction-surface scope row added per ADR 0028; learner model row updated to Postgres per ADR 0015. S-0004 — `scaffolding_proximity` renamed to `scaffolding_distance` per ADR 0023; pedagogical concept unchanged, value direction now matches evidentiary direction.)*

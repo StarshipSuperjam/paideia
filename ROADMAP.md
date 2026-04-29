@@ -37,9 +37,15 @@ The 14-session prompt pack is at `docs/prep-paideia-prompt-pack.md`. Sessions 1-
 - **Session 13 — Gamification & Milestone Tone.** Mostly resolved as a sensibility (per `docs/business.md` and `docs/pedagogy.md`). Re-open if a concrete gamification feature is proposed.
 - **Session 14 — Media Edge Quality.** Deferred until Phase 5 surfaces concrete cross-domain cases that test the supplementary-media-as-metadata commitment.
 
-### 1.2 Author rendering policy
+### 1.2 Author rendering policy and sibling commitments
+**Revised: 2026-04-29 (S-0008 — scope expanded by exploration-session commitments per the no-silent-drops feedback rule.)**
 
-- **`AGENT_INSTRUCTIONS.md`** — standalone rendering-policy file extracted from `docs/pedagogy.md`. Forbidden tokens (mastery-state names, prerequisite-edge framing, evidence-event references, scaffolding-proximity language, weight/confidence/provenance exposure, graph_version references, tension-log mechanism). Surviving tokens (concept names, domain-area names). Citation rules. Uncertainty posture. Worked example.
+- **`AGENT_INSTRUCTIONS.md`** — standalone rendering-policy file extracted from `docs/pedagogy.md`. Forbidden tokens (mastery-state names, prerequisite-edge framing, evidence-event references, scaffolding-distance language, weight/confidence/provenance exposure, graph_version references, tension-log mechanism, mastery-verification mechanic, machinery self-reference). Surviving tokens (concept names, domain-area names, thinker names, text titles, cross-domain connections). Citation rules (named structural units, no fabricated quotations). Uncertainty posture. Scope discipline (purpose-not-topic discrimination). Tension emission policy operationalizing [ADR 0026](adr/0026-persistent-learner-storage-structural-not-substantive.md)'s `pattern_observed` writing constraint. Worked example (gradeable test artifact for Phase 7 success criterion).
+- **[ADR 0027](adr/0027-rendering-policy-prompt-layer-contract.md)** — rendering policy as the prompt-layer contract. The output-side half of the bidirectional teaching-surface contract.
+- **[ADR 0028](adr/0028-input-side-scope-structural-not-prompt.md)** — input-side scope is structural, not prompt-policed. The input-side half of the bidirectional contract. Three bounded input contexts (concept engagement, diagnostic, close reading); purpose-not-topic discrimination within bounded contexts; exit affordance as the structural alternative to general chat.
+- **[ADR 0029](adr/0029-personal-financial-cost-ceiling.md)** — personal financial cost ceiling as operating constraint. Cost protection is a precondition (not a feature) for opening the system to non-builder users; mechanism mandated, ceiling value held in private operational configuration; soft walls degrade rather than terminate (preserving concept-engagement integrity).
+- **Tension entries** opened for sub-decisions deferred to downstream phases: OQ-BYOK-REGIME (institutional vs. consumer; decide-before consumer launch), OQ-WALL-BEHAVIOR (soft-wall degradation ladder; decide-before Phase 8), OQ-CONTEXT-COMPRESSION (token-amplification mitigation; decide-before Phase 7), OQ-PEDAGOGY-INFERENCE-LOCUS (rule layer vs. distributed inference; revisit trigger pinned to inference-registry size and operational complaint surfacing).
+- **[`docs/pedagogy/inferences.md`](docs/pedagogy/inferences.md)** — pedagogical inference registry stub. Cheap intermediate step before deciding whether to build a dedicated rule layer per OQ-PEDAGOGY-INFERENCE-LOCUS.
 
 ### 1.3 Add `confidence_level` to node schema
 
@@ -49,6 +55,7 @@ Add `confidence_level` (`EXTRACTED | INTERPRETED | SYNTHETIC`) to the node schem
 
 - Sessions 9, 10, 11 closed; sessions 12-14 explicitly tagged deferred in `docs/tensions.md`
 - `AGENT_INSTRUCTIONS.md` exists and a worked example passes when fed to Sonnet against a stub graph
+- ADRs 0027 (rendering policy), 0028 (input-side scope structural-not-prompt), and 0029 (personal financial cost ceiling) land with Status: Accepted
 - `confidence_level` column added to the node schema (architecture.md)
 - All Phase 1 ADRs land in `adr/` with Status: Accepted
 
@@ -234,6 +241,7 @@ If the Phase 5 trial proved Paperclip's fit, this is the moment to commit: Paper
 
 - Sonnet teaching prototype, given the `AGENT_INSTRUCTIONS.md` worked-example input, produces the pass-case voice
 - Spot-check: 10 random concept queries, manually graded for forbidden-token leakage. **Zero leakage is the bar.**
+- **OQ-CONTEXT-COMPRESSION** (per `docs/tensions.md`) settled with an ADR before the prototype runs sustained multi-turn engagements; the chosen strategy keeps typical concept-engagement cost inside the cost-ceiling per [ADR 0029](adr/0029-personal-financial-cost-ceiling.md) projections at a target user count
 
 ---
 
@@ -256,6 +264,8 @@ Validation against your own authored criteria is weak signal (per ADR — closed
 - Evaluation harness operational against the chosen external-baseline mix (per OQ-PHASE8-A resolution at Phase 8 entry)
 - Apple Developer Program enrollment in flight or complete
 - **Privacy policy and Apple App Store privacy questionnaire answers exist and align with the privacy ADR collection** (ADR 0026 and any superseding/extending ADRs that emerge from OQ-PRIVACY-A and OQ-PRIVACY-B) **before App Store submission.** This pins the privacy-policy authoring window against the Apple lead time so that submission is not blocked on policy work.
+- **Cost-cap mechanism wired and tested before evaluation users are admitted** (per [ADR 0029](adr/0029-personal-financial-cost-ceiling.md)). Per-user spend ceiling, aggregate-system spend ceiling, real-time spend telemetry, and a defined behavior at the cap (per OQ-WALL-BEHAVIOR settled in an ADR before this phase opens). Cost protection is a precondition for non-builder access, not a feature.
+- **OQ-BYOK-REGIME** (per `docs/tensions.md`) settled with an ADR before any non-builder consumer launch surface ships
 
 ---
 
@@ -266,6 +276,14 @@ Validation against your own authored criteria is weak signal (per ADR — closed
 Per `docs/ui-architecture.md`. Application code; **CHANGELOG / ADR discipline does not apply** to application code (per the scoping decision; state-of-record-only). Normal git history.
 
 Subscribe to Google Play Console if not already done in Phase 8.
+
+### Phase 9 success criteria
+**Added: 2026-04-29 (S-0008)**
+
+- Globe-as-home-screen + concept-engagement surface implemented per [`docs/session-lifecycle.md`](docs/session-lifecycle.md) and [`docs/ui-architecture.md`](docs/ui-architecture.md)
+- **Exit affordance is a first-class UI primitive** per [ADR 0028](adr/0028-input-side-scope-structural-not-prompt.md) — single visible control reachable in one action from any concept engagement / diagnostic / close-reading surface that returns the user to graph navigation
+- Cost-cap mechanism (per [ADR 0029](adr/0029-personal-financial-cost-ceiling.md)) operates against the production user-facing surface, not just the evaluation harness from Phase 8
+- No "general chat" surface exposed (per [ADR 0028](adr/0028-input-side-scope-structural-not-prompt.md)); free-form input only inside the three bounded contexts (concept engagement, diagnostic, close reading)
 
 ---
 

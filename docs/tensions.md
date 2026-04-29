@@ -193,4 +193,76 @@ When the volume of "things to watch for in future evidence that aren't actionabl
 
 ---
 
-*Last updated: 2026-04-29 (S-0007 added OQ-PRIVACY-A erasure mechanism and OQ-PRIVACY-B institutional vs individual data regime, both per ADR 0026)*
+## OQ-BYOK-REGIME: Institutional vs. consumer bring-your-own-key
+**Added: 2026-04-29 (S-0008) | Status: Open | Decide before: any non-builder consumer launch (Phase 8 entry or earlier)**
+
+[ADR 0029](../adr/0029-personal-financial-cost-ceiling.md) commits to bounded builder exposure but does not settle the bring-your-own-key (BYOK) regime. Two regimes have substantially different cost-architecture, privacy, and audience implications:
+
+(a) **Institutional BYOK.** A community college, library, university, or K-12 system holds the Anthropic API key; cost flows institution → Anthropic; Paideia is the application layer above. Sidesteps [ADR 0029](../adr/0029-personal-financial-cost-ceiling.md)'s builder-exposure problem entirely. Compatible with the institutional schema provisions in [`architecture.md`](architecture.md) Institutional Schema Provisions and the institutional path in [`business.md`](business.md) Audience vs. Market. Requires per-institution onboarding (API key configuration, billing relationship, possibly a Data Processing Agreement). The institutional users themselves never see or manage the key.
+
+(b) **Consumer BYOK.** Individual users obtain a key at the Anthropic console and paste it into Paideia; the system uses their key for their sessions. Self-selects technically sophisticated users — not the freshman audience the system is calibrated for per [ADR 0012](../adr/0012-freshman-defaults-autodidact-ceiling.md). Has a meaningful interaction with [ADR 0026](../adr/0026-persistent-learner-storage-structural-not-substantive.md): under consumer BYOK, Anthropic logs API calls against the user's own account per Anthropic's data retention policy, even though Paideia's own storage observes the structural-not-substantive discipline. The user's mental model of "Paideia doesn't keep my transcripts" does not include Anthropic-the-vendor's logging under their account; this needs disclosure.
+
+The leaning shape is: **institutional BYOK keep open and pursue actively as the primary non-builder access path; consumer BYOK foreclose unless a future regime change justifies revisiting**. The leaning is not yet a settled decision because the institutional onboarding work has not been scoped, the legal-relationship surface (DPA, vendor-of-record) has not been authored, and the precise interaction with [ADR 0026](../adr/0026-persistent-learner-storage-structural-not-substantive.md)'s privacy posture under each regime needs to be worked through rather than asserted.
+
+Decide-before any non-builder consumer launch. Decision lands as an ADR. The institutional onboarding pipeline (if accepted) becomes a Phase 8 / Phase 9 work item.
+
+---
+
+## OQ-WALL-BEHAVIOR: Soft-wall degradation ladder at cost cap
+**Added: 2026-04-29 (S-0008) | Status: Open | Decide before: Phase 8 (cost-cap mechanism wiring) per ADR 0029**
+
+[ADR 0029](../adr/0029-personal-financial-cost-ceiling.md) commits the principle that walls degrade rather than terminate (the atomic unit of teaching is the concept engagement per [`session-lifecycle.md`](session-lifecycle.md), which spans hours or days; a wall that fires mid-engagement violates that integrity). What it does not settle is the **specific degradation ladder** — what changes at each step of approach to the cap, in what order.
+
+Candidate steps to compose into a ladder:
+
+- **Model downshift** — Opus → Sonnet for self-correction reviewer pass; or Sonnet → smaller-model-class once available. Composes with [ADR 0014](../adr/0014-sonnet-teaches-opus-reviews.md)'s teaching/reviewing role split: the teaching layer can downshift independently of the review layer.
+- **Retrieval shrink** — two-hop entity-resolution neighborhood → one-hop; deeper context window → shallower; reduces per-turn input token cost.
+- **Cross-domain bridge cap** — bridges-per-month threshold reduces (consistent with the free-tier framing in [`business.md`](business.md) Revenue Mechanisms Explored).
+- **Concept-engagement length cap** — upper-bound on per-engagement turn count or total token cost; on hit, agent surfaces a "we've spent some real time on this; let's pause and pick up next session" pattern that respects engagement integrity.
+- **Soft refusal with explanation** — final fallback; agent acknowledges the cap, explains the situation, points at the exit affordance per [ADR 0028](../adr/0028-input-side-scope-structural-not-prompt.md). Explicit, never silent.
+
+The open questions: (1) what's the order? (2) at what fraction of cap does each step trigger? (3) is the ladder per-user, per-aggregate-system, or both? (4) how is the user notified, if at all, between steps? Notification is itself a design decision — silent degradation respects the [ADR 0027](../adr/0027-rendering-policy-prompt-layer-contract.md) "no machinery narration" discipline but may surprise the user; explicit degradation creates a moment of friction that may be the right honesty trade.
+
+Decide-before any non-builder access. Decision lands as an ADR (with operational parameters held in private configuration, per [ADR 0029](../adr/0029-personal-financial-cost-ceiling.md)'s pattern).
+
+---
+
+## OQ-CONTEXT-COMPRESSION: Token-amplification mitigation for multi-turn concept engagements
+**Added: 2026-04-29 (S-0008) | Status: Open | Decide before: Phase 7 (Sonnet teaching prototype)**
+
+Per-turn cost compounds with session length when the per-turn context grows turn-over-turn. Concept engagements are explicitly designed as continuous threads spanning hours or days (per [`session-lifecycle.md`](session-lifecycle.md), Concept Engagement as the Atomic Unit). The naive shape — load all prior turns into each subsequent turn's context — produces quadratic token growth per engagement, which interacts unfavorably with [ADR 0029](../adr/0029-personal-financial-cost-ceiling.md)'s cost-ceiling commitment.
+
+Three mitigation candidates (described in [`business.md`](business.md) Cost Amplification with Session Length):
+
+(a) **Structured-state replacement.** Instead of loading full prior turns, load the structured learner state (current concept node + prerequisite states + recent event history) and only the most recent N turns; rely on the persistent event stream and `mastery_snapshots` for cross-session continuity. Matches [ADR 0026](../adr/0026-persistent-learner-storage-structural-not-substantive.md)'s transcript-non-persistence commitment and [ADR 0014](../adr/0014-sonnet-teaches-opus-reviews.md)'s bounded-context discipline. Risk: subtle conversational state (the learner's current train of thought, the framing of an ongoing analogy) is lost when older turns drop out.
+
+(b) **Automatic context compression at platform-supported windows.** Anthropic's prompt-caching surface mediates some of this transparently for the system-prompt portion (notably the AGENT_INSTRUCTIONS.md system prompt is an obvious cache target per [ADR 0027](../adr/0027-rendering-policy-prompt-layer-contract.md)'s consequences). The dynamic per-turn portion is what remains the engineering surface. Risk: vendor-mediated; we control less of the trade.
+
+(c) **Explicit per-turn summarization.** The agent summarizes the conversation-so-far into a structured note that replaces older raw turns at a sliding window. Preserves more conversational state than (a) at the cost of an extra Sonnet call per N turns to produce the summary. Has potential interaction with [ADR 0026](../adr/0026-persistent-learner-storage-structural-not-substantive.md): if the summary is persisted (e.g., to support session resume), it may reintroduce substantive content into durable state — needs to be ephemeral (in-session-scoped) or explicitly structured to honor the structural-not-substantive discipline.
+
+The leaning shape is: **(a) for cross-session continuity (already implied by [ADR 0026](../adr/0026-persistent-learner-storage-structural-not-substantive.md) and event-sourcing) + (c) for within-engagement compression**, with (b) as a transparent layer underneath (we use prompt caching; we do not depend on it for correctness). Not yet settled because the precise sliding-window parameters, the summarization-prompt structure, and the cost-quality tradeoff measurements have not been done.
+
+Decide-before Phase 7 (the prototype that produces the first multi-turn teaching-cost data). Decision lands as an ADR.
+
+---
+
+## OQ-PEDAGOGY-INFERENCE-LOCUS: Where pedagogical inference lives — distributed code vs. explicit rule layer
+**Added: 2026-04-29 (S-0008) | Status: Open (tagged: `watch`) | Revisit when: inference registry crosses ~30 entries OR cross-domain edges per domain-pair exceed ~50 OR the locus complaint surfaces operationally**
+
+The system makes pedagogical inferences continuously: "if user has mastered A and B, surface C as unlock candidate"; "if user is below mastery threshold M for >N days, downshift teaching mode"; "if user struggles with X in domain D1, search analogous concepts in D2..Dn that they've mastered, surface as bridge"; "if user spontaneously connects to a concept the graph doesn't link, log a `spontaneous_connection` tension." Where each inference *lives today* is distributed: some in the schema (which relationships are encoded), some in queries (Cypher/SQL/CTE retrieval logic per [ADR 0017](../adr/0017-postgres-recursive-ctes-over-owl-rdf.md)), some in application code (TypeScript that interprets query results), some in the rendering policy (which mode to enter, how to weight evidence).
+
+The standing position is that this distribution is appropriate at current scale: TypeScript with good naming and good tests is already declarative-ish; a dedicated rule layer (Drools-like, or a custom DSL) is premature abstraction. But the position has not been argued through against the alternative.
+
+The right diagnostic is **findability**, not **abstraction**: can someone — including a future Claude session — answer "how many pedagogical inferences does Paideia have, where does each live, what does each trigger on?" without grepping the entire codebase? Today, the answer is no. The cheap intermediate step that buys the deferral honestly is a **registry**: [`docs/pedagogy/inferences.md`](pedagogy/inferences.md) (stub created in S-0008) enumerates each inference, where it's expressed, what triggers it. The registry is created in this session as a forcing function for the population to become visible.
+
+Two failure modes a rule layer would risk if adopted prematurely:
+- **Conflict accumulation.** Drools-style systems are famously hard to reason about at scale because rules conflict and resolution requires meta-rules (priorities, salience, retraction). The complexity grows superlinearly.
+- **Performance opacity.** A query plan is inspectable. A rule engine evaluating against working memory is much less so. For interactive Socratic teaching latency, this matters.
+
+One thing a rule layer would buy that nothing else does: **declarative pedagogical review by non-engineers.** If the long-term contributor model includes learning scientists or subject-matter experts shaping pedagogical inference *without writing TypeScript*, that is the forcing function. If it doesn't, distributed code wins.
+
+Revisit when: the registry crosses ~30 entries (the population is genuinely complex), or cross-domain edges per domain-pair exceed ~50 (cross-domain inference becomes the dominant traversal cost), or a concrete operational complaint surfaces (someone needs to change inference behavior and the change is hard *because* the inference is distributed). Until then, distributed code is the working position; the registry keeps the population visible. Decision lands as an ADR.
+
+---
+
+*Last updated: 2026-04-29 (S-0008 added four tension entries: OQ-BYOK-REGIME institutional-vs-consumer; OQ-WALL-BEHAVIOR soft-wall degradation ladder; OQ-CONTEXT-COMPRESSION token-amplification mitigation; OQ-PEDAGOGY-INFERENCE-LOCUS rule layer vs distributed inference. Three are tied to ADR 0029 cost-ceiling; the fourth opens the pedagogy-inference architecture question with a registry as the cheap intermediate step.)*

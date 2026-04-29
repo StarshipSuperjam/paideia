@@ -1,0 +1,71 @@
+# ADR 0027 — Rendering policy is the prompt-layer contract
+
+- **Status:** Accepted
+- **Date:** 2026-04-29
+- **Deciders:** S-0008 (Phase 1.2 — `AGENT_INSTRUCTIONS.md` rendering-policy authoring)
+
+## Context
+
+Sonnet's teaching layer (per [ADR 0014](0014-sonnet-teaches-opus-reviews.md)) is the surface where the entire system reaches the learner. Every architectural decision elsewhere — the four-state mastery model (per [`docs/learner-model.md`](../docs/learner-model.md)), the event-sourced storage discipline (per [ADR 0015](0015-event-sourced-learner-model.md)), the engagement-depth aggregation formula (per [ADR 0023](0023-engagement-depth-aggregation.md)), the scaffolding-distance discount (per [ADR 0010](0010-continuous-contextual-assessment.md) and renamed at [ADR 0023](0023-engagement-depth-aggregation.md)), the rigor-score modulation, the tension-log machinery (per [`docs/self-correction.md`](../docs/self-correction.md) and constrained at [ADR 0026](0026-persistent-learner-storage-structural-not-substantive.md)), the graph-version counter — has a corresponding token, name, or numeric value that lives inside the system prompt's reach. Without an explicit rendering contract, those tokens leak into learner-facing prose. The leakage is not a hypothetical: a stock LLM teaching prompt that has access to a structured learner state will, by default, narrate from that state.
+
+Three failure modes follow from leakage. **Pedagogical breakage** — the learner sees the mechanic instead of the teaching, which collapses the [ADR 0013](0013-mastery-verification-organic-escalation.md) commitment that mastery verification is *organic*: the moment the learner is told they are being verified, the constraint is broken. **Audience violation** — the freshman default committed to in [ADR 0012](0012-freshman-defaults-autodidact-ceiling.md) and [`docs/MISSION.md`](../docs/MISSION.md) calibrates against learners who do not have academic vocabulary; system-machinery tokens read as academic-jargon-heavy and signal "this is not for you." **Trust erosion** — phrases like "I see your mastery state is..." or "according to the graph..." make the learner aware they are being measured by an opaque process. The continuous-contextual assessment commitment in [ADR 0010](0010-continuous-contextual-assessment.md) is load-bearing on the learner *not* knowing that every utterance is evidence; the moment they know, the evidence becomes performative.
+
+A fourth force operates at the architecture level. The privacy posture in [ADR 0026](0026-persistent-learner-storage-structural-not-substantive.md) commits that persistent storage is structural-not-substantive. Sonnet writes to `tension_log.exchange_summary.pattern_observed` — the only free-text field in the persistence surface. Without an explicit emission policy, Sonnet defaults to writing what feels natural: quotations, doctrinal positions, first-person framings — precisely the substantive content [ADR 0026](0026-persistent-learner-storage-structural-not-substantive.md) forbids on durable tables. The rendering policy and the emission policy are adjacent contracts: one governs what reaches the learner, the other governs what reaches storage. Both belong in the same prompt-layer artifact.
+
+The forcing function is Phase 7. The Sonnet teaching prototype is graded against the rendering policy's worked example: zero forbidden-token leakage in 10 random concept queries is the bar (per [`ROADMAP.md`](../ROADMAP.md) Phase 7 success criteria). Without the contract authored before Phase 7 begins, the prototype has nothing to grade against, and the bar moves to "whatever the prototype happens to produce."
+
+## Decision
+
+**The rendering policy is the prompt-layer contract for the teaching agent. It lives in [`AGENT_INSTRUCTIONS.md`](../AGENT_INSTRUCTIONS.md) at the repo root and ships verbatim as Sonnet's system prompt at Phase 7.**
+
+The contract has eight sections:
+
+1. **Role.** Who the agent is, what surface the learner sees, what audience to default to (freshman, calibrating up from there).
+2. **The expression contract — three teaching modes.** The Mode 1 / Mode 2 / Mode 3 classification from [`docs/pedagogy.md`](../docs/pedagogy.md), with the unannounced-switching rule.
+3. **Voice and prose discipline.** Prose not lists, no hedging filler, no compliments, no process narration, first-person plural allowed, no emojis.
+4. **Forbidden tokens.** An exhaustive enumeration with one-line ADR-pointer rationale per category. The enumeration covers mastery-state names, prerequisite-edge framing, evidence-event references, scaffolding-distance language, weight/confidence/provenance numerics, `graph_version` references, tension-log mechanism, mastery-verification mechanic, machinery self-reference, and confusion apologies.
+5. **Surviving tokens.** Concept names, domain-area names, thinker names, text titles, cross-domain connections.
+6. **Citation rules.** Cite named structural units (book, chapter, section, dialogue), never edition-specific page numbers; no fabricated quotations; in close-reading mode, quote sparingly from the learner's own copy per [ADR 0011](0011-no-hosted-copyrighted-material.md).
+7. **Uncertainty posture.** Calibrate certainty to the actual epistemic state of the field; say "I don't know" rather than fabricating; redirect rather than improvising on out-of-competence questions.
+8. **Scope discipline.** Engage with cross-context connections that serve the concept; decline redirected tasks (per [ADR 0028](0028-input-side-scope-structural-not-prompt.md)) by surfacing the exit affordance, not by lecturing.
+9. **Tension emission.** Constraints on `pattern_observed` writing per [ADR 0026](0026-persistent-learner-storage-structural-not-substantive.md): third-person, descriptive-not-quotational, length-bounded, forbidden substantive-content categories. Pass and fail examples included inline.
+10. **Worked example.** A stub input (concept node + prerequisites + entity-resolution neighborhood + recent learner turn) and the corresponding pass-case output, annotated with what the output does and does not do. This is the gradeable artifact for Phase 7.
+11. **Self-check.** A pre-send checklist for the agent.
+
+(The numbered list above is for this ADR's exposition. The rendering policy itself is prose-organized in [`AGENT_INSTRUCTIONS.md`](../AGENT_INSTRUCTIONS.md), with section headings.)
+
+The forbidden-token enumeration is the load-bearing surface. **Additions to the enumeration are CHANGELOG-tracked but do not require a new ADR.** **Removals from the enumeration require a superseding ADR.** This asymmetry matches the cost: a new forbidden token is a tightening (cheap to add, the agent will cease emitting it on the next deploy); a removed forbidden token is a loosening that exposes machinery the original contract was written to hide (warrants the deliberation an ADR forces).
+
+## Consequences
+
+- **Phase 7 success criterion is well-defined.** The prototype, given the worked-example stub input, produces the pass-case voice without forbidden-token leakage. Ten random concept queries are the spot-check sample. Zero leakage is the bar (already in [`ROADMAP.md`](../ROADMAP.md) Phase 7 success criteria; this ADR makes the gradeable artifact concrete).
+
+- **Phase 4 [`tools/validate.py`](../tools/validate.py) gains a rendering-audit category.** A periodic-batch soft-warn extension scans recent Sonnet output samples for forbidden-token strings. False positives are expected — `mastery` may legitimately appear as a learner-facing word in the context of teaching it as a *concept*; `assessment` may appear in scholarly commentary the agent quotes. The audit surfaces candidates for human review, not auto-edit. This sits alongside the privacy-audit category that [ADR 0026](0026-persistent-learner-storage-structural-not-substantive.md) wired into the same Phase 4 build.
+
+- **The audience commitment becomes structurally enforced.** [ADR 0012](0012-freshman-defaults-autodidact-ceiling.md) commits to freshman-default calibration; this ADR is what makes that commitment hold under load. Without the rendering policy, the freshman-default is an aspiration the model will drift away from on any turn that surfaces system machinery. With it, the drift is forbidden at the prompt layer.
+
+- **Future features that need a forbidden token must amend the contract.** A learner-facing dashboard that displays mastery-state labels (e.g., a globe tooltip showing "Eudaimonia: proficiency") is not a violation of this ADR — the rendering policy governs *prose emission by the teaching agent*, not the structured UI surface. But a teaching turn that says "you have proficiency on Eudaimonia" is a violation. The boundary is the agent's prose; UI primitives that surface state through structured controls (icons, glow states, navigation labels) are out of scope.
+
+- **The tension-emission policy operationalizes [ADR 0026](0026-persistent-learner-storage-structural-not-substantive.md).** [ADR 0026](0026-persistent-learner-storage-structural-not-substantive.md) commits the principle (structural-not-substantive); [`docs/self-correction.md`](../docs/self-correction.md) constrains the schema (JSONB with named fields, `pattern_observed` as the only free-text field with bounds); this ADR (via [`AGENT_INSTRUCTIONS.md`](../AGENT_INSTRUCTIONS.md)) constrains the writing behavior at write time. The three layers compose: principle, schema, behavior.
+
+- **The rendering policy is a contract artifact, not a tunable.** Wording adjustments to [`AGENT_INSTRUCTIONS.md`](../AGENT_INSTRUCTIONS.md) are CHANGELOG-tracked. Substantive changes to what is forbidden, what is surviving, or what voice rules apply require a superseding or amending ADR. This is the same discipline applied to the schema in [ADR 0026](0026-persistent-learner-storage-structural-not-substantive.md).
+
+- **Per-turn token cost is bounded by the contract's length.** The current draft of [`AGENT_INSTRUCTIONS.md`](../AGENT_INSTRUCTIONS.md) is approximately 2,800 tokens (rough estimate; precise count belongs to Phase 7 telemetry). With prompt caching on the system-prompt portion, the effective per-turn cost of the contract is near-zero after the first turn of a session. Without prompt caching, the contract sits on every turn — a real cost that compounds at scale. Phase 7 deployment must use prompt caching; this is captured operationally rather than as an ADR commitment because it is a vendor-feature dependency, not a design decision.
+
+- **Pairs with [ADR 0028](0028-input-side-scope-structural-not-prompt.md) as input-output contract.** [ADR 0028](0028-input-side-scope-structural-not-prompt.md) commits that input-side scope is structural-not-prompt: the surface bounds what the user can ask, not the prompt. This ADR commits that output-side rendering is the prompt-layer contract: the prompt bounds what the agent can emit. Together they form the bidirectional contract for the teaching surface.
+
+- **Phase 1.2 closes with this ADR.** Per [`ROADMAP.md`](../ROADMAP.md) Phase 1, the deliverables are `AGENT_INSTRUCTIONS.md` (lands), the worked example (lands inline), and this ADR (lands). Phase 1.3 (`confidence_level` column on node schema) is the remaining Phase 1 work item.
+
+## See also
+
+- [`AGENT_INSTRUCTIONS.md`](../AGENT_INSTRUCTIONS.md) — the contract itself.
+- [ADR 0028](0028-input-side-scope-structural-not-prompt.md) — input-side structural complement.
+- [ADR 0026](0026-persistent-learner-storage-structural-not-substantive.md) — persistent storage structural-not-substantive (the principle the tension-emission section operationalizes).
+- [ADR 0014](0014-sonnet-teaches-opus-reviews.md) — Sonnet teaches, Opus reviews (the role split this ADR is the teaching half of).
+- [ADR 0013](0013-mastery-verification-organic-escalation.md) — mastery verification as organic escalation (load-bearing on the un-named-mechanic discipline this ADR enforces).
+- [ADR 0010](0010-continuous-contextual-assessment.md) — continuous and contextual assessment (the rubric that defines the forbidden assessment-mechanic tokens).
+- [ADR 0012](0012-freshman-defaults-autodidact-ceiling.md) — audience commitment this ADR structurally enforces.
+- [ADR 0023](0023-engagement-depth-aggregation.md) — `scaffolding_distance` is the canonical surviving variable name (forbidden as a learner-facing token; required as an internal token).
+- [`docs/pedagogy.md`](../docs/pedagogy.md) — three teaching modes, expression contract.
+- [`docs/self-correction.md`](../docs/self-correction.md) — tension log schema and the `pattern_observed` field.
+- [`ROADMAP.md`](../ROADMAP.md) — Phase 7 success criteria (graded against this ADR's worked example).

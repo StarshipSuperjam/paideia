@@ -21,7 +21,7 @@ The `Status:` field is required; `tools/validate.py` soft-warns on ADR files mis
 
 ## Index
 
-The Phase 0 collection (ADRs 0001–0022) landed in S-0003. ADRs 0001–0012 absorb the 12 strong working commitments from `docs/MISSION.md` / `ROADMAP.md`. ADRs 0013–0022 absorb the 10 architectural decisions previously held in `design-reasoning.md` (now retired) plus two decisions that emerged in the S-0001 plan conversation (0016, 0022). Phase 1 ADRs (0023 onward) accumulate as Contract Lock work proceeds; ADRs 0023–0024 landed in S-0004 (engagement-depth aggregation, prompt-pack Session 9), ADR 0025 landed in S-0006 (historical maximum tracking, prompt-pack Session 11), and ADR 0026 landed in S-0007 (privacy posture, inserted ahead of Phase 1.2 rendering policy). Phase 1.1 closed at S-0006 with all three pending prompt-pack sessions (9, 10, 11) settled; Phase 1.2 (rendering policy) moves to S-0008.
+The Phase 0 collection (ADRs 0001–0022) landed in S-0003. ADRs 0001–0012 absorb the 12 strong working commitments from `docs/MISSION.md` / `ROADMAP.md`. ADRs 0013–0022 absorb the 10 architectural decisions previously held in `design-reasoning.md` (now retired) plus two decisions that emerged in the S-0001 plan conversation (0016, 0022). Phase 1 ADRs (0023 onward) accumulate as Contract Lock work proceeds; ADRs 0023–0024 landed in S-0004 (engagement-depth aggregation, prompt-pack Session 9), ADR 0025 landed in S-0006 (historical maximum tracking, prompt-pack Session 11), ADR 0026 landed in S-0007 (privacy posture, inserted ahead of Phase 1.2), and ADRs 0027–0029 land in S-0008 (Phase 1.2 rendering policy + sibling commitments from exploration: input-side scope structural-not-prompt; personal financial cost ceiling). Phase 1.1 closed at S-0006 with all three pending prompt-pack sessions (9, 10, 11) settled; Phase 1.2 closes at S-0008.
 
 ### Strong working commitments (ADRs 0001–0012)
 
@@ -63,6 +63,9 @@ The Phase 0 collection (ADRs 0001–0022) landed in S-0003. ADRs 0001–0012 abs
 | [0024](0024-engagement-depth-sub-signals-stored-raw.md) | Engagement-depth sub-signals stored raw, composite derived | Accepted |
 | [0025](0025-historical-maximum-tracking.md) | Historical maximum tracking on `mastery_snapshots` | Accepted |
 | [0026](0026-persistent-learner-storage-structural-not-substantive.md) | Persistent learner storage is structural, not substantive | Accepted |
+| [0027](0027-rendering-policy-prompt-layer-contract.md) | Rendering policy is the prompt-layer contract | Accepted |
+| [0028](0028-input-side-scope-structural-not-prompt.md) | Input-side scope is structural, not prompt-policed | Accepted |
+| [0029](0029-personal-financial-cost-ceiling.md) | Personal financial cost ceiling is an operating constraint | Accepted |
 
 ## Adding a new ADR
 
