@@ -1,12 +1,25 @@
 # Mission
 
-> What Paideia is, who it serves, and the commitments that make it different. Vision and audience framing extracted from CONTEXT.md (now retired) at S-0002. Project disposition revised at S-0012 per [ADR 0032](../adr/0032-personal-project-disposition.md).
+> What Paideia is, who it serves, and the commitments that make it different. Vision and audience framing extracted from CONTEXT.md (now retired) at S-0002. Project disposition revised at S-0012 per [ADR 0032](../adr/0032-personal-project-disposition.md). Mission focus realigned at S-0013 per [ADR 0033](../adr/0033-mission-realignment-structured-guidance-for-self-learners.md) — Paideia fills the structured-guidance gap a self-learner has when there is no teacher.
 
 ## What this is
 
 Paideia is a knowledge mastery app built on a **pedagogical dependency graph** — not a historical influence map. The key insight: "you need Kant's epistemology before phenomenology" is a different claim than "Kant influenced Husserl." The graph encodes what you must understand before something else makes sense, not just what influenced what.
 
 Users select a target topic. The system traverses prerequisites, topologically sorts them, and generates a reading syllabus (primary + supplementary) for each step. A persistent learner model tracks mastery across sessions and texts.
+
+### The gap Paideia fills
+**Added: 2026-04-30 (S-0013 — per [ADR 0033](../adr/0033-mission-realignment-structured-guidance-for-self-learners.md) mission realignment)**
+
+A self-learner without a teacher faces three concrete problems: (a) figuring out what to learn at all (no one is opening doors); (b) knowing what they need to understand first (no one is sequencing prerequisites); (c) knowing whether they have actually *learned* the thing rather than become familiar with its facts (no one is gating mastery). Paideia's two novel-value mechanisms address all three.
+
+The **structured pedagogical knowledge graph** grounds learning in subject (concept-prerequisite chains, per [ADR 0001](../adr/0001-pedagogical-edges-not-historical.md), [ADR 0007](../adr/0007-cross-domain-porosity.md), [ADR 0008](../adr/0008-concept-nodes-not-thinkers.md)) rather than schools (historical influence lineages). The graph is what makes "what to learn next" answerable for a learner who doesn't already know — the prerequisite topology is the system's answer to the door-opening problem.
+
+The **AI instructor that supports and gates progression** (per [ADR 0010](../adr/0010-continuous-contextual-assessment.md), [ADR 0013](../adr/0013-mastery-verification-organic-escalation.md), [ADR 0014](../adr/0014-sonnet-teaches-opus-reviews.md), [ADR 0023](../adr/0023-engagement-depth-aggregation.md)) ensures the learner reaches mastery rather than familiarity. Mastery is gated through organic verification — the system probes the learner's understanding through downstream concepts that depend on it, then escalates to a quiet zero-scaffolding moment when enough distance has accumulated. The verification is the system's answer to the "did I actually learn it" problem.
+
+The mission is **structured guidance for self-learners**: the structured graph answers *what to learn and in what order*; the AI instructor answers *did you actually learn it.* Bring-your-own-book close reading (per [ADR 0011](../adr/0011-no-hosted-copyrighted-material.md), [ADR 0005](../adr/0005-per-text-interpretive-outline.md)) is the engagement context for working through specific texts within that structured guidance.
+
+### Disposition
 
 It ships as a **personal project** the builder makes available to other people via a single iOS App Store cost-priced subscription, calibrated for first-encounter learners because the builder values the pedagogical discipline of that calibration (per [ADR 0012](../adr/0012-freshman-defaults-autodidact-ceiling.md)) — not because of market-fit. The option to grow into an institutional product, a non-profit, a grant-funded organization, or an acquisition target is foreclosed *as a refusal, not a deferral* per [ADR 0032](../adr/0032-personal-project-disposition.md), including in the success case. The freshman-defaults calibration survives because it protects against **builder-bias drift** — the failure mode where knowing how the system works obscures whether it's usable cold to a learner encountering it for the first time. The success criterion is "an app I would pay for if it weren't mine," verified at Phase 9 by a small TestFlight cohort cold-test (see [`business.md`](business.md) Personal Project Disposition).
 
