@@ -1,9 +1,11 @@
 # ADR 0032 — Personal project disposition; refusal-not-deferral commercial closure
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR 0035](0035-multi-platform-apple-expansion.md)
 - **Supersedes:** [ADR 0002](0002-commercial-sustainability-without-pedagogical-compromise.md)
 - **Date:** 2026-04-30
-- **Deciders:** S-0012 (formal recording of a project-direction shift settled in the S-0011 conversation; [ADR 0031](0031-erasure-mechanism-and-individual-only-regime.md) already depends on this commitment)
+- **Deciders:** S-0012 (formal recording of a project-direction shift settled in the S-0011 conversation; [ADR 0031](0031-erasure-mechanism-and-individual-only-regime.md) already depends on this commitment); superseded in S-0015
+
+> **Superseded 2026-04-30 (S-0015).** [ADR 0035](0035-multi-platform-apple-expansion.md) broadens commitment 1 from single-platform iOS to *Apple platforms via App Store. iPhone + iPad first-class via a single SwiftUI codebase. Mac via Designed-for-iPad opt-in with modest keyboard/menu polish. No Android, no web app, no native AppKit/Catalyst Mac app.* This is **supersession-by-narrowing-revision, not supersession-by-reversal** — ADR 0035 restates commitments 2–6 (cost-priced subscription, no free tier, builder eats API costs, no BYOK / no institutional regime, [ADR 0029](0029-personal-financial-cost-ceiling.md) reframed as fixed annual operating subsidy budget, polish-static / maintenance-minimum) verbatim, and preserves the disposition spirit (single SwiftUI codebase, single store, single billing path, refusal-not-deferral binding at the new boundary). The corruption-vector identification this ADR carries — "leave the option open to expand later" was the seed pattern that pulled design toward business outcomes pedagogy never warranted — survives in [ADR 0035](0035-multi-platform-apple-expansion.md) and remains the discipline against which future supersessions are tested. The platform broadening is motivated by [ADR 0033](0033-mission-realignment-structured-guidance-for-self-learners.md) / [ADR 0034](0034-discovery-planning-engagement-triad.md): the editorial / typographic / library-shaped product structure that follows from the globe drop works best when larger screens (iPad, Mac via Designed-for-iPad) do the heavy work. The historical reasoning below is preserved per the ADR README's supersession discipline (one-directional pointer; old file not deleted).
 
 ## Context
 
