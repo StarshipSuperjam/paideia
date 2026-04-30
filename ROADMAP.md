@@ -159,7 +159,7 @@ This phase **does not** revise the "Generative Graph Independence" position (`bu
 ### Five usability axes (constrain every candidate)
 
 1. **Graph-shape orientation.** Prerequisite-shaped (per ADR 0001) vs. influence / agreement / dialectical / citation / co-occurrence. Filter aggressively — influence-shaped data drags the modeler dialectical even when intended only as vocabulary.
-2. **License.** Ingestable (CC0/CC-BY/MIT/PD) vs. mineable-for-facts-only (citations, taxonomies — facts about works are not copyrightable, prose summarizing them often is) vs. consultable-only (all-rights-reserved, non-commercial like SEP).
+2. **License.** *Simplified at S-0012 per [ADR 0032](adr/0032-personal-project-disposition.md):* "consultable for personal use" is the operative bucket. The prior tripartite distinction — ingestable (CC0/CC-BY/MIT/PD) vs. mineable-for-facts-only (citations, taxonomies) vs. consultable-only (all-rights-reserved, non-commercial like SEP) — collapses because nothing the project consumes is consumed *for commercial purposes*. The graph is generated parametrically (per [ADR 0011](adr/0011-no-hosted-copyrighted-material.md) and the surviving operational substance from `docs/content-strategy.md`); external sources serve as inventories and cross-reference checks consultable for personal use. Surveys note license terms for completeness but do not turn on the ingestable / mineable distinction.
 3. **Form.** Structured graph data vs. structured taxonomy/tags vs. long-form prose. Long-form prose has low novel value — already parametrically accessible to Sonnet/Opus.
 4. **Coverage breadth.** Single-domain vs. cross-domain native. Commitment 7 (cross-domain porosity per ADR 0007) makes cross-domain-native sources disproportionately valuable.
 5. **Depth uniformity / methodology transparency.** Sources that disclose uneven depth (Önduygu's "some philosophers more beginner-level…") are higher-trust than sources that don't.
@@ -296,43 +296,46 @@ If the Phase 5 trial proved Paperclip's fit, this is the moment to commit: Paper
 
 ## Phase 8 — Evaluation Harness
 
-**Output:** ordinal external-baseline evaluation. Not closed-loop self-validation.
+**Substantially simplified: 2026-04-30 (S-0012 — per [ADR 0032](adr/0032-personal-project-disposition.md). External-rubric and DeepTutor-head-to-head candidates dropped; OQ-PHASE8-A's three-candidate framing reduces to one + the cold-test addition.)**
 
-Validation against your own authored criteria is weak signal (per ADR — closed-loop is misleading). External baseline produces ordinal signal robust to designer drift. Paideia's evaluation: teaching quality measured by:
+**Output:** the builder verifies the rendering-policy worked example holds against stock Sonnet (the surviving baseline), and a small private TestFlight cohort cold-tests the success criterion of [ADR 0032](adr/0032-personal-project-disposition.md) ("an app I would pay for if it weren't mine"). The cost-cap mechanism (per [ADR 0029](adr/0029-personal-financial-cost-ceiling.md), reframed at S-0012 as fixed annual operating subsidy budget) is wired and tested. App Store submission readiness lands here, not Phase 9, because the Apple Developer Program lead time forces it.
 
-- (a) external rubric (community college instructor blind review), or
-- (b) head-to-head against a baseline (DeepTutor unmodified, or stock Sonnet without the rendering policy), or
-- (c) some combination
+The prior three-candidate framing — (a) external rubric (community college instructor blind review), (b) head-to-head against DeepTutor unmodified, (c) head-to-head against stock Sonnet without the rendering policy — drops candidates (a) and (b) under [ADR 0032](adr/0032-personal-project-disposition.md): the external-rubric institutional channel is foreclosed (no community-college pilots), and the DeepTutor head-to-head's value was in producing publishable comparative evaluation (relevant only under the prior commercial / acquisition framing). Stock Sonnet without the rendering policy survives as the surviving baseline because it isolates the contribution of [ADR 0027](adr/0027-rendering-policy-prompt-layer-contract.md)'s prompt-layer contract — a signal the builder needs even under the personal-project disposition.
 
-**OQ-PHASE8-A** (open tension in `docs/tensions.md`): which baseline mix? Decided at Phase 8 entry.
+The added Phase 8 work is a **small private TestFlight cohort cold-test** (2–3 people who haven't seen the project, given the TestFlight build with no instructions). This is not market validation — it is the verification artifact for [ADR 0032](adr/0032-personal-project-disposition.md)'s success criterion ("an app I would pay for if it weren't mine"), defending against the builder-bias failure mode (knowing how the system works obscures whether it's usable cold). The cohort is *small* and *private* by design — a Phase 9 verification, not an ongoing program.
 
-**Apple Developer Program enrollment starts here** (2-4 week lead time per `docs/business.md`). Don't defer to Phase 9 — the lead time risks blocking the UI prototype.
+**Apple Developer Program enrollment starts here** (2–4 week lead time per [`docs/business.md`](docs/business.md) Pricing and Distribution). Don't defer to Phase 9 — the lead time risks blocking the UI prototype.
 
 ### Phase 8 success criteria
 
-- Evaluation harness operational against the chosen external-baseline mix (per OQ-PHASE8-A resolution at Phase 8 entry)
+- Stock-Sonnet-without-rendering-policy head-to-head baseline runs against the [`AGENT_INSTRUCTIONS.md`](AGENT_INSTRUCTIONS.md) worked example; the rendering policy's contribution is isolated and recorded
 - Apple Developer Program enrollment in flight or complete
-- **Privacy policy and Apple App Store privacy questionnaire answers exist and align with the privacy ADR collection** (ADR 0026 and any superseding/extending ADRs that emerge from OQ-PRIVACY-A and OQ-PRIVACY-B) **before App Store submission.** This pins the privacy-policy authoring window against the Apple lead time so that submission is not blocked on policy work.
-- **Cost-cap mechanism wired and tested before evaluation users are admitted** (per [ADR 0029](adr/0029-personal-financial-cost-ceiling.md)). Per-user spend ceiling, aggregate-system spend ceiling, real-time spend telemetry, and a defined behavior at the cap (per OQ-WALL-BEHAVIOR settled in an ADR before this phase opens). Cost protection is a precondition for non-builder access, not a feature.
-- **OQ-BYOK-REGIME** (per `docs/tensions.md`) settled with an ADR before any non-builder consumer launch surface ships
+- **Privacy policy and Apple App Store privacy questionnaire answers exist and align with the privacy ADR collection** ([ADR 0026](adr/0026-persistent-learner-storage-structural-not-substantive.md) + [ADR 0031](adr/0031-erasure-mechanism-and-individual-only-regime.md)) **before App Store submission.** Pins the privacy-policy authoring window against the Apple lead time so that submission is not blocked on policy work. Consumer App Store posture, not institutional — no DPA, no FERPA framing.
+- **Cost-cap mechanism wired and tested before evaluation users are admitted** (per [ADR 0029](adr/0029-personal-financial-cost-ceiling.md), reframed at S-0012). Per-user spend ceiling, aggregate-system spend ceiling, real-time spend telemetry, and a defined behavior at the cap (per OQ-WALL-BEHAVIOR settled in an ADR before this phase opens — single-tier ladder under the cost-priced subscription model). Cost protection is a precondition for non-builder access, not a feature.
+- **Small private TestFlight cohort cold-test** runs against the build the App Store would receive: 2–3 people who haven't seen the project, given the TestFlight build with no instructions; cold-test debrief recorded as the verification artifact for [ADR 0032](adr/0032-personal-project-disposition.md)'s success criterion.
+- *Note: OQ-BYOK-REGIME no longer gates Phase 8 — closed by foreclosure under [ADR 0032](adr/0032-personal-project-disposition.md). The prior bullet is retracted.*
 
 ---
 
 ## Phase 9 — UI Prototype
 
-**Output:** globe + syllabus surface, native iOS/Android primary, web test surface.
+**Narrowed at S-0012: 2026-04-30 (per [ADR 0032](adr/0032-personal-project-disposition.md) — iOS-only-native; Android / Google Play references removed; `cohort_id`-driven UI affordances removed; delete-account + data-export affordances added; static-polish discipline named explicitly; dynamic-feature foreclosure named explicitly.)**
 
-Per `docs/ui-architecture.md`. Application code; **CHANGELOG / ADR discipline does not apply** to application code (per the scoping decision; state-of-record-only). Normal git history.
+**Output:** globe + syllabus surface, **native iOS only**. No Android, no web client. The DeepTutor fork (per [`docs/infrastructure.md`](docs/infrastructure.md)) is consulted only for what serves the iOS native target.
 
-Subscribe to Google Play Console if not already done in Phase 8.
+Per [`docs/ui-architecture.md`](docs/ui-architecture.md). Application code; **CHANGELOG / ADR discipline does not apply** to application code (per the scoping decision; state-of-record-only). Normal git history.
 
 ### Phase 9 success criteria
-**Added: 2026-04-29 (S-0008)**
+**Added: 2026-04-29 (S-0008); revised: 2026-04-30 (S-0012)**
 
-- Globe-as-home-screen + concept-engagement surface implemented per [`docs/session-lifecycle.md`](docs/session-lifecycle.md) and [`docs/ui-architecture.md`](docs/ui-architecture.md)
+- Globe-as-home-screen + concept-engagement surface implemented per [`docs/session-lifecycle.md`](docs/session-lifecycle.md) and [`docs/ui-architecture.md`](docs/ui-architecture.md), **iOS-only-native** (no Android, no web)
 - **Exit affordance is a first-class UI primitive** per [ADR 0028](adr/0028-input-side-scope-structural-not-prompt.md) — single visible control reachable in one action from any concept engagement / diagnostic / close-reading surface that returns the user to graph navigation
-- Cost-cap mechanism (per [ADR 0029](adr/0029-personal-financial-cost-ceiling.md)) operates against the production user-facing surface, not just the evaluation harness from Phase 8
+- **Delete-account affordance is a first-class UI primitive** — wired to [ADR 0031](adr/0031-erasure-mechanism-and-individual-only-regime.md)'s `ON DELETE CASCADE` discipline; satisfies Apple App Store guideline 5.1.1 (in-app account deletion). User confirmation step communicates that deletion is reliable and irreversible.
+- **Data-export affordance is a first-class UI primitive** — preserves cancellation-discipline honesty per [ADR 0032](adr/0032-personal-project-disposition.md) commitment 6 (the project may be paused or cancelled at any point; user data exportability makes cancellation honest, not destructive). Sibling to delete-account; both surfaces required for Phase 9 close.
+- Cost-cap mechanism (per [ADR 0029](adr/0029-personal-financial-cost-ceiling.md), reframed at S-0012 as fixed annual operating subsidy budget) operates against the production user-facing surface, not just the evaluation harness from Phase 8
 - No "general chat" surface exposed (per [ADR 0028](adr/0028-input-side-scope-structural-not-prompt.md)); free-form input only inside the three bounded contexts (concept engagement, diagnostic, close reading)
+- **Static polish only** per [ADR 0032](adr/0032-personal-project-disposition.md) commitment 6 — visual design, typography, animation, copy quality, layout, iconography, sound design, haptics. **Dynamic-feature surfaces explicitly foreclosed** — no social, no sharing, no leaderboards, no streaks, no push notifications beyond auth/billing, no community, no in-app messaging, no "what's new" surfaces. Any proposal to add a dynamic-feature surface must supersede ADR 0032.
+- *No `cohort_id`-driven UI affordances; no institutional onboarding flow; no LMS integration. The institutional schema provisions retired in S-0012 are not surfaced.*
 
 ---
 
@@ -356,7 +359,7 @@ Telemetry hooks built in S-0001:
 These are the 12 working commitments inherited from pre-Foundation design and absorbed into ADRs 0001-0012 in S-0003. Roadmap success criteria assume them as load-bearing.
 
 1. Pedagogical edges, not historical (ADR 0001)
-2. Commercial sustainability without pedagogical compromise (ADR 0002)
+2. Operating discipline must not corrupt pedagogy ([ADR 0032](adr/0032-personal-project-disposition.md), supersedes [ADR 0002](adr/0002-commercial-sustainability-without-pedagogical-compromise.md); supporting operating discipline: [ADR 0029](adr/0029-personal-financial-cost-ceiling.md))
 3. Supplementary media as metadata, not structure (ADR 0003)
 4. Relational learner model (ADR 0004)
 5. Per-text interpretive outline (ADR 0005)

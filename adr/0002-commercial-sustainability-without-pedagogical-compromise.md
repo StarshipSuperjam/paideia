@@ -1,8 +1,10 @@
 # ADR 0002 — Commercial sustainability without pedagogical compromise
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR 0032](0032-personal-project-disposition.md)
 - **Date:** 2026-04-07
-- **Deciders:** pre-foundation deliberation; formalized in S-0003
+- **Deciders:** pre-foundation deliberation; formalized in S-0003; superseded in S-0012
+
+> **Superseded 2026-04-30 (S-0012).** [ADR 0032](0032-personal-project-disposition.md) forecloses the commercial option set this ADR's discipline was guarding against. The "leave the option open" pattern that motivated the original framing (subscription tiers, institutional licensing, Khan Academy acquisition path, non-profit incorporation) was identified as the corruption vector itself: every "expand later" decision pulled the design toward business outcomes pedagogy never warranted. ADR 0032's fix is removing the optionality, not strengthening this ADR's guard. The threat reframes from *revenue-logic-touching-pedagogy* to *builder-funnel-mechanic-touching-pedagogy*; MISSION.md commitment 2 is rewritten in the same session to name the new framing. The historical reasoning below is preserved per the ADR README's supersession discipline (one-directional pointer; old file not deleted).
 
 ## Context
 

@@ -21,14 +21,14 @@ The `Status:` field is required; `tools/validate.py` soft-warns on ADR files mis
 
 ## Index
 
-The Phase 0 collection (ADRs 0001–0022) landed in S-0003. ADRs 0001–0012 absorb the 12 strong working commitments from `docs/MISSION.md` / `ROADMAP.md`. ADRs 0013–0022 absorb the 10 architectural decisions previously held in `design-reasoning.md` (now retired) plus two decisions that emerged in the S-0001 plan conversation (0016, 0022). Phase 1 ADRs (0023 onward) accumulate as Contract Lock work proceeds; ADRs 0023–0024 landed in S-0004 (engagement-depth aggregation, prompt-pack Session 9), ADR 0025 landed in S-0006 (historical maximum tracking, prompt-pack Session 11), ADR 0026 landed in S-0007 (privacy posture, inserted ahead of Phase 1.2), ADRs 0027–0029 landed in S-0008 (Phase 1.2 rendering policy + sibling commitments from exploration: input-side scope structural-not-prompt; personal financial cost ceiling), ADR 0030 landed in S-0010 (Phase 1.3 — `confidence_level` evidentiary-mode column on the Node Schema), and ADR 0031 landed in S-0011 (settles OQ-PRIVACY-A as hard-delete with cascade; withdraws OQ-PRIVACY-B as moot under the project-direction shift settled in S-0011 conversation). Phase 1.1 closed at S-0006 with all three pending prompt-pack sessions (9, 10, 11) settled; Phase 1.2 closed at S-0008; Phase 1.3 closed at S-0010; the privacy ADRs closed at S-0011. **Phase 1 substantively closes at S-0011** and fully closes at S-0012 once the supersession ADR retiring [ADR 0002](0002-commercial-sustainability-without-pedagogical-compromise.md) lands and the corresponding rewrites of `docs/business.md` and `docs/MISSION.md` commit.
+The Phase 0 collection (ADRs 0001–0022) landed in S-0003. ADRs 0001–0012 absorb the 12 strong working commitments from `docs/MISSION.md` / `ROADMAP.md`. ADRs 0013–0022 absorb the 10 architectural decisions previously held in `design-reasoning.md` (now retired) plus two decisions that emerged in the S-0001 plan conversation (0016, 0022). Phase 1 ADRs (0023 onward) accumulate as Contract Lock work proceeds; ADRs 0023–0024 landed in S-0004 (engagement-depth aggregation, prompt-pack Session 9), ADR 0025 landed in S-0006 (historical maximum tracking, prompt-pack Session 11), ADR 0026 landed in S-0007 (privacy posture, inserted ahead of Phase 1.2), ADRs 0027–0029 landed in S-0008 (Phase 1.2 rendering policy + sibling commitments from exploration: input-side scope structural-not-prompt; personal financial cost ceiling), ADR 0030 landed in S-0010 (Phase 1.3 — `confidence_level` evidentiary-mode column on the Node Schema), ADR 0031 landed in S-0011 (settles OQ-PRIVACY-A as hard-delete with cascade; withdraws OQ-PRIVACY-B as moot under the project-direction shift settled in S-0011 conversation), and ADR 0032 landed in S-0012 (supersedes [ADR 0002](0002-commercial-sustainability-without-pedagogical-compromise.md); records the personal-project disposition as refusal-not-deferral; closes OQ-BYOK-REGIME by foreclosure). Phase 1.1 closed at S-0006 with all three pending prompt-pack sessions (9, 10, 11) settled; Phase 1.2 closed at S-0008; Phase 1.3 closed at S-0010; the privacy ADRs closed at S-0011; **Phase 1 fully closes at S-0012**. Final Phase 1 ADR count: 32 ADRs total — 31 Accepted plus 1 Superseded ([ADR 0002](0002-commercial-sustainability-without-pedagogical-compromise.md) by [ADR 0032](0032-personal-project-disposition.md)).
 
 ### Strong working commitments (ADRs 0001–0012)
 
 | ADR | Title | Status |
 |---|---|---|
 | [0001](0001-pedagogical-edges-not-historical.md) | Pedagogical edges, not historical | Accepted |
-| [0002](0002-commercial-sustainability-without-pedagogical-compromise.md) | Commercial sustainability without pedagogical compromise | Accepted |
+| [0002](0002-commercial-sustainability-without-pedagogical-compromise.md) | Commercial sustainability without pedagogical compromise | Superseded by [ADR 0032](0032-personal-project-disposition.md) |
 | [0003](0003-supplementary-media-as-metadata-not-structure.md) | Supplementary media as metadata, not structure | Accepted |
 | [0004](0004-relational-learner-model.md) | The learner model is relational | Accepted |
 | [0005](0005-per-text-interpretive-outline.md) | Each text gets its own interpretive outline | Accepted |
@@ -68,6 +68,7 @@ The Phase 0 collection (ADRs 0001–0022) landed in S-0003. ADRs 0001–0012 abs
 | [0029](0029-personal-financial-cost-ceiling.md) | Personal financial cost ceiling is an operating constraint | Accepted |
 | [0030](0030-confidence-level-evidentiary-mode-on-nodes.md) | `confidence_level` is the evidentiary-mode axis on nodes | Accepted |
 | [0031](0031-erasure-mechanism-and-individual-only-regime.md) | Erasure mechanism (hard-delete with cascade); individual-only data regime | Accepted |
+| [0032](0032-personal-project-disposition.md) | Personal project disposition; refusal-not-deferral commercial closure (supersedes ADR 0002) | Accepted |
 
 ## Adding a new ADR
 

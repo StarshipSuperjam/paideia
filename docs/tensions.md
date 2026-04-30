@@ -153,9 +153,17 @@ When the teaching layer wants to point a learner at SEP for onward reading, two 
 ---
 
 ## OQ-PHASE8-A: Evaluation baseline choice
-**Added: 2026-04-29 (S-0001) | Status: Open | Decide at: Phase 8 entry**
+**Added: 2026-04-29 (S-0001) | Settled by [ADR 0032](../adr/0032-personal-project-disposition.md) — 2026-04-30 (S-0012)**
 
-Per the principle "closed-loop validation is weak signal" (becomes ADR in S-0003), Phase 8 evaluation must use external baselines. Three candidates: (a) external rubric — community college instructor blind review of teaching transcripts, (b) head-to-head against DeepTutor unmodified (same input, both systems' output graded blind), (c) head-to-head against stock Sonnet without rendering policy (same input, control vs treatment). Or some combination. Decision deferred to Phase 8 entry; needs at least the (a)+ (c) pair to have signal at all (a) tests teaching-quality absolutely; (c) isolates the rendering policy's contribution).
+Settled by foreclosure of two of three candidates plus a verification-artifact addition. The original three candidates were: (a) external rubric — community college instructor blind review of teaching transcripts, (b) head-to-head against DeepTutor unmodified, (c) head-to-head against stock Sonnet without rendering policy. Under [ADR 0032](../adr/0032-personal-project-disposition.md):
+
+- **(a) external rubric — dropped.** The institutional channel (community college instructors) is foreclosed under the personal-project disposition; the rubric's value was producing institutional-eligible blind review, which the project no longer pursues.
+- **(b) head-to-head against DeepTutor — dropped.** Its value was publishable comparative evaluation (relevant only under the prior commercial / acquisition framing); under the personal-project disposition, the comparison adds no value the builder needs.
+- **(c) head-to-head against stock Sonnet without rendering policy — kept.** This survives because it isolates the contribution of [ADR 0027](../adr/0027-rendering-policy-prompt-layer-contract.md)'s prompt-layer contract, a signal the builder needs even under the personal-project disposition.
+
+Plus, per [ADR 0032](../adr/0032-personal-project-disposition.md)'s success criterion ("an app I would pay for if it weren't mine"): a **small private TestFlight cohort cold-test** (2–3 people who haven't seen the project, given the TestFlight build with no instructions). This is not a rubric or a head-to-head — it is the verification artifact for the success criterion, defending against the builder-bias failure mode. Phase 9 verification, not an ongoing program.
+
+Phase 8 success criteria in [`ROADMAP.md`](../ROADMAP.md) reflect both: stock-Sonnet-without-rendering-policy baseline + small private TestFlight cohort cold-test.
 
 ---
 
@@ -187,36 +195,36 @@ When the volume of "things to watch for in future evidence that aren't actionabl
 ---
 
 ## OQ-BYOK-REGIME: Institutional vs. consumer bring-your-own-key
-**Added: 2026-04-29 (S-0008) | Status: Open | Decide before: any non-builder consumer launch (Phase 8 entry or earlier)**
+**Added: 2026-04-29 (S-0008) | Withdrawn by [ADR 0032](../adr/0032-personal-project-disposition.md) — 2026-04-30 (S-0012)**
 
-[ADR 0029](../adr/0029-personal-financial-cost-ceiling.md) commits to bounded builder exposure but does not settle the bring-your-own-key (BYOK) regime. Two regimes have substantially different cost-architecture, privacy, and audience implications:
+Withdrawn by foreclosure. [ADR 0032](../adr/0032-personal-project-disposition.md) commitment 4: no bring-your-own-key, neither consumer nor institutional. Both candidates are excluded under the personal-project disposition:
 
-(a) **Institutional BYOK.** A community college, library, university, or K-12 system holds the Anthropic API key; cost flows institution → Anthropic; Paideia is the application layer above. Sidesteps [ADR 0029](../adr/0029-personal-financial-cost-ceiling.md)'s builder-exposure problem entirely. Compatible with the institutional schema provisions in [`architecture.md`](architecture.md) Institutional Schema Provisions and the institutional path in [`business.md`](business.md) Audience vs. Market. Requires per-institution onboarding (API key configuration, billing relationship, possibly a Data Processing Agreement). The institutional users themselves never see or manage the key.
+- **(a) Institutional BYOK** — excluded by the no-institutional-regime commitment ([ADR 0032](../adr/0032-personal-project-disposition.md) commitments 3 and 4). The cost-flow attraction (institution → Anthropic, sidestepping the builder-exposure problem) is moot when the project no longer pursues institutional partners.
+- **(b) Consumer BYOK** — excluded because it self-selects technically sophisticated users away from the freshman audience the system is calibrated for per [ADR 0012](../adr/0012-freshman-defaults-autodidact-ceiling.md), and because the cost-priced subscription model ([ADR 0032](../adr/0032-personal-project-disposition.md) commitment 2) recovers the marginal API cost from the user's subscription, not from the user's own Anthropic account.
 
-(b) **Consumer BYOK.** Individual users obtain a key at the Anthropic console and paste it into Paideia; the system uses their key for their sessions. Self-selects technically sophisticated users — not the freshman audience the system is calibrated for per [ADR 0012](../adr/0012-freshman-defaults-autodidact-ceiling.md). Has a meaningful interaction with [ADR 0026](../adr/0026-persistent-learner-storage-structural-not-substantive.md): under consumer BYOK, Anthropic logs API calls against the user's own account per Anthropic's data retention policy, even though Paideia's own storage observes the structural-not-substantive discipline. The user's mental model of "Paideia doesn't keep my transcripts" does not include Anthropic-the-vendor's logging under their account; this needs disclosure.
-
-The leaning shape is: **institutional BYOK keep open and pursue actively as the primary non-builder access path; consumer BYOK foreclose unless a future regime change justifies revisiting**. The leaning is not yet a settled decision because the institutional onboarding work has not been scoped, the legal-relationship surface (DPA, vendor-of-record) has not been authored, and the precise interaction with [ADR 0026](../adr/0026-persistent-learner-storage-structural-not-substantive.md)'s privacy posture under each regime needs to be worked through rather than asserted.
-
-Decide-before any non-builder consumer launch. Decision lands as an ADR. The institutional onboarding pipeline (if accepted) becomes a Phase 8 / Phase 9 work item.
+If a future session reopens BYOK (institutional or consumer), the supersession discipline applies: the new ADR must explicitly supersede [ADR 0032](../adr/0032-personal-project-disposition.md) and reauthor the BYOK regime from scratch. OQ-BYOK-REGIME does not need to be reopened independently — the regime question is downstream of project direction.
 
 ---
 
 ## OQ-WALL-BEHAVIOR: Soft-wall degradation ladder at cost cap
-**Added: 2026-04-29 (S-0008) | Status: Open | Decide before: Phase 8 (cost-cap mechanism wiring) per ADR 0029**
+**Added: 2026-04-29 (S-0008) | Simplified at S-0012 per [ADR 0032](../adr/0032-personal-project-disposition.md) | Status: Open | Decide before: Phase 8 (cost-cap mechanism wiring) per ADR 0029**
 
 [ADR 0029](../adr/0029-personal-financial-cost-ceiling.md) commits the principle that walls degrade rather than terminate (the atomic unit of teaching is the concept engagement per [`session-lifecycle.md`](session-lifecycle.md), which spans hours or days; a wall that fires mid-engagement violates that integrity). What it does not settle is the **specific degradation ladder** — what changes at each step of approach to the cap, in what order.
 
-Candidate steps to compose into a ladder:
+**S-0012 simplification:** the tier-shaped framing in the prior version of this entry — free-tier monthly bridge count, paid-tier session-depth budget, cross-domain bridge cap consistent with free-tier — collapses under [ADR 0032](../adr/0032-personal-project-disposition.md) commitment 2 (cost-priced subscription, no free tier). The ladder is now **single-tier**: one cost-priced subscription cohort, one cap (the per-user spend ceiling within the fixed annual operating subsidy budget per [ADR 0029](../adr/0029-personal-financial-cost-ceiling.md) reframed at S-0012). The free-vs-paid-tier-ladder structure is no longer applicable; the ladder is a sequence of degradations within a single subscription cohort.
+
+Candidate steps to compose into the single-tier ladder:
 
 - **Model downshift** — Opus → Sonnet for self-correction reviewer pass; or Sonnet → smaller-model-class once available. Composes with [ADR 0014](../adr/0014-sonnet-teaches-opus-reviews.md)'s teaching/reviewing role split: the teaching layer can downshift independently of the review layer.
 - **Retrieval shrink** — two-hop entity-resolution neighborhood → one-hop; deeper context window → shallower; reduces per-turn input token cost.
-- **Cross-domain bridge cap** — bridges-per-month threshold reduces (consistent with the free-tier framing in [`business.md`](business.md) Revenue Mechanisms Explored).
 - **Concept-engagement length cap** — upper-bound on per-engagement turn count or total token cost; on hit, agent surfaces a "we've spent some real time on this; let's pause and pick up next session" pattern that respects engagement integrity.
 - **Soft refusal with explanation** — final fallback; agent acknowledges the cap, explains the situation, points at the exit affordance per [ADR 0028](../adr/0028-input-side-scope-structural-not-prompt.md). Explicit, never silent.
 
-The open questions: (1) what's the order? (2) at what fraction of cap does each step trigger? (3) is the ladder per-user, per-aggregate-system, or both? (4) how is the user notified, if at all, between steps? Notification is itself a design decision — silent degradation respects the [ADR 0027](../adr/0027-rendering-policy-prompt-layer-contract.md) "no machinery narration" discipline but may surprise the user; explicit degradation creates a moment of friction that may be the right honesty trade.
+The cross-domain-bridge-cap candidate from the prior version is dropped — it was tier-coupled (constrained-doses-on-free-tier framing) and the tier-coupled framing dies with [ADR 0032](../adr/0032-personal-project-disposition.md). Cross-domain bridges in the cost-priced subscription model are bounded by the per-user spend ceiling, not by a separate bridge-count threshold.
 
-Decide-before any non-builder access. Decision lands as an ADR (with operational parameters held in private configuration, per [ADR 0029](../adr/0029-personal-financial-cost-ceiling.md)'s pattern).
+The open questions remain: (1) what's the order of the four candidate steps above? (2) at what fraction of cap does each step trigger? (3) is the ladder per-user, per-aggregate-system, or both? (4) how is the user notified, if at all, between steps? Notification is itself a design decision — silent degradation respects the [ADR 0027](../adr/0027-rendering-policy-prompt-layer-contract.md) "no machinery narration" discipline but may surprise the user; explicit degradation creates a moment of friction that may be the right honesty trade.
+
+Decide-before Phase 8 cost-cap wiring. Decision lands as an ADR (with operational parameters held in private configuration, per [ADR 0029](../adr/0029-personal-financial-cost-ceiling.md)'s pattern).
 
 ---
 
@@ -258,4 +266,4 @@ Revisit when: the registry crosses ~30 entries (the population is genuinely comp
 
 ---
 
-*Last updated: 2026-04-30 (S-0011 — OQ-PRIVACY-A settled by ADR 0031 as hard-delete with cascade; OQ-PRIVACY-B withdrawn by ADR 0031 as moot under the project-direction shift settled in S-0011 conversation, formalized in S-0012 supersession). Prior update 2026-04-29 (S-0009 — Multi-Domain Expansion tension partially addressed by the new ROADMAP Phase 4.5 Input Dataset Survey, which forcing-functions per-domain cross-reference inventory identification). Earlier 2026-04-29 (S-0008 added four tension entries: OQ-BYOK-REGIME institutional-vs-consumer; OQ-WALL-BEHAVIOR soft-wall degradation ladder; OQ-CONTEXT-COMPRESSION token-amplification mitigation; OQ-PEDAGOGY-INFERENCE-LOCUS rule layer vs distributed inference.)*
+*Last updated: 2026-04-30 (S-0012 — OQ-PHASE8-A settled by ADR 0032 (two of three candidates dropped; stock-Sonnet-without-rendering-policy + small private TestFlight cohort cold-test); OQ-BYOK-REGIME withdrawn by ADR 0032 (foreclosure: no BYOK, neither consumer nor institutional); OQ-WALL-BEHAVIOR simplified by ADR 0032 (single-tier ladder under cost-priced subscription model; tier-shaped free-vs-paid framing collapses; cross-domain-bridge-cap candidate dropped as tier-coupled). Prior update 2026-04-30 (S-0011 — OQ-PRIVACY-A settled by ADR 0031 as hard-delete with cascade; OQ-PRIVACY-B withdrawn by ADR 0031 as moot). Earlier 2026-04-29 (S-0009 — Multi-Domain Expansion tension partially addressed). Earlier 2026-04-29 (S-0008 added four tension entries: OQ-BYOK-REGIME, OQ-WALL-BEHAVIOR, OQ-CONTEXT-COMPRESSION, OQ-PEDAGOGY-INFERENCE-LOCUS).*
