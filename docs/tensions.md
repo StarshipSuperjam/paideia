@@ -160,31 +160,22 @@ Per the principle "closed-loop validation is weak signal" (becomes ADR in S-0003
 ---
 
 ## OQ-PRIVACY-A: Erasure mechanism for learner data
-**Added: 2026-04-29 (S-0007) | Status: Open | Decide before: Phase 3**
+**Added: 2026-04-29 (S-0007) | Settled by [ADR 0031](../adr/0031-erasure-mechanism-and-individual-only-regime.md) — 2026-04-30 (S-0011)**
 
-ADR 0026 commits to "persistent learner storage is structural, not substantive" but does not settle the GDPR Article 17 right-of-erasure mechanism. Three candidates on the table:
+Settled as **hard-delete with cascade**. `ON DELETE CASCADE` foreign-key discipline across `learner_events`, `mastery_snapshots`, and `tension_log` carries deletion through to all rows linked to a user. Apple App Store guideline 5.1.1 (in-app account deletion) is satisfied at the schema level; the user-facing affordance is Phase 9 UI work.
 
-(a) **Crypto-shredding** — encrypt events with a per-learner key; delete the key on erasure. Strongest fit for the event-sourced architecture (`mastery_snapshots` derive from decrypted reads; deleting the key renders events permanently inert without a cascading event-delete). Implementation cost: per-learner KMS key, encrypted-at-rest column or table-level encryption. Compatible with the audit-trail benefit ADR 0015 calls out — events remain in the table, just unreadable.
+The two rejected candidates are recorded in [ADR 0031](../adr/0031-erasure-mechanism-and-individual-only-regime.md). **Crypto-shredding** rejected: per-learner KMS keys are operational complexity that earns its keep only when audit-trail-preserving erasure is contractually required — a posture the project no longer pursues. **Anonymize-and-aggregate** rejected: at consumer scale the graph-level signal contribution from a single user's events is negligible, and event sparsity makes residual data potentially re-identifiable.
 
-(b) **Hard-delete with cascade** — `DELETE FROM learner_events WHERE user_id = ?` plus recompute of affected `mastery_snapshots`. Simplest. Loses the audit trail; cohort-aggregated analytics that included the user retroactively change.
-
-(c) **Anonymize-and-aggregate** — strip user identifiers, retain events for graph-level signal. Preserves structural learning across users. Whether it constitutes "erasure" under GDPR Article 17 is the contested question — depends on whether the residual data is genuinely de-identifiable, which depends on event sparsity and the rest of the schema. Likely fails the test if a learner has a distinctive engagement pattern.
-
-Decide before Phase 3 schema authoring; the choice shapes whether `learner_events` needs an `encrypted_user_data_key` column (path a), a delete-cascade discipline (path b), or a nullable `user_id` post-erasure (path c). Decision lands as an ADR.
+The simplification was enabled by the project-direction shift settled in S-0011 conversation (single-platform iOS App Store consumer subscription, no institutional regime, no BYOK, no enterprise wrapper). The supersession ADR formalizing that shift is queued for S-0012.
 
 ---
 
 ## OQ-PRIVACY-B: Institutional vs. individual data regime
-**Added: 2026-04-29 (S-0007) | Status: Open | Decide before: Phase 3 (column reservation); Phase 8 (policy specification)**
+**Added: 2026-04-29 (S-0007) | Withdrawn by [ADR 0031](../adr/0031-erasure-mechanism-and-individual-only-regime.md) — 2026-04-30 (S-0011)**
 
-Cohort-bound events (`cohort_id NOT NULL`, per the institutional schema provision in [`architecture.md`](architecture.md) Institutional Schema Provisions) may live under a different analytics-eligibility regime than individual events. The direction is itself open and worth not anchoring prematurely:
+Withdrawn as moot. The project no longer pursues an institutional regime; there is no analytics-eligibility distinction to design for. `cohort_id` is removed from [ADR 0026](../adr/0026-persistent-learner-storage-structural-not-substantive.md) sub-decision (2)'s `learner_events.context` shape; the surviving structured columns are `path_id`, `source_text_id`, `session_id`. The institutional schema provisions in [`architecture.md`](architecture.md) (cohort_id field, shareable-constrained-paths-as-institutional-wedge framing) are dead-weight whose removal lands in S-0012 alongside the supersession ADR.
 
-- One reading: institutional cohorts arrive via Data Processing Agreement contracts that may grant aggregate analytics rights individuals (clicking through ToS) haven't granted. Cohort-bound events are *more* eligible.
-- Converse reading: institutional context (FERPA, minor users in some community-college populations) imposes stricter regime than individual ToS click. Cohort-bound events are *less* eligible.
-
-One concrete proposal to evaluate: a column on `learner_events` like `eligible_for_aggregate_analytics`, with Opus's batch review filtering on the column. Both the column shape and the default are open. Other proposals (a separate `cohort_consent` table, runtime policy lookup, regime per cohort_id rather than per event) are also on the table.
-
-Decide before Phase 3 to reserve any required columns (column slot is cheap to add then, expensive later). The policy specification (what governs eligibility, what defaults are correct, what runtime gates apply) defers to Phase 8 alongside actual institutional partner conversations — speculative regime design without a real partner produces brittle policy. Decision lands as an ADR (or two: one for the column at Phase 3, one for the policy at Phase 8).
+If a future session decides to reopen the institutional regime, that decision lands as a superseding ADR; OQ-PRIVACY-B does not need to be reopened independently — the regime question is simply downstream of project direction.
 
 ---
 
@@ -267,4 +258,4 @@ Revisit when: the registry crosses ~30 entries (the population is genuinely comp
 
 ---
 
-*Last updated: 2026-04-29 (S-0009 — Multi-Domain Expansion tension partially addressed by the new ROADMAP Phase 4.5 Input Dataset Survey, which forcing-functions per-domain cross-reference inventory identification). Prior update 2026-04-29 (S-0008 added four tension entries: OQ-BYOK-REGIME institutional-vs-consumer; OQ-WALL-BEHAVIOR soft-wall degradation ladder; OQ-CONTEXT-COMPRESSION token-amplification mitigation; OQ-PEDAGOGY-INFERENCE-LOCUS rule layer vs distributed inference. Three are tied to ADR 0029 cost-ceiling; the fourth opens the pedagogy-inference architecture question with a registry as the cheap intermediate step.)*
+*Last updated: 2026-04-30 (S-0011 — OQ-PRIVACY-A settled by ADR 0031 as hard-delete with cascade; OQ-PRIVACY-B withdrawn by ADR 0031 as moot under the project-direction shift settled in S-0011 conversation, formalized in S-0012 supersession). Prior update 2026-04-29 (S-0009 — Multi-Domain Expansion tension partially addressed by the new ROADMAP Phase 4.5 Input Dataset Survey, which forcing-functions per-domain cross-reference inventory identification). Earlier 2026-04-29 (S-0008 added four tension entries: OQ-BYOK-REGIME institutional-vs-consumer; OQ-WALL-BEHAVIOR soft-wall degradation ladder; OQ-CONTEXT-COMPRESSION token-amplification mitigation; OQ-PEDAGOGY-INFERENCE-LOCUS rule layer vs distributed inference.)*
