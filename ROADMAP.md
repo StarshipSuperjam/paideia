@@ -61,6 +61,54 @@ Add `confidence_level` (`EXTRACTED | INTERPRETED | SYNTHETIC`) to the node schem
 
 ---
 
+## Phase 1.5 — Mission Realignment Overhaul
+**Added: 2026-04-30 (S-0013 — opens Phase 1.5; sits between the closed Phase 1 and the queued Phase 2 because Phase 2 will scaffold per-session contracts for every downstream phase, and those scaffolds would lock in the wrong UI architecture and platform scope if Phase 2 ran before the realignment lands.)**
+
+**Output:** the contract layer is realigned around the project's core value claim — *filling the gap where a self-learner has no teacher* — by dropping the globe / mastery-glow / cross-domain-tendrils / trophy / "knowledge as a world" UI metaphor that was drifting attention away from the discovery / planning / mastery-gating value, and committing the replacement product structure (Discovery → Planning → Engagement triad) plus the broadened Apple platform scope (iPhone + iPad first-class via SwiftUI, Mac via Designed-for-iPad). This is **realignment, not rebuild** — the pedagogical dependency graph, the AI instructor model, the bring-your-own-book close reading, the mastery model, the privacy posture, and the cost ceiling all survive intact.
+
+**The realignment is recorded as a phase, not as scattered amendments**, because (a) it touches the contract layer (ADRs + foundational docs), (b) the session protocol's two-layer decision-recording discipline requires the load-bearing artifacts to land coherently, (c) the work spans more session-budget than fits a single session, and (d) Phase 2 (Build Plan Scaffolding) is downstream and consumes the realigned contract.
+
+### 1.5.1 Mission realignment + globe/reward closure (S-0013)
+
+- **[ADR 0033](adr/0033-mission-realignment-structured-guidance-for-self-learners.md)** — Mission realignment: structured guidance for self-learners. Records the corruption vector (the globe and reward systems were UI-layer optimizations that drifted attention away from the discovery / planning / mastery-gating value claim) and formally closes obsolescence of globe-as-home, mastery-glow, cross-domain-tendrils, trophy framing, and "knowledge as a world" metaphor. Names the survivors explicitly (graph + instructor; BYOB; bounded engagement contexts; mastery model). Cites continuity with [ADR 0032](adr/0032-personal-project-disposition.md) (this is operating discipline that protects the mission, not a reversal).
+- **Light revision of [ADR 0018](adr/0018-flat-domain-tags-community-detection.md)** — remove the globe-rendering use case from the Decision and Consequences. The flat-domain-tags + community-detection algorithm survives as a graph-analysis primitive (potential uses: discovery-surface concept clustering, syllabus organization heuristics, graph-quality audits) but no longer serves a globe-rendering surface. Status remains Accepted.
+- **Light revision of [`docs/MISSION.md`](docs/MISSION.md) What this is** — reframe around the structured-guidance gap as the core value claim. Cross-domain porosity preserved. Drop any "exploring the territory of knowledge" framing if present.
+
+### 1.5.2 Discovery / Planning / Engagement triad architecture (S-0014)
+
+- **ADR 0034** — Discovery / Planning / Engagement triad as primary product structure. Cross-references [ADR 0028](adr/0028-input-side-scope-structural-not-prompt.md) (engagement-side bounded contexts preserved). Names the discovery-side affordances: AI conversational onboarding parallel with browseable concept catalog organized by domain/topic. Names the planning-side affordances: syllabus-as-plan, prerequisite gating, quiet completion markers, current/active syllabus view. Names the explicit foreclosures: no separate trophy surface, no globe, no game-world rendering, no library/bookshelf as a third primary surface (mastered concepts surface contextually within syllabi).
+- **Substantial rewrite of [`docs/ui-architecture.md`](docs/ui-architecture.md)** — drop Globe Navigation Model and Level-of-Detail Rendering sections wholesale. Author Discovery Surface, Planning Surface, Engagement Surface sections. Cross-domain edges remain first-class graph data; their UI rendering is **bridge surfacing in context** during engagement and planning, not "tendrils on a globe."
+- **Substantial rewrite of [`docs/session-lifecycle.md`](docs/session-lifecycle.md)** — drop Globe as Home Screen and the trophy/glow/tendrils framing in Mastery Verification. Preserve: Concept Engagement as Atomic Unit, Mode Transitions, Proficiency as Implied Transition, Routing After Concept Completion, Mastery Verification Through Downstream Teaching's organic-escalation framing per [ADR 0013](adr/0013-mastery-verification-organic-escalation.md). Concurrent Syllabus Limit (hard cap of five) remains.
+
+### 1.5.3 Multi-platform Apple expansion + Phase 9 rewrite (S-0015)
+
+- **ADR 0035** — Multi-platform Apple expansion. Supersedes [ADR 0032](adr/0032-personal-project-disposition.md) in full. Commitment 1 (revised) reads: *Apple platforms via App Store. iPhone + iPad first-class via a single SwiftUI codebase. Mac via Designed-for-iPad opt-in with modest keyboard/menu polish. No Android, no web app, no native AppKit/Catalyst Mac app.* Restates commitments 2–6 (cost-priced subscription, no free tier, builder eats API costs, no BYOK / no institutional regime, ADR 0029 reframed as fixed annual subsidy, polish-static / maintenance-minimum) verbatim from ADR 0032 — preserves the disposition spirit while broadening the platform scope.
+- **Rewrite of [ROADMAP.md](ROADMAP.md) Phase 9 success criteria** — replace globe-as-home-screen + concept-engagement-surface with the Discovery / Planning / Engagement triad. Restate platform target as iPhone + iPad first-class via SwiftUI, Mac via Designed-for-iPad. Preserve: cost-cap mechanism, no general chat surface, exit affordance, delete-account, data-export.
+- **Amendment to [`docs/business.md`](docs/business.md) Pricing and Distribution** — Distribution row becomes "Apple App Store. iPhone + iPad first-class; Mac via Designed-for-iPad." Other rows unchanged.
+
+### 1.5.4 Rendering policy revision + secondary docs sweep (S-0016)
+
+- **Revision to [ADR 0027](adr/0027-rendering-policy-prompt-layer-contract.md)** — extend the forbidden-token enumeration to forbid globe / world / map / territory / exploration metaphors and reward / trophy / glow / mastery-visualization language in agent output. Status remains Accepted.
+- **Revision to [`AGENT_INSTRUCTIONS.md`](AGENT_INSTRUCTIONS.md)** — add the new forbidden tokens; update the worked example if it references dropped concepts.
+- **Light revisions to [ADR 0012](adr/0012-freshman-defaults-autodidact-ceiling.md)** (strip residual market framing not removed by ADR 0032's MISSION.md rewrite; name the freshman-defaults builder-bias-protection role explicitly) and **[ADR 0014](adr/0014-sonnet-teaches-opus-reviews.md)** (strip residual cohort framing if present).
+- **Sweep across secondary docs** — drop residual globe / mastery-glow / tendril / trophy / colored-trail / "knowledge as a world" references in `docs/pedagogy.md`, `docs/tensions.md`, `docs/architecture.md`, `docs/learner-model.md`, `docs/CROSS_REFERENCES.md`, `README.md`, `docs/prep-paideia-prompt-pack.md`, `docs/pedagogy/inferences.md`, `docs/infrastructure.md`. Tension entries for globe/trophy resolved with `Resolved: 2026-04-30` markers per the project's tension-resolution discipline (not deleted).
+
+### Phase 1.5 success criteria
+
+- ADRs 0033, 0034, 0035 land at Status: Accepted; ADR 0032 Status flipped to `Superseded by ADR 0035`
+- Light revisions to ADRs 0012, 0014, 0018, 0027 land with Status remaining Accepted
+- `docs/ui-architecture.md` and `docs/session-lifecycle.md` rewritten end-to-end with no remaining globe/glow/tendril references; `docs/MISSION.md` What this is reframed
+- `git grep -i "globe\|mastery glow\|tendril\|trophy\|colored trail\|knowledge as a world\|Globe Navigation Model"` returns zero matches in tracked docs and ADRs except ADR 0033 (names what's being dropped, by design), ADR 0027 (forbidden-token list, by design), ADR 0018 (revised text explaining algorithm-survives-without-globe, by design), ADR 0032 file (history, by design — superseded), and `CHANGELOG.md` (history, by design)
+- ROADMAP Phase 9 success criteria rewritten against triad + multi-platform; Android/web references gone
+- ADR collection grows from 32 → 35 (3 new + 4 light-revised + 1 superseded); MemPalace `decision` drawers filed for ADRs 0033, 0034, 0035
+- Phase 2 (Build Plan Scaffolding) opens at S-0017 with the realigned contract as input
+
+### Phase 1.5 plan reference
+
+The full session-by-session plan — including critical files per session, source documents, and per-session success criteria — was approved at S-0013 boot and lives at `/Users/shanekidd/.claude/plans/at-its-core-this-iterative-beaver.md`. STATE.md's `## Next session work item` block carries each session's scope inline as it becomes the active session, per the project's session protocol.
+
+---
+
 ## Phase 2 — Build Plan Scaffolding
 
 **Output:** a `build_plan/` directory naming the chunked authoring sessions for Phases 3-9, and the working contract for each session.
