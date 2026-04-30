@@ -66,10 +66,19 @@ The Opus review is a scheduled task, not a triggered one. It runs on a fixed cad
 
 At current scale (n=1–3 users), the Opus review may surface patterns slowly. This is acceptable — the graph doesn't need to be perfect, and premature edits based on thin evidence are worse than patience. The batch cadence can be shortened as user count grows and tension log volume increases.
 
+### Synthetic-Node Review Queue
+**Added: 2026-04-30 (S-0010 — Phase 1.3 cross-link per [ADR 0030](../adr/0030-confidence-level-evidentiary-mode-on-nodes.md))**
+
+Nodes carry a `confidence_level` label (`EXTRACTED | INTERPRETED | SYNTHETIC`) recording the type of evidence backing their existence at authoring time, per the Node Schema in [`docs/architecture.md`](architecture.md) and [ADR 0030](../adr/0030-confidence-level-evidentiary-mode-on-nodes.md). The label is fixed at authoring time (it does not update with belief evidence — that channel is the numeric `confidence` column).
+
+**SYNTHETIC nodes are first candidates for self-correction review.** They have the weakest evidentiary claim — no source structures the concept as a coherent unit; the node was generated to fill a structural gap (e.g., a service node terminating a cross-domain prerequisite chain per the Termination Principle in [`docs/architecture.md`](architecture.md), or a node-split replacement Opus proposed without direct source basis). When the Opus batch review (above) selects review candidates from a window of accumulated tension records and graph state, SYNTHETIC nodes whose surrounding tension density exceeds threshold are surfaced ahead of EXTRACTED and INTERPRETED nodes carrying equivalent tension. The review may propose splitting, merging, deprecating, or repromoting SYNTHETIC nodes — the latter happens when accumulated learner-event evidence and source-cross-reference work confirms the concept's coherence post-hoc, at which point the node may be repromoted to INTERPRETED via supersession (the SYNTHETIC node is deprecated and a new INTERPRETED node carries the same semantic content).
+
+The Phase 4 graph audit (per [ADR 0016](../adr/0016-graph-construction-needs-live-validation.md) and [ROADMAP.md](../ROADMAP.md) Phase 4) emits a soft-warn category for SYNTHETIC nodes during validation runs. The soft-warn populates a review queue that the Opus batch cycle consumes; it is not a hard-fail because SYNTHETIC nodes are legitimate authoring outputs (not bugs) and the Phase 4 utility is read-only during validation. The review queue is cleared by either repromotion (supersession to INTERPRETED) or sustained low tension density (the node is not surfacing problems and can sit at SYNTHETIC indefinitely).
+
 ## Model Tiering
 **Added: 2026-04-07**
 
 Opus for graph construction, cross-domain edge generation, and periodic self-correction review — infrequent tasks requiring heavy reasoning and nuanced judgment about conceptual dependencies across frameworks. The self-correction review (see above) is an Opus responsibility: analyzing accumulated tension logs against the full graph state to propose structural edits. Sonnet for daily teaching interactions — high-volume, well-constrained tasks (Socratic dialogue, concept checks, syllabus lookups, learner state updates, tension logging) where Sonnet's capabilities are fully sufficient.
 
 ---
-*Last updated: 2026-04-29 (S-0007 — `tension_log.exchange_summary` shape constrained from `TEXT NOT NULL` to JSONB-with-named-fields per ADR 0026; spontaneous-connection unresolved-reference handling clarified)*
+*Last updated: 2026-04-30 (S-0010 — Synthetic-Node Review Queue subsection added under Self-Correction Pipeline, cross-linking to the new `confidence_level` column on the Node Schema per Phase 1.3 / ADR 0030; previous update 2026-04-29 (S-0007 — `tension_log.exchange_summary` shape constrained from `TEXT NOT NULL` to JSONB-with-named-fields per ADR 0026; spontaneous-connection unresolved-reference handling clarified))*

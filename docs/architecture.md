@@ -102,7 +102,7 @@ This design keeps the computation pure, makes overrides local by construction, a
 Editorial adjustments should result from considered analysis and evidence that the computed score is incorrect — not from casual opinion. The Opus batch review (see self-correction.md) can propose adjustments alongside edge edits.
 
 ### Node Schema
-**Added: 2026-04-09**
+**Added: 2026-04-09 | Revised: 2026-04-30 (S-0010 — `confidence_level` column added per Phase 1.3 and [ADR 0030](../adr/0030-confidence-level-evidentiary-mode-on-nodes.md))**
 
 ```sql
 CREATE TABLE nodes (
@@ -116,6 +116,7 @@ CREATE TABLE nodes (
   rigor_score_adjustment  REAL NOT NULL DEFAULT 0.0,
   provenance              TEXT NOT NULL DEFAULT 'human',
   confidence              REAL NOT NULL DEFAULT 1.0,
+  confidence_level        TEXT NOT NULL DEFAULT 'INTERPRETED',
   status                  TEXT NOT NULL DEFAULT 'active',
   superseded_by           TEXT[] DEFAULT '{}',
   graph_version_added     INTEGER NOT NULL DEFAULT 1,
@@ -135,7 +136,13 @@ CREATE TABLE nodes (
 - **rigor_score_computed** (REAL): Formula output from graph topology. Never manually edited. See Rigor Score Computation above.
 - **rigor_score_adjustment** (REAL): Human-applied delta. Defaults to 0.0. Does not propagate to downstream computations. See Two-Column Override Model above.
 - **provenance** ('human' | 'ai_proposed' | 'ai_confirmed'): Who created the node and its lifecycle stage. Mirrors the edge provenance model. AI-proposed nodes enter via the self-correction pipeline (e.g. Opus recommending a node split). Human-curated nodes require stronger counter-evidence to deprecate.
-- **confidence** (REAL, 0.0–1.0): How certain we are that this node belongs in the graph at all. Orthogonal to provenance — a human-curated node has high confidence; an AI-proposed split candidate starts low and rises as evidence accumulates.
+- **confidence** (REAL, 0.0–1.0): How certain we are that this node belongs in the graph at all. Orthogonal to provenance — a human-curated node has high confidence; an AI-proposed split candidate starts low and rises as evidence accumulates. **Updates over time** as evidence accumulates through learner events and Opus batch review.
+- **confidence_level** ('EXTRACTED' | 'INTERPRETED' | 'SYNTHETIC'): Categorical label for the *type* of evidence backing the node's existence, fixed at authoring time. Per [ADR 0030](../adr/0030-confidence-level-evidentiary-mode-on-nodes.md), this is a third epistemic axis orthogonal to `provenance` (who authored) and to numeric `confidence` (how sure we are it belongs and how that belief moves with evidence). **Does not update over time** — the label records the evidentiary mode at the moment of authoring; supersession is the channel for changing that record (a node split's replacement nodes carry their own authored `confidence_level`). Enum semantics:
+  - **EXTRACTED:** The concept is lifted from a source's own structuring — a SEP article whose TOC names it as a coherent unit, a curriculum prerequisite list, a graph dataset already framing it as a node. The pedagogical work is vocabulary alignment, not concept invention. Highest evidentiary mode: a third-party source has independently judged the concept coherent at the granularity it appears.
+  - **INTERPRETED:** The concept emerges from pedagogical judgment about source material that does not itself structure around the concept. Source material exists and is consulted; the human curator or AI infers that the concept exists at the granularity required by the Node Granularity Principle. Most Phase 5 first-pass nodes are INTERPRETED (per [ROADMAP.md](../ROADMAP.md) Phase 5.2 — "Generate first-pass prerequisite edges via Claude; mark `confidence_level: INTERPRETED` until validated against learner outcomes or expert review").
+  - **SYNTHETIC:** The concept is generated wholesale, with no clear source structuring it as a coherent unit. Service nodes constructed to terminate cross-domain prerequisite chains (per the Termination Principle in Cross-Domain Porosity above) are common SYNTHETIC candidates: the graph needs them for prerequisite chains to close cleanly, but no source frames them as named concepts. Opus batch-review node-split proposals that lack direct source basis also start as SYNTHETIC. **First candidates for self-correction review** per [`docs/self-correction.md`](self-correction.md) and the Phase 4 audit soft-warn category per [ADR 0016](../adr/0016-graph-construction-needs-live-validation.md) and [ROADMAP.md](../ROADMAP.md) Phase 4.
+
+  The default `'INTERPRETED'` matches Phase 5.2's seed-authoring baseline and is the middle epistemic claim. Authoring sessions that produce SYNTHETIC service nodes or EXTRACTED corpus-aligned nodes must downgrade or upgrade explicitly. The naming risk — `confidence_level` reads as a finer version of `confidence` despite being a categorical evidentiary mode rather than a numeric belief — is acknowledged in [ADR 0030](../adr/0030-confidence-level-evidentiary-mode-on-nodes.md); the ADR is the durable mitigation.
 - **status** ('active' | 'deprecated'): Whether the node participates in traversal and teaching. Deprecated nodes are retained because learner events reference them by ID.
 - **superseded_by** (TEXT[]): When a node is split, points to the replacement node IDs. Enables learner event remapping and audit trails. Empty for active nodes.
 - **graph_version_added** (INTEGER): The value of the graph_version counter when this node was created. Enables historical graph reconstruction without a full edits log. See Node Versioning below.
@@ -269,4 +276,4 @@ The system is built for individual learners first. Institutional use (community 
 **Privacy posture inheritance.** Per [ADR 0026](../adr/0026-persistent-learner-storage-structural-not-substantive.md) (persistent learner storage is structural, not substantive), cohort-bound events under any future institutional regime layer additional constraints on top of the structural baseline; they do not have to retroactively strip substantive content because none was persisted in the first place. The institutional vs. individual data regime is open as **OQ-PRIVACY-B** in [`tensions.md`](tensions.md) — column slot reservation lands at Phase 3, policy specification lands at Phase 8 alongside actual institutional partner conversations.
 
 ---
-*Last updated: 2026-04-09 (split into five files; node schema added; rigor score computation formula and two-column override model added; edge schema updated with graph_version_added; globe navigation model moved to ui-architecture.md; learner model moved to learner-model.md; self-correction moved to self-correction.md; infrastructure moved to infrastructure.md)*
+*Last updated: 2026-04-30 (S-0010 — `confidence_level` column added to Node Schema per Phase 1.3 and [ADR 0030](../adr/0030-confidence-level-evidentiary-mode-on-nodes.md); orthogonality with `provenance` and `confidence` recorded inline. Prior footer dated 2026-04-09 — S-0007's privacy-posture-inheritance paragraph in Institutional Schema Provisions did not bump the footer; CHANGELOG remains the authoritative session-by-session ledger.)*

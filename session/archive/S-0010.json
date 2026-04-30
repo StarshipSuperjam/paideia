@@ -1,0 +1,11 @@
+{
+  "id": "S-0010",
+  "started_at": "2026-04-30T04:53:25Z",
+  "closed_at": "2026-04-30T04:53:25Z",
+  "status": "closed",
+  "working_on": "Phase 1.3 — add `confidence_level` (EXTRACTED | INTERPRETED | SYNTHETIC) column to the Node Schema in docs/architecture.md, orthogonal to existing `provenance` and numeric `confidence`; cross-link from docs/self-correction.md (synthetic nodes as first review candidates); author ADR 0030 if enum semantics warrant durable recording.",
+  "outcome_summary": "Phase 1.3 closed. Node Schema gains `confidence_level TEXT NOT NULL DEFAULT 'INTERPRETED'` with full enum semantics in docs/architecture.md. ADR 0030 records the column as a third epistemic axis orthogonal to `provenance` and numeric `confidence`, with two test combinations grounding the orthogonality claim, the default-choice rationale (INTERPRETED matches Phase 5.2 baseline), the fixed-at-write update discipline (supersession is the channel for change, not in-place update), the storage-as-TEXT precedent, and the naming-risk acknowledgement. docs/self-correction.md gains a Synthetic-Node Review Queue subsection naming SYNTHETIC nodes as first review candidates within the Opus batch cycle. ADR README + CROSS_REFERENCES.md + CHANGELOG updated. Phase 4 audit alignment confirmed against existing ROADMAP/ADR 0016 references — no edits needed there. tools/validate.py: 0 hard-fails, 0 soft-warns. Phase 1 substantively closes; OQ-PRIVACY-A (S-0011) and OQ-PRIVACY-B remain as decide-before-Phase 3 ADRs.",
+  "approved_plan": null,
+  "branch": "claude/nervous-nash-c26302",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/nervous-nash-c26302"
+}
