@@ -16,7 +16,6 @@ This file covers the graph data model: node and edge schemas, structural princip
 - The same graph structure, traversal logic, and teaching system apply to any knowledge domain with prerequisite relationships.
 
 ### Node Granularity Principle
-**Added: 2026-04-07**
 
 A node is the smallest unit at which a coherent prerequisite claim can be made. Every inbound edge to a node must be required for the whole node, and the whole node must be required by every outbound edge. If understanding a downstream concept only requires *part* of a node, the node is too coarse and should be split.
 
@@ -27,7 +26,6 @@ This principle is testable: take any node, list its outbound edges, and for each
 This granularity rule does the work that edge-internal qualifiers would otherwise have to do. If nodes are fine-grained enough, each edge is a clean prerequisite claim and doesn't need metadata about *which aspect* of the source node matters. It also makes mastery assessment feasible per-session — a concept-level node like "Transcendental Idealism" is assessable; a thinker-level node like "Kant" is not.
 
 ### Cross-Domain Porosity
-**Added: 2026-04-07**
 
 All domains are mutually porous. Cross-domain prerequisite edges are first-class graph elements, not a future expansion feature. No domain can claim complete coverage without nodes from neighboring domains — you cannot master Existentialism without understanding the historical context of early 20th century Europe, and you cannot master the Categorical Imperative without understanding the Enlightenment as an intellectual movement.
 
@@ -53,14 +51,12 @@ All domains are mutually porous. Cross-domain prerequisite edges are first-class
 New domains can be added as tags without migration. The graph structure doesn't change; only the domain metadata on nodes does.
 
 ### Rigor Score (Node Property)
-**Added: 2026-04-07 | Revised: 2026-04-09**
 
 Each concept node carries a **rigor score** — a continuous value (0.0–1.0) that determines assessment depth, decay behavior, and mastery verification difficulty. Low scores (e.g. 0.15 for Cartesian Dualism) indicate concepts that are structurally foundational, simple to hold, and stable once understood. High scores (e.g. 0.85 for Transcendental Idealism) indicate concepts that are internally complex, structurally load-bearing, and fragile without active maintenance.
 
 Full behavioral implications are described in pedagogy.md under "Rigor Score" and in learner-model.md under Mastery Computation and Mastery Decay.
 
 #### Rigor Score Computation
-**Added: 2026-04-09**
 
 The rigor score is computed from graph topology using three signals:
 
@@ -87,7 +83,6 @@ The computation is a one-time bottom-up traversal run whenever the graph changes
 The formula is domain-agnostic. It produces sensible scores for any knowledge domain because it only references graph topology, not domain-specific properties.
 
 #### Two-Column Override Model
-**Added: 2026-04-09**
 
 The node schema stores two columns: `rigor_score_computed` (always the formula output, never touched by humans) and `rigor_score_adjustment` (a human-applied delta, defaulting to 0.0). The effective rigor score consumed by all downstream systems is:
 
@@ -102,7 +97,6 @@ This design keeps the computation pure, makes overrides local by construction, a
 Editorial adjustments should result from considered analysis and evidence that the computed score is incorrect — not from casual opinion. The Opus batch review (see self-correction.md) can propose adjustments alongside edge edits.
 
 ### Node Schema
-**Added: 2026-04-09 | Revised: 2026-04-30 (S-0010 — `confidence_level` column added per Phase 1.3 and [ADR 0030](../adr/0030-confidence-level-evidentiary-mode-on-nodes.md))**
 
 ```sql
 CREATE TABLE nodes (
@@ -156,7 +150,6 @@ CREATE TABLE nodes (
 - **Cluster assignment**: Computed by community detection (per [ADR 0018](../adr/0018-flat-domain-tags-community-detection.md)) at catalog-organization time per [ADR 0034](../adr/0034-discovery-planning-engagement-triad.md). Not stored.
 
 ### Edge Schema
-**Added: 2026-04-07 | Revised: 2026-04-09**
 
 Edges are not bare foreign key pairs. Each edge carries metadata that serves distinct, load-bearing functions:
 
@@ -184,7 +177,7 @@ CREATE TABLE edges (
 - **provenance** ('human' | 'ai_proposed' | 'ai_confirmed'): Who created the edge and its lifecycle stage. Human-curated edges require stronger counter-evidence to remove. AI-proposed edges start at lower confidence. The three values capture the lifecycle: AI proposes → evidence accumulates → human or system confirms.
 - **confidence** (0.0–1.0): How certain we are that this relationship exists at all. Orthogonal to weight. An AI-proposed edge might have high weight (if it exists, it's critical) but low confidence (we're not sure it exists). A human-curated edge has high confidence but might have low weight (helpful, not essential). Both dimensions are necessary.
 - **evidence**: Free-text field for why this edge exists. Useful for debugging, user review of AI-proposed edges, and the self-correction audit trail. May be structured (JSON) later if needed.
-- **graph_version_added** (INTEGER): The value of the graph_version counter when this edge was created. Enables historical graph reconstruction alongside the same column on nodes. *(Added: 2026-04-09)*
+- **graph_version_added** (INTEGER): The value of the graph_version counter when this edge was created. Enables historical graph reconstruction alongside the same column on nodes.
 - **timestamps**: created_at and updated_at are table stakes.
 - **edge_type**: Text field (not enum) so new types can be added without migration. Only `pedagogical_prerequisite` is used in traversal, syllabus generation, and mastery computation. Other types (e.g. `historical_influence`) are display features, not structural. No application logic should be built around non-pedagogical edge types until needed.
 
@@ -193,7 +186,6 @@ CREATE TABLE edges (
 **Prior art:** The ACE paper (Aytekin et al., Journal of Educational Data Mining) formalizes Educational Knowledge Graphs with prerequisite scoring that is conceptually similar to the confidence field. The Graphiti framework (Zep) implements episode-to-edge provenance tracing that parallels the self-correction feedback loops. Both validate the column choices but neither provides an off-the-shelf schema — the integrated system (pedagogical edges + confidence-weighted self-correction + AI teacher generating correction proposals in Postgres) is novel.
 
 ### Portable Mastery
-**Added: 2026-04-07**
 
 Mastery is per-concept, not per-concept-per-path. If a user masters "Empiricism" while studying toward Kant, that mastery fully transfers to a Philosophy of Science path. The Planning surface (per [ADR 0034](../adr/0034-discovery-planning-engagement-triad.md)) marks the concept mastered in every syllabus that includes it; one mastery state per concept, surfaced contextually within the syllabi that carry it. The mastery computation function is `f(events for user U and concept C) → score` with no path dimension.
 
@@ -202,7 +194,6 @@ If mastery of a concept doesn't transfer well to a new context, that is evidence
 Path context is still recorded on each learner event (which learning path the user was on when they engaged). This metadata supports analysis — e.g., "do certain paths produce better mastery?" — but is not used in the mastery computation itself.
 
 ### Node Versioning
-**Added: 2026-04-07**
 
 Full node versioning (each edit creates a new version; learner events point to the version they interacted with) is not justified at current scale (n=1–3 users with infrequent graph edits). But the decision must be made at schema time, because retrofitting versioning onto an unversioned schema requires migrating every existing learner event.
 
@@ -210,19 +201,17 @@ Full node versioning (each edit creates a new version; learner events point to t
 
 This makes future full versioning a migration rather than a reconstruction: when needed, pair the counter with a `graph_edits` log table (which node changed, when, what the old value was) to reconstruct which graph state any event was recorded against. The edits log table can be added later; the counter on events must be there from day one.
 
-Both the nodes and edges tables carry a `graph_version_added` column recording the counter value at creation time. This enables lightweight historical reconstruction without the full edits log. *(Revised: 2026-04-09)*
+Both the nodes and edges tables carry a `graph_version_added` column recording the counter value at creation time. This enables lightweight historical reconstruction without the full edits log.
 
 At concept-level granularity the graph will have hundreds of nodes, not dozens. The graph_version approach scales to this — it's one integer per event regardless of node count.
 
 ## Ideas as Nodes, Books as Metadata
-**Added: 2026-04-07**
 
 The graph's fundamental unit is the idea, not the book. Books are many-to-many metadata on nodes — sources where an idea can be encountered, studied, or deepened. One idea may appear across several books; one book may contain dozens of ideas. This means the graph tracks what the user actually understands, not what they've read. A user who reads all of the Critique of Pure Reason without grasping transcendental idealism has not mastered that node.
 
 The app carries its own source recommendations per node (editions, translations, annotated versions). Users can optionally input their existing library or reading history to enable gap detection (books they don't own that would unlock graph paths) and source-preference routing (which of their books best teaches a given concept). A user's personal library is an input signal, not a design dependency — the system assumes nothing about what any user owns.
 
 ## Entity Resolution Service
-**Added: 2026-04-08**
 
 Entity resolution — mapping a freeform string like "Kant's epistemology" or "the problem of induction" to one or more concept nodes in the graph — is a shared operation that serves multiple pipelines. The teaching session context uses it for resolving spontaneous learner references against the two-hop neighborhood. The close reading outline generation uses it for mapping text sections to mastery graph concepts. The syllabus upload pipeline uses it for mapping course topics and readings to graph nodes. All three need the same core capability: take a natural-language reference and resolve it against the node inventory with fuzzy matching, partial matching, and clean miss detection.
 
@@ -235,7 +224,6 @@ Entity resolution — mapping a freeform string like "Kant's epistemology" or "t
 The entity resolution service is shared infrastructure. The teaching session uses it against the two-hop neighborhood (lightweight, low-latency). The close reading and syllabus pipelines use it against the full graph (heavier, but these are ingestion-time operations, not real-time). The same resolution logic scales to both contexts by accepting a node set as input rather than always querying the full graph.
 
 ## Syllabus Upload Pipeline
-**Added: 2026-04-08**
 
 A professor (or autodidact following an online course) uploads a course syllabus. The system parses it, maps it to the mastery graph, identifies prerequisite gaps, and generates a constrained learning path. The syllabus is a constraint on graph traversal, not a replacement for it — the professor's sequencing is respected, and the system catches learners who can't make the inferential leaps the syllabus silently demands.
 
@@ -262,15 +250,17 @@ A professor (or autodidact following an online course) uploads a course syllabus
 The syllabus pipeline and the close reading pipeline share the entity resolution service but diverge after that point. The syllabus pipeline produces a constrained learning path (a sequence of graph nodes with gap-fill). The close reading pipeline produces an interpretive outline (a section-by-section teaching plan encoding argument structure and teaching modes). These are structurally different artifacts. The close reading pipeline needs chunking, embedding, and Opus-generated outlines. The syllabus pipeline needs information extraction from a short document and graph traversal for gap analysis. Forcing them into a single abstraction would create complexity without benefit.
 
 ## Individual Data Regime
-**Revised: 2026-04-30 (S-0012 — Institutional Schema Provisions section dropped per [ADR 0032](../adr/0032-personal-project-disposition.md) and [ADR 0031](../adr/0031-erasure-mechanism-and-individual-only-regime.md). The prior section described a `cohort_id` field, shareable-constrained-paths-as-institutional-wedge framing, and a privacy-posture-inheritance paragraph; all three were dead-weight under the personal-project disposition.)**
 
-The system is built for individual learners. There is no institutional regime — no cohorts, no `cohort_id` field, no LMS integration, no instructor dashboards, no FERPA wrapper, no grade export. Per [ADR 0032](../adr/0032-personal-project-disposition.md), the institutional path is foreclosed *as a refusal, not a deferral* — including in the success case. Per [ADR 0031](../adr/0031-erasure-mechanism-and-individual-only-regime.md), `learner_events.context` carries `path_id`, `source_text_id`, and `session_id` only; `cohort_id` is removed from the schema.
+The system is built for individual learners. There is no institutional regime — no cohorts, no `cohort_id` field, no LMS integration, no instructor dashboards, no FERPA wrapper, no grade export. The institutional path is foreclosed *as a refusal, not a deferral* — including in the success case. `learner_events.context` carries `path_id`, `source_text_id`, and `session_id` only; `cohort_id` is not in the schema.
 
-The Syllabus Upload Pipeline above is a personal-use feature: an autodidact following an online course (or a learner adapting a public syllabus) uploads it for personal gap-fill. The institutional product wedge framing the prior version of this document carried — professor uploads syllabus, assigns to cohort, $5/seat/month — is dropped per [ADR 0032](../adr/0032-personal-project-disposition.md). The pipeline's data model continues to reference graph nodes and the user's own learner state; constrained paths are owned by the user who creates them.
+The Syllabus Upload Pipeline above is a personal-use feature: an autodidact following an online course (or a learner adapting a public syllabus) uploads it for personal gap-fill. The pipeline's data model references graph nodes and the user's own learner state; constrained paths are owned by the user who creates them.
 
-The privacy posture is settled by [ADR 0026](../adr/0026-persistent-learner-storage-structural-not-substantive.md) (persistent storage is structural, not substantive) and the erasure mechanism by [ADR 0031](../adr/0031-erasure-mechanism-and-individual-only-regime.md) (hard-delete with cascade satisfies Apple App Store guideline 5.1.1). Both reflect the consumer-individual data regime — no DPA, no FERPA-style stricter regime, no institutional analytics-eligibility distinction.
+The privacy posture is the consumer-individual data regime — no DPA, no FERPA-style stricter regime, no institutional analytics-eligibility distinction. Persistent learner storage is structural, not substantive; the erasure mechanism is hard-delete with cascade and satisfies Apple App Store guideline 5.1.1.
 
-If a future session reopens the institutional regime, the supersession discipline applies: a new ADR explicitly supersedes [ADR 0032](../adr/0032-personal-project-disposition.md) and the institutional schema provisions are reauthored from scratch (not restored from this file's git history as if they had only been deferred).
+Reopening the institutional regime requires a superseding ADR; institutional schema provisions are reauthored from scratch, not restored as if they had only been deferred.
 
----
-*Last updated: 2026-04-30 (S-0016 — secondary docs sweep per [ADR 0033](../adr/0033-mission-realignment-structured-guidance-for-self-learners.md) and [ADR 0034](../adr/0034-discovery-planning-engagement-triad.md): orientation file-pointer line updated against the triad; Reference domain list intro and Node Schema `domain` column justification updated to reference Discovery-surface catalog organization rather than globe visualization; the "Globe position (x/y/z coordinates)" "What is not on the node table" bullet dropped (no globe → no globe-position to not-store; the Cluster assignment bullet already covers the not-storing-derived-layout principle); Portable Mastery section's "globe shows one glow state per concept" framing updated to Planning-surface contextual marking. Prior footer 2026-04-30 (S-0012 — Institutional Schema Provisions section dropped and replaced with Individual Data Regime per [ADR 0032](../adr/0032-personal-project-disposition.md); Syllabus Upload Pipeline's institutional-wedge framing dropped, personal-use framing kept; cross-links to [ADR 0031](../adr/0031-erasure-mechanism-and-individual-only-regime.md) and [ADR 0026](../adr/0026-persistent-learner-storage-structural-not-substantive.md) refreshed). Prior footer 2026-04-30 (S-0010 — `confidence_level` column added to Node Schema per Phase 1.3 and [ADR 0030](../adr/0030-confidence-level-evidentiary-mode-on-nodes.md)). Earlier footer 2026-04-09. CHANGELOG remains the authoritative session-by-session ledger.*
+### See also
+
+- [ADR 0031](../adr/0031-erasure-mechanism-and-individual-only-regime.md) — erasure mechanism and individual-only data regime.
+- [ADR 0032](../adr/0032-personal-project-disposition.md) — personal-project disposition; refusal-not-deferral.
+- [ADR 0026](../adr/0026-persistent-learner-storage-structural-not-substantive.md) — persistent learner storage is structural, not substantive.

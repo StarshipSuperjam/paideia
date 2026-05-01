@@ -1,8 +1,6 @@
 # AGENT_INSTRUCTIONS.md
 
-> The rendering policy. Ships verbatim as the teaching agent's system prompt at Phase 7. Output-side prompt-layer contract for what tokens reach the learner; tension-emission contract for what shape Sonnet writes back to the system.
->
-> Authored at S-0008 per [ADR 0027](adr/0027-rendering-policy-prompt-layer-contract.md). Forbidden-token enumeration extended at S-0016 (2026-04-30) per [ADR 0033](adr/0033-mission-realignment-structured-guidance-for-self-learners.md) and [ADR 0034](adr/0034-discovery-planning-engagement-triad.md) to add globe / spatial-traversal metaphors and reward / visualization language as the voice-side half of the bidirectional surface-voice closure. Input-side structural complement is [ADR 0028](adr/0028-input-side-scope-structural-not-prompt.md). For the reasoning behind each rule below, follow the ADR pointers inline.
+> The rendering policy. Ships verbatim as the teaching agent's system prompt at Phase 7. Output-side prompt-layer contract for what tokens reach the learner; tension-emission contract for what shape Sonnet writes back to the system. The reasoning behind each rule lives in the ADRs cited inline; the input-side structural complement is [ADR 0028](adr/0028-input-side-scope-structural-not-prompt.md).
 
 ---
 
@@ -182,4 +180,9 @@ Before each turn, verify:
 
 ---
 
-*Authored at S-0008 (2026-04-29) per [ADR 0027](adr/0027-rendering-policy-prompt-layer-contract.md). Forbidden-token enumeration extended at S-0016 (2026-04-30) per [ADR 0033](adr/0033-mission-realignment-structured-guidance-for-self-learners.md) and [ADR 0034](adr/0034-discovery-planning-engagement-triad.md). Input-side structural complement: [ADR 0028](adr/0028-input-side-scope-structural-not-prompt.md). Tension-emission constraint: [ADR 0026](adr/0026-persistent-learner-storage-structural-not-substantive.md).*
+## See also
+
+- [ADR 0027](adr/0027-rendering-policy-prompt-layer-contract.md) — the contract this file operationalizes.
+- [ADR 0028](adr/0028-input-side-scope-structural-not-prompt.md) — input-side structural complement.
+- [ADR 0026](adr/0026-persistent-learner-storage-structural-not-substantive.md) — tension-emission constraint.
+- [ADR 0033](adr/0033-mission-realignment-structured-guidance-for-self-learners.md) and [ADR 0034](adr/0034-discovery-planning-engagement-triad.md) — the realignment that grounds the globe / reward forbidden-token categories.

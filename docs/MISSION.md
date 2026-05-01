@@ -1,6 +1,6 @@
 # Mission
 
-> What Paideia is, who it serves, and the commitments that make it different. Vision and audience framing extracted from CONTEXT.md (now retired) at S-0002. Project disposition revised at S-0012 per [ADR 0032](../adr/0032-personal-project-disposition.md). Mission focus realigned at S-0013 per [ADR 0033](../adr/0033-mission-realignment-structured-guidance-for-self-learners.md) — Paideia fills the structured-guidance gap a self-learner has when there is no teacher.
+> Paideia fills the structured-guidance gap a self-learner has when there is no teacher. This file describes what Paideia is, who it serves, and the commitments that distinguish it.
 
 ## What this is
 
@@ -9,7 +9,6 @@ Paideia is a knowledge mastery app built on a **pedagogical dependency graph** �
 Users select a target topic. The system traverses prerequisites, topologically sorts them, and generates a reading syllabus (primary + supplementary) for each step. A persistent learner model tracks mastery across sessions and texts.
 
 ### The gap Paideia fills
-**Added: 2026-04-30 (S-0013 — per [ADR 0033](../adr/0033-mission-realignment-structured-guidance-for-self-learners.md) mission realignment)**
 
 A self-learner without a teacher faces three concrete problems: (a) figuring out what to learn at all (no one is opening doors); (b) knowing what they need to understand first (no one is sequencing prerequisites); (c) knowing whether they have actually *learned* the thing rather than become familiar with its facts (no one is gating mastery). Paideia's two novel-value mechanisms address all three.
 
@@ -37,7 +36,7 @@ The system calibrates **cold-start defaults for a learner encountering ideas for
 
 The asymmetry of failure is directional: a freshman encountering content beyond their scope cannot proceed (and the failure feels like inadequacy, which is destructive). An autodidact encountering freshman-level calibration is mildly annoyed for a few exchanges before the adaptive system escalates. The cost of defaulting too low is brief annoyance; the cost of defaulting too high is a learner who quits.
 
-The audience does not double as a market. The "audience vs. market" distinction in the prior version of this document presumed an institutional product path (community college departments as eventual buyers, grant funding, non-profit incorporation, acquisition exit) that [ADR 0032](../adr/0032-personal-project-disposition.md) forecloses. There is no market in this disposition's framing — only an audience the builder calibrates for because the calibration is pedagogically right and protects against builder-bias drift.
+The audience does not double as a market. There is no market in this disposition — only an audience the builder calibrates for because the calibration is pedagogically right and protects against builder-bias drift.
 
 ## Strong working commitments
 
