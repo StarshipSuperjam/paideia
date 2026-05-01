@@ -120,6 +120,18 @@ ln -s ../../tools/hooks/pre-commit pre-commit
 
 Verify: `head -3 .git/hooks/pre-commit` resolves and prints the bash shebang plus the Paideia hook header.
 
+### MemPalace capture-hook failure log
+
+The Stop and PreCompact hooks invoke [`tools/hooks/mempalace-hook-wrapper.sh`](../../tools/hooks/mempalace-hook-wrapper.sh), which always exits 0 to the harness and routes capture failures (binary missing, daemon down, capture errored) to `.claude/logs/mempalace-hook.log`. The log is gitignored per-clone state.
+
+At session boot, after reading STATE.md and before the MemPalace context query, check the log. If `.claude/logs/mempalace-hook.log` exists and is non-empty, surface its contents to the user — capture may have failed silently in earlier sessions running from this worktree, and the conversational substrate they recorded may be missing from MemPalace.
+
+```bash
+test -s .claude/logs/mempalace-hook.log && cat .claude/logs/mempalace-hook.log
+```
+
+Acknowledged entries can be cleared by truncating the file (`: > .claude/logs/mempalace-hook.log`); fresh failures will append on the next hook fire. Persistent failures usually mean the `mempalace` binary is not in PATH from the harness's environment or the MemPalace daemon is not running — see [`mempalace-operations.md`](mempalace-operations.md) for diagnosis steps.
+
 ## See also
 
 - [`session-shutdown-sequence.md`](session-shutdown-sequence.md) — close-of-session protocol.

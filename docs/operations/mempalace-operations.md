@@ -66,11 +66,13 @@ MemPalace 3.3.3 does **not** auto-capture conversations. Capture requires Claude
 - **Stop hook** — fires after every 15 human messages. Tracks save points per session in `~/.mempalace/hook_state/`. Honors `stop_hook_active` to prevent infinite loops.
 - **PreCompact hook** — fires before context compaction. Always blocks with a comprehensive save instruction (compaction means the AI is about to lose detailed context).
 
-Both hooks invoke the same binary:
+Both hooks invoke the same binary, behind a wrapper that surfaces capture failures to a log file:
 
 ```
-echo '{"session_id":"...","stop_hook_active":false,"transcript_path":"..."}' | mempalace hook run --hook stop --harness claude-code
+echo '{"session_id":"...","stop_hook_active":false,"transcript_path":"..."}' | tools/hooks/mempalace-hook-wrapper.sh --hook stop --harness claude-code
 ```
+
+The wrapper ([`tools/hooks/mempalace-hook-wrapper.sh`](../../tools/hooks/mempalace-hook-wrapper.sh)) passes args and stdin through to `mempalace hook run`, captures the exit code and stderr, and appends a single timestamped success/failure line to `.claude/logs/mempalace-hook.log` (gitignored — per-clone state). It always exits 0 to the harness, so capture issues never block the session. The next session's boot procedure reads the log and surfaces unacknowledged failure entries; see [`session-build-lifecycle.md`](session-build-lifecycle.md)'s Recovery section.
 
 Configuration in `.claude/settings.json`:
 
@@ -83,7 +85,7 @@ Configuration in `.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "mempalace hook run --hook stop --harness claude-code"
+            "command": "tools/hooks/mempalace-hook-wrapper.sh --hook stop --harness claude-code"
           }
         ]
       }
@@ -94,7 +96,7 @@ Configuration in `.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "mempalace hook run --hook precompact --harness claude-code"
+            "command": "tools/hooks/mempalace-hook-wrapper.sh --hook precompact --harness claude-code"
           }
         ]
       }
