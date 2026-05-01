@@ -1,0 +1,10 @@
+{
+  "id": "S-0019",
+  "started_at": "2026-05-01T18:46:32Z",
+  "status": "in_progress",
+  "working_on": "Phase 2 machinery hardening (Tier 1 of approved adversarial-analysis plan): A1 migrate pre-commit hook from worktree-specific path to tracked tools/hooks/pre-commit; A3 add Recovery sections to session-build-lifecycle.md and session-shutdown-sequence.md (interrupted-shutdown + eager-claim race); A4 fix docs/content-strategy.md:102 authoring-future-tense residual ADR 0036 violation; C1 add scope-clarification sentence to CLAUDE.md end-state-quality rule; C3 add First-session reading order subsection to CLAUDE.md; Tier 3 add CLAUDE.md note naming pushback / two-layer recording / startup-ceremony-order as posture-without-enforcement; C2 log outward-facing-voice-contract gap to docs/tensions.md (decide-before Phase 7). ROADMAP.md cleanup (originally S-0019 plan) shifts to S-0021; Tier 2 (A2 wrapper, B4 validator, C4 STATE.md framing) lands at S-0020.",
+  "outcome_summary": null,
+  "approved_plan": "/Users/shanekidd/.claude/plans/then-expression-contract-for-nifty-pie.md",
+  "branch": "claude/wonderful-noyce-c8aaba",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/wonderful-noyce-c8aaba"
+}
