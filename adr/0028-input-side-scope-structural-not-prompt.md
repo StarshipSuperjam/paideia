@@ -1,8 +1,8 @@
 # ADR 0028 — Input-side scope is structural, not prompt-policed
 
 - **Status:** Accepted
-- **Date:** 2026-04-29
-- **Deciders:** S-0008 (exploration carried into the build session — sibling commitment to ADR 0027 rendering policy)
+- **Date:** 2026-04-29 (S-0016 sweep updated three residual globe-as-home-screen / globe-view references to the Discovery / Planning / Engagement triad)
+- **Deciders:** S-0008 (exploration carried into the build session — sibling commitment to ADR 0027 rendering policy); S-0016 sweep updated stale UI-surface references per [ADR 0033](0033-mission-realignment-structured-guidance-for-self-learners.md) and [ADR 0034](0034-discovery-planning-engagement-triad.md). The structural input-scope commitment is unchanged; only the named navigation surfaces shift.
 
 ## Context
 
@@ -14,7 +14,7 @@ The naive answer to "how do you keep a teaching system from being used as a gene
 
 **Drift is gradual and unmonitored when the surface is open-ended.** A chat surface invites the user to discover that typing anything produces a response. Even without a single bad-actor moment, the equilibrium of long-term use is gradual expansion: a learner asks one off-topic question that gets answered, then another, then the system has become a general assistant by the slow road. The architecture wins or loses this on the first design choice — once the surface is open, no amount of prompt tightening reverses the equilibrium.
 
-The forcing function is Phase 9 UI design. The globe-as-home-screen and concept-engagement-as-atomic-unit decisions in [`docs/session-lifecycle.md`](../docs/session-lifecycle.md) already commit to a structured navigation surface. What [`docs/session-lifecycle.md`](../docs/session-lifecycle.md) does not yet name explicitly is the *input-side* counterpart to that structure: the user has no chat input outside of bounded teaching contexts. Settling this before the UI prototype begins (Phase 9) prevents the chat-surface failure mode from being designed in by accident.
+The forcing function is Phase 9 UI design. The Discovery / Planning / Engagement triad committed by [ADR 0034](0034-discovery-planning-engagement-triad.md) (per [`docs/ui-architecture.md`](../docs/ui-architecture.md) and [`docs/session-lifecycle.md`](../docs/session-lifecycle.md)) commits to a structured navigation surface composed of three primary surfaces with one-to-one correspondence to the structured-guidance-gap problems. What [`docs/session-lifecycle.md`](../docs/session-lifecycle.md) does not yet name explicitly is the *input-side* counterpart to that structure: the user has no chat input outside of bounded teaching contexts. Settling this before the UI prototype begins (Phase 9) prevents the chat-surface failure mode from being designed in by accident. *(Note: the original 2026-04-29 form of this paragraph referenced the globe-as-home-screen + concept-engagement-as-atomic-unit pair from the prior contract; updated at S-0016 to the triad per [ADR 0034](0034-discovery-planning-engagement-triad.md).)*
 
 A complementary forcing function is [ADR 0027](0027-rendering-policy-prompt-layer-contract.md), which lands in the same session. [ADR 0027](0027-rendering-policy-prompt-layer-contract.md) is the *output-side* prompt-layer contract for what tokens the agent emits. This ADR is the *input-side* structural contract for what surface the user has to emit through. The two together form the bidirectional contract for the teaching surface.
 
@@ -32,7 +32,7 @@ Three bounded input contexts exist (V1):
 
 The agent's response to a redirected-task input is constrained by [ADR 0027](0027-rendering-policy-prompt-layer-contract.md) (rendering policy → scope discipline section): one sentence acknowledging the surface is for the concept engagement, an offer to step out via the exit affordance, no lecturing. The agent does not refuse harshly, does not argue, does not catalog the rules.
 
-**An exit affordance is a UI primitive.** The user has a visible, intentional way to step out of the current context and return to graph navigation — globe view, syllabus selector, or another concept engagement. The affordance is labeled and reachable in one action from any teaching context. This is the structural alternative to "general chat": the user who wants to do something else takes the exit and enters a different bounded context (or leaves the app), rather than drifting the current one.
+**An exit affordance is a UI primitive.** The user has a visible, intentional way to step out of the current context and return to one of the triad's primary surfaces per [ADR 0034](0034-discovery-planning-engagement-triad.md) — Planning surface (the typical exit destination from a concept engagement; the user returns to their active syllabus set), Discovery surface (the typical exit destination from a diagnostic; the user returns to target identification), or another bounded engagement context. The affordance is labeled and reachable in one action from any teaching context. This is the structural alternative to "general chat": the user who wants to do something else takes the exit and enters a different bounded context (or leaves the app), rather than drifting the current one.
 
 **Prompt-level off-topic refusal language is forbidden.** [ADR 0027](0027-rendering-policy-prompt-layer-contract.md) (`AGENT_INSTRUCTIONS.md`) does not contain "refuse off-topic questions" or "stay strictly on the current concept" framing, because both formulations would over-reject the Mode 3 cross-context connections the design depends on. The agent's scope discipline is positive (engage with what is adjacent and serves the learning) and structural (decline redirected tasks via the exit affordance), not list-of-forbidden-topics.
 
@@ -63,7 +63,8 @@ The agent's response to a redirected-task input is constrained by [ADR 0027](002
 - [ADR 0014](0014-sonnet-teaches-opus-reviews.md) — teaching role this ADR scopes the input surface for.
 - [ADR 0011](0011-no-hosted-copyrighted-material.md) — bring-your-own-book close-reading mode (one of the three bounded input contexts).
 - [`docs/pedagogy.md`](../docs/pedagogy.md) — three teaching modes; cold-start diagnostic conversation.
-- [`docs/session-lifecycle.md`](../docs/session-lifecycle.md) — concept engagement as atomic unit; mode transitions; globe-as-home-screen.
+- [`docs/session-lifecycle.md`](../docs/session-lifecycle.md) — concept engagement as atomic unit; mode transitions; routing after concept completion (substantially rewritten at S-0014 against the Discovery / Planning / Engagement triad per [ADR 0034](0034-discovery-planning-engagement-triad.md)).
+- [ADR 0034](0034-discovery-planning-engagement-triad.md) — Discovery / Planning / Engagement triad as primary product structure; the navigation surfaces this ADR's exit affordance returns the user to.
 - [`AGENT_INSTRUCTIONS.md`](../AGENT_INSTRUCTIONS.md) — scope discipline section operationalizing this ADR's purpose-not-topic discrimination.
 - [`docs/ui-architecture.md`](../docs/ui-architecture.md) — Phase 9 UI prototype (exit affordance specification target).
 - [`ROADMAP.md`](../ROADMAP.md) — Phase 9 UI prototype.
