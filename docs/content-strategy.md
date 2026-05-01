@@ -99,7 +99,7 @@ Deniz Cem Önduygu's `denizcemonduygu.com/philo` (Western philosophy graph: ~800
 
 ### Per-candidate assessment template
 
-When the survey populates this section in Phase 4.5, each candidate dataset gets a record of the form:
+Candidate datasets are recorded using this template:
 
 ```
 **<Dataset name>** ([URL])
