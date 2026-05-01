@@ -13,6 +13,17 @@ Every session begins by reading these in order:
 
 `/start-engine` automates this and claims the next slot. See `.claude/commands/start-engine.md`.
 
+## First-session reading order
+
+A fresh session reading only this file learns the rules but not the procedures. The smallest set of operations docs to read on cold start, in order:
+
+1. [`docs/operations/session-build-lifecycle.md`](docs/operations/session-build-lifecycle.md) — boot procedure, eager-claim ritual, in-session commit cadence, push policy, recovery paths.
+2. [`docs/operations/session-shutdown-sequence.md`](docs/operations/session-shutdown-sequence.md) — close-of-session protocol; partial-closure handling; recovery from interrupted shutdown.
+3. [`docs/operations/escalation-criteria.md`](docs/operations/escalation-criteria.md) — when to interrupt the user; worked examples both ways.
+4. [`docs/operations/tools-validate-interpretation.md`](docs/operations/tools-validate-interpretation.md) — hard-fail vs soft-warn handling.
+
+Other operations docs are defer-on-demand: read when the session's work item references them or when one of the four core docs points at them. The full index lives at [`docs/operations/README.md`](docs/operations/README.md).
+
 ## Two session modes
 
 - **Default — exploration.** No project file edits to tracked files. No commits. No slot claim. Sketch in conversation. MemPalace captures with the `exploration` tag (via the stop/precompact hooks in `.claude/settings.json`). When discussion converges on something worth committing, offer `/start-engine`.
@@ -45,6 +56,8 @@ If a session hits its cap mid-work, halt at the next sensible boundary, write `o
 
 Author at production quality the first time. Don't write a draft and polish; don't write a placeholder and revisit. The cost of re-reading and re-revising a sloppy first pass exceeds the cost of slowing down to write it correctly. Particularly true for documents that downstream sessions will read cold — readability *is* the artifact's value.
 
+Applies to newly-authored content. Cleanup sweeps that retrofit existing content to a newly-imposed contract — applying [ADR 0036](adr/0036-expression-contract-for-inward-documents.md) to documents authored before the contract existed, for example — are exempt and belong in the new contract's own Consequences section.
+
 ### Two-layer decision recording
 
 Every settled decision lands in two places, serving different consumers:
@@ -59,6 +72,16 @@ ADRs answer "what's settled?". MemPalace answers "have we considered X before?".
 [Conventional Commits](https://www.conventionalcommits.org/). Types in active use: `feat`, `fix`, `docs`, `refactor`, `chore`, `test`, `ci`, `perf`. Eager-claim commits use `chore(session):`. Always attribute via the `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>` footer.
 
 `tools/validate.py` runs in the pre-commit hook. Hard-fails block the commit. Soft-warns are recorded in `session/current.json`'s `outcome_summary`. See `docs/operations/tools-validate-interpretation.md`.
+
+### Posture vs machinery
+
+Several rules above are postures held by AI discipline, not machinery enforced by validators or hooks:
+
+- The **pushback rule** — no log, no audit; a session that fails to surface a real risk leaves no trace.
+- **Two-layer decision recording** — `tools/validate.py` does not check whether a settled decision was filed to MemPalace alongside its ADR.
+- The **startup ceremony order** — the four steps run by judgment; nothing prevents skipping or reordering.
+
+The choice is deliberate: these don't admit clean mechanical detection. The cost is that drift accumulates silently if discipline lapses. The mitigation is awareness — a session that knows the rule is unenforced can hold itself accountable rather than mistake the absence of an alarm for the presence of compliance.
 
 ## Topical pointers
 
