@@ -143,6 +143,20 @@ If a session hits its budget cap (per CLAUDE.md guidance) mid-work:
 
 The next session picks up cleanly from STATE.md without re-deriving where things left off.
 
+## Recovery (interrupted shutdown)
+
+A clean close runs steps 1–7 in sequence. If the session crashes, hits a network error, or otherwise halts mid-shutdown, the observable state determines the recovery path:
+
+1. **Halted before step 6 (archive).** `current.json` present; `register_state.json` `current_status: in_progress`. Resume from step 1 — run `tools/validate.py`, complete spot-check, finish updating STATE.md / CHANGELOG, fill `outcome_summary`, then archive and final-commit.
+
+2. **Halted between archive (step 6) and final commit (step 7).** `archive/S-<NNNN>.json` present, `current.json` absent, `register_state.json` `current_status: closed`. The archive move sits unstaged or staged in the working tree. Stage and commit the planned final commit; FF main; push.
+
+3. **Halted after final commit, before FF + push.** Final commit exists locally; `git log origin/main..HEAD` shows it. FF main and push. No state edits required.
+
+4. **Split state.** Both `archive/S-<NNNN>.json` and `current.json` present, or `register_state.json` `current_status` disagrees with which file exists. This shape should not occur with a clean close. Reconcile manually — read both files, identify which carries the fuller `outcome_summary`, do not delete either blindly. Escalate per [`escalation-criteria.md`](escalation-criteria.md) if the right reconciliation is unclear.
+
+The recovery procedure is documented for completeness; it has not been exercised on a real interrupted close.
+
 ## See also
 
 - [`session-build-lifecycle.md`](session-build-lifecycle.md) — open-of-session protocol.

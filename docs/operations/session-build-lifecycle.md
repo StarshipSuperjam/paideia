@@ -88,6 +88,38 @@ Before pushing, fast-forward main locally first; resolve any divergence in the w
 - Destructive operations remain gated: force-push, amends to published commits, branch deletion, `git reset --hard`. These require explicit confirmation regardless of session mode.
 - Always FF main locally before pushing. Never push the worktree branch directly to remote main without going through the parent repo's main.
 
+## Recovery
+
+The lifecycle runs cleanly in the common case. These procedures cover edge cases not yet exercised in production.
+
+### Eager-claim race (concurrent slot collision)
+
+Two sessions reading `register_state.json` near-simultaneously can both write `S-NNNN` claim commits against the same slot. The first push wins; the second session's `git -C <parent> merge --ff-only <branch>` rejects because main has moved.
+
+Resolution path (still in boot procedure, no substantive work yet):
+
+1. `git fetch origin main`, then inspect `git log origin/main..HEAD`. A peer's `eager-claim S-<same N>` commit on the upstream confirms collision.
+2. From the worktree branch: `git reset --hard origin/main`. The destruction is bounded — only the local claim commit is lost; the boot rule is *claim first, work second*, so no substantive work is in flight.
+3. Re-read `register_state.json` (now showing the peer's bumped `next_id`).
+4. Re-run the eager-claim ritual against the new slot. Update `current.json`'s `id` and `working_on`. Commit, FF, push.
+5. Resume substantive work.
+
+The mechanism's collision resistance is in place but not stress-tested by an actual concurrent collision. The first real exercise will likely come during Phase 5 parallel seed-graph build.
+
+### Pre-commit hook symlink
+
+The hook itself lives at [`tools/hooks/pre-commit`](../../tools/hooks/pre-commit) (tracked). The parent repo's `.git/hooks/pre-commit` is a symlink to that path; worktrees share the parent's `.git/hooks/` directory, so one symlink covers every worktree.
+
+On a fresh clone, or if `readlink .git/hooks/pre-commit` shows a broken target (for example, a removed worktree), restore the symlink from the parent repo root:
+
+```bash
+cd .git/hooks
+rm -f pre-commit
+ln -s ../../tools/hooks/pre-commit pre-commit
+```
+
+Verify: `head -3 .git/hooks/pre-commit` resolves and prints the bash shebang plus the Paideia hook header.
+
 ## See also
 
 - [`session-shutdown-sequence.md`](session-shutdown-sequence.md) — close-of-session protocol.
