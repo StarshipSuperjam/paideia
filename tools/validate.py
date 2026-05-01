@@ -201,6 +201,72 @@ def validate_repo_structure() -> ValidationResult:
                     f"{adr_file.relative_to(REPO_ROOT)}: no Status field found",
                 )
 
+    # ADR index/file consistency (only when adr/ + adr/README.md exist).
+    # Soft-warn `adr_index_inconsistent` covers two cases:
+    #   - ADR file present in adr/ but not referenced from adr/README.md
+    #   - ADR file's Status core keyword differs from the index's status
+    #     column for that ADR (Accepted / Superseded / Deprecated / Proposed)
+    # Soft-warn rather than hard-fail because the index is human-curated and
+    # the formatting tolerates variation (markdown links inside the status
+    # column, supersession pointers, etc.); false positives should refine
+    # the check rather than be papered over.
+    r.add_check("adr_index_consistency")
+    index_path = ADR_DIR / "README.md"
+    if ADR_DIR.is_dir() and index_path.is_file():
+        index_text = index_path.read_text()
+
+        # Index rows look like `| [NNNN](NNNN-...md) | Title | Status |`.
+        # Match the leading bracketed NNNN as the row anchor and the third
+        # cell's contents as the index status. Multiple sections share the
+        # same row format, so a single regex covers all per-phase tables.
+        indexed_status: dict[str, str] = {}
+        row_pattern = re.compile(
+            r"^\|\s*\[(\d{4})\]\([^)]+\)\s*\|\s*[^|]+\|\s*([^|]+?)\s*\|"
+        )
+        for line in index_text.splitlines():
+            m = row_pattern.match(line)
+            if m:
+                indexed_status[m.group(1)] = m.group(2).strip()
+
+        file_status_pattern = re.compile(
+            r"^[\s*\-]*Status[\s*]*:[\s*]*(.+?)\s*$",
+            re.MULTILINE,
+        )
+        status_keywords = ("superseded", "deprecated", "accepted", "proposed")
+
+        def _core_status(s: str) -> str:
+            stripped = re.sub(r"[*_`]", "", s).lower()
+            for kw in status_keywords:
+                if kw in stripped:
+                    return kw
+            return ""
+
+        for adr_file in sorted(ADR_DIR.glob("[0-9][0-9][0-9][0-9]-*.md")):
+            num = adr_file.name[:4]
+            rel = adr_file.relative_to(REPO_ROOT)
+
+            if num not in indexed_status:
+                r.soft_warn(
+                    "adr_index_inconsistent",
+                    f"{rel}: ADR not referenced in adr/README.md index",
+                )
+                continue
+
+            text = adr_file.read_text()
+            m = file_status_pattern.search(text)
+            if not m:
+                # adr_missing_status already covers this case
+                continue
+
+            file_core = _core_status(m.group(1))
+            index_core = _core_status(indexed_status[num])
+            if file_core and index_core and file_core != index_core:
+                r.soft_warn(
+                    "adr_index_inconsistent",
+                    f"{rel}: status keyword mismatch — file '{file_core}', "
+                    f"index '{index_core}'",
+                )
+
     # docs/CROSS_REFERENCES.md entries resolve (S-0002 onward)
     # Links are resolved relative to the file's directory (standard markdown
     # behavior), then normalized so paths above repo-root flag as broken.

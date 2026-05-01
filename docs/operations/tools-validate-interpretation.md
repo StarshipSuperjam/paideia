@@ -53,6 +53,12 @@ A markdown link in `docs/CROSS_REFERENCES.md` points at a `.md` file that doesn'
 
 An ADR file (matching `adr/NNNN-*.md`) doesn't contain a `Status:` line. Active from S-0003 onward. Recoverable — add a Status field per [`adr-authoring.md`](adr-authoring.md).
 
+### `adr_index_inconsistent`
+
+An ADR file in `adr/` either is not referenced from `adr/README.md`'s per-phase tables, or its `Status:` core keyword (Accepted / Superseded / Deprecated / Proposed) differs from the index's status column for that ADR. Active from S-0020 onward.
+
+Recoverable — either add the missing index row (most common case: a new ADR was authored without the index update), or align the `Status:` field to match the index. The check normalizes around the four core status keywords; markdown-link decoration inside the status column is tolerated. False positives should refine the check rather than be papered over.
+
 ### Phase-4-specific (stubbed today)
 
 When Phase 4 fleshes out the graph audit, additional categories appear:
