@@ -39,7 +39,7 @@ paideia/
 │   ├── learner-model.md            # mastery, decay, events
 │   ├── self-correction.md          # tension log, reviewer pipeline
 │   ├── infrastructure.md           # tech stack, deployment
-│   ├── ui-architecture.md          # globe, syllabus surfaces
+│   ├── ui-architecture.md          # Discovery / Planning / Engagement triad surfaces
 │   ├── content-strategy.md         # corpus, licensing
 │   ├── session-lifecycle.md        # entry flow
 │   ├── reading-system.md           # close reading

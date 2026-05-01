@@ -5,7 +5,7 @@ This file covers the graph data model: node and edge schemas, structural princip
 - **learner-model.md** — Event-sourced learner model, engagement depth, interaction types, mastery decay, mastery computation, offline/sync
 - **self-correction.md** — Five feedback loops, tension log, Sonnet/Opus pipeline, batch review cycle, model tiering
 - **infrastructure.md** — Tech stack, DeepTutor fork, deployment target, cloud hosting, build approach
-- **ui-architecture.md** — Globe navigation model, level-of-detail rendering, domain tag visualization
+- **ui-architecture.md** — Discovery / Planning / Engagement triad surfaces; concept catalog organization; bridge surfacing in context
 
 ## Graph Structure
 
@@ -35,7 +35,7 @@ All domains are mutually porous. Cross-domain prerequisite edges are first-class
 
 **Domain density hierarchy for philosophy:** Not all neighboring domains contribute equally. History has the highest cross-domain prerequisite density — almost every philosophical concept has a historical prerequisite. Logic and Mathematics are structurally necessary for the analytic tradition. Psychology, Economics, Theology, and Natural Sciences (at the conceptual level) contribute medium-density prerequisites. Sociology and Linguistics contribute fewer but genuine prerequisite nodes. Literature, visual art, music, and film are mostly enrichment metadata on concept nodes (commitment 3), with rare exceptions where they are genuine prerequisites (e.g., Aesthetics requires encountering actual art).
 
-**Reference domain list:** The following domains are used as tags on concept nodes for globe visualization coloring and filtering. This list is a suggested vocabulary for tagging consistency, not a taxonomy to enforce. Drawn from ISCED-F 2013 narrow fields and adapted to Paideia's humanities-centered mission. Domain tags are flat labels with no hierarchy — the globe's spatial grouping comes from edge topology via community detection (see ui-architecture.md), not from domain categories.
+**Reference domain list:** The following domains are used as tags on concept nodes for color-coding and filtering in the Discovery-surface catalog (per [ADR 0034](../adr/0034-discovery-planning-engagement-triad.md)). This list is a suggested vocabulary for tagging consistency, not a taxonomy to enforce. Drawn from ISCED-F 2013 narrow fields and adapted to Paideia's humanities-centered mission. Domain tags are flat labels with no hierarchy — catalog organization comes from edge-topology community detection per [ADR 0018](../adr/0018-flat-domain-tags-community-detection.md) (see ui-architecture.md), not from domain categories.
 
 - Philosophy & Ethics
 - History & Archaeology
@@ -129,7 +129,7 @@ CREATE TABLE nodes (
 
 - **id** (TEXT): Human-readable slugified concept name (e.g. `transcendental_idealism`, `french_revolution`). Readable across every domain without needing a label lookup.
 - **label** (TEXT): Display name. "Transcendental Idealism," "The French Revolution."
-- **domain** (TEXT[]): Flat domain tags for color-coding and filtering on the globe. No hierarchy — spatial grouping comes from edge topology (see ui-architecture.md). Array because boundary concepts belong to multiple domains (e.g. `['ethics', 'epistemology']` for the categorical imperative).
+- **domain** (TEXT[]): Flat domain tags for color-coding and filtering in the Discovery-surface catalog per [ADR 0034](../adr/0034-discovery-planning-engagement-triad.md). No hierarchy — catalog organization comes from edge-topology community detection per [ADR 0018](../adr/0018-flat-domain-tags-community-detection.md) (see ui-architecture.md). Array because boundary concepts belong to multiple domains (e.g. `['ethics', 'epistemology']` for the categorical imperative).
 - **summary** (TEXT): Concise semantic fingerprint (one to two sentences) optimized for the entity resolution service. Stable, search-oriented, not pedagogical.
 - **teaching_notes** (TEXT, nullable): Pedagogical guidance specific to this concept — known confusion points, recommended teaching mode entry points, common misunderstandings. Consumed by the teaching AI alongside prerequisites and learner state. Provides a per-node remediation avenue for addressing pedagogical shortcomings without reshaping the node design or system-level weights.
 - **aliases** (TEXT[]): Alternative names for entity resolution. Translational variants ("das Ding an sich"), abbreviations ("JTB"), common phrasings ("the problem of other minds"). The entity resolution service matches incoming references against labels, aliases, and summaries.
@@ -151,10 +151,9 @@ CREATE TABLE nodes (
 **What is not on the node table:**
 
 - **Source recommendations** (books, editions, translations per concept): Many-to-many relationship — belongs in a junction table between nodes and a sources table.
-- **Globe position** (x/y/z coordinates): Computed by layout algorithm from edge topology. Storing it creates a maintenance nightmare on every graph edit.
 - **Learner-facing label**: The label should just be good. If it's intimidating, that's a UI problem (tooltips, subtitles), not a schema problem.
 - **Era/period tag**: Too domain-specific. The teaching AI infers temporal context from prerequisites and description.
-- **Cluster assignment**: Computed by community detection at the rendering layer. Not stored.
+- **Cluster assignment**: Computed by community detection (per [ADR 0018](../adr/0018-flat-domain-tags-community-detection.md)) at catalog-organization time per [ADR 0034](../adr/0034-discovery-planning-engagement-triad.md). Not stored.
 
 ### Edge Schema
 **Added: 2026-04-07 | Revised: 2026-04-09**
@@ -196,7 +195,7 @@ CREATE TABLE edges (
 ### Portable Mastery
 **Added: 2026-04-07**
 
-Mastery is per-concept, not per-concept-per-path. If a user masters "Empiricism" while studying toward Kant, that mastery fully transfers to a Philosophy of Science path. The globe shows one glow state per concept. The mastery computation function is `f(events for user U and concept C) → score` with no path dimension.
+Mastery is per-concept, not per-concept-per-path. If a user masters "Empiricism" while studying toward Kant, that mastery fully transfers to a Philosophy of Science path. The Planning surface (per [ADR 0034](../adr/0034-discovery-planning-engagement-triad.md)) marks the concept mastered in every syllabus that includes it; one mastery state per concept, surfaced contextually within the syllabi that carry it. The mastery computation function is `f(events for user U and concept C) → score` with no path dimension.
 
 If mastery of a concept doesn't transfer well to a new context, that is evidence the node is too coarse and should be split (see Node Granularity Principle above). The correct response is a graph edit, not context-dependent mastery scoring.
 
@@ -274,4 +273,4 @@ The privacy posture is settled by [ADR 0026](../adr/0026-persistent-learner-stor
 If a future session reopens the institutional regime, the supersession discipline applies: a new ADR explicitly supersedes [ADR 0032](../adr/0032-personal-project-disposition.md) and the institutional schema provisions are reauthored from scratch (not restored from this file's git history as if they had only been deferred).
 
 ---
-*Last updated: 2026-04-30 (S-0012 — Institutional Schema Provisions section dropped and replaced with Individual Data Regime per [ADR 0032](../adr/0032-personal-project-disposition.md); Syllabus Upload Pipeline's institutional-wedge framing dropped, personal-use framing kept; cross-links to [ADR 0031](../adr/0031-erasure-mechanism-and-individual-only-regime.md) and [ADR 0026](../adr/0026-persistent-learner-storage-structural-not-substantive.md) refreshed. Prior footer 2026-04-30 (S-0010 — `confidence_level` column added to Node Schema per Phase 1.3 and [ADR 0030](../adr/0030-confidence-level-evidentiary-mode-on-nodes.md). Earlier footer 2026-04-09. CHANGELOG remains the authoritative session-by-session ledger.)*
+*Last updated: 2026-04-30 (S-0016 — secondary docs sweep per [ADR 0033](../adr/0033-mission-realignment-structured-guidance-for-self-learners.md) and [ADR 0034](../adr/0034-discovery-planning-engagement-triad.md): orientation file-pointer line updated against the triad; Reference domain list intro and Node Schema `domain` column justification updated to reference Discovery-surface catalog organization rather than globe visualization; the "Globe position (x/y/z coordinates)" "What is not on the node table" bullet dropped (no globe → no globe-position to not-store; the Cluster assignment bullet already covers the not-storing-derived-layout principle); Portable Mastery section's "globe shows one glow state per concept" framing updated to Planning-surface contextual marking. Prior footer 2026-04-30 (S-0012 — Institutional Schema Provisions section dropped and replaced with Individual Data Regime per [ADR 0032](../adr/0032-personal-project-disposition.md); Syllabus Upload Pipeline's institutional-wedge framing dropped, personal-use framing kept; cross-links to [ADR 0031](../adr/0031-erasure-mechanism-and-individual-only-regime.md) and [ADR 0026](../adr/0026-persistent-learner-storage-structural-not-substantive.md) refreshed). Prior footer 2026-04-30 (S-0010 — `confidence_level` column added to Node Schema per Phase 1.3 and [ADR 0030](../adr/0030-confidence-level-evidentiary-mode-on-nodes.md)). Earlier footer 2026-04-09. CHANGELOG remains the authoritative session-by-session ledger.*
