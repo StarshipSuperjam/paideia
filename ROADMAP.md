@@ -8,7 +8,7 @@ This document names every phase, its scope, its success criteria, and the archit
 
 ---
 
-## Phase 0 — Foundation (in progress)
+## Phase 0 — Foundation
 
 **Setup, not build.** The session-protocol layer, industry-standard repo skeleton, decision-record discipline, and project memory get established. After Phase 0, every future session boots cold from `STATE.md` + MemPalace + the conventions in `CLAUDE.md` and `docs/operations/`.
 
@@ -38,14 +38,15 @@ The 14-session prompt pack is at `docs/prep-paideia-prompt-pack.md`. Sessions 1-
 - **Session 14 — Media Edge Quality.** Deferred until Phase 5 surfaces concrete cross-domain cases that test the supplementary-media-as-metadata commitment.
 
 ### 1.2 Author rendering policy and sibling commitments
-**Revised: 2026-04-29 (S-0008 — scope expanded by exploration-session commitments per the no-silent-drops feedback rule.)**
 
-- **`AGENT_INSTRUCTIONS.md`** — standalone rendering-policy file extracted from `docs/pedagogy.md`. Forbidden tokens (mastery-state names, prerequisite-edge framing, evidence-event references, scaffolding-distance language, weight/confidence/provenance exposure, graph_version references, tension-log mechanism, mastery-verification mechanic, machinery self-reference). Surviving tokens (concept names, domain-area names, thinker names, text titles, cross-domain connections). Citation rules (named structural units, no fabricated quotations). Uncertainty posture. Scope discipline (purpose-not-topic discrimination). Tension emission policy operationalizing [ADR 0026](adr/0026-persistent-learner-storage-structural-not-substantive.md)'s `pattern_observed` writing constraint. Worked example (gradeable test artifact for Phase 7 success criterion).
-- **[ADR 0027](adr/0027-rendering-policy-prompt-layer-contract.md)** — rendering policy as the prompt-layer contract. The output-side half of the bidirectional teaching-surface contract.
-- **[ADR 0028](adr/0028-input-side-scope-structural-not-prompt.md)** — input-side scope is structural, not prompt-policed. The input-side half of the bidirectional contract. Three bounded input contexts (concept engagement, diagnostic, close reading); purpose-not-topic discrimination within bounded contexts; exit affordance as the structural alternative to general chat.
-- **[ADR 0029](adr/0029-personal-financial-cost-ceiling.md)** — personal financial cost ceiling as operating constraint. Cost protection is a precondition (not a feature) for opening the system to non-builder users; mechanism mandated, ceiling value held in private operational configuration; soft walls degrade rather than terminate (preserving concept-engagement integrity).
-- **Tension entries** opened for sub-decisions deferred to downstream phases: OQ-BYOK-REGIME (institutional vs. consumer; decide-before consumer launch), OQ-WALL-BEHAVIOR (soft-wall degradation ladder; decide-before Phase 8), OQ-CONTEXT-COMPRESSION (token-amplification mitigation; decide-before Phase 7), OQ-PEDAGOGY-INFERENCE-LOCUS (rule layer vs. distributed inference; revisit trigger pinned to inference-registry size and operational complaint surfacing).
+- **`AGENT_INSTRUCTIONS.md`** — standalone rendering-policy file extracted from `docs/pedagogy.md`. Forbidden tokens (mastery-state names, prerequisite-edge framing, evidence-event references, scaffolding-distance language, weight/confidence/provenance exposure, graph_version references, tension-log mechanism, mastery-verification mechanic, machinery self-reference). Surviving tokens (concept names, domain-area names, thinker names, text titles, cross-domain connections). Citation rules (named structural units, no fabricated quotations). Uncertainty posture. Scope discipline (purpose-not-topic discrimination). Tension emission policy operationalizing the `pattern_observed` writing constraint. Worked example (gradeable test artifact for Phase 7 success criterion).
+- **ADR 0027** — rendering policy as the prompt-layer contract. The output-side half of the bidirectional teaching-surface contract.
+- **ADR 0028** — input-side scope is structural, not prompt-policed. The input-side half of the bidirectional contract. Three bounded input contexts (concept engagement, diagnostic, close reading); purpose-not-topic discrimination within bounded contexts; exit affordance as the structural alternative to general chat.
+- **ADR 0029** — personal financial cost ceiling as operating constraint. Cost protection is a precondition (not a feature) for opening the system to non-builder users; mechanism mandated, ceiling value held in private operational configuration; soft walls degrade rather than terminate (preserving concept-engagement integrity).
+- **Tension entries** opened for sub-decisions deferred to downstream phases: OQ-WALL-BEHAVIOR (soft-wall degradation ladder; decide-before Phase 8), OQ-CONTEXT-COMPRESSION (token-amplification mitigation; decide-before Phase 7), OQ-PEDAGOGY-INFERENCE-LOCUS (rule layer vs. distributed inference; revisit trigger pinned to inference-registry size and operational complaint surfacing).
 - **[`docs/pedagogy/inferences.md`](docs/pedagogy/inferences.md)** — pedagogical inference registry stub. Cheap intermediate step before deciding whether to build a dedicated rule layer per OQ-PEDAGOGY-INFERENCE-LOCUS.
+
+See also: [ADR 0026](adr/0026-persistent-learner-storage-structural-not-substantive.md), [ADR 0027](adr/0027-rendering-policy-prompt-layer-contract.md), [ADR 0028](adr/0028-input-side-scope-structural-not-prompt.md), [ADR 0029](adr/0029-personal-financial-cost-ceiling.md).
 
 ### 1.3 Add `confidence_level` to node schema
 
@@ -62,50 +63,50 @@ Add `confidence_level` (`EXTRACTED | INTERPRETED | SYNTHETIC`) to the node schem
 ---
 
 ## Phase 1.5 — Mission Realignment Overhaul
-**Added: 2026-04-30 (S-0013 — opens Phase 1.5; sits between the closed Phase 1 and the queued Phase 2 because Phase 2 will scaffold per-session contracts for every downstream phase, and those scaffolds would lock in the wrong UI architecture and platform scope if Phase 2 ran before the realignment lands.)**
 
 **Output:** the contract layer is realigned around the project's core value claim — *filling the gap where a self-learner has no teacher* — by dropping the globe / mastery-glow / cross-domain-tendrils / trophy / "knowledge as a world" UI metaphor that was drifting attention away from the discovery / planning / mastery-gating value, and committing the replacement product structure (Discovery → Planning → Engagement triad) plus the broadened Apple platform scope (iPhone + iPad first-class via SwiftUI, Mac via Designed-for-iPad). This is **realignment, not rebuild** — the pedagogical dependency graph, the AI instructor model, the bring-your-own-book close reading, the mastery model, the privacy posture, and the cost ceiling all survive intact.
 
-**The realignment is recorded as a phase, not as scattered amendments**, because (a) it touches the contract layer (ADRs + foundational docs), (b) the session protocol's two-layer decision-recording discipline requires the load-bearing artifacts to land coherently, (c) the work spans more session-budget than fits a single session, and (d) Phase 2 (Build Plan Scaffolding) is downstream and consumes the realigned contract.
+### 1.5.1 Mission realignment and globe/reward closure
 
-### 1.5.1 Mission realignment + globe/reward closure (S-0013)
+- ADR 0033 contracts the mission realignment: structured guidance for self-learners. Records the corruption vector (the globe and reward systems were UI-layer optimizations that drifted attention away from the discovery / planning / mastery-gating value claim) and closes obsolescence of globe-as-home, mastery-glow, cross-domain-tendrils, trophy framing, and "knowledge as a world" metaphor. Names the survivors explicitly: graph + instructor; BYOB; bounded engagement contexts; mastery model.
+- ADR 0018's flat-domain-tags + community-detection algorithm is retained as a graph-analysis primitive (discovery-surface concept clustering, syllabus organization heuristics, graph-quality audits); the globe-rendering use case is removed from its Decision and Consequences.
+- `docs/MISSION.md` "What this is" is framed around the structured-guidance gap. Cross-domain porosity preserved.
 
-- **[ADR 0033](adr/0033-mission-realignment-structured-guidance-for-self-learners.md)** — Mission realignment: structured guidance for self-learners. Records the corruption vector (the globe and reward systems were UI-layer optimizations that drifted attention away from the discovery / planning / mastery-gating value claim) and formally closes obsolescence of globe-as-home, mastery-glow, cross-domain-tendrils, trophy framing, and "knowledge as a world" metaphor. Names the survivors explicitly (graph + instructor; BYOB; bounded engagement contexts; mastery model). Cites continuity with [ADR 0032](adr/0032-personal-project-disposition.md) (this is operating discipline that protects the mission, not a reversal).
-- **Light revision of [ADR 0018](adr/0018-flat-domain-tags-community-detection.md)** — remove the globe-rendering use case from the Decision and Consequences. The flat-domain-tags + community-detection algorithm survives as a graph-analysis primitive (potential uses: discovery-surface concept clustering, syllabus organization heuristics, graph-quality audits) but no longer serves a globe-rendering surface. Status remains Accepted.
-- **Light revision of [`docs/MISSION.md`](docs/MISSION.md) What this is** — reframe around the structured-guidance gap as the core value claim. Cross-domain porosity preserved. Drop any "exploring the territory of knowledge" framing if present.
+### 1.5.2 Discovery / Planning / Engagement triad architecture
 
-### 1.5.2 Discovery / Planning / Engagement triad architecture (S-0014)
+- ADR 0034 contracts the Discovery / Planning / Engagement triad as the primary product structure. Discovery-side affordances: AI conversational onboarding parallel with a browseable concept catalog organized by domain/topic. Planning-side affordances: syllabus-as-plan, prerequisite gating, quiet completion markers, current/active syllabus view. Explicit foreclosures: no separate trophy surface, no globe, no game-world rendering, no library/bookshelf as a third primary surface (mastered concepts surface contextually within syllabi).
+- `docs/ui-architecture.md` carries Discovery Surface, Planning Surface, and Engagement Surface sections. Cross-domain edges remain first-class graph data; their UI rendering is **bridge surfacing in context** during engagement and planning.
+- `docs/session-lifecycle.md` preserves Concept Engagement as Atomic Unit, Mode Transitions, Proficiency as Implied Transition, Routing After Concept Completion, and Mastery Verification Through Downstream Teaching's organic-escalation framing. Concurrent Syllabus Limit (hard cap of five) remains.
 
-- **ADR 0034** — Discovery / Planning / Engagement triad as primary product structure. Cross-references [ADR 0028](adr/0028-input-side-scope-structural-not-prompt.md) (engagement-side bounded contexts preserved). Names the discovery-side affordances: AI conversational onboarding parallel with browseable concept catalog organized by domain/topic. Names the planning-side affordances: syllabus-as-plan, prerequisite gating, quiet completion markers, current/active syllabus view. Names the explicit foreclosures: no separate trophy surface, no globe, no game-world rendering, no library/bookshelf as a third primary surface (mastered concepts surface contextually within syllabi).
-- **Substantial rewrite of [`docs/ui-architecture.md`](docs/ui-architecture.md)** — drop Globe Navigation Model and Level-of-Detail Rendering sections wholesale. Author Discovery Surface, Planning Surface, Engagement Surface sections. Cross-domain edges remain first-class graph data; their UI rendering is **bridge surfacing in context** during engagement and planning, not "tendrils on a globe."
-- **Substantial rewrite of [`docs/session-lifecycle.md`](docs/session-lifecycle.md)** — drop Globe as Home Screen and the trophy/glow/tendrils framing in Mastery Verification. Preserve: Concept Engagement as Atomic Unit, Mode Transitions, Proficiency as Implied Transition, Routing After Concept Completion, Mastery Verification Through Downstream Teaching's organic-escalation framing per [ADR 0013](adr/0013-mastery-verification-organic-escalation.md). Concurrent Syllabus Limit (hard cap of five) remains.
+### 1.5.3 Multi-platform Apple expansion
 
-### 1.5.3 Multi-platform Apple expansion + Phase 9 rewrite (S-0015)
+- ADR 0035 contracts the multi-platform Apple expansion. Commitment 1 reads: *Apple platforms via App Store. iPhone + iPad first-class via a single SwiftUI codebase. Mac via Designed-for-iPad opt-in with modest keyboard/menu polish. No Android, no web app, no native AppKit/Catalyst Mac app.* Commitments 2–6 hold the personal-project disposition: cost-priced subscription, no free tier, builder eats API costs, no BYOK / no institutional regime, fixed annual operating subsidy budget, polish-static / maintenance-minimum.
+- ROADMAP Phase 9 success criteria carry the triad + multi-platform plan; cost-cap mechanism, no general chat surface, exit affordance, delete-account, and data-export are first-class UI primitives.
+- `docs/business.md` Pricing and Distribution row reads "Apple App Store. iPhone + iPad first-class; Mac via Designed-for-iPad."
 
-- **ADR 0035** — Multi-platform Apple expansion. Supersedes [ADR 0032](adr/0032-personal-project-disposition.md) in full. Commitment 1 (revised) reads: *Apple platforms via App Store. iPhone + iPad first-class via a single SwiftUI codebase. Mac via Designed-for-iPad opt-in with modest keyboard/menu polish. No Android, no web app, no native AppKit/Catalyst Mac app.* Restates commitments 2–6 (cost-priced subscription, no free tier, builder eats API costs, no BYOK / no institutional regime, ADR 0029 reframed as fixed annual subsidy, polish-static / maintenance-minimum) verbatim from ADR 0032 — preserves the disposition spirit while broadening the platform scope.
-- **Rewrite of [ROADMAP.md](ROADMAP.md) Phase 9 success criteria** — replace globe-as-home-screen + concept-engagement-surface with the Discovery / Planning / Engagement triad. Restate platform target as iPhone + iPad first-class via SwiftUI, Mac via Designed-for-iPad. Preserve: cost-cap mechanism, no general chat surface, exit affordance, delete-account, data-export.
-- **Amendment to [`docs/business.md`](docs/business.md) Pricing and Distribution** — Distribution row becomes "Apple App Store. iPhone + iPad first-class; Mac via Designed-for-iPad." Other rows unchanged.
+### 1.5.4 Rendering policy revision and secondary docs sweep
 
-### 1.5.4 Rendering policy revision + secondary docs sweep (S-0016)
+- ADR 0027's forbidden-token enumeration covers globe / world / map / territory / exploration metaphors and reward / trophy / glow / mastery-visualization language in agent output.
+- `AGENT_INSTRUCTIONS.md` mirrors the extended enumeration; the worked example is consistent.
+- ADR 0012 names the freshman-defaults builder-bias-protection role explicitly; ADR 0014 carries no residual cohort framing.
+- Secondary docs (`docs/pedagogy.md`, `docs/architecture.md`, `docs/learner-model.md`, `docs/CROSS_REFERENCES.md`, `README.md`, `docs/prep-paideia-prompt-pack.md`, `docs/pedagogy/inferences.md`, `docs/infrastructure.md`) carry no residual globe / mastery-glow / tendril / trophy / colored-trail / "knowledge as a world" references. Tension entries for globe/trophy carry `Resolved` markers per the project's tension-resolution discipline.
 
-- **Revision to [ADR 0027](adr/0027-rendering-policy-prompt-layer-contract.md)** — extend the forbidden-token enumeration to forbid globe / world / map / territory / exploration metaphors and reward / trophy / glow / mastery-visualization language in agent output. Status remains Accepted.
-- **Revision to [`AGENT_INSTRUCTIONS.md`](AGENT_INSTRUCTIONS.md)** — add the new forbidden tokens; update the worked example if it references dropped concepts.
-- **Light revisions to [ADR 0012](adr/0012-freshman-defaults-autodidact-ceiling.md)** (strip residual market framing not removed by ADR 0032's MISSION.md rewrite; name the freshman-defaults builder-bias-protection role explicitly) and **[ADR 0014](adr/0014-sonnet-teaches-opus-reviews.md)** (strip residual cohort framing if present).
-- **Sweep across secondary docs** — drop residual globe / mastery-glow / tendril / trophy / colored-trail / "knowledge as a world" references in `docs/pedagogy.md`, `docs/tensions.md`, `docs/architecture.md`, `docs/learner-model.md`, `docs/CROSS_REFERENCES.md`, `README.md`, `docs/prep-paideia-prompt-pack.md`, `docs/pedagogy/inferences.md`, `docs/infrastructure.md`. Tension entries for globe/trophy resolved with `Resolved: 2026-04-30` markers per the project's tension-resolution discipline (not deleted).
+### 1.5.5 Inward-document expression contract
+
+- ADR 0036 contracts the project's second expression contract — kindred tool to AGENT_INSTRUCTIONS.md (the rendering policy in ADR 0027), separately scoped to inward-facing documentation. The contract's posture: governed documents describe present truth in present-tense declarative prose; cross-references to ADRs are bibliographic (end-of-section "See also" pointers); authorship history, supersession narration, and per-session revision markers belong in the four-layer trace system (ADRs, CHANGELOG, MemPalace, git).
+- Operational surface lives at [`docs/operations/document-voice.md`](docs/operations/document-voice.md). Scope: the `docs/` tree, root-level project files, ADRs in non-Superseded status, AGENT_INSTRUCTIONS.md. Exempt: STATE.md, CHANGELOG.md, `session/archive/*`, ADRs in Superseded status, resolved `docs/tensions.md` entries. ROADMAP.md is governed with three-speech-acts handling: phase scope and commitments are governed; date-stamp markers and supersession narration migrate to CHANGELOG and git.
+- `docs/business.md`, `docs/architecture.md`, `docs/MISSION.md`, `docs/content-strategy.md`, `AGENT_INSTRUCTIONS.md`, `docs/tensions.md` open entries, and `adr/README.md` orientation prose carry the contract's voice. ROADMAP.md (this file) carries the contract's voice with three-speech-acts handling; the four-layer trace carries the production trace.
 
 ### Phase 1.5 success criteria
 
-- ADRs 0033, 0034, 0035 land at Status: Accepted; ADR 0032 Status flipped to `Superseded by ADR 0035`
-- Light revisions to ADRs 0012, 0014, 0018, 0027 land with Status remaining Accepted
-- `docs/ui-architecture.md` and `docs/session-lifecycle.md` rewritten end-to-end with no remaining globe/glow/tendril references; `docs/MISSION.md` What this is reframed
-- `git grep -i "globe\|mastery glow\|tendril\|trophy\|colored trail\|knowledge as a world\|Globe Navigation Model"` returns zero matches in tracked docs and ADRs except ADR 0033 (names what's being dropped, by design), ADR 0027 (forbidden-token list, by design), ADR 0018 (revised text explaining algorithm-survives-without-globe, by design), ADR 0032 file (history, by design — superseded), and `CHANGELOG.md` (history, by design)
-- ROADMAP Phase 9 success criteria rewritten against triad + multi-platform; Android/web references gone
-- ADR collection grows from 32 → 35 (3 new + 4 light-revised + 1 superseded); MemPalace `decision` drawers filed for ADRs 0033, 0034, 0035
-- Phase 2 (Build Plan Scaffolding) opens at S-0017 with the realigned contract as input
+- ADRs 0033, 0034, 0035, 0036 land at Status: Accepted; ADR 0032 Status reads `Superseded by ADR 0035`.
+- `docs/ui-architecture.md` and `docs/session-lifecycle.md` carry no residual globe/glow/tendril references; `docs/MISSION.md` "What this is" is framed around structured guidance for self-learners.
+- `git grep -i "globe\|mastery glow\|tendril\|trophy\|colored trail\|knowledge as a world\|Globe Navigation Model"` returns matches only where the term names what is foreclosed (ADR 0033, ADR 0027, ADR 0018), in superseded artifacts (ADR 0032), or in dated journal layers (CHANGELOG.md, `session/archive/*`).
+- Phase 9 success criteria below carry the triad + multi-platform plan; Android / web references absent.
+- Inward-facing project documents carry the document-voice contract; the four-layer trace carries date-stamps and supersession narration.
+- Phase 2 (Build Plan Scaffolding) opens with the realigned, voice-clean contract as input.
 
-### Phase 1.5 plan reference
-
-The full session-by-session plan — including critical files per session, source documents, and per-session success criteria — was approved at S-0013 boot and lives at `/Users/shanekidd/.claude/plans/at-its-core-this-iterative-beaver.md`. STATE.md's `## Next session work item` block carries each session's scope inline as it becomes the active session, per the project's session protocol.
+See also: [ADR 0027](adr/0027-rendering-policy-prompt-layer-contract.md), [ADR 0033](adr/0033-mission-realignment-structured-guidance-for-self-learners.md), [ADR 0034](adr/0034-discovery-planning-engagement-triad.md), [ADR 0035](adr/0035-multi-platform-apple-expansion.md), [ADR 0036](adr/0036-expression-contract-for-inward-documents.md), [`docs/operations/document-voice.md`](docs/operations/document-voice.md).
 
 ---
 
@@ -198,18 +199,17 @@ Per-session migration workflow: read SEP article → identify concepts at granul
 ---
 
 ## Phase 4.5 — Input Dataset Survey (for Phase 5 seed authoring)
-**Added: 2026-04-29 (S-0009)**
 
 **Output:** a tiered survey of external datasets useful as **cross-reference inventories and prerequisite-shape priors** for Phase 5 seed authoring. Lands as a new section in [`docs/content-strategy.md`](docs/content-strategy.md) ("Cross-Domain Reference Inventories — Survey") with per-candidate assessment against the five usability axes.
 
-This phase **does not** revise the "Generative Graph Independence" position (`business.md`) or the SEP-as-structural-reference posture (`content-strategy.md`). Concept nodes and prerequisite edges remain generatively seeded; the survey gives that generation pass better starting inventories per domain and surfaces any prerequisite-shaped graph priors worth consulting.
+This phase **does not** revise the Generative Graph Independence position (`business.md`) or the SEP-as-structural-reference posture (`content-strategy.md`). Concept nodes and prerequisite edges remain generatively seeded; the survey gives that generation pass better starting inventories per domain and surfaces any prerequisite-shaped graph priors worth consulting.
 
 ### Five usability axes (constrain every candidate)
 
-1. **Graph-shape orientation.** Prerequisite-shaped (per ADR 0001) vs. influence / agreement / dialectical / citation / co-occurrence. Filter aggressively — influence-shaped data drags the modeler dialectical even when intended only as vocabulary.
-2. **License.** *Simplified at S-0012 per [ADR 0032](adr/0032-personal-project-disposition.md):* "consultable for personal use" is the operative bucket. The prior tripartite distinction — ingestable (CC0/CC-BY/MIT/PD) vs. mineable-for-facts-only (citations, taxonomies) vs. consultable-only (all-rights-reserved, non-commercial like SEP) — collapses because nothing the project consumes is consumed *for commercial purposes*. The graph is generated parametrically (per [ADR 0011](adr/0011-no-hosted-copyrighted-material.md) and the surviving operational substance from `docs/content-strategy.md`); external sources serve as inventories and cross-reference checks consultable for personal use. Surveys note license terms for completeness but do not turn on the ingestable / mineable distinction.
+1. **Graph-shape orientation.** Prerequisite-shaped vs. influence / agreement / dialectical / citation / co-occurrence. Filter aggressively — influence-shaped data drags the modeler dialectical even when intended only as vocabulary.
+2. **License.** "Consultable for personal use" is the operative bucket. The graph is generated parametrically; external sources serve as inventories and cross-reference checks consultable for personal use. Surveys note license terms for completeness but do not turn on an ingestable / mineable distinction, because nothing the project consumes is consumed for commercial purposes.
 3. **Form.** Structured graph data vs. structured taxonomy/tags vs. long-form prose. Long-form prose has low novel value — already parametrically accessible to Sonnet/Opus.
-4. **Coverage breadth.** Single-domain vs. cross-domain native. Commitment 7 (cross-domain porosity per ADR 0007) makes cross-domain-native sources disproportionately valuable.
+4. **Coverage breadth.** Single-domain vs. cross-domain native. Cross-domain porosity makes cross-domain-native sources disproportionately valuable.
 5. **Depth uniformity / methodology transparency.** Sources that disclose uneven depth (Önduygu's "some philosophers more beginner-level…") are higher-trust than sources that don't.
 
 ### Tiered survey scope (not exhaustive)
@@ -344,49 +344,45 @@ If the Phase 5 trial proved Paperclip's fit, this is the moment to commit: Paper
 
 ## Phase 8 — Evaluation Harness
 
-**Substantially simplified: 2026-04-30 (S-0012 — per [ADR 0032](adr/0032-personal-project-disposition.md). External-rubric and DeepTutor-head-to-head candidates dropped; OQ-PHASE8-A's three-candidate framing reduces to one + the cold-test addition.)**
+**Output:** the builder verifies the rendering-policy worked example holds against stock Sonnet without the policy, isolating the contribution of the prompt-layer contract. A small private TestFlight cohort cold-tests the success criterion "an app I would pay for if it weren't mine." The cost-cap mechanism is wired and tested. App Store submission readiness lands here, not Phase 9, because the Apple Developer Program lead time forces it.
 
-**Output:** the builder verifies the rendering-policy worked example holds against stock Sonnet (the surviving baseline), and a small private TestFlight cohort cold-tests the success criterion of [ADR 0032](adr/0032-personal-project-disposition.md) ("an app I would pay for if it weren't mine"). The cost-cap mechanism (per [ADR 0029](adr/0029-personal-financial-cost-ceiling.md), reframed at S-0012 as fixed annual operating subsidy budget) is wired and tested. App Store submission readiness lands here, not Phase 9, because the Apple Developer Program lead time forces it.
-
-The prior three-candidate framing — (a) external rubric (community college instructor blind review), (b) head-to-head against DeepTutor unmodified, (c) head-to-head against stock Sonnet without the rendering policy — drops candidates (a) and (b) under [ADR 0032](adr/0032-personal-project-disposition.md): the external-rubric institutional channel is foreclosed (no community-college pilots), and the DeepTutor head-to-head's value was in producing publishable comparative evaluation (relevant only under the prior commercial / acquisition framing). Stock Sonnet without the rendering policy survives as the surviving baseline because it isolates the contribution of [ADR 0027](adr/0027-rendering-policy-prompt-layer-contract.md)'s prompt-layer contract — a signal the builder needs even under the personal-project disposition.
-
-The added Phase 8 work is a **small private TestFlight cohort cold-test** (2–3 people who haven't seen the project, given the TestFlight build with no instructions). This is not market validation — it is the verification artifact for [ADR 0032](adr/0032-personal-project-disposition.md)'s success criterion ("an app I would pay for if it weren't mine"), defending against the builder-bias failure mode (knowing how the system works obscures whether it's usable cold). The cohort is *small* and *private* by design — a Phase 9 verification, not an ongoing program.
+The cold-test cohort is 2–3 people who haven't seen the project, given the TestFlight build with no instructions. It is not market validation — it is the verification artifact for the personal-project disposition's success criterion, defending against the builder-bias failure mode (knowing how the system works obscures whether it's usable cold). The cohort is *small* and *private* by design — a Phase 9 verification, not an ongoing program.
 
 **Apple Developer Program enrollment starts here** (2–4 week lead time per [`docs/business.md`](docs/business.md) Pricing and Distribution). Don't defer to Phase 9 — the lead time risks blocking the UI prototype.
 
 ### Phase 8 success criteria
 
-- Stock-Sonnet-without-rendering-policy head-to-head baseline runs against the [`AGENT_INSTRUCTIONS.md`](AGENT_INSTRUCTIONS.md) worked example; the rendering policy's contribution is isolated and recorded
-- Apple Developer Program enrollment in flight or complete
-- **Privacy policy and Apple App Store privacy questionnaire answers exist and align with the privacy ADR collection** ([ADR 0026](adr/0026-persistent-learner-storage-structural-not-substantive.md) + [ADR 0031](adr/0031-erasure-mechanism-and-individual-only-regime.md)) **before App Store submission.** Pins the privacy-policy authoring window against the Apple lead time so that submission is not blocked on policy work. Consumer App Store posture, not institutional — no DPA, no FERPA framing.
-- **Cost-cap mechanism wired and tested before evaluation users are admitted** (per [ADR 0029](adr/0029-personal-financial-cost-ceiling.md), reframed at S-0012). Per-user spend ceiling, aggregate-system spend ceiling, real-time spend telemetry, and a defined behavior at the cap (per OQ-WALL-BEHAVIOR settled in an ADR before this phase opens — single-tier ladder under the cost-priced subscription model). Cost protection is a precondition for non-builder access, not a feature.
-- **Small private TestFlight cohort cold-test** runs against the build the App Store would receive: 2–3 people who haven't seen the project, given the TestFlight build with no instructions; cold-test debrief recorded as the verification artifact for [ADR 0032](adr/0032-personal-project-disposition.md)'s success criterion.
-- *Note: OQ-BYOK-REGIME no longer gates Phase 8 — closed by foreclosure under [ADR 0032](adr/0032-personal-project-disposition.md). The prior bullet is retracted.*
+- Stock-Sonnet-without-rendering-policy head-to-head baseline runs against the AGENT_INSTRUCTIONS.md worked example; the rendering policy's contribution is isolated and recorded.
+- Apple Developer Program enrollment in flight or complete.
+- **Privacy policy and Apple App Store privacy questionnaire answers exist and align with the privacy ADR collection before App Store submission.** Pins the privacy-policy authoring window against the Apple lead time so that submission is not blocked on policy work. Consumer App Store posture, not institutional — no DPA, no FERPA framing.
+- **Cost-cap mechanism wired and tested before evaluation users are admitted.** Per-user spend ceiling, aggregate-system spend ceiling, real-time spend telemetry, and a defined behavior at the cap (per OQ-WALL-BEHAVIOR settled in an ADR before this phase opens — single-tier ladder under the cost-priced subscription model). Cost protection is a precondition for non-builder access, not a feature.
+- **Small private TestFlight cohort cold-test** runs against the build the App Store would receive: 2–3 people who haven't seen the project, given the TestFlight build with no instructions; cold-test debrief recorded as the verification artifact for the "an app I would pay for if it weren't mine" success criterion.
+
+See also: [ADR 0026](adr/0026-persistent-learner-storage-structural-not-substantive.md), [ADR 0027](adr/0027-rendering-policy-prompt-layer-contract.md), [ADR 0029](adr/0029-personal-financial-cost-ceiling.md), [ADR 0031](adr/0031-erasure-mechanism-and-individual-only-regime.md), [ADR 0035](adr/0035-multi-platform-apple-expansion.md).
 
 ---
 
 ## Phase 9 — UI Prototype
 
-**Substantially rewritten at S-0015: 2026-04-30 (per [ADR 0035](adr/0035-multi-platform-apple-expansion.md) — globe-as-home-screen + concept-engagement-surface framing replaced with the Discovery / Planning / Engagement triad per [ADR 0034](adr/0034-discovery-planning-engagement-triad.md); platform target broadened from single-platform iOS to *Apple platforms via App Store. iPhone + iPad first-class via a single SwiftUI codebase. Mac via Designed-for-iPad opt-in with modest keyboard/menu polish.* Android / web framing dropped entirely. Cost-cap mechanism, exit affordance, delete-account, data-export, no-general-chat, static-polish discipline, dynamic-feature foreclosure all preserved.)**
+**Output:** the Discovery / Planning / Engagement triad surfaces, implemented as a **single SwiftUI codebase shipping to iPhone + iPad first-class plus Mac via Designed-for-iPad**, distributed through the Apple App Store. No Android, no web client, no native AppKit/Catalyst Mac app. The DeepTutor fork (per [`docs/infrastructure.md`](docs/infrastructure.md)) is consulted only for what serves the Apple-native target.
 
-**Output:** the Discovery / Planning / Engagement triad surfaces per [ADR 0034](adr/0034-discovery-planning-engagement-triad.md), implemented as a **single SwiftUI codebase shipping to iPhone + iPad first-class plus Mac via Designed-for-iPad**, distributed through the Apple App Store. No Android, no web client, no native AppKit/Catalyst Mac app. The DeepTutor fork (per [`docs/infrastructure.md`](docs/infrastructure.md)) is consulted only for what serves the Apple-native target.
-
-Per [`docs/ui-architecture.md`](docs/ui-architecture.md). Application code; **CHANGELOG / ADR discipline does not apply** to application code (per the scoping decision; state-of-record-only). Normal git history.
+Per [`docs/ui-architecture.md`](docs/ui-architecture.md). Application code; **CHANGELOG / ADR discipline does not apply** to application code (state-of-record-only). Normal git history.
 
 ### Phase 9 success criteria
-**Added: 2026-04-29 (S-0008); revised: 2026-04-30 (S-0012); substantially rewritten: 2026-04-30 (S-0015)**
 
-- **Discovery / Planning / Engagement triad surfaces implemented** per [`docs/ui-architecture.md`](docs/ui-architecture.md) and [`docs/session-lifecycle.md`](docs/session-lifecycle.md). Discovery surface implements the dual-path commitment from [ADR 0034](adr/0034-discovery-planning-engagement-triad.md) (AI conversational onboarding bounded by [ADR 0028](adr/0028-input-side-scope-structural-not-prompt.md)'s purpose-not-topic discipline + browseable concept catalog whose organization may consume [ADR 0018](adr/0018-flat-domain-tags-community-detection.md)'s community-detection algorithm; both first-class). Planning surface implements syllabus-as-plan with prerequisite gating, current/active syllabus view (hard-cap-of-five preserved with the planning surface signaling the cap directly when exceeded), quiet completion markers, mastered concepts visible in syllabus context (no separate trophy / library surface — explicitly foreclosed by [ADR 0034](adr/0034-discovery-planning-engagement-triad.md)), cross-syllabus convergence noting at routing-after-concept-completion. Engagement surface inherits structurally from [ADR 0028](adr/0028-input-side-scope-structural-not-prompt.md) (three bounded contexts unchanged: concept engagement, diagnostic, BYOB close reading per [ADR 0011](adr/0011-no-hosted-copyrighted-material.md)).
-- **Platform target: iPhone + iPad first-class via a single SwiftUI codebase; Mac via Designed-for-iPad opt-in** per [ADR 0035](adr/0035-multi-platform-apple-expansion.md). Size-class adaptive layout handles the form factor differences. Mac polish target is *modest*: Mac-idiom keyboard shortcuts (Cmd+arrow, Cmd+W, Cmd+, etc.), menu bar items where the surface naturally calls for them, window-resize handling consistent with macOS, and a polish pass on focus-ring / pointer-hover behaviors that the iPad codebase gets for free under iPadOS pointer support. *Not* a native AppKit/Catalyst Mac app; *not* full macOS idiom (multi-window state restoration, document-based architecture, custom menu bar beyond the iPad-app default are out of scope and would require superseding [ADR 0035](adr/0035-multi-platform-apple-expansion.md)).
-- **Bridge surfacing in context** (per [ADR 0034](adr/0034-discovery-planning-engagement-triad.md)) is the cross-domain rendering convention across all three surfaces — cross-domain edges per [ADR 0007](adr/0007-cross-domain-porosity.md) surface contextually during planning ("studying this concept advances your path toward [other target] as well") and during engagement (callback references that bridge between domains). No standalone cross-domain visualization surface; no globe; no game-world rendering; no mastery-glow / tendril / colored-trail visualization (all explicitly foreclosed by [ADR 0033](adr/0033-mission-realignment-structured-guidance-for-self-learners.md) and [ADR 0034](adr/0034-discovery-planning-engagement-triad.md)).
-- **Exit affordance is a first-class UI primitive** per [ADR 0028](adr/0028-input-side-scope-structural-not-prompt.md) — single visible control reachable in one action from any concept-engagement / diagnostic / close-reading surface that returns the user to the Planning surface (or to Discovery on exit from a diagnostic, per [ADR 0034](adr/0034-discovery-planning-engagement-triad.md)).
-- **Delete-account affordance is a first-class UI primitive** — wired to [ADR 0031](adr/0031-erasure-mechanism-and-individual-only-regime.md)'s `ON DELETE CASCADE` discipline; satisfies Apple App Store guideline 5.1.1 (in-app account deletion) for the iPhone, iPad, and Mac-via-Designed-for-iPad builds. User confirmation step communicates that deletion is reliable and irreversible.
-- **Data-export affordance is a first-class UI primitive** — preserves cancellation-discipline honesty per [ADR 0035](adr/0035-multi-platform-apple-expansion.md) commitment 6 (inherited from [ADR 0032](adr/0032-personal-project-disposition.md) — the project may be paused or cancelled at any point; user data exportability makes cancellation honest, not destructive). Sibling to delete-account; both surfaces required for Phase 9 close on every Apple target.
-- **Cost-cap mechanism** (per [ADR 0029](adr/0029-personal-financial-cost-ceiling.md), reframed at S-0012 as fixed annual operating subsidy budget; preserved unchanged through [ADR 0035](adr/0035-multi-platform-apple-expansion.md)) operates against the production user-facing surface, not just the evaluation harness from Phase 8. Multi-platform reach increases the surface where users discover the app, which increases the importance of the per-user cap doing its job.
-- **No "general chat" surface exposed** (per [ADR 0028](adr/0028-input-side-scope-structural-not-prompt.md) and re-affirmed by [ADR 0034](adr/0034-discovery-planning-engagement-triad.md)'s explicit foreclosures); free-form input only inside the three bounded contexts (concept engagement, diagnostic, close reading) and within the Discovery surface's bounded AI conversational onboarding affordance (which inherits the purpose-not-topic discipline from [ADR 0028](adr/0028-input-side-scope-structural-not-prompt.md)).
-- **Static polish only** per [ADR 0035](adr/0035-multi-platform-apple-expansion.md) commitment 6 (inherited from [ADR 0032](adr/0032-personal-project-disposition.md)) — visual design, typography, animation, copy quality, layout, iconography, sound design, haptics. The Mac-via-Designed-for-iPad polish pass (keyboard shortcuts, menu bar items, window-resize handling, focus-ring / pointer-hover) is consistent with this static-polish discipline. **Dynamic-feature surfaces explicitly foreclosed** — no social, no sharing, no leaderboards, no streaks, no push notifications beyond auth/billing, no community, no in-app messaging, no "what's new" surfaces. Any proposal to add a dynamic-feature surface must supersede [ADR 0035](adr/0035-multi-platform-apple-expansion.md).
-- **No primary surface outside the Discovery / Planning / Engagement triad** per [ADR 0034](adr/0034-discovery-planning-engagement-triad.md). Secondary surfaces (settings, account management, billing, delete-account, data-export, parked-syllabus list, user library of uploaded texts) are accessed from menus within or alongside the primary surfaces and do not require superseding [ADR 0034](adr/0034-discovery-planning-engagement-triad.md). Two open-for-amendment-without-supersession items per [ADR 0034](adr/0034-discovery-planning-engagement-triad.md): library/bookshelf surface (if cold-test surfaces a concrete need consistent with the no-trophy-spectacle discipline) and discovery dual-path narrowing (if cold-test evidence makes the case).
-- *No `cohort_id`-driven UI affordances; no institutional onboarding flow; no LMS integration. The institutional schema provisions retired at S-0012 are not surfaced; the institutional regime foreclosure preserves through [ADR 0035](adr/0035-multi-platform-apple-expansion.md) commitment 4.*
+- **Discovery / Planning / Engagement triad surfaces implemented** per [`docs/ui-architecture.md`](docs/ui-architecture.md) and [`docs/session-lifecycle.md`](docs/session-lifecycle.md). Discovery surface carries a dual-path affordance: AI conversational onboarding bounded by the purpose-not-topic discipline, plus a browseable concept catalog whose organization may consume the flat-domain-tags + community-detection algorithm — both first-class. Planning surface carries syllabus-as-plan with prerequisite gating, current/active syllabus view (hard-cap-of-five preserved; the planning surface signals the cap directly when exceeded), quiet completion markers, mastered concepts visible in syllabus context (no separate trophy / library surface — foreclosed), cross-syllabus convergence noting at routing-after-concept-completion. Engagement surface inherits structurally three bounded contexts: concept engagement, diagnostic, BYOB close reading.
+- **Platform target: iPhone + iPad first-class via a single SwiftUI codebase; Mac via Designed-for-iPad opt-in.** Size-class adaptive layout handles the form factor differences. Mac polish target is *modest*: Mac-idiom keyboard shortcuts (Cmd+arrow, Cmd+W, Cmd+, etc.), menu bar items where the surface naturally calls for them, window-resize handling consistent with macOS, and a polish pass on focus-ring / pointer-hover behaviors that the iPad codebase gets for free under iPadOS pointer support. *Not* a native AppKit/Catalyst Mac app; *not* full macOS idiom (multi-window state restoration, document-based architecture, custom menu bar beyond the iPad-app default are out of scope).
+- **Bridge surfacing in context** is the cross-domain rendering convention across all three surfaces — cross-domain edges surface contextually during planning ("studying this concept advances your path toward [other target] as well") and during engagement (callback references that bridge between domains). No standalone cross-domain visualization surface; no globe; no game-world rendering; no mastery-glow / tendril / colored-trail visualization.
+- **Exit affordance is a first-class UI primitive** — single visible control reachable in one action from any concept-engagement / diagnostic / close-reading surface that returns the user to the Planning surface (or to Discovery on exit from a diagnostic).
+- **Delete-account affordance is a first-class UI primitive** — wired to the `ON DELETE CASCADE` discipline; satisfies Apple App Store guideline 5.1.1 (in-app account deletion) for the iPhone, iPad, and Mac-via-Designed-for-iPad builds. User confirmation step communicates that deletion is reliable and irreversible.
+- **Data-export affordance is a first-class UI primitive** — preserves cancellation-discipline honesty: the project may be paused or cancelled at any point; user data exportability makes cancellation honest, not destructive. Sibling to delete-account; both surfaces required for Phase 9 close on every Apple target.
+- **Cost-cap mechanism operates against the production user-facing surface**, not just the evaluation harness from Phase 8. Multi-platform reach increases the surface where users discover the app, which increases the importance of the per-user cap doing its job.
+- **No "general chat" surface exposed.** Free-form input only inside the three bounded contexts (concept engagement, diagnostic, close reading) and within the Discovery surface's bounded AI conversational onboarding affordance (which inherits the purpose-not-topic discipline).
+- **Static polish only** — visual design, typography, animation, copy quality, layout, iconography, sound design, haptics. The Mac-via-Designed-for-iPad polish pass (keyboard shortcuts, menu bar items, window-resize handling, focus-ring / pointer-hover) is consistent with the static-polish discipline. **Dynamic-feature surfaces foreclosed** — no social, no sharing, no leaderboards, no streaks, no push notifications beyond auth/billing, no community, no in-app messaging, no "what's new" surfaces. Adding any dynamic-feature surface requires superseding ADR 0035.
+- **No primary surface outside the Discovery / Planning / Engagement triad.** Secondary surfaces (settings, account management, billing, delete-account, data-export, parked-syllabus list, user library of uploaded texts) are accessed from menus within or alongside the primary surfaces. Two open-for-amendment-without-supersession items: a library/bookshelf surface (if cold-test surfaces a concrete need consistent with the no-trophy-spectacle discipline) and discovery dual-path narrowing (if cold-test evidence makes the case).
+- No `cohort_id`-driven UI affordances; no institutional onboarding flow; no LMS integration.
+
+See also: [ADR 0007](adr/0007-cross-domain-porosity.md), [ADR 0011](adr/0011-no-hosted-copyrighted-material.md), [ADR 0018](adr/0018-flat-domain-tags-community-detection.md), [ADR 0028](adr/0028-input-side-scope-structural-not-prompt.md), [ADR 0029](adr/0029-personal-financial-cost-ceiling.md), [ADR 0031](adr/0031-erasure-mechanism-and-individual-only-regime.md), [ADR 0033](adr/0033-mission-realignment-structured-guidance-for-self-learners.md), [ADR 0034](adr/0034-discovery-planning-engagement-triad.md), [ADR 0035](adr/0035-multi-platform-apple-expansion.md).
 
 ---
 
@@ -407,30 +403,30 @@ Telemetry hooks built in S-0001:
 
 ## Strong working commitments referenced throughout
 
-These are the 12 working commitments inherited from pre-Foundation design and absorbed into ADRs 0001-0012 in S-0003. Roadmap success criteria assume them as load-bearing.
+The 12 working commitments and 10 architectural decisions that roadmap success criteria assume as load-bearing. Each is contracted in the named ADR; ADR Status fields carry any supersession chains.
 
-1. Pedagogical edges, not historical (ADR 0001)
-2. Operating discipline must not corrupt pedagogy ([ADR 0032](adr/0032-personal-project-disposition.md), supersedes [ADR 0002](adr/0002-commercial-sustainability-without-pedagogical-compromise.md); supporting operating discipline: [ADR 0029](adr/0029-personal-financial-cost-ceiling.md))
-3. Supplementary media as metadata, not structure (ADR 0003)
-4. Relational learner model (ADR 0004)
-5. Per-text interpretive outline (ADR 0005)
-6. Domain-agnostic architecture (ADR 0006)
-7. Cross-domain porosity (ADR 0007)
-8. Concept nodes, not thinkers (ADR 0008)
-9. Portable mastery (ADR 0009)
-10. Continuous contextual assessment (ADR 0010)
-11. No hosted copyrighted material (ADR 0011)
-12. Freshman defaults, autodidact ceiling (ADR 0012)
+1. Pedagogical edges, not historical ([ADR 0001](adr/0001-pedagogical-edges-not-historical.md))
+2. Operating discipline must not corrupt pedagogy ([ADR 0032](adr/0032-personal-project-disposition.md); supporting: [ADR 0029](adr/0029-personal-financial-cost-ceiling.md))
+3. Supplementary media as metadata, not structure ([ADR 0003](adr/0003-supplementary-media-as-metadata-not-structure.md))
+4. Relational learner model ([ADR 0004](adr/0004-relational-learner-model.md))
+5. Per-text interpretive outline ([ADR 0005](adr/0005-per-text-interpretive-outline.md))
+6. Domain-agnostic architecture ([ADR 0006](adr/0006-domain-agnostic-architecture.md))
+7. Cross-domain porosity ([ADR 0007](adr/0007-cross-domain-porosity.md))
+8. Concept nodes, not thinkers ([ADR 0008](adr/0008-concept-nodes-not-thinkers.md))
+9. Portable mastery ([ADR 0009](adr/0009-portable-mastery.md))
+10. Continuous contextual assessment ([ADR 0010](adr/0010-continuous-contextual-assessment.md))
+11. No hosted copyrighted material ([ADR 0011](adr/0011-no-hosted-copyrighted-material.md))
+12. Freshman defaults, autodidact ceiling ([ADR 0012](adr/0012-freshman-defaults-autodidact-ceiling.md))
 
-Plus architectural decisions (ADRs 0013–0022, recorded in S-0003 from the transitional `design-reasoning.md` and the S-0001 plan conversation):
+Architectural decisions:
 
-- Mastery verification as organic escalation (ADR 0013)
-- Sonnet teaches, Opus reviews (ADR 0014)
-- Event-sourced learner model (ADR 0015)
-- Graph construction needs live validation (ADR 0016)
-- Postgres + recursive CTEs over OWL/RDF (ADR 0017)
-- Flat domain tags + community detection (ADR 0018)
-- Two-column rigor score override model (ADR 0019)
-- Teaching notes separate from summary (ADR 0020)
-- Node deprecation via status + superseded_by (ADR 0021)
-- Periodic project health checks (ADR 0022)
+- Mastery verification as organic escalation ([ADR 0013](adr/0013-mastery-verification-organic-escalation.md))
+- Sonnet teaches, Opus reviews ([ADR 0014](adr/0014-sonnet-teaches-opus-reviews.md))
+- Event-sourced learner model ([ADR 0015](adr/0015-event-sourced-learner-model.md))
+- Graph construction needs live validation ([ADR 0016](adr/0016-graph-construction-needs-live-validation.md))
+- Postgres + recursive CTEs over OWL/RDF ([ADR 0017](adr/0017-postgres-recursive-ctes-over-owl-rdf.md))
+- Flat domain tags + community detection ([ADR 0018](adr/0018-flat-domain-tags-community-detection.md))
+- Two-column rigor score override model ([ADR 0019](adr/0019-two-column-rigor-score-override.md))
+- Teaching notes separate from summary ([ADR 0020](adr/0020-teaching-notes-separate-from-summary.md))
+- Node deprecation via status + superseded_by ([ADR 0021](adr/0021-node-deprecation-status-superseded-by.md))
+- Periodic project health checks ([ADR 0022](adr/0022-periodic-project-health-checks.md))
