@@ -68,21 +68,21 @@ Don't ADR for:
 
 - Editorial choices (wording, formatting, file ordering).
 - Reversible local decisions with no downstream propagation.
-- Decisions already covered by a settled ADR — those go in CHANGELOG entries and design-doc updates, not new ADRs.
+- Decisions already covered by a settled ADR — those go in ENGINE_LOG entries and design-doc updates, not new ADRs.
 
-## ADR vs CHANGELOG vs MemPalace
+## ADR vs ENGINE_LOG vs MemPalace
 
 | Surface | What | Format | Reader |
 |---|---|---|---|
 | ADR | Settled architectural decision | Structured (Status / Context / Decision / Consequences) | Future sessions, expected to act on the contract |
-| CHANGELOG | Material change | Categorized (Added / Changed / Removed / etc.) | Anyone scanning project history |
+| ENGINE_LOG | Material engine change | Categorized (Added / Changed / Removed / etc.) | Anyone scanning project history |
 | MemPalace `decision` drawer | The conversation that produced the decision | Verbatim | Anyone running a similarity search; recovers the *story* |
 
-A new ADR typically generates one CHANGELOG entry (under Added) and one or more MemPalace drawers (the verbatim conversation that produced it).
+A new ADR typically generates one ENGINE_LOG entry (under Added) and one or more MemPalace drawers (the verbatim conversation that produced it). The renamed `ENGINE_LOG.md` (was `CHANGELOG.md` before [ADR 0037](../../adr/0037-engine-product-wall-and-changelog-rename.md)) carries the dated narrative for material engine changes; the `CHANGELOG.md` filename is reserved for the future learner-visible product release log (first entry at Phase 9).
 
 ## See also
 
 - [`mempalace-tagging-conventions.md`](mempalace-tagging-conventions.md) — `decision` drawer conventions.
-- [`session-shutdown-sequence.md`](session-shutdown-sequence.md) — when ADR creation triggers CHANGELOG entries.
+- [`session-shutdown-sequence.md`](session-shutdown-sequence.md) — when ADR creation triggers ENGINE_LOG entries.
 - `STATE.md` — current ADR scope (S-0003 lands ADRs 0001-0022).
 - `ROADMAP.md` — phases that produce subsequent ADRs.

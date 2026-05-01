@@ -1,6 +1,6 @@
 # supabase/migrations/PREDICATE_MANIFEST.md — Canonical edge-type registry
 
-> **Placeholder created S-0001. Fleshed out in Phase 4** when graph construction begins. Adding a new predicate is a CHANGELOG-tracked material change; the same session that introduces the predicate must update this file.
+> **Placeholder created S-0001. Fleshed out in Phase 4** when graph construction begins. Adding a new predicate is an ENGINE_LOG-tracked material change; the same session that introduces the predicate must update this file.
 
 ## Why this file exists
 
@@ -9,7 +9,7 @@ Every edge in the Paideia graph carries a `type` field naming its predicate (e.g
 This file is the canonical registry. `tools/validate.py`'s graph-audit extension point (per [`adr/0016-graph-construction-needs-live-validation.md`](../../adr/0016-graph-construction-needs-live-validation.md)) reads this file and **soft-warns on any edge whose type is not listed here**. New predicates are introduced by:
 
 1. Adding an entry to this file in the same session that uses the new predicate.
-2. Recording the addition under "Added" in CHANGELOG.md `[Unreleased]`.
+2. Recording the addition under "Added" in ENGINE_LOG.md `[Unreleased]`.
 3. Naming the predicate's domain (what kinds of nodes it connects) and range (what relationship it asserts).
 
 The audit catches drift; this manifest closes the loop by making the catch's resolution unambiguous.

@@ -52,7 +52,7 @@ Convert the current Claude Code conversation from default exploration mode (no c
 
 9. **Update `STATE.md`** with the new last-session pointer and the next session's work item.
 
-10. **Update `CHANGELOG.md`** under `[Unreleased]` with Added/Changed/Removed/Deprecated entries for material changes (per the material-change criteria in `docs/operations/session-shutdown-sequence.md` once S-0002 lands).
+10. **Update `ENGINE_LOG.md`** under `[Unreleased]` with Added/Changed/Removed/Deprecated entries for material engine changes (per the material-change criteria in `docs/operations/session-shutdown-sequence.md`). The file was named `CHANGELOG.md` before [ADR 0037](../../adr/0037-engine-product-wall-and-changelog-rename.md); the `CHANGELOG.md` filename is now reserved for the future learner-visible product release log.
 
 11. **Fill `outcome_summary`** in `session/current.json` (~50 words, what got done — feeds health-check telemetry).
 
@@ -62,7 +62,7 @@ Convert the current Claude Code conversation from default exploration mode (no c
 
 ## Default-mode posture (when this command is NOT invoked)
 
-The conversation is exploration. **No project file edits to tracked files. No commits. No slot claim. No CHANGELOG/ADR/STATE updates.** Sketch in conversation. If the discussion converges on something worth committing, offer the conversion: *"This feels worth making formal — want to /start-engine?"*
+The conversation is exploration. **No project file edits to tracked files. No commits. No slot claim. No ENGINE_LOG/ADR/STATE updates.** Sketch in conversation. If the discussion converges on something worth committing, offer the conversion: *"This feels worth making formal — want to /start-engine?"*
 
 MemPalace captures the exploration conversation under the `exploration` tag (once Claude Code stop/precompact hooks are wired in S-0002) so future sessions can recall "we considered X, rejected for reason Y" without re-litigation.
 

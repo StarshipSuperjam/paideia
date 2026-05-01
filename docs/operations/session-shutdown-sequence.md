@@ -37,7 +37,9 @@ Edit the `## Next session work item` block:
 - Replace with the next session's scope. Be concrete: what files get authored, what files get retired, what success looks like. The next session reads this cold; it should be sufficient.
 - If this session uncovered new work that should sit before what was previously next, surface it here and update `ROADMAP.md` if the change crosses a phase boundary.
 
-### 4. Update `CHANGELOG.md`
+### 4. Update `ENGINE_LOG.md`
+
+`ENGINE_LOG.md` is the dated-narrative layer for material engine changes — the renamed `CHANGELOG.md` per [ADR 0037](../../adr/0037-engine-product-wall-and-changelog-rename.md). The `CHANGELOG.md` filename is reserved for future learner-visible product release content (first entry at Phase 9); session shutdowns write here.
 
 Under `[Unreleased]`, add entries by category (Added / Changed / Removed / Deprecated / Fixed / Security). Material-change criteria — log it if it meets *any* of these:
 
@@ -46,7 +48,7 @@ Under `[Unreleased]`, add entries by category (Added / Changed / Removed / Depre
 - New or removed entry in `docs/`.
 - Breaking change to a schema, predicate, or commitment.
 - New session-protocol behavior (hooks, commands, register fields).
-- New or changed CHANGELOG-tracked design commitment.
+- New or changed ENGINE_LOG-tracked design commitment.
 
 Skip these — not material:
 
@@ -127,9 +129,9 @@ Design docs in `docs/` (not the operations procedures, the project-content docs:
 - **Idea surfaces but isn't ready for a file** → capture in `docs/ideation.md`. When consumed into a downstream file or rejected, update its status with a date.
 - **Deprecated files** → absorption + delete pattern. (a) Absorb the reasoning into the right downstream artifact (an ADR for structural decisions; a doc revision for content; a MemPalace `decision` drawer for the conversational story). (b) `git rm` the original. Recovery is via git tag (e.g., `pre-foundation-v0.0.0`) or `git show <commit>:<path>`. Update any references in `docs/CROSS_REFERENCES.md` and consuming docs in the same commit. *Escape hatch:* if a retired structural artifact (a schema, graph snapshot, migration export) would benefit from in-tree side-by-side comparison with a current artifact — and that need is referenced from a current ADR or doc — file it as `_archive/<descriptive-slug>/MANIFEST.md` + the artifact (one-off, not the default). The S-0003 retirement of `design-reasoning.md` and the S-0002 retirement of `CONTEXT.md` are absorption + delete examples; neither was archived because the reasoning was fully redistributed.
 - **Dead ends** → don't record. Design docs are forward-looking; MemPalace `exploration` drawers carry the dead-end reasoning if anyone ever needs it.
-- **Note dates only where the date is the artifact's content.** A CHANGELOG entry's date, a Resolved-tension marker's `Resolved: YYYY-MM-DD`, an ADR's `Date:` header field — these are the artifact doing its job. Inside body prose of governed files (per [`document-voice.md`](document-voice.md)), revision dates and session-attribution markers like `**Added: YYYY-MM-DD (S-NNNN)**` migrate to CHANGELOG and git history; the body describes present state, not the path the file took to it.
+- **Note dates only where the date is the artifact's content.** An ENGINE_LOG entry's date, a Resolved-tension marker's `Resolved: YYYY-MM-DD`, an ADR's `Date:` header field — these are the artifact doing its job. Inside body prose of governed files (per [`document-voice.md`](document-voice.md)), revision dates and session-attribution markers like `**Added: YYYY-MM-DD (S-NNNN)**` migrate to ENGINE_LOG and git history; the body describes present state, not the path the file took to it.
 
-These updates each generate a CHANGELOG entry per the material-change criteria above.
+These updates each generate an ENGINE_LOG entry per the material-change criteria above.
 
 ## Partial closure (budget cap reached)
 
@@ -147,7 +149,7 @@ The next session picks up cleanly from STATE.md without re-deriving where things
 
 A clean close runs steps 1–7 in sequence. If the session crashes, hits a network error, or otherwise halts mid-shutdown, the observable state determines the recovery path:
 
-1. **Halted before step 6 (archive).** `current.json` present; `register_state.json` `current_status: in_progress`. Resume from step 1 — run `tools/validate.py`, complete spot-check, finish updating STATE.md / CHANGELOG, fill `outcome_summary`, then archive and final-commit.
+1. **Halted before step 6 (archive).** `current.json` present; `register_state.json` `current_status: in_progress`. Resume from step 1 — run `tools/validate.py`, complete spot-check, finish updating STATE.md / ENGINE_LOG, fill `outcome_summary`, then archive and final-commit.
 
 2. **Halted between archive (step 6) and final commit (step 7).** `archive/S-<NNNN>.json` present, `current.json` absent, `register_state.json` `current_status: closed`. The archive move sits unstaged or staged in the working tree. Stage and commit the planned final commit; FF main; push.
 

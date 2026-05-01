@@ -4,7 +4,7 @@
 
 ## What MemPalace does for Paideia
 
-It captures the conversational substrate that ADRs and CHANGELOG can't hold:
+It captures the conversational substrate that ADRs and ENGINE_LOG can't hold:
 
 - **Exploration sessions** — "we considered X, rejected for Y" — so future sessions don't re-litigate.
 - **Decision moments** — the verbatim reasoning at the moment a commitment was settled (the *story* behind the ADR's *contract*).

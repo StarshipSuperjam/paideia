@@ -25,7 +25,7 @@ Graph construction is **gated by a live validation utility** (`tools/validate.py
 - Modes: `--validate-only` (default; read-only DB queries; categorical counts; exit 0/1/2) and `--export-snapshot path/to/snapshot.json` (write current-state snapshot for offline review). No write-back path — DB writes happen via Supabase migrations only.
 - Soft-warn categories feed health-check trend analysis (per ADR 0022). The `tools/validate-history.jsonl` telemetry log captures per-category counts per invocation; recurring health checks consume the trend data.
 - The seed-chunked-authoring workflow (per `docs/operations/seed-chunked-authoring.md`) includes the validate step explicitly: read SEP article → identify concepts at the granularity principle → write migration → `supabase db push` → `tools/validate.py` → fix in-session → commit.
-- The `PREDICATE_MANIFEST.md` (Phase 4) becomes the canonical edge-type registry; adding a new predicate is a CHANGELOG-tracked material change requiring a manifest entry in the same session. The validator detects undeclared predicates via this manifest.
+- The `PREDICATE_MANIFEST.md` (Phase 4) becomes the canonical edge-type registry; adding a new predicate is an ENGINE_LOG-tracked material change requiring a manifest entry in the same session. The validator detects undeclared predicates via this manifest.
 - This ADR is the contract the Phase 4 implementation must honor. Changes to the contract (adding a hard-fail category, removing a soft-warn) require Status: Superseded plus the Phase 4 code update.
 
 ## See also

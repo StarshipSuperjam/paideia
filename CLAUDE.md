@@ -88,7 +88,7 @@ The choice is deliberate: these don't admit clean mechanical detection. The cost
 Procedural depth lives in `docs/operations/` — one file per topic. Browse with `ls docs/operations/`. Index at `docs/operations/README.md`. High-frequency entries:
 
 - `session-build-lifecycle.md` — boot, eager-claim, in-session work, push cadence.
-- `session-shutdown-sequence.md` — audit, spot-check, STATE.md, CHANGELOG, archive.
+- `session-shutdown-sequence.md` — audit, spot-check, STATE.md, ENGINE_LOG, archive.
 - `mempalace-operations.md` — install, init, mine, hook wiring, query patterns.
 - `mempalace-tagging-conventions.md` — `exploration` / `decision` / `work` tags.
 - `tools-validate-interpretation.md` — hard-fail vs soft-warn, what to do with each.

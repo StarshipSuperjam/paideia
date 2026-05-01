@@ -16,7 +16,7 @@ Hard-fails are structural mistakes that, if committed, would degrade the project
 
 Categories:
 
-- **Missing required top-level file** — README, LICENSE, CHANGELOG, SECURITY, STATE, ROADMAP, HANDOFF must all exist. If you're intentionally retiring one, that's an architectural decision; ADR it first.
+- **Missing required top-level file** — README, LICENSE, ENGINE_LOG, SECURITY, STATE, ROADMAP, HANDOFF must all exist. If you're intentionally retiring one, that's an architectural decision; ADR it first. (`ENGINE_LOG.md` was named `CHANGELOG.md` before [ADR 0037](../../adr/0037-engine-product-wall-and-changelog-rename.md); the `CHANGELOG.md` filename is now reserved for the future learner-visible product release log.)
 - **`session/register_state.json` missing or malformed** — required keys: `next_id`, `last_claimed`, `current_status`. Format must parse as JSON.
 - **`session/current.json` missing keys** — when present (during an in-progress session), must have `id`, `started_at`, `status`, `working_on`. `id` must match `^S-\d{4}$`.
 - **Graph-audit hard-fails** (Phase 4+, currently stubbed) — duplicate node IDs, dangling edges, prerequisite cycles. See ADR 0016 for the full Phase 4 contract.
@@ -37,9 +37,9 @@ Example: during S-0001 the warns for `CLAUDE.md`, `docs/MISSION.md`, `docs/CROSS
 
 If still warning after the session that was supposed to author the file: investigate. Either the file got missed or the file's authored but at a different path than expected.
 
-### `changelog_format`
+### `engine_log_format`
 
-`CHANGELOG.md` missing the `[Unreleased]` section header. Always recoverable — add the header.
+`ENGINE_LOG.md` missing the `[Unreleased]` section header. Always recoverable — add the header. (Named `changelog_format` before [ADR 0037](../../adr/0037-engine-product-wall-and-changelog-rename.md) renamed `CHANGELOG.md` → `ENGINE_LOG.md`.)
 
 ### `state_format`
 

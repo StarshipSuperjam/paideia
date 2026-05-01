@@ -24,7 +24,7 @@ For full project vision and audience framing, see [`docs/MISSION.md`](docs/MISSI
 paideia/
 ├── README.md                       # this file
 ├── LICENSE                         # proprietary, all rights reserved (Shane Kidd)
-├── CHANGELOG.md                    # change history (Keep-a-Changelog format)
+├── ENGINE_LOG.md                   # engine state-of-record audit log (Keep-a-Changelog format); was CHANGELOG.md before [ADR 0037]
 ├── SECURITY.md                     # vulnerability disclosure policy
 ├── CLAUDE.md                       # AI orientation; auto-loaded; lightweight startup ceremony
 ├── STATE.md                        # current phase + next session's work item
@@ -103,9 +103,9 @@ MemPalace captures exploration conversations under the `exploration` tag — kno
 
 ### Build mode — `Start Engine` or `/start-engine`
 
-Type `Start Engine` (or invoke the slash command `/start-engine`) to convert to a build session. The slash command claims the next slot via the eager-claim ritual: bumps `session/register_state.json`, writes `session/current.json`, commits + pushes the claim immediately so concurrent sessions cannot collide. Then does the planned work, runs the shutdown sequence (audit + spot-check + STATE/CHANGELOG updates + archive + commit + push) at close.
+Type `Start Engine` (or invoke the slash command `/start-engine`) to convert to a build session. The slash command claims the next slot via the eager-claim ritual: bumps `session/register_state.json`, writes `session/current.json`, commits + pushes the claim immediately so concurrent sessions cannot collide. Then does the planned work, runs the shutdown sequence (audit + spot-check + STATE/ENGINE_LOG updates + archive + commit + push) at close.
 
-Build sessions write to MemPalace under `decision` / `work` tags; build sessions update `CHANGELOG.md`, ADR statuses, `STATE.md`.
+Build sessions write to MemPalace under `decision` / `work` tags; build sessions update `ENGINE_LOG.md`, ADR statuses, `STATE.md`.
 
 For procedural depth, see `CLAUDE.md` and `docs/operations/`.
 

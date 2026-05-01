@@ -14,7 +14,7 @@ Each Phase 5 session writes one subdomain's seed migration: a chunked, atomic ad
 4. Session runs `tools/validate.py --validate-only` against the post-push DB.
 5. Hard-fails (duplicate IDs, dangling edges, prerequisite cycles) fix in-session before commit.
 6. Soft-warns (orphan leaves, missing rigor scores, undeclared predicates, etc.) record in `outcome_summary` per category.
-7. Session closes per [`session-shutdown-sequence.md`](session-shutdown-sequence.md). Migration file commits with a CHANGELOG entry recording the subdomain and node/edge counts.
+7. Session closes per [`session-shutdown-sequence.md`](session-shutdown-sequence.md). Migration file commits with an ENGINE_LOG entry recording the subdomain and node/edge counts.
 
 ## What Phase 4 will add
 

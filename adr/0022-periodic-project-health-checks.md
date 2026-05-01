@@ -10,7 +10,7 @@ A project's machinery accumulates drift. Soft-warn categories trend upward; docu
 
 Two approaches are available. **Reactive** — fix things when they're noticed in the course of other work. This is what most projects do; it produces uneven coverage (busy areas get attention; quiet areas drift). **Periodic** — schedule explicit audit sessions whose job is to assess fit, gaps, dead weight, and bloat across the whole machinery, on a known cadence.
 
-Periodic audits exploit two facts. First, they have a different posture than feature work — looking *for* problems rather than *at* them in passing. Second, they consume telemetry that's been quietly accumulating: `tools/validate-history.jsonl` (per-category soft-warn trends), `session/archive/S-NNNN.json` (per-session outcome summaries), ADR status field (counts of Accepted / Deprecated / Superseded over time), CHANGELOG entries (categorized changes by date), MemPalace `exploration` and `decision` tags (semantic memory of every conversation). The telemetry exists to be consumed; without a scheduled consumer, it accumulates without surfacing signal.
+Periodic audits exploit two facts. First, they have a different posture than feature work — looking *for* problems rather than *at* them in passing. Second, they consume telemetry that's been quietly accumulating: `tools/validate-history.jsonl` (per-category soft-warn trends), `session/archive/S-NNNN.json` (per-session outcome summaries), ADR status field (counts of Accepted / Deprecated / Superseded over time), ENGINE_LOG entries (categorized engine changes by date), MemPalace `exploration` and `decision` tags (semantic memory of every conversation). The telemetry exists to be consumed; without a scheduled consumer, it accumulates without surfacing signal.
 
 ## Decision
 
@@ -22,9 +22,9 @@ Health checks are not phase-anchored. They fall wherever the modulus lands; the 
 
 - The cadence machinery is built in S-0001 (`session/register_state.json` carries `health_check_cadence`; the boot procedure computes the modulus). The health-check session itself runs from `docs/operations/health-check.md` (categories, report template).
 - `tools/health_check.py` is anticipated to land around S-0025 (one of the pre-first-check sessions); the pre-first-check window allows the script to be authored against telemetry that has accumulated rather than against an empty data set. **First check expected around S-0030.**
-- Audit categories (per `docs/operations/health-check.md`): soft-warn trend analysis, ADR status drift, CHANGELOG cadence, doc/code consistency, MemPalace coverage gaps, `tensions.md` aging, file-size and complexity heuristics.
+- Audit categories (per `docs/operations/health-check.md`): soft-warn trend analysis, ADR status drift, ENGINE_LOG cadence, doc/code consistency, MemPalace coverage gaps, `tensions.md` aging, file-size and complexity heuristics.
 - Defer is a first-class option. If the cadence fires during a busy phase (e.g., mid-Phase 5 seed authoring with 6+ subdomain sessions in flight), the user defers; the trigger re-fires at the next satisfied modulus. Audits are not blocking.
-- The audit produces a report (template in `docs/operations/health-check.md`) and one or more CHANGELOG entries (`Changed`/`Removed`/`Added`) for any cleanups landed in the audit session. Findings that warrant follow-up become explicit work items in `STATE.md`.
+- The audit produces a report (template in `docs/operations/health-check.md`) and one or more ENGINE_LOG entries (`Changed`/`Removed`/`Added`) for any cleanups landed in the audit session. Findings that warrant follow-up become explicit work items in `STATE.md`.
 - The cadence is **configurable**, not hardcoded. As the project matures, the right cadence may change (longer interval as machinery stabilizes; shorter interval if telemetry shows fast drift).
 - Deferring health checks indefinitely is a self-inflicted cost. The cadence trigger is an interrupt, not a request — the user should accept it unless there's an active reason to defer.
 

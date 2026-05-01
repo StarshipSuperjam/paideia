@@ -3,7 +3,7 @@
 Paideia repo-structure validator.
 
 Runs at every commit (via the pre-commit hook) and on demand. Validates the
-state-of-record artifacts (top-level files, session counter, ADRs, CHANGELOG,
+state-of-record artifacts (top-level files, session counter, ADRs, ENGINE_LOG,
 docs/) for structural integrity.
 
 This script is the seed for what becomes the Phase 4 graph audit utility.
@@ -62,7 +62,7 @@ HISTORY_FILE = REPO_ROOT / "tools" / "validate-history.jsonl"
 REQUIRED_TOP_LEVEL = [
     "README.md",
     "LICENSE",
-    "CHANGELOG.md",
+    "ENGINE_LOG.md",
     "SECURITY.md",
     "STATE.md",
     "ROADMAP.md",
@@ -117,7 +117,7 @@ class ValidationResult:
 
 
 def validate_repo_structure() -> ValidationResult:
-    """Validate top-level files, session/, ADRs, CHANGELOG, STATE, ROADMAP.
+    """Validate top-level files, session/, ADRs, ENGINE_LOG, STATE, ROADMAP.
 
     Soft-warns are recoverable; hard-fails require fixing before commit.
     """
@@ -160,16 +160,19 @@ def validate_repo_structure() -> ValidationResult:
         except json.JSONDecodeError as e:
             r.hard_fail(f"session/current.json is not valid JSON: {e}")
 
-    # CHANGELOG.md parseable as Keep-a-Changelog (lightweight check: has
-    # [Unreleased] section)
-    r.add_check("changelog_format")
-    changelog_path = REPO_ROOT / "CHANGELOG.md"
-    if changelog_path.is_file():
-        text = changelog_path.read_text()
+    # ENGINE_LOG.md parseable as Keep-a-Changelog (lightweight check: has
+    # [Unreleased] section). The file is the renamed CHANGELOG.md per ADR
+    # 0037 (engine / product wall); it carries the dated narrative for
+    # material engine changes. The CHANGELOG.md filename is reserved for
+    # future learner-visible product release content (first entry at Phase 9).
+    r.add_check("engine_log_format")
+    engine_log_path = REPO_ROOT / "ENGINE_LOG.md"
+    if engine_log_path.is_file():
+        text = engine_log_path.read_text()
         if "[Unreleased]" not in text and "## [Unreleased]" not in text:
             r.soft_warn(
-                "changelog_format",
-                "CHANGELOG.md missing [Unreleased] section header",
+                "engine_log_format",
+                "ENGINE_LOG.md missing [Unreleased] section header",
             )
 
     # STATE.md current-phase pointer

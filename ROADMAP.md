@@ -6,15 +6,17 @@ This document names every phase, its scope, its success criteria, and the archit
 
 `STATE.md` names the *current* phase and the *next session's work item*. This file names the *whole arc*.
 
+Phase headings carry **[ENGINE]** or **[PRODUCT]** markers per [ADR 0037](adr/0037-engine-product-wall-and-changelog-rename.md): engine phases author the AI build apparatus that constructs Paideia (session protocol, validators, build_plan scaffolding, infrastructure, tooling); product phases author Paideia content itself (seed graph, teaching layer prototype, UI). The markers are the first installment of the engine / product partition; the structural folder migration executes after Phase 2 closes and before Phase 5 opens.
+
 ---
 
-## Phase 0 — Foundation
+## Phase 0 — Foundation **[ENGINE]**
 
 **Setup, not build.** The session-protocol layer, industry-standard repo skeleton, decision-record discipline, and project memory get established. After Phase 0, every future session boots cold from `STATE.md` + MemPalace + the conventions in `CLAUDE.md` and `docs/operations/`.
 
 **Three foundation sessions:**
 
-- **S-0001** — structural foundation + retirement of obsolete pre-foundation source files. Top-level industry-standard files (this file, README.md, LICENSE, CHANGELOG.md, SECURITY.md, STATE.md, HANDOFF.md), session/ + tools/ + pre-commit hook + slash command, supabase/migrations/ placeholders, repo reorganization into `docs/`.
+- **S-0001** — structural foundation + retirement of obsolete pre-foundation source files. Top-level industry-standard files (this file, README.md, LICENSE, ENGINE_LOG.md (was CHANGELOG.md before [ADR 0037](adr/0037-engine-product-wall-and-changelog-rename.md)), SECURITY.md, STATE.md, HANDOFF.md), session/ + tools/ + pre-commit hook + slash command, supabase/migrations/ placeholders, repo reorganization into `docs/`.
 - **S-0002** — procedural layer + MemPalace indexing + CONTEXT.md split. CLAUDE.md + 11-file `docs/operations/` library + `docs/MISSION.md` + `docs/CROSS_REFERENCES.md` + MemPalace wing/rooms/drawers indexed against the relocated docs.
 - **S-0003** — ADR collection (22 ADRs absorbing the 12 working commitments + the 8 entries from the transitional `design-reasoning.md` + 2 architectural decisions that emerged in the S-0001 plan conversation, ADRs 0016 and 0022). `adr/README.md` indexes the collection; full Nygard guidance and status conventions live in `docs/operations/adr-authoring.md`. `design-reasoning.md` retired at S-0003 close.
 
@@ -22,7 +24,7 @@ This document names every phase, its scope, its success criteria, and the archit
 
 ---
 
-## Phase 1 — Contract Lock
+## Phase 1 — Contract Lock **[ENGINE]**
 
 **Output:** every remaining design ambiguity that would propagate into the seed graph is settled, audit-checked, and durable.
 
@@ -62,7 +64,7 @@ Add `confidence_level` (`EXTRACTED | INTERPRETED | SYNTHETIC`) to the node schem
 
 ---
 
-## Phase 1.5 — Mission Realignment Overhaul
+## Phase 1.5 — Mission Realignment Overhaul **[ENGINE]**
 
 **Output:** the contract layer is realigned around the project's core value claim — *filling the gap where a self-learner has no teacher* — by dropping the globe / mastery-glow / cross-domain-tendrils / trophy / "knowledge as a world" UI metaphor that was drifting attention away from the discovery / planning / mastery-gating value, and committing the replacement product structure (Discovery → Planning → Engagement triad) plus the broadened Apple platform scope (iPhone + iPad first-class via SwiftUI, Mac via Designed-for-iPad). This is **realignment, not rebuild** — the pedagogical dependency graph, the AI instructor model, the bring-your-own-book close reading, the mastery model, the privacy posture, and the cost ceiling all survive intact.
 
@@ -93,15 +95,15 @@ Add `confidence_level` (`EXTRACTED | INTERPRETED | SYNTHETIC`) to the node schem
 
 ### 1.5.5 Inward-document expression contract
 
-- ADR 0036 contracts the project's second expression contract — kindred tool to AGENT_INSTRUCTIONS.md (the rendering policy in ADR 0027), separately scoped to inward-facing documentation. The contract's posture: governed documents describe present truth in present-tense declarative prose; cross-references to ADRs are bibliographic (end-of-section "See also" pointers); authorship history, supersession narration, and per-session revision markers belong in the four-layer trace system (ADRs, CHANGELOG, MemPalace, git).
-- Operational surface lives at [`docs/operations/document-voice.md`](docs/operations/document-voice.md). Scope: the `docs/` tree, root-level project files, ADRs in non-Superseded status, AGENT_INSTRUCTIONS.md. Exempt: STATE.md, CHANGELOG.md, `session/archive/*`, ADRs in Superseded status, resolved `docs/tensions.md` entries. ROADMAP.md is governed with three-speech-acts handling: phase scope and commitments are governed; date-stamp markers and supersession narration migrate to CHANGELOG and git.
+- ADR 0036 contracts the project's second expression contract — kindred tool to AGENT_INSTRUCTIONS.md (the rendering policy in ADR 0027), separately scoped to inward-facing documentation. The contract's posture: governed documents describe present truth in present-tense declarative prose; cross-references to ADRs are bibliographic (end-of-section "See also" pointers); authorship history, supersession narration, and per-session revision markers belong in the four-layer trace system (ADRs, ENGINE_LOG, MemPalace, git).
+- Operational surface lives at [`docs/operations/document-voice.md`](docs/operations/document-voice.md). Scope: the `docs/` tree, root-level project files, ADRs in non-Superseded status, AGENT_INSTRUCTIONS.md. Exempt: STATE.md, ENGINE_LOG.md, `session/archive/*`, ADRs in Superseded status, resolved `docs/tensions.md` entries. ROADMAP.md is governed with three-speech-acts handling: phase scope and commitments are governed; date-stamp markers and supersession narration migrate to ENGINE_LOG and git.
 - `docs/business.md`, `docs/architecture.md`, `docs/MISSION.md`, `docs/content-strategy.md`, `AGENT_INSTRUCTIONS.md`, `docs/tensions.md` open entries, and `adr/README.md` orientation prose carry the contract's voice. ROADMAP.md (this file) carries the contract's voice with three-speech-acts handling; the four-layer trace carries the production trace.
 
 ### Phase 1.5 success criteria
 
 - ADRs 0033, 0034, 0035, 0036 land at Status: Accepted; ADR 0032 Status reads `Superseded by ADR 0035`.
 - `docs/ui-architecture.md` and `docs/session-lifecycle.md` carry no residual globe/glow/tendril references; `docs/MISSION.md` "What this is" is framed around structured guidance for self-learners.
-- `git grep -i "globe\|mastery glow\|tendril\|trophy\|colored trail\|knowledge as a world\|Globe Navigation Model"` returns matches only where the term names what is foreclosed (ADR 0033, ADR 0027, ADR 0018), in superseded artifacts (ADR 0032), or in dated journal layers (CHANGELOG.md, `session/archive/*`).
+- `git grep -i "globe\|mastery glow\|tendril\|trophy\|colored trail\|knowledge as a world\|Globe Navigation Model"` returns matches only where the term names what is foreclosed (ADR 0033, ADR 0027, ADR 0018), in superseded artifacts (ADR 0032), or in dated journal layers (ENGINE_LOG.md, `session/archive/*`).
 - Phase 9 success criteria below carry the triad + multi-platform plan; Android / web references absent.
 - Inward-facing project documents carry the document-voice contract; the four-layer trace carries date-stamps and supersession narration.
 - Phase 2 (Build Plan Scaffolding) opens with the realigned, voice-clean contract as input.
@@ -110,7 +112,7 @@ See also: [ADR 0027](adr/0027-rendering-policy-prompt-layer-contract.md), [ADR 0
 
 ---
 
-## Phase 2 — Build Plan Scaffolding
+## Phase 2 — Build Plan Scaffolding **[ENGINE]**
 
 **Output:** a `build_plan/` directory naming the chunked authoring sessions for Phases 3-9, and the working contract for each session.
 
@@ -124,7 +126,7 @@ This file (`ROADMAP.md`) names the phases at a high level. `build_plan/` names t
 
 ---
 
-## Phase 3 — SQL Schema Implementation
+## Phase 3 — SQL Schema Implementation **[ENGINE]**
 
 **Output:** Postgres schema deployed to Supabase via versioned migrations.
 
@@ -148,7 +150,7 @@ Stack: Supabase migrations at `supabase/migrations/0001_*.sql` and forward.
 
 ---
 
-## Phase 4 — Graph Validation Utility (per ADR 0016)
+## Phase 4 — Graph Validation Utility (per ADR 0016) **[ENGINE]**
 
 **Output:** real-time graph validation utility extending `tools/validate.py`'s extension point. Wired to the pre-commit hook so seed-authoring sessions cannot commit without passing audit.
 
@@ -183,7 +185,7 @@ Numeric prefix scheme: `00NN` schema, `001N` epistemology, `002N` ethics, `003N`
 
 ### 4.3 Flesh out `supabase/migrations/PREDICATE_MANIFEST.md`
 
-Canonical edge-type registry: `prerequisite`, `enables`, `informed_by`, `cross_domain_dependency`, etc. Adding a new predicate is a CHANGELOG-tracked material change requiring a new manifest entry in the same session.
+Canonical edge-type registry: `prerequisite`, `enables`, `informed_by`, `cross_domain_dependency`, etc. Adding a new predicate is an ENGINE_LOG-tracked material change requiring a new manifest entry in the same session.
 
 ### 4.4 Flesh out `docs/operations/seed-chunked-authoring.md`
 
@@ -198,7 +200,7 @@ Per-session migration workflow: read SEP article → identify concepts at granul
 
 ---
 
-## Phase 4.5 — Input Dataset Survey (for Phase 5 seed authoring)
+## Phase 4.5 — Input Dataset Survey (for Phase 5 seed authoring) **[PRODUCT]**
 
 **Output:** a tiered survey of external datasets useful as **cross-reference inventories and prerequisite-shape priors** for Phase 5 seed authoring. Lands as a new section in [`docs/content-strategy.md`](docs/content-strategy.md) ("Cross-Domain Reference Inventories — Survey") with per-candidate assessment against the five usability axes.
 
@@ -245,7 +247,7 @@ The survey is **research and recording**, not commitment. Specific dataset *adop
 
 ---
 
-## Phase 5 — Seed Graph Build (parallelizable)
+## Phase 5 — Seed Graph Build (parallelizable) **[PRODUCT]**
 
 **Output:** concept-level seed graph across philosophy subdomains. Hundreds of nodes per subdomain. Cross-domain edges first-class.
 
@@ -278,7 +280,7 @@ Per `docs/operations/seed-chunked-authoring.md`:
 3. Session runs `supabase db push`
 4. Session runs `tools/validate.py --validate-only` against post-push DB
 5. Hard-fails fix in-session; soft-warns recorded in session outcome_summary per category
-6. Session closes, commits the migration file (CHANGELOG entry tracked)
+6. Session closes, commits the migration file (ENGINE_LOG entry tracked)
 
 ### 5.4 Paperclip trial
 
@@ -288,12 +290,12 @@ When two or more subdomain sessions queue up to run in parallel (Epistemology + 
 
 - Each subdomain session closes with zero hard-fails from `validate.py`
 - Soft-warn counts recorded per category in session outcome_summary
-- Migration files atomically attributable to the session that wrote them via the session's CHANGELOG entry
+- Migration files atomically attributable to the session that wrote them via the session's ENGINE_LOG entry
 - Cross-session schema drift detected by the predicate-manifest audit
 
 ---
 
-## Phase DEC.1 — Retrieval / Mastery-Inference Architecture Decisions
+## Phase DEC.1 — Retrieval / Mastery-Inference Architecture Decisions **[ENGINE]**
 
 **Sits between Phase 5 and Phase 6.** After the seed graph is mature, retrieval-shape decisions become testable; before the teaching layer is built, they're load-bearing.
 
@@ -308,7 +310,7 @@ Each decision lands as an ADR with Status: Accepted and a Phase-6 implementation
 
 ---
 
-## Phase 6 — Self-Correction Pipeline
+## Phase 6 — Self-Correction Pipeline **[ENGINE]**
 
 **Output:** tension log + Opus batch review pipeline operational.
 
@@ -321,7 +323,7 @@ Implements `docs/self-correction.md`:
 
 ---
 
-## Phase 7 — Sonnet Teaching Layer (First Prototype)
+## Phase 7 — Sonnet Teaching Layer (First Prototype) **[PRODUCT]**
 
 **Output:** a callable teaching endpoint that produces learner-facing prose against the rendering policy from `AGENT_INSTRUCTIONS.md`.
 
@@ -342,7 +344,7 @@ If the Phase 5 trial proved Paperclip's fit, this is the moment to commit: Paper
 
 ---
 
-## Phase 8 — Evaluation Harness
+## Phase 8 — Evaluation Harness **[ENGINE]**
 
 **Output:** the builder verifies the rendering-policy worked example holds against stock Sonnet without the policy, isolating the contribution of the prompt-layer contract. A small private TestFlight cohort cold-tests the success criterion "an app I would pay for if it weren't mine." The cost-cap mechanism is wired and tested. App Store submission readiness lands here, not Phase 9, because the Apple Developer Program lead time forces it.
 
@@ -362,11 +364,11 @@ See also: [ADR 0026](adr/0026-persistent-learner-storage-structural-not-substant
 
 ---
 
-## Phase 9 — UI Prototype
+## Phase 9 — UI Prototype **[PRODUCT]**
 
 **Output:** the Discovery / Planning / Engagement triad surfaces, implemented as a **single SwiftUI codebase shipping to iPhone + iPad first-class plus Mac via Designed-for-iPad**, distributed through the Apple App Store. No Android, no web client, no native AppKit/Catalyst Mac app. The DeepTutor fork (per [`docs/infrastructure.md`](docs/infrastructure.md)) is consulted only for what serves the Apple-native target.
 
-Per [`docs/ui-architecture.md`](docs/ui-architecture.md). Application code; **CHANGELOG / ADR discipline does not apply** to application code (state-of-record-only). Normal git history.
+Per [`docs/ui-architecture.md`](docs/ui-architecture.md). Application code; **ENGINE_LOG / ADR discipline does not apply** to application code (state-of-record-only). Normal git history.
 
 ### Phase 9 success criteria
 
@@ -396,7 +398,7 @@ Telemetry hooks built in S-0001:
 - `tools/validate-history.jsonl` (append-only, soft-warn category trends)
 - `session/archive/S-NNNN.json` per session (started_at, closed_at, status, working_on, outcome_summary)
 - ADR status field (counts of Accepted / Deprecated / Superseded over time)
-- CHANGELOG.md entries (categorized changes by date)
+- ENGINE_LOG.md entries (categorized engine changes by date)
 - MemPalace `exploration` and `decision` tags (semantic memory of every conversation)
 
 ---

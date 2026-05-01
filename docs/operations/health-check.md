@@ -24,7 +24,7 @@ The cadence is configurable per-project in `register_state.json` (add `health_ch
 Does the machinery match what the project is actually producing? Look at the last N sessions and ask:
 
 - Does the validate.py soft-warn distribution surface useful signal, or are we ignoring most warnings?
-- Do CHANGELOG entries match what was actually material, or is the project producing material changes that aren't being logged?
+- Do ENGINE_LOG entries match what was actually material, or is the project producing material changes that aren't being logged?
 - Do ADR statuses reflect reality, or are some `Accepted` ADRs effectively-superseded with no record?
 - Are MemPalace queries surfacing useful prior context, or is recall thin?
 
@@ -62,7 +62,7 @@ The audit consumes:
 - `tools/validate-history.jsonl` (gitignored, per-clone) — soft-warn category trends, validator runtime drift, hard-fail incidence.
 - `session/archive/S-NNNN.json` per session — `started_at`, `closed_at`, `status`, `outcome_summary`, branch.
 - ADR collection — counts of Accepted / Deprecated / Superseded over time.
-- CHANGELOG entries — categorized changes by date.
+- ENGINE_LOG entries — categorized engine changes by date.
 - MemPalace stats (`mempalace_status`, `mempalace_kg_stats`) — drawer growth, room balance, last-write activity.
 
 ## Report template

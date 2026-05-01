@@ -6,7 +6,7 @@ ADRs answer **"what's settled?"**. MemPalace answers **"have we considered X bef
 
 ## Authoring guidance
 
-Full procedure — Nygard template, status conventions, when an ADR is warranted, and the ADR-vs-CHANGELOG-vs-MemPalace boundary — lives in [`docs/operations/adr-authoring.md`](../docs/operations/adr-authoring.md). This README only indexes the collection.
+Full procedure — Nygard template, status conventions, when an ADR is warranted, and the ADR-vs-ENGINE_LOG-vs-MemPalace boundary — lives in [`docs/operations/adr-authoring.md`](../docs/operations/adr-authoring.md). This README only indexes the collection.
 
 ## Status conventions (quick reference)
 
@@ -21,7 +21,7 @@ The `Status:` field is required; `tools/validate.py` soft-warns on ADR files mis
 
 ## Index
 
-The collection has **36 ADRs total — 34 Accepted plus 2 Superseded** ([ADR 0002](0002-commercial-sustainability-without-pedagogical-compromise.md) by [ADR 0032](0032-personal-project-disposition.md); [ADR 0032](0032-personal-project-disposition.md) by [ADR 0035](0035-multi-platform-apple-expansion.md)). ADRs are grouped below by the structural role they play in the project: the strong working commitments (0001–0012), the foundational architectural decisions (0013–0022), the Phase 1 Contract Lock additions (0023–0032), and the Phase 1.5 Mission Realignment additions (0033–0036).
+The collection has **37 ADRs total — 35 Accepted plus 2 Superseded** ([ADR 0002](0002-commercial-sustainability-without-pedagogical-compromise.md) by [ADR 0032](0032-personal-project-disposition.md); [ADR 0032](0032-personal-project-disposition.md) by [ADR 0035](0035-multi-platform-apple-expansion.md)). ADRs are grouped below by the structural role they play in the project: the strong working commitments (0001–0012), the foundational architectural decisions (0013–0022), the Phase 1 Contract Lock additions (0023–0032), and the Phase 1.5 Mission Realignment additions (0033–0037).
 
 ### Strong working commitments (ADRs 0001–0012)
 
@@ -78,6 +78,7 @@ The collection has **36 ADRs total — 34 Accepted plus 2 Superseded** ([ADR 000
 | [0034](0034-discovery-planning-engagement-triad.md) | Discovery / Planning / Engagement triad as primary product structure | Accepted |
 | [0035](0035-multi-platform-apple-expansion.md) | Multi-platform Apple expansion; iPhone + iPad first-class via SwiftUI, Mac via Designed-for-iPad (supersedes ADR 0032) | Accepted |
 | [0036](0036-expression-contract-for-inward-documents.md) | Expression contract for inward-facing documentation | Accepted |
+| [0037](0037-engine-product-wall-and-changelog-rename.md) | Engine / product wall; CHANGELOG.md renames to ENGINE_LOG.md | Accepted |
 
 ## Adding a new ADR
 
@@ -85,7 +86,7 @@ The collection has **36 ADRs total — 34 Accepted plus 2 Superseded** ([ADR 000
 2. Filename: `NNNN-kebab-case-title.md`.
 3. Use the Nygard template from [`docs/operations/adr-authoring.md`](../docs/operations/adr-authoring.md).
 4. Add a row to the index above in the same commit.
-5. Add a CHANGELOG entry under `[Unreleased]` → `Added`.
+5. Add an ENGINE_LOG entry under `[Unreleased]` → `Added`.
 6. (If the ADR resolves an open tension) update `docs/tensions.md`.
 7. Capture the conversational reasoning that produced the ADR in a MemPalace `decision`-tagged drawer (verbatim form, recall-by-similarity).
 
@@ -94,4 +95,4 @@ The collection has **36 ADRs total — 34 Accepted plus 2 Superseded** ([ADR 000
 - The new ADR carries `Status: Accepted` and a `Supersedes: ADR NNNN` line in the header.
 - The old ADR's `Status:` flips to `Superseded by ADR NNNN` (one-directional pointer).
 - The old ADR file is **not deleted** — the historical reasoning remains queryable.
-- CHANGELOG records both: `Added` for the new ADR, `Changed` for the supersession.
+- ENGINE_LOG records both: `Added` for the new ADR, `Changed` for the supersession.
