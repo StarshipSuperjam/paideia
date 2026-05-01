@@ -1,0 +1,53 @@
+# ADR 0036 — Expression contract for inward-facing documentation
+
+- **Status:** Accepted
+- **Date:** 2026-04-30
+- **Deciders:** S-0017 (Phase 1.5.5 — inward-doc voice contract authoring)
+
+## Context
+
+An expression contract is a tool that constrains how the AI expresses itself for a specific surface. The project has one such contract authored to date: [`AGENT_INSTRUCTIONS.md`](../AGENT_INSTRUCTIONS.md), the rendering policy that governs learner-facing prose, contracted in [ADR 0027](0027-rendering-policy-prompt-layer-contract.md). It enumerates forbidden tokens (mastery-state names, evidence-event references, scaffolding-distance language, globe / spatial-traversal metaphors, reward / visualization language, others) and a surviving-tokens whitelist; ships verbatim as Sonnet's system prompt at Phase 7; pairs with [ADR 0028](0028-input-side-scope-structural-not-prompt.md) as the bidirectional input-output contract for the teaching surface.
+
+Inward-facing project documentation has had no comparable contract. Its voice has emerged session by session under the project's documentation conventions ([`docs/operations/adr-authoring.md`](../docs/operations/adr-authoring.md), [`docs/operations/session-shutdown-sequence.md`](../docs/operations/session-shutdown-sequence.md), and the design-doc maintenance protocol within the latter). The implicit handling has produced a recurrent pathology. Inward-facing documents — `docs/MISSION.md`, `docs/business.md`, `docs/architecture.md`, `docs/content-strategy.md`, ADR-cross-reference-dense passages — accrete in-document revision narration: date-stamped section headers (`**Added: YYYY-MM-DD (S-NNNN — per ADR ZZZZ ...)**`), parenthetical ADR citations on most assertions, "Substantially rewritten at S-NNNN" markers, supersession narration in body prose ("the prior framing said X; now Y"). An audit at S-0017 boot found concentrated offenders: `docs/business.md` (34 revision-narration tokens, including a 1,200-character "Last updated / Prior update / Dropped sections / Reframed" metadata block), `docs/architecture.md` (29 tokens), `docs/MISSION.md` (24 tokens, opening blockquote summarizing its own revision history), `docs/content-strategy.md` (11 tokens). The mission *now* arrives at the reader behind a path-narrative the reader does not need.
+
+The project already has a four-layer traceability system: ADRs (the contract), CHANGELOG.md (the dated narrative), MemPalace `decision`-tagged drawers (the conversational story), git history (the granular blame). These layers exist precisely so the body of a present-state document does not have to carry the trace inline. The pathology duplicates the trace into governed prose, redundantly.
+
+The structural analogy to the outward-facing contract is real but limited: both are tools that constrain AI voice for a specific surface. The discipline differs because what each protects differs — the rendering policy protects machinery hidden from the learner; an inward-document contract protects the present-state artifact's purpose against authorship-history leakage. The two contracts are kindred by tool, separately scoped by surface.
+
+## Decision
+
+The project authors a second expression contract — distinct from [ADR 0027](0027-rendering-policy-prompt-layer-contract.md)'s rendering policy — governing the voice of inward-facing project documentation. The operational surface lives at [`docs/operations/document-voice.md`](../docs/operations/document-voice.md). This ADR is the citable contract.
+
+The contract's posture: governed documents describe present truth in present-tense declarative prose. Cross-references to ADRs are bibliographic (end-of-section "See also" pointers), not parenthetical commentary on each assertion. Authorship history, supersession narration, and per-session revision markers belong in the four-layer trace system (ADRs, CHANGELOG, MemPalace, git), not in the body of governed prose.
+
+The contract's scope distinguishes governed documents (the `docs/` tree, root-level project files, ADRs in non-Superseded status, `AGENT_INSTRUCTIONS.md`) from journal and snapshot files exempt by purpose (`STATE.md`, `CHANGELOG.md`, `session/archive/*`, ADRs in `Superseded` status, `docs/tensions.md` resolved entries). `ROADMAP.md` is governed with three-speech-acts handling: phase scope and commitments are governed; date-stamp markers and supersession narration migrate to CHANGELOG and git history.
+
+The contract's amendment discipline inverts the rendering policy's. [ADR 0027](0027-rendering-policy-prompt-layer-contract.md) makes tightening (adding a forbidden token) cheap and loosening (removing one) expensive, because the load-bearing surface is the forbidden-token enumeration and what it protects is the hidden machinery each token covers. This contract makes refinement of the positive voice characterization cheap (CHANGELOG-tracked, no new ADR) and substantive change to the posture itself expensive (superseding ADR), because the load-bearing surface is the positive characterization and what it protects is the present-state discipline each refinement preserves. Each contract's amendment asymmetry is appropriate to what it protects.
+
+## Consequences
+
+- **The contract document is the working surface; this ADR is the citable contract.** [`docs/operations/document-voice.md`](../docs/operations/document-voice.md) carries the posture, voice description, scope, worked example, and amendment discipline. Refinements land in the contract document under CHANGELOG tracking; posture changes require superseding this ADR. The same separation [ADR 0027](0027-rendering-policy-prompt-layer-contract.md) maintains between itself and `AGENT_INSTRUCTIONS.md`.
+
+- **The four-layer trace system is the load-bearing precondition.** The contract's posture works because traceability already lives in four redundant layers — the reader who wants the path to a present-state assertion follows ADRs, CHANGELOG, MemPalace, or git. If a future change were to weaken the trace system (for example, archiving MemPalace, or pruning git history), the contract's amendment discipline would warrant revisiting; that dependency is acknowledged but not protected by this ADR alone.
+
+- **`docs/operations/session-shutdown-sequence.md` light-revises in this commit.** The design-doc maintenance protocol's "Always note the date" bullet conflicts with the contract's posture for governed files. The revision distinguishes dates that are themselves the artifact's content (a CHANGELOG entry's date, a Resolved-tension marker's `Resolved: YYYY-MM-DD`, an ADR's `Date:` header field) — which remain — from in-content revision-history dates inside governed prose, which migrate to CHANGELOG and git.
+
+- **Cleanup pass deferred across two downstream sessions.** S-0018 sweeps the four offender files plus `AGENT_INSTRUCTIONS.md`'s opening blockquote (currently narrates its own S-0008 / S-0016 authorship history) plus boundary cases (`docs/tensions.md` open entries, `adr/README.md` orientation prose). S-0019 is the substantive ROADMAP.md cleanup, judgment-heavy because the file mixes plan-as-it-stands with phase-narrative-by-design. Each session runs against this contract; success is measured by the worked-example test in [`docs/operations/document-voice.md`](../docs/operations/document-voice.md) — a future session reading the contract cold can classify offending passages and produce rewrites.
+
+- **Phase 1.5 reopens at Phase 1.5.5.** Phase 1.5 closed at S-0016 with the rendering policy's S-0016 forbidden-token extension. Phase 1.5.5 lands the inward-document contract — sibling work that pairs with the rendering policy by structural-discipline kind, not by being part of the same contract. Phase 2 (Build Plan Scaffolding) opens at S-0020 after the cleanup passes (S-0018, S-0019) complete. The slip is three sessions; downstream Phase 2 scaffolding work then runs against a stable inward-voice contract from boot.
+
+- **Future inward-facing documents are authored to the contract from boot.** Subsequent build sessions that touch governed documents read [`docs/operations/document-voice.md`](../docs/operations/document-voice.md) as part of their referenced-file load. New ADRs follow the contract's voice for body prose; the Nygard template's structural fields (Status, Date, Deciders) remain — they are the artifact's content, not in-prose revision narration.
+
+- **This ADR does not refactor [ADR 0027](0027-rendering-policy-prompt-layer-contract.md) or [`AGENT_INSTRUCTIONS.md`](../AGENT_INSTRUCTIONS.md).** Both retain their current titles, status, and content. The cleanup pass at S-0018 may surface light editorial opportunities (for example, `AGENT_INSTRUCTIONS.md`'s opening blockquote currently narrates its own S-0008 / S-0016 authorship history); substantive restructuring of the rendering policy would require its own ADR.
+
+- **Validation extension is out of scope.** The Phase 4 [`tools/validate.py`](../tools/validate.py) extension that audits forbidden-token leakage in the rendering policy (per [ADR 0027](0027-rendering-policy-prompt-layer-contract.md) Consequences) does not extend to this contract. The contract's discipline is positive; mechanical detection of voice violations against a positive characterization is unreliable, and authoring sessions are the appropriate enforcement surface. The worked-example test in [`docs/operations/document-voice.md`](../docs/operations/document-voice.md) is the grading artifact, consulted by sessions during authoring and by spot-check during shutdown.
+
+## See also
+
+- [ADR 0027](0027-rendering-policy-prompt-layer-contract.md) — the project's other expression contract; governs learner-facing prose.
+- [`AGENT_INSTRUCTIONS.md`](../AGENT_INSTRUCTIONS.md) — the operational surface for the rendering policy.
+- [`docs/operations/document-voice.md`](../docs/operations/document-voice.md) — the operational surface for this contract.
+- [`docs/operations/adr-authoring.md`](../docs/operations/adr-authoring.md) — Nygard template, status conventions, the ADR vs CHANGELOG vs MemPalace boundary that defines the four-layer trace system.
+- [`docs/operations/mempalace-tagging-conventions.md`](../docs/operations/mempalace-tagging-conventions.md) — `decision` drawer conventions; the conversational-story layer.
+- [`docs/operations/session-shutdown-sequence.md`](../docs/operations/session-shutdown-sequence.md) — design-doc maintenance protocol; light-revised in this commit to align the date-marker rule with the contract.
+- [ADR 0028](0028-input-side-scope-structural-not-prompt.md) — the input-side structural contract for the teaching surface; sibling-by-pattern (also a kindred-tool, separately-scoped contract).
