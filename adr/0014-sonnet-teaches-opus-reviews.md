@@ -1,8 +1,8 @@
 # ADR 0014 — Sonnet teaches, Opus reviews
 
 - **Status:** Accepted
-- **Date:** 2026-04-08
-- **Deciders:** pre-foundation deliberation; formalized in S-0003
+- **Date:** 2026-04-08 (S-0016 audit confirmed no residual cohort/institutional framing requires revision; See also extended to record the privacy and disposition framework Opus now operates within)
+- **Deciders:** pre-foundation deliberation; formalized in S-0003; S-0016 light-revision audit per [ADR 0031](0031-erasure-mechanism-and-individual-only-regime.md) and [ADR 0032](0032-personal-project-disposition.md)
 
 ## Context
 
@@ -24,7 +24,7 @@ Cost shape also favors the split: teaching is per-turn (the high-volume path; la
 - Tension log schema (per `docs/self-correction.md`) defines the structured emission contract: five tension types (`struggle_unresolved`, `unexpected_ease`, `spontaneous_connection`, `source_ineffective`, `mastery_contradiction`) mapping to five feedback loops.
 - The graph is **stable between review cycles**. Learners never encounter mid-session structural changes to the graph they're traversing. Opus's proposed edits land in a review queue; accepted edits ship at the next graph-version cut.
 - Single-event reactivity is structurally prevented. Sonnet cannot edit the graph; Opus cannot run except in batch. Bad signals require multiple instances across sessions before they become candidate corrections.
-- Opus operates on aggregated patterns, not on individual learner data. This preserves the privacy posture and matches the analytical task: structural correction wants population-level signal, not individual cases.
+- Opus operates on aggregated patterns across many individual learners, not on individual learner data and not on cohort-administrative groupings (the latter is foreclosed by [ADR 0032](0032-personal-project-disposition.md)'s no-institutional-regime commitment, preserved through [ADR 0035](0035-multi-platform-apple-expansion.md); the individual-only data regime per [ADR 0031](0031-erasure-mechanism-and-individual-only-regime.md) is the framework Opus operates within). This preserves the privacy posture per [ADR 0026](0026-persistent-learner-storage-structural-not-substantive.md) (structural-not-substantive storage) and matches the analytical task: structural correction wants statistical signal across many individuals, not individual cases.
 - The Phase 6 self-correction pipeline implements this. The Phase 7 Sonnet teaching layer implements the emission side.
 - Sonnet/Opus are the V1 choice; the architecture allows substitution (the "teaching" and "reviewing" roles are abstract; specific model choices change as model capabilities evolve).
 
@@ -33,5 +33,10 @@ Cost shape also favors the split: teaching is per-turn (the high-volume path; la
 - [`docs/self-correction.md`](../docs/self-correction.md) — Self-Correction Pipeline, Tension Log Schema.
 - [`docs/pedagogy.md`](../docs/pedagogy.md) — teaching modes and turn structure.
 - [`ROADMAP.md`](../ROADMAP.md) — Phase 6 (self-correction pipeline), Phase 7 (Sonnet teaching layer).
-- ADR 0013 — Mastery verification as organic escalation (Sonnet emits the verification events).
-- ADR 0016 — Graph construction needs live validation (separate from but complementary to Opus review).
+- [ADR 0013](0013-mastery-verification-organic-escalation.md) — Mastery verification as organic escalation (Sonnet emits the verification events).
+- [ADR 0016](0016-graph-construction-needs-live-validation.md) — Graph construction needs live validation (separate from but complementary to Opus review).
+- [ADR 0026](0026-persistent-learner-storage-structural-not-substantive.md) — persistent learner storage structural-not-substantive; the privacy posture Sonnet's tension emission writes to and Opus reads from.
+- [ADR 0027](0027-rendering-policy-prompt-layer-contract.md) — rendering policy; Sonnet emits learner-facing prose against this contract.
+- [ADR 0031](0031-erasure-mechanism-and-individual-only-regime.md) — erasure mechanism and individual-only regime; the data-regime framework Opus's aggregated analysis operates within.
+- [ADR 0032](0032-personal-project-disposition.md) — personal project disposition; commitment 4 forecloses the institutional regime, which constrains "aggregated patterns" to mean across-many-individuals statistical aggregation, not cohort-administrative aggregation.
+- [ADR 0035](0035-multi-platform-apple-expansion.md) — multi-platform Apple expansion; supersedes [ADR 0032](0032-personal-project-disposition.md) on platform scope; preserves the no-institutional-regime commitment unchanged.
