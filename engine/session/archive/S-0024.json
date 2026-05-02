@@ -1,9 +1,9 @@
 {
   "id": "S-0024",
   "started_at": "2026-05-02T04:54:04Z",
-  "status": "in_progress",
+  "status": "closed",
   "working_on": "Engine/product folder migration per ADR 0037 — git mv structural changes (engine/ and product/ subtrees), ADR partition decision for 37 ADRs, hook reconfiguration, validator constant updates. CLAUDE.md stays at root per the same edge-case logic ADR 0037 applies to .claude/ (this session light-revises ADR 0037 to fold CLAUDE.md into edge-case (c)). Two-session split: S-0024 lands structural moves + tree-validates; S-0025 finishes cross-reference sweep.",
-  "outcome_summary": null,
+  "outcome_summary": "Engine/product partition executed per ADR 0037. 111-file structural commit: engine/ (operations, tools, session, 4 engine ADRs, STATE, ENGINE_LOG) + product/ (33 product ADRs, docs, AGENT_INSTRUCTIONS, CHANGELOG-stub). Light-revised ADR 0037 edge-case (c) to fold CLAUDE.md alongside .claude/ at root (same Claude-Code-expects-it-there logic). Validator/hooks/symlink rebased; engine/tools/validate.py clean (0 hard-fails, 15 cross_reference_broken soft-warns from product/docs/CROSS_REFERENCES.md — explicit S-0025 work item). supabase/ left at root pending P_1 decision per build_plan/P_1_sql_schema.md.",
   "approved_plan": "/Users/shanekidd/.claude/plans/for-s-0024-will-moving-lexical-hamster.md",
   "branch": "claude/flamboyant-sanderson-a81ba1",
   "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/flamboyant-sanderson-a81ba1"
