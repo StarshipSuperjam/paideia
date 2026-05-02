@@ -25,7 +25,7 @@ The `Status:` field is required; `engine/tools/validate.py` soft-warns on ADR fi
 
 ## Index
 
-The engine collection has **4 ADRs total — all Accepted**. Engine ADRs are about how the build apparatus works (graph validation infrastructure, periodic project audits, expression contracts for engine-internal documents, the engine/product partition itself). The full ADR collection across the project is **37** (4 engine + 33 product).
+The engine collection has **5 ADRs total — all Accepted**. Engine ADRs are about how the build apparatus works (graph validation infrastructure, periodic project audits, expression contracts for engine-internal documents and engine-side code, the engine/product partition itself). The full ADR collection across the project is **38** (5 engine + 33 product).
 
 | ADR | Title | Status |
 |---|---|---|
@@ -33,6 +33,7 @@ The engine collection has **4 ADRs total — all Accepted**. Engine ADRs are abo
 | [0022](0022-periodic-project-health-checks.md) | Periodic project health checks | Accepted |
 | [0036](0036-expression-contract-for-inward-documents.md) | Expression contract for inward-facing documentation | Accepted |
 | [0037](0037-engine-product-wall-and-changelog-rename.md) | Engine / product wall; CHANGELOG.md renames to ENGINE_LOG.md | Accepted |
+| [0038](0038-expression-contract-for-ai-authored-code.md) | Expression contract for AI-authored code | Accepted |
 
 ## Adding a new engine ADR
 
