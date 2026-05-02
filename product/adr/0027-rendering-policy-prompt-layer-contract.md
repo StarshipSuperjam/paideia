@@ -12,7 +12,7 @@ Three failure modes follow from leakage. **Pedagogical breakage** — the learne
 
 A fourth force operates at the architecture level. The privacy posture in [ADR 0026](0026-persistent-learner-storage-structural-not-substantive.md) commits that persistent storage is structural-not-substantive. Sonnet writes to `tension_log.exchange_summary.pattern_observed` — the only free-text field in the persistence surface. Without an explicit emission policy, Sonnet defaults to writing what feels natural: quotations, doctrinal positions, first-person framings — precisely the substantive content [ADR 0026](0026-persistent-learner-storage-structural-not-substantive.md) forbids on durable tables. The rendering policy and the emission policy are adjacent contracts: one governs what reaches the learner, the other governs what reaches storage. Both belong in the same prompt-layer artifact.
 
-The forcing function is Phase 7. The Sonnet teaching prototype is graded against the rendering policy's worked example: zero forbidden-token leakage in 10 random concept queries is the bar (per [`ROADMAP.md`](../ROADMAP.md) Phase 7 success criteria). Without the contract authored before Phase 7 begins, the prototype has nothing to grade against, and the bar moves to "whatever the prototype happens to produce."
+The forcing function is Phase 7. The Sonnet teaching prototype is graded against the rendering policy's worked example: zero forbidden-token leakage in 10 random concept queries is the bar (per [`ROADMAP.md`](../../ROADMAP.md) Phase 7 success criteria). Without the contract authored before Phase 7 begins, the prototype has nothing to grade against, and the bar moves to "whatever the prototype happens to produce."
 
 ## Decision
 
@@ -40,9 +40,9 @@ The forbidden-token enumeration is the load-bearing surface. **Additions to the 
 
 ## Consequences
 
-- **Phase 7 success criterion is well-defined.** The prototype, given the worked-example stub input, produces the pass-case voice without forbidden-token leakage. Ten random concept queries are the spot-check sample. Zero leakage is the bar (already in [`ROADMAP.md`](../ROADMAP.md) Phase 7 success criteria; this ADR makes the gradeable artifact concrete).
+- **Phase 7 success criterion is well-defined.** The prototype, given the worked-example stub input, produces the pass-case voice without forbidden-token leakage. Ten random concept queries are the spot-check sample. Zero leakage is the bar (already in [`ROADMAP.md`](../../ROADMAP.md) Phase 7 success criteria; this ADR makes the gradeable artifact concrete).
 
-- **Phase 4 [`tools/validate.py`](../tools/validate.py) gains a rendering-audit category.** A periodic-batch soft-warn extension scans recent Sonnet output samples for forbidden-token strings. False positives are expected — `mastery` may legitimately appear as a learner-facing word in the context of teaching it as a *concept*; `assessment` may appear in scholarly commentary the agent quotes. The audit surfaces candidates for human review, not auto-edit. This sits alongside the privacy-audit category that [ADR 0026](0026-persistent-learner-storage-structural-not-substantive.md) wired into the same Phase 4 build.
+- **Phase 4 [`tools/validate.py`](../../engine/tools/validate.py) gains a rendering-audit category.** A periodic-batch soft-warn extension scans recent Sonnet output samples for forbidden-token strings. False positives are expected — `mastery` may legitimately appear as a learner-facing word in the context of teaching it as a *concept*; `assessment` may appear in scholarly commentary the agent quotes. The audit surfaces candidates for human review, not auto-edit. This sits alongside the privacy-audit category that [ADR 0026](0026-persistent-learner-storage-structural-not-substantive.md) wired into the same Phase 4 build.
 
 - **The audience commitment becomes structurally enforced.** [ADR 0012](0012-freshman-defaults-autodidact-ceiling.md) commits to freshman-default calibration; this ADR is what makes that commitment hold under load. Without the rendering policy, the freshman-default is an aspiration the model will drift away from on any turn that surfaces system machinery. With it, the drift is forbidden at the prompt layer.
 
@@ -58,7 +58,7 @@ The forbidden-token enumeration is the load-bearing surface. **Additions to the 
 
 - **Pairs with [ADR 0034](0034-discovery-planning-engagement-triad.md) as the second bidirectional contract.** [ADR 0034](0034-discovery-planning-engagement-triad.md) commits that the surfaces around the teaching agent (Discovery, Planning, Engagement) do not include globe / spatial-traversal / trophy / library-aggregation surfaces — the structural closure. This ADR's S-0016 revision commits that the agent's voice does not reach for those metaphors either — the voice-discipline closure. Together they form the bidirectional contract that prevents game-flavored framing from re-entering through either side. The asymmetry of the two bidirectional contracts: the input-output pair (ADR 0028 ↔ this ADR's original S-0008 form) governs the *teaching surface* — what the user can ask, what the agent can say. The surface-voice pair (ADR 0034 ↔ this ADR's S-0016 revision) governs the *product framing* — what surfaces exist, what tonal register the agent uses across them.
 
-- **Phase 1.2 closes with this ADR.** Per [`ROADMAP.md`](../ROADMAP.md) Phase 1, the deliverables are `AGENT_INSTRUCTIONS.md` (lands), the worked example (lands inline), and this ADR (lands). Phase 1.3 (`confidence_level` column on node schema) is the remaining Phase 1 work item.
+- **Phase 1.2 closes with this ADR.** Per [`ROADMAP.md`](../../ROADMAP.md) Phase 1, the deliverables are `AGENT_INSTRUCTIONS.md` (lands), the worked example (lands inline), and this ADR (lands). Phase 1.3 (`confidence_level` column on node schema) is the remaining Phase 1 work item.
 
 ## See also
 
@@ -74,4 +74,4 @@ The forbidden-token enumeration is the load-bearing surface. **Additions to the 
 - [ADR 0034](0034-discovery-planning-engagement-triad.md) — replacement product structure (Discovery / Planning / Engagement triad); names this S-0016 revision in its Consequences as the voice-side half of the surface-voice bidirectional contract.
 - [`docs/pedagogy.md`](../docs/pedagogy.md) — three teaching modes, expression contract.
 - [`docs/self-correction.md`](../docs/self-correction.md) — tension log schema and the `pattern_observed` field.
-- [`ROADMAP.md`](../ROADMAP.md) — Phase 7 success criteria (graded against this ADR's worked example).
+- [`ROADMAP.md`](../../ROADMAP.md) — Phase 7 success criteria (graded against this ADR's worked example).

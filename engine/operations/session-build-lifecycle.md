@@ -108,7 +108,7 @@ The mechanism's collision resistance is in place but not stress-tested by an act
 
 ### Pre-commit hook symlink
 
-The hook itself lives at [`tools/hooks/pre-commit`](../../tools/hooks/pre-commit) (tracked). The parent repo's `.git/hooks/pre-commit` is a symlink to that path; worktrees share the parent's `.git/hooks/` directory, so one symlink covers every worktree.
+The hook itself lives at [`tools/hooks/pre-commit`](../tools/hooks/pre-commit) (tracked). The parent repo's `.git/hooks/pre-commit` is a symlink to that path; worktrees share the parent's `.git/hooks/` directory, so one symlink covers every worktree.
 
 On a fresh clone, or if `readlink .git/hooks/pre-commit` shows a broken target (for example, a removed worktree), restore the symlink from the parent repo root:
 
@@ -122,7 +122,7 @@ Verify: `head -3 .git/hooks/pre-commit` resolves and prints the bash shebang plu
 
 ### MemPalace capture-hook failure log
 
-The Stop and PreCompact hooks invoke [`tools/hooks/mempalace-hook-wrapper.sh`](../../tools/hooks/mempalace-hook-wrapper.sh), which always exits 0 to the harness and routes capture failures (binary missing, daemon down, capture errored) to `.claude/logs/mempalace-hook.log`. The log is gitignored per-clone state.
+The Stop and PreCompact hooks invoke [`tools/hooks/mempalace-hook-wrapper.sh`](../tools/hooks/mempalace-hook-wrapper.sh), which always exits 0 to the harness and routes capture failures (binary missing, daemon down, capture errored) to `.claude/logs/mempalace-hook.log`. The log is gitignored per-clone state.
 
 At session boot, after reading STATE.md and before the MemPalace context query, check the log. If `.claude/logs/mempalace-hook.log` exists and is non-empty, surface its contents to the user — capture may have failed silently in earlier sessions running from this worktree, and the conversational substrate they recorded may be missing from MemPalace.
 

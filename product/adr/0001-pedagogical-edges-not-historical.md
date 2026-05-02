@@ -25,7 +25,7 @@ Edges in the Paideia graph encode **pedagogical prerequisite relationships** —
 ## See also
 
 - [`docs/MISSION.md`](../docs/MISSION.md) — strong working commitment 1.
-- [`ROADMAP.md`](../ROADMAP.md) — strong working commitments referenced throughout.
+- [`ROADMAP.md`](../../ROADMAP.md) — strong working commitments referenced throughout.
 - [`docs/architecture.md`](../docs/architecture.md) — Edge Schema (no historical-influence predicates).
 - [`docs/pedagogy.md`](../docs/pedagogy.md) — assessment rubric assumes prerequisite-shaped edges.
 - ADR 0008 — Concept nodes (the granularity that makes prerequisite edges meaningful).

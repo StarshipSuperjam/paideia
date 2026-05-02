@@ -45,7 +45,7 @@ The cold-test cohort is *small* and *private* by design — a Phase 9 verificati
 
 ## Load-bearing ADRs
 
-[ADR 0026](../adr/0026-persistent-learner-storage-structural-not-substantive.md), [ADR 0027](../adr/0027-rendering-policy-prompt-layer-contract.md), [ADR 0029](../adr/0029-personal-financial-cost-ceiling.md), [ADR 0031](../adr/0031-erasure-mechanism-and-individual-only-regime.md), [ADR 0032](../adr/0032-personal-project-disposition.md) (Superseded by [ADR 0035](../adr/0035-multi-platform-apple-expansion.md), but its commitment-2 disposition continues to apply), [ADR 0035](../adr/0035-multi-platform-apple-expansion.md).
+[ADR 0026](../product/adr/0026-persistent-learner-storage-structural-not-substantive.md), [ADR 0027](../product/adr/0027-rendering-policy-prompt-layer-contract.md), [ADR 0029](../product/adr/0029-personal-financial-cost-ceiling.md), [ADR 0031](../product/adr/0031-erasure-mechanism-and-individual-only-regime.md), [ADR 0032](../product/adr/0032-personal-project-disposition.md) (Superseded by [ADR 0035](../product/adr/0035-multi-platform-apple-expansion.md), but its commitment-2 disposition continues to apply), [ADR 0035](../product/adr/0035-multi-platform-apple-expansion.md).
 
 ## Estimated context budget
 
@@ -75,6 +75,6 @@ Sessions A and B can run in parallel with C and D. Session E depends on D (cost 
 - [`../ROADMAP.md`](../ROADMAP.md) Phase 8 — full phase scope.
 - [`product/docs/tensions.md`](../product/docs/tensions.md) — `OQ-WALL-BEHAVIOR`.
 - [`product/docs/business.md`](../product/docs/business.md) — Apple App Store distribution, cost-priced subscription, cancellation discipline.
-- [`../adr/0029-personal-financial-cost-ceiling.md`](../adr/0029-personal-financial-cost-ceiling.md) — cost-ceiling.
+- [`../adr/0029-personal-financial-cost-ceiling.md`](../product/adr/0029-personal-financial-cost-ceiling.md) — cost-ceiling.
 - [`P_7_teaching_layer.md`](P_7_teaching_layer.md) — predecessor; produces the prototype this harness evaluates.
 - [`P_9_ui_prototype.md`](P_9_ui_prototype.md) — successor; consumes the cost-cap mechanism, the App Store enrollment, the privacy policy.

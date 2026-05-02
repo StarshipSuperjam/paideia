@@ -32,9 +32,9 @@ Cost shape also favors the split: teaching is per-turn (the high-volume path; la
 
 - [`docs/self-correction.md`](../docs/self-correction.md) — Self-Correction Pipeline, Tension Log Schema.
 - [`docs/pedagogy.md`](../docs/pedagogy.md) — teaching modes and turn structure.
-- [`ROADMAP.md`](../ROADMAP.md) — Phase 6 (self-correction pipeline), Phase 7 (Sonnet teaching layer).
+- [`ROADMAP.md`](../../ROADMAP.md) — Phase 6 (self-correction pipeline), Phase 7 (Sonnet teaching layer).
 - [ADR 0013](0013-mastery-verification-organic-escalation.md) — Mastery verification as organic escalation (Sonnet emits the verification events).
-- [ADR 0016](0016-graph-construction-needs-live-validation.md) — Graph construction needs live validation (separate from but complementary to Opus review).
+- [ADR 0016](../../engine/adr/0016-graph-construction-needs-live-validation.md) — Graph construction needs live validation (separate from but complementary to Opus review).
 - [ADR 0026](0026-persistent-learner-storage-structural-not-substantive.md) — persistent learner storage structural-not-substantive; the privacy posture Sonnet's tension emission writes to and Opus reads from.
 - [ADR 0027](0027-rendering-policy-prompt-layer-contract.md) — rendering policy; Sonnet emits learner-facing prose against this contract.
 - [ADR 0031](0031-erasure-mechanism-and-individual-only-regime.md) — erasure mechanism and individual-only regime; the data-regime framework Opus's aggregated analysis operates within.

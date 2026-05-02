@@ -36,7 +36,7 @@ The graph is stored in **Postgres** alongside the rest of the data model. Traver
 
 - [`docs/architecture.md`](../docs/architecture.md) — Graph Structure.
 - [`docs/infrastructure.md`](../docs/infrastructure.md) — Cloud Hosting Stack.
-- [`STATE.md`](../STATE.md) — Supabase project ref.
+- [`STATE.md`](../../engine/STATE.md) — Supabase project ref.
 - ADR 0008 — Concept nodes (no class hierarchy needed).
 - ADR 0015 — Event-sourced learner model (the join target for mastery-filtered traversal).
 - ADR 0020 — Teaching notes separate from summary (entity resolution uses summary, not OWL).

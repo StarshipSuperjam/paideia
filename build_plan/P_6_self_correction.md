@@ -6,12 +6,12 @@
 
 Phase 6 implements [`product/docs/self-correction.md`](../product/docs/self-correction.md) as live machinery. The `tension_log` schema landed at [`P_1_sql_schema.md`](P_1_sql_schema.md); this chunk fills the producer side (Sonnet emits records during teaching) and the consumer side (Opus batch reviewer proposes graph edits).
 
-Per [ADR 0014](../adr/0014-sonnet-teaches-opus-reviews.md), the division of labor is structural: Sonnet teaches in-session (production cost); Opus reviews offline in batch (judgment cost). The self-correction pipeline is what closes the loop between the two.
+Per [ADR 0014](../product/adr/0014-sonnet-teaches-opus-reviews.md), the division of labor is structural: Sonnet teaches in-session (production cost); Opus reviews offline in batch (judgment cost). The self-correction pipeline is what closes the loop between the two.
 
 ## Output
 
 - **`engine/tools/opus_review.py`** (new file) — the Opus batch reviewer. Reads from `tension_log`, applies the confidence-weighted pipeline per [`product/docs/self-correction.md`](../product/docs/self-correction.md), proposes graph edits as **provisional ADR-status decisions**. Provisional means: a human approval step gates the actual graph mutation; the Opus output is recommendation, not action.
-- **`product/AGENT_INSTRUCTIONS.md`** updates — emission-side prose for Sonnet to write `struggle_unresolved`, `unexpected_ease`, `spontaneous_connection`, `source_ineffective`, `mastery_contradiction` records per [ADR 0026](../adr/0026-persistent-learner-storage-structural-not-substantive.md)'s structured-fields constraint. The emission contract is appended to `AGENT_INSTRUCTIONS.md` (or filed as a sibling, settled in-session).
+- **`product/AGENT_INSTRUCTIONS.md`** updates — emission-side prose for Sonnet to write `struggle_unresolved`, `unexpected_ease`, `spontaneous_connection`, `source_ineffective`, `mastery_contradiction` records per [ADR 0026](../product/adr/0026-persistent-learner-storage-structural-not-substantive.md)'s structured-fields constraint. The emission contract is appended to `AGENT_INSTRUCTIONS.md` (or filed as a sibling, settled in-session).
 - **Stability constraint enforcement** — between review cycles the graph is read-only at the structural level. Learners never encounter mid-session structural changes per [ROADMAP Phase 6](../ROADMAP.md). Implementation: a database constraint or application-level guard prevents node/edge mutations during active learner sessions.
 - **Scheduling** — Opus reviewer runs as a scheduled batch job. Cadence settled in-session (likely daily or per-N-tension-records).
 - **Provisional ADR file output** — the reviewer writes proposed graph edits as draft ADR files in a `_proposed/` subdirectory (or equivalent staging area settled in-session); the human approves or rejects before promotion to `engine/adr/` or `product/adr/`.
@@ -36,7 +36,7 @@ Per [ADR 0014](../adr/0014-sonnet-teaches-opus-reviews.md), the division of labo
 
 ## Load-bearing ADRs
 
-[ADR 0014](../adr/0014-sonnet-teaches-opus-reviews.md), [ADR 0026](../adr/0026-persistent-learner-storage-structural-not-substantive.md), [ADR 0027](../adr/0027-rendering-policy-prompt-layer-contract.md) (forbidden-token discipline applies to the emission contract additions to `AGENT_INSTRUCTIONS.md`), the four Phase DEC.1 ADRs.
+[ADR 0014](../product/adr/0014-sonnet-teaches-opus-reviews.md), [ADR 0026](../product/adr/0026-persistent-learner-storage-structural-not-substantive.md), [ADR 0027](../product/adr/0027-rendering-policy-prompt-layer-contract.md) (forbidden-token discipline applies to the emission contract additions to `AGENT_INSTRUCTIONS.md`), the four Phase DEC.1 ADRs.
 
 ## Estimated context budget
 
@@ -59,6 +59,6 @@ None directly. The Phase DEC.1 ADRs (`OQ-DEC1-A` through `OQ-DEC1-D`) are consum
 
 - [`../ROADMAP.md`](../ROADMAP.md) Phase 6 — full phase scope.
 - [`product/docs/self-correction.md`](../product/docs/self-correction.md) — the load-bearing design doc.
-- [`../adr/0014-sonnet-teaches-opus-reviews.md`](../adr/0014-sonnet-teaches-opus-reviews.md) — the division-of-labor ADR.
+- [`../adr/0014-sonnet-teaches-opus-reviews.md`](../product/adr/0014-sonnet-teaches-opus-reviews.md) — the division-of-labor ADR.
 - [`P_5_retrieval_mastery_decisions.md`](P_5_retrieval_mastery_decisions.md) — predecessor; informs Opus reviewer's retrieval queries.
 - [`P_7_teaching_layer.md`](P_7_teaching_layer.md) — successor; consumes the Sonnet emission contract from this chunk.

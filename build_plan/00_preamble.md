@@ -9,7 +9,7 @@ The chunks are operational session contracts. They cite ADRs by reference rather
 Each per-phase chunk follows a common shape, mirroring the `## Next session work item` block in [`engine/STATE.md`](../engine/STATE.md):
 
 - **Phase scope** — one-paragraph orientation. What this phase does in the project's arc, with a [`ROADMAP.md`](../ROADMAP.md) cross-reference for the full phase context.
-- **Output** — concrete deliverables. Files authored, schemas migrated, behaviors implemented. Partition-aware paths per [ADR 0037](../adr/0037-engine-product-wall-and-changelog-rename.md).
+- **Output** — concrete deliverables. Files authored, schemas migrated, behaviors implemented. Partition-aware paths per [ADR 0037](../engine/adr/0037-engine-product-wall-and-changelog-rename.md).
 - **Success criteria** — testable bullets. The session knows it is done when these hold.
 - **Source documents** — files the session reads at boot beyond the CLAUDE.md auto-load. Listed in the order the session reads them.
 - **Load-bearing ADRs** — ADRs the chunk consumes by contract. The chunk does not re-extract their content; the chunk relies on them and cites them.
@@ -25,11 +25,11 @@ When a chunk's phase closes, the chunk remains in `build_plan/` as the historica
 
 ## Voice
 
-Chunks are governed by [ADR 0036](../adr/0036-expression-contract-for-inward-documents.md) and operationalized through [`engine/operations/document-voice.md`](../engine/operations/document-voice.md). The voice is present-tense declarative: a chunk describes the contract a session takes on when it claims the corresponding slot. ADR cross-references are bibliographic (end-of-section "See also" pointers, not parenthetical commentary on every assertion). The chunk does not narrate its own revision history — that lives in the four-layer trace ([ADRs / `engine/ENGINE_LOG.md` / MemPalace / git](../engine/operations/document-voice.md#where-the-trace-lives)).
+Chunks are governed by [ADR 0036](../engine/adr/0036-expression-contract-for-inward-documents.md) and operationalized through [`engine/operations/document-voice.md`](../engine/operations/document-voice.md). The voice is present-tense declarative: a chunk describes the contract a session takes on when it claims the corresponding slot. ADR cross-references are bibliographic (end-of-section "See also" pointers, not parenthetical commentary on every assertion). The chunk does not narrate its own revision history — that lives in the four-layer trace ([ADRs / `engine/ENGINE_LOG.md` / MemPalace / git](../engine/operations/document-voice.md#where-the-trace-lives)).
 
 ## Sequencing
 
-Per [`engine/STATE.md`](../engine/STATE.md) and [ADR 0037](../adr/0037-engine-product-wall-and-changelog-rename.md), the execution order across the build_plan is:
+Per [`engine/STATE.md`](../engine/STATE.md) and [ADR 0037](../engine/adr/0037-engine-product-wall-and-changelog-rename.md), the execution order across the build_plan is:
 
 1. [`P_0_contract_lock.md`](P_0_contract_lock.md) — retroactive; not a future session.
 2. [`M_partition_migration.md`](M_partition_migration.md) — bridge between Phase 2 close and Phase 5 open. Executes first after S-0023 because partition-aware path references in every downstream chunk presuppose the migration has run.

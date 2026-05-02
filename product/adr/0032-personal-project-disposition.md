@@ -79,7 +79,7 @@ The disposition has six binding commitments.
 - [ADR 0026](0026-persistent-learner-storage-structural-not-substantive.md) — operating-discipline-does-not-rise-to-MISSION.md precedent.
 - [`docs/business.md`](../docs/business.md) — substantially rewritten in S-0012; new Personal Project Disposition section cross-links here.
 - [`docs/MISSION.md`](../docs/MISSION.md) — substantially rewritten in S-0012; commitment 2 reframed; Audience vs. market removed.
-- [`ROADMAP.md`](../ROADMAP.md) — Phase 4.5 / Phase 8 / Phase 9 simplifications consequent on this ADR.
+- [`ROADMAP.md`](../../ROADMAP.md) — Phase 4.5 / Phase 8 / Phase 9 simplifications consequent on this ADR.
 - [`docs/architecture.md`](../docs/architecture.md) — Institutional Schema Provisions dropped; Syllabus Upload Pipeline institutional-wedge framing dropped.
 - [`docs/tensions.md`](../docs/tensions.md) — OQ-BYOK-REGIME withdrawn; OQ-WALL-BEHAVIOR simplified; OQ-PHASE8-A handled.
 - [`docs/CROSS_REFERENCES.md`](../docs/CROSS_REFERENCES.md) — new shared-capability-consumer entry for this ADR (six consumers); Phase 8 → 9 boundary check updated.

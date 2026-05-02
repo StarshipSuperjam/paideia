@@ -78,7 +78,7 @@ Don't ADR for:
 | ENGINE_LOG | Material engine change | Categorized (Added / Changed / Removed / etc.) | Anyone scanning project history |
 | MemPalace `decision` drawer | The conversation that produced the decision | Verbatim | Anyone running a similarity search; recovers the *story* |
 
-A new ADR typically generates one ENGINE_LOG entry (under Added) and one or more MemPalace drawers (the verbatim conversation that produced it). The renamed `ENGINE_LOG.md` (was `CHANGELOG.md` before [ADR 0037](../../adr/0037-engine-product-wall-and-changelog-rename.md)) carries the dated narrative for material engine changes; the `CHANGELOG.md` filename is reserved for the future learner-visible product release log (first entry at Phase 9).
+A new ADR typically generates one ENGINE_LOG entry (under Added) and one or more MemPalace drawers (the verbatim conversation that produced it). The renamed `ENGINE_LOG.md` (was `CHANGELOG.md` before [ADR 0037](../adr/0037-engine-product-wall-and-changelog-rename.md)) carries the dated narrative for material engine changes; the `CHANGELOG.md` filename is reserved for the future learner-visible product release log (first entry at Phase 9).
 
 ## See also
 

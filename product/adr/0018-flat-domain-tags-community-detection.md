@@ -23,7 +23,7 @@ The flat-label alternative sidesteps both. Domain tags become metadata for color
 ## Consequences
 
 - Schema is simple: `domain TEXT[] NOT NULL DEFAULT '{}'`. Multi-domain nodes are first-class; queries by domain use array containment operators.
-- Community detection runs as a **graph-analysis primitive** independent of any specific UI surface. Potential downstream consumers include the Discovery surface's concept-clustering for browseable catalog organization (per [ADR 0034](0034-discovery-planning-engagement-triad.md), lands at S-0014), Planning-side syllabus organization heuristics, and graph-quality audits during seed authoring (per [ADR 0016](0016-graph-construction-needs-live-validation.md) Phase 4 audit).
+- Community detection runs as a **graph-analysis primitive** independent of any specific UI surface. Potential downstream consumers include the Discovery surface's concept-clustering for browseable catalog organization (per [ADR 0034](0034-discovery-planning-engagement-triad.md), lands at S-0014), Planning-side syllabus organization heuristics, and graph-quality audits during seed authoring (per [ADR 0016](../../engine/adr/0016-graph-construction-needs-live-validation.md) Phase 4 audit).
 - **Domain-agnostic by construction.** Adding a new domain (chemistry, music theory) requires no schema change — author the new nodes with the appropriate tag. Community detection picks them up via emergent clustering on the edges they participate in.
 - No "primary domain" or "subfield" hierarchy. If a product surface needs to communicate a domain at a glance, it picks the first tag in the array (with stable ordering as a convention) or surfaces all tags equally.
 - Cross-domain edges (per [ADR 0007](0007-cross-domain-porosity.md)) compose naturally with this. The query "show me all cross-domain edges into ethics" is a join with array containment; no schema partition needed.
@@ -39,4 +39,4 @@ The flat-label alternative sidesteps both. Domain tags become metadata for color
 - [ADR 0006](0006-domain-agnostic-architecture.md) — Domain-agnostic architecture.
 - [ADR 0007](0007-cross-domain-porosity.md) — All domains are mutually porous.
 - [ADR 0008](0008-concept-nodes-not-thinkers.md) — Concept nodes (granularity at which domain tags apply).
-- [ADR 0016](0016-graph-construction-needs-live-validation.md) — Phase 4 graph-quality audit; potential downstream consumer of community-detection signal.
+- [ADR 0016](../../engine/adr/0016-graph-construction-needs-live-validation.md) — Phase 4 graph-quality audit; potential downstream consumer of community-detection signal.

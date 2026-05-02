@@ -83,8 +83,8 @@ The disposition has six binding commitments. Commitment 1 broadens; commitments 
 - [ADR 0011](0011-no-hosted-copyrighted-material.md) — bring-your-own-book close reading; one of the three Engagement contexts that benefits from the larger-screen Apple targets. Preserved.
 - [ADR 0012](0012-freshman-defaults-autodidact-ceiling.md) — freshman calibration; load-bearing for builder-bias protection per [ADR 0032](0032-personal-project-disposition.md), preserved here.
 - [`docs/business.md`](../docs/business.md) — Pricing and Distribution Distribution row amended in this session; other rows unchanged.
-- [`ROADMAP.md`](../ROADMAP.md) — Phase 9 success criteria substantially rewritten in this session against the triad + multi-platform.
-- [`docs/operations/adr-authoring.md`](../docs/operations/adr-authoring.md) — Nygard template; supersession discipline.
+- [`ROADMAP.md`](../../ROADMAP.md) — Phase 9 success criteria substantially rewritten in this session against the triad + multi-platform.
+- [`docs/operations/adr-authoring.md`](../../engine/operations/adr-authoring.md) — Nygard template; supersession discipline.
 - Apple App Store Review Guidelines — single-platform consumer subscription distribution surface across iPhone, iPad, and Mac via Designed-for-iPad; refund window as trial affordance.
 - Apple Small Business Program — 15% take rate under $1M annual revenue; presumed in pricing model; applies identically across all three Apple targets.
 - Apple "Designed for iPad on Mac" documentation — Apple Silicon Macs run iPad apps from the App Store by default unless the developer opts out; the path that makes Mac distribution essentially free of additional engineering cost.

@@ -12,7 +12,7 @@ A future build session boots from one of these chunks plus [`engine/STATE.md`](.
 | [`00_preamble.md`](00_preamble.md) | Orienting prose for what `build_plan/` is and how to consume it. |
 | [`00_session_schedule.md`](00_session_schedule.md) | Single-table view of every chunk: ID, scope, phase mapping, source documents, output target, budget tier, sequencing. |
 | [`P_0_contract_lock.md`](P_0_contract_lock.md) | Retroactive record of the work already done (Phases 0, 1, 1.5, 2). Not a future session contract — a backward-looking summary so the chunk numbering opens at zero. |
-| [`M_partition_migration.md`](M_partition_migration.md) | Bridge session(s) between Phase 2 close and Phase 5 open: mechanical `git mv` + cross-reference updates landing the [ADR 0037](../adr/0037-engine-product-wall-and-changelog-rename.md) `engine/` ↔ `product/` partition. |
+| [`M_partition_migration.md`](M_partition_migration.md) | Bridge session(s) between Phase 2 close and Phase 5 open: mechanical `git mv` + cross-reference updates landing the [ADR 0037](../engine/adr/0037-engine-product-wall-and-changelog-rename.md) `engine/` ↔ `product/` partition. |
 | [`P_1_sql_schema.md`](P_1_sql_schema.md) | Phase 3 — SQL schema implementation (Postgres on Supabase). |
 | [`P_2_graph_validation.md`](P_2_graph_validation.md) | Phase 4 — graph validation utility (extension of `engine/tools/validate.py`). |
 | [`P_3_input_dataset_survey.md`](P_3_input_dataset_survey.md) | Phase 4.5 — input dataset survey for Phase 5 seed authoring. |
@@ -33,9 +33,9 @@ The original Phase 2 plan from S-0001 forecast `P_1` through `P_13` per-phase ch
 
 ## Engine / product partition awareness
 
-Per [ADR 0037](../adr/0037-engine-product-wall-and-changelog-rename.md), the repo restructures into `engine/` and `product/` subtrees between Phase 2 close and Phase 5 open. The `M_partition_migration.md` chunk executes the `git mv`. Every per-phase chunk in `build_plan/` references **partition-aware paths** from the start — `engine/tools/validate.py` rather than `tools/validate.py`, `product/seed-graph/...` rather than `supabase/migrations/...` for Phase 5 outputs, `engine/operations/...` rather than `docs/operations/...` for procedural references — so when the migration lands the chunks need zero edits. Until the migration runs, the partition-aware paths in these chunks point at directories that do not yet exist; this is deliberate.
+Per [ADR 0037](../engine/adr/0037-engine-product-wall-and-changelog-rename.md), the repo restructures into `engine/` and `product/` subtrees between Phase 2 close and Phase 5 open. The `M_partition_migration.md` chunk executes the `git mv`. Every per-phase chunk in `build_plan/` references **partition-aware paths** from the start — `engine/tools/validate.py` rather than `tools/validate.py`, `product/seed-graph/...` rather than `supabase/migrations/...` for Phase 5 outputs, `engine/operations/...` rather than `docs/operations/...` for procedural references — so when the migration lands the chunks need zero edits. Until the migration runs, the partition-aware paths in these chunks point at directories that do not yet exist; this is deliberate.
 
-The reservation extends to file references in success criteria, source-document lists, and load-bearing-ADR pointers. Per [ADR 0037](../adr/0037-engine-product-wall-and-changelog-rename.md)'s edge-case resolutions: `ROADMAP.md` and `README.md` stay at root (they orient to both subtrees); `STATE.md`, `CLAUDE.md`, and `ENGINE_LOG.md` migrate to `engine/`; `AGENT_INSTRUCTIONS.md` and `CHANGELOG.md` migrate to `product/`. Chunks reference each by its post-migration path.
+The reservation extends to file references in success criteria, source-document lists, and load-bearing-ADR pointers. Per [ADR 0037](../engine/adr/0037-engine-product-wall-and-changelog-rename.md)'s edge-case resolutions: `ROADMAP.md` and `README.md` stay at root (they orient to both subtrees); `STATE.md`, `CLAUDE.md`, and `ENGINE_LOG.md` migrate to `engine/`; `AGENT_INSTRUCTIONS.md` and `CHANGELOG.md` migrate to `product/`. Chunks reference each by its post-migration path.
 
 ## How to consume a chunk
 
@@ -55,6 +55,6 @@ Then claim the slot per [`engine/operations/session-build-lifecycle.md`](../engi
 
 - [`../ROADMAP.md`](../ROADMAP.md) — phase scope and success criteria at roadmap granularity.
 - [`../engine/STATE.md`](../engine/STATE.md) — current phase and next-session work item.
-- [`../adr/0037-engine-product-wall-and-changelog-rename.md`](../adr/0037-engine-product-wall-and-changelog-rename.md) — the engine/product partition contract `build_plan/` chunks reference.
+- [`../adr/0037-engine-product-wall-and-changelog-rename.md`](../engine/adr/0037-engine-product-wall-and-changelog-rename.md) — the engine/product partition contract `build_plan/` chunks reference.
 - [`../engine/operations/session-build-lifecycle.md`](../engine/operations/session-build-lifecycle.md) — boot procedure that consumes `build_plan/` chunks.
 - [`../engine/operations/document-voice.md`](../engine/operations/document-voice.md) — the inward-document expression contract `build_plan/` chunks are governed by.

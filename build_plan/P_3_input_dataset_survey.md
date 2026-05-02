@@ -38,7 +38,7 @@ A new section in [`product/docs/content-strategy.md`](../product/docs/content-st
 
 ## Load-bearing ADRs
 
-[ADR 0001](../adr/0001-pedagogical-edges-not-historical.md), [ADR 0007](../adr/0007-cross-domain-porosity.md), [ADR 0011](../adr/0011-no-hosted-copyrighted-material.md).
+[ADR 0001](../product/adr/0001-pedagogical-edges-not-historical.md), [ADR 0007](../product/adr/0007-cross-domain-porosity.md), [ADR 0011](../product/adr/0011-no-hosted-copyrighted-material.md).
 
 ## Estimated context budget
 

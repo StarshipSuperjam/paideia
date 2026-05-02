@@ -38,7 +38,7 @@ The refusal-not-deferral commitment is binding *in the success case*: **if this 
 | Trial affordance | App Store screenshots + the 7-day Apple refund window. **A separate free-tier UX is not engineered** — a free tier is the canonical builder-funnel mechanic the disposition forecloses. |
 | BYOK | Foreclosed (neither consumer nor institutional). |
 | Pricing language | Learning-meaningful, not vendor-SKU-meaningful. Vendor model choices (which tier of Sonnet, when Opus runs) are internal optimization, not pricing surface. |
-| Apple Developer Program | $99/year. Phase 8 forcing function (2–4 week enrollment lead time per [`ROADMAP.md`](../ROADMAP.md)). |
+| Apple Developer Program | $99/year. Phase 8 forcing function (2–4 week enrollment lead time per [`ROADMAP.md`](../../ROADMAP.md)). |
 
 Tiering by learning intensity is foreclosed at this disposition's scale — the no-funnel-mechanic discipline (commitment 2) is structurally incompatible with a free-tier-vs-paid-tier ladder. A proposal to tier must supersede the personal-project disposition contract.
 
@@ -83,7 +83,7 @@ The project may be paused or cancelled at any point (per commitment 6 of the per
 
 Operating accounts (GitHub, Supabase, Vercel, Anthropic) remain under personal accounts. The Anthropic API has no transfer mechanism — it's a key rotation, taking minutes. If the project is cancelled, the operational state can be exported, the App Store listing pulled, and the Anthropic key rotated — no successor entity is presumed. The Apple Developer Program enrollment lapses if not renewed annually; this is acceptable under the cancellation discipline.
 
-The privacy *posture* (what kinds of data persist at all) is the consumer-individual data regime: persistent storage is structural, not substantive; the erasure mechanism is hard-delete with cascade. The privacy *policy* (the ToS-adjacent legal document) is Phase 8 work pinned to Apple App Store submission per [ROADMAP.md](../ROADMAP.md) Phase 8 success criteria. No institutional-cohort or DPA framing.
+The privacy *posture* (what kinds of data persist at all) is the consumer-individual data regime: persistent storage is structural, not substantive; the erasure mechanism is hard-delete with cascade. The privacy *policy* (the ToS-adjacent legal document) is Phase 8 work pinned to Apple App Store submission per [ROADMAP.md](../../ROADMAP.md) Phase 8 success criteria. No institutional-cohort or DPA framing.
 
 ### See also
 

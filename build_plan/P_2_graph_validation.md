@@ -6,7 +6,7 @@
 
 Phase 4 fleshes out the validation utility that Phase 5 seed-authoring sessions depend on. The validator runs against the live Supabase DB (`paideia-dev` per [`engine/STATE.md`](../engine/STATE.md) Infrastructure), reads the schema landed at [`P_1_sql_schema.md`](P_1_sql_schema.md), and emits hard-fails (block commit) and soft-warns by category (recorded in session `outcome_summary`).
 
-Per [ADR 0016](../adr/0016-graph-construction-needs-live-validation.md), graph construction needs live validation: schema-only checks at Phase 3 close are not enough; structural integrity at the graph level (cycles, dangling edges, undeclared predicates, attribute-shape inconsistency) requires runtime queries against actual data.
+Per [ADR 0016](../engine/adr/0016-graph-construction-needs-live-validation.md), graph construction needs live validation: schema-only checks at Phase 3 close are not enough; structural integrity at the graph level (cycles, dangling edges, undeclared predicates, attribute-shape inconsistency) requires runtime queries against actual data.
 
 ## Output
 
@@ -28,7 +28,7 @@ Connect to the live Supabase DB via `psycopg`; read-only.
 - `undeclared_predicate` — edge.type not in the canonical PREDICATE_MANIFEST.md.
 - `attribute_shape_inconsistency` — nodes of same domain with materially different attribute coverage.
 - Missing rigor score components (`rigor_score_computed` null when topology data is sufficient).
-- Render-readiness violations (labels containing scaffolding tokens — `service_node`, `synthetic`, `stub` — per [ADR 0027](../adr/0027-rendering-policy-prompt-layer-contract.md)'s forbidden-token enumeration applied to node-label authoring).
+- Render-readiness violations (labels containing scaffolding tokens — `service_node`, `synthetic`, `stub` — per [ADR 0027](../product/adr/0027-rendering-policy-prompt-layer-contract.md)'s forbidden-token enumeration applied to node-label authoring).
 - `confidence_level: SYNTHETIC` nodes flagged for review queue.
 
 **Modes:**
@@ -65,12 +65,12 @@ Per-session migration workflow: read SEP article → identify concepts at granul
 - [`engine/operations/tools-validate-interpretation.md`](../engine/operations/tools-validate-interpretation.md) — soft-warn category meanings; new categories added in this session land here.
 - [`engine/operations/seed-chunked-authoring.md`](../engine/operations/seed-chunked-authoring.md) — current placeholder.
 - [`product/docs/architecture.md`](../product/docs/architecture.md) — node/edge schema (consumed in `P_1`; consulted again here for cross-domain ratio calibration).
-- [`product/adr/0016-graph-construction-needs-live-validation.md`](../product/adr/0016-graph-construction-needs-live-validation.md) — the load-bearing ADR.
+- [`engine/adr/0016-graph-construction-needs-live-validation.md`](../engine/adr/0016-graph-construction-needs-live-validation.md) — the load-bearing ADR.
 - [`product/adr/0027-rendering-policy-prompt-layer-contract.md`](../product/adr/0027-rendering-policy-prompt-layer-contract.md) — forbidden-token enumeration for the render-readiness check.
 
 ## Load-bearing ADRs
 
-[ADR 0016](../adr/0016-graph-construction-needs-live-validation.md), [ADR 0027](../adr/0027-rendering-policy-prompt-layer-contract.md), [ADR 0030](../adr/0030-confidence-level-evidentiary-mode-on-nodes.md).
+[ADR 0016](../engine/adr/0016-graph-construction-needs-live-validation.md), [ADR 0027](../product/adr/0027-rendering-policy-prompt-layer-contract.md), [ADR 0030](../product/adr/0030-confidence-level-evidentiary-mode-on-nodes.md).
 
 ## Estimated context budget
 
@@ -87,6 +87,6 @@ None directly. The validator may surface render-readiness or confidence-level ed
 ## See also
 
 - [`../ROADMAP.md`](../ROADMAP.md) Phase 4 — full phase scope.
-- [`../adr/0016-graph-construction-needs-live-validation.md`](../adr/0016-graph-construction-needs-live-validation.md) — load-bearing ADR.
+- [`../adr/0016-graph-construction-needs-live-validation.md`](../engine/adr/0016-graph-construction-needs-live-validation.md) — load-bearing ADR.
 - [`P_1_sql_schema.md`](P_1_sql_schema.md) — predecessor; schema this validator queries.
 - [`P_4_seed_graph_build.md`](P_4_seed_graph_build.md) — successor; consumes this validator at every subdomain session.

@@ -67,4 +67,4 @@ The agent's response to a redirected-task input is constrained by [ADR 0027](002
 - [ADR 0034](0034-discovery-planning-engagement-triad.md) — Discovery / Planning / Engagement triad as primary product structure; the navigation surfaces this ADR's exit affordance returns the user to.
 - [`AGENT_INSTRUCTIONS.md`](../AGENT_INSTRUCTIONS.md) — scope discipline section operationalizing this ADR's purpose-not-topic discrimination.
 - [`docs/ui-architecture.md`](../docs/ui-architecture.md) — Phase 9 UI prototype (exit affordance specification target).
-- [`ROADMAP.md`](../ROADMAP.md) — Phase 9 UI prototype.
+- [`ROADMAP.md`](../../ROADMAP.md) — Phase 9 UI prototype.

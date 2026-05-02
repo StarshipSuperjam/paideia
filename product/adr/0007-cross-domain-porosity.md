@@ -27,7 +27,7 @@ All domains are **mutually porous**. Cross-domain prerequisite edges are first-c
 
 - [`docs/MISSION.md`](../docs/MISSION.md) — strong working commitment 7; cross-domain section is load-bearing.
 - [`docs/architecture.md`](../docs/architecture.md) — Cross-Domain Porosity.
-- [`ROADMAP.md`](../ROADMAP.md) — Phase 5 cross-domain pass; service nodes subphase.
+- [`ROADMAP.md`](../../ROADMAP.md) — Phase 5 cross-domain pass; service nodes subphase.
 - ADR 0006 — Domain-agnostic architecture.
 - ADR 0008 — Concept nodes (granularity for service nodes).
 - ADR 0016 — Graph construction needs live validation (cross-domain ratio check).

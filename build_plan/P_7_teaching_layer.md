@@ -4,13 +4,13 @@
 
 ## Phase scope
 
-Phase 7 ships the first callable teaching endpoint. Sonnet's system prompt is `product/AGENT_INSTRUCTIONS.md` verbatim per [ADR 0027](../adr/0027-rendering-policy-prompt-layer-contract.md). Input shape per the Phase DEC.1 ADRs ([`P_5_retrieval_mastery_decisions.md`](P_5_retrieval_mastery_decisions.md)): current concept node + one-hop prerequisite nodes + two-hop neighborhood for entity resolution. Output: teaching turn in product voice, no scaffolding tokens.
+Phase 7 ships the first callable teaching endpoint. Sonnet's system prompt is `product/AGENT_INSTRUCTIONS.md` verbatim per [ADR 0027](../product/adr/0027-rendering-policy-prompt-layer-contract.md). Input shape per the Phase DEC.1 ADRs ([`P_5_retrieval_mastery_decisions.md`](P_5_retrieval_mastery_decisions.md)): current concept node + one-hop prerequisite nodes + two-hop neighborhood for entity resolution. Output: teaching turn in product voice, no scaffolding tokens.
 
 Per [ROADMAP Phase 7](../ROADMAP.md), the DeepTutor fork (Apache 2.0, per [`product/docs/infrastructure.md`](../product/docs/infrastructure.md)) is the infrastructure base. The pedagogical layer is the new Sonnet integration.
 
 This is the first chunk that produces learner-facing surface. **Two open tensions must close before sustained operation:**
 
-- **OQ-CONTEXT-COMPRESSION** must settle by ADR before the prototype runs sustained multi-turn engagements. The chosen strategy keeps typical concept-engagement cost inside the cost-ceiling per [ADR 0029](../adr/0029-personal-financial-cost-ceiling.md) projections at a target user count.
+- **OQ-CONTEXT-COMPRESSION** must settle by ADR before the prototype runs sustained multi-turn engagements. The chosen strategy keeps typical concept-engagement cost inside the cost-ceiling per [ADR 0029](../product/adr/0029-personal-financial-cost-ceiling.md) projections at a target user count.
 - **OQ-OUTWARD-VOICE** must settle by ADR before any learner-facing surface ships. The third expression-contract gap covers UI labels, button text, error messages, learner-facing help, public README, App Store description, learner-visible CHANGELOG entries.
 
 ## Output
@@ -19,17 +19,17 @@ This is the first chunk that produces learner-facing surface. **Two open tension
 - **Retrieval shape** per OQ-DEC1-B: current concept + one-hop prereqs + two-hop neighborhood. The query implementation lives in the teaching endpoint's data-fetch layer.
 - **DeepTutor fork integration** — DeepTutor (Apache 2.0) provides infrastructure (session management, conversation log handling); the Sonnet integration is the new layer. Where the fork lives in the tree is settled in-session — likely `engine/integrations/deeptutor-fork/` or as a Git submodule.
 - **Tension emission** wired per [`P_6_self_correction.md`](P_6_self_correction.md)'s emission contract. Live teaching sessions write to `tension_log`.
-- **Cost telemetry** per [ADR 0029](../adr/0029-personal-financial-cost-ceiling.md) — every API call records its token usage and projected cost; the data feeds the cost-cap mechanism for [`P_8_evaluation_harness.md`](P_8_evaluation_harness.md).
+- **Cost telemetry** per [ADR 0029](../product/adr/0029-personal-financial-cost-ceiling.md) — every API call records its token usage and projected cost; the data feeds the cost-cap mechanism for [`P_8_evaluation_harness.md`](P_8_evaluation_harness.md).
 - **Two ADRs** settling OQ-CONTEXT-COMPRESSION and OQ-OUTWARD-VOICE; both required before sustained operation.
 
 ## Success criteria
 
 - The Sonnet teaching prototype, given the `product/AGENT_INSTRUCTIONS.md` worked-example input, produces the pass-case voice.
 - **Spot-check:** 10 random concept queries, manually graded for forbidden-token leakage. **Zero leakage is the bar.**
-- **OQ-CONTEXT-COMPRESSION** settled with an ADR before the prototype runs sustained multi-turn engagements. Chosen strategy keeps typical concept-engagement cost inside the cost-ceiling per [ADR 0029](../adr/0029-personal-financial-cost-ceiling.md) projections at a target user count.
-- **OQ-OUTWARD-VOICE** settled with an ADR before any learner-facing surface ships. The contract document operationalizes the new third expression-contract per the kindred-tool pattern in [ADR 0036](../adr/0036-expression-contract-for-inward-documents.md).
+- **OQ-CONTEXT-COMPRESSION** settled with an ADR before the prototype runs sustained multi-turn engagements. Chosen strategy keeps typical concept-engagement cost inside the cost-ceiling per [ADR 0029](../product/adr/0029-personal-financial-cost-ceiling.md) projections at a target user count.
+- **OQ-OUTWARD-VOICE** settled with an ADR before any learner-facing surface ships. The contract document operationalizes the new third expression-contract per the kindred-tool pattern in [ADR 0036](../engine/adr/0036-expression-contract-for-inward-documents.md).
 - ENGINE_LOG entry under `[Unreleased]` for `Added` (teaching endpoint, DeepTutor fork integration, two new ADRs).
-- Cost telemetry records correctly per [ADR 0029](../adr/0029-personal-financial-cost-ceiling.md).
+- Cost telemetry records correctly per [ADR 0029](../product/adr/0029-personal-financial-cost-ceiling.md).
 
 ### 7.1 Paperclip commit
 
@@ -50,7 +50,7 @@ If the Phase 5 trial proved Paperclip's fit (per [`P_4_seed_graph_build.md`](P_4
 
 ## Load-bearing ADRs
 
-[ADR 0014](../adr/0014-sonnet-teaches-opus-reviews.md), [ADR 0026](../adr/0026-persistent-learner-storage-structural-not-substantive.md), [ADR 0027](../adr/0027-rendering-policy-prompt-layer-contract.md), [ADR 0028](../adr/0028-input-side-scope-structural-not-prompt.md), [ADR 0029](../adr/0029-personal-financial-cost-ceiling.md), [ADR 0033](../adr/0033-mission-realignment-structured-guidance-for-self-learners.md), [ADR 0034](../adr/0034-discovery-planning-engagement-triad.md), [ADR 0036](../adr/0036-expression-contract-for-inward-documents.md) (the kindred-tool pattern for OQ-OUTWARD-VOICE).
+[ADR 0014](../product/adr/0014-sonnet-teaches-opus-reviews.md), [ADR 0026](../product/adr/0026-persistent-learner-storage-structural-not-substantive.md), [ADR 0027](../product/adr/0027-rendering-policy-prompt-layer-contract.md), [ADR 0028](../product/adr/0028-input-side-scope-structural-not-prompt.md), [ADR 0029](../product/adr/0029-personal-financial-cost-ceiling.md), [ADR 0033](../product/adr/0033-mission-realignment-structured-guidance-for-self-learners.md), [ADR 0034](../product/adr/0034-discovery-planning-engagement-triad.md), [ADR 0036](../engine/adr/0036-expression-contract-for-inward-documents.md) (the kindred-tool pattern for OQ-OUTWARD-VOICE).
 
 ## Estimated context budget
 
@@ -61,7 +61,7 @@ Substantive tier: target 60%, cap 70%. The prototype implementation is the small
 Multi-session expected. Natural split:
 
 - **Session A:** OQ-CONTEXT-COMPRESSION ADR (prerequisite — sustained operation depends on it).
-- **Session B:** OQ-OUTWARD-VOICE ADR + the third-expression-contract operational document (mirrors the [`engine/operations/document-voice.md`](../engine/operations/document-voice.md) shape for [ADR 0036](../adr/0036-expression-contract-for-inward-documents.md)).
+- **Session B:** OQ-OUTWARD-VOICE ADR + the third-expression-contract operational document (mirrors the [`engine/operations/document-voice.md`](../engine/operations/document-voice.md) shape for [ADR 0036](../engine/adr/0036-expression-contract-for-inward-documents.md)).
 - **Session C:** Sonnet teaching endpoint skeleton + DeepTutor fork integration.
 - **Session D:** Endpoint hardening, cost telemetry, tension emission, spot-check.
 
@@ -76,6 +76,6 @@ The two ADR sessions (A and B) are independent and can run in either order. Sess
 
 - [`../ROADMAP.md`](../ROADMAP.md) Phase 7 — full phase scope.
 - [`../AGENT_INSTRUCTIONS.md`](../product/AGENT_INSTRUCTIONS.md) — the teaching prompt.
-- [`../adr/0027-rendering-policy-prompt-layer-contract.md`](../adr/0027-rendering-policy-prompt-layer-contract.md) — the contract.
+- [`../adr/0027-rendering-policy-prompt-layer-contract.md`](../product/adr/0027-rendering-policy-prompt-layer-contract.md) — the contract.
 - [`product/docs/tensions.md`](../product/docs/tensions.md) — `OQ-CONTEXT-COMPRESSION` and `OQ-OUTWARD-VOICE`.
 - [`P_8_evaluation_harness.md`](P_8_evaluation_harness.md) — successor; verifies the prototype against stock Sonnet.

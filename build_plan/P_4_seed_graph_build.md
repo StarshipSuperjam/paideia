@@ -29,14 +29,14 @@ A migration file at `product/seed-graph/migrations/00NN_seed_<subdomain>_partN.s
 
 - `INSERT` statements for nodes and edges.
 - `graph_version_added` set to the current `settings` counter at session start.
-- Explicit `confidence_level` per node (`EXTRACTED | INTERPRETED | SYNTHETIC` per [ADR 0030](../adr/0030-confidence-level-evidentiary-mode-on-nodes.md)). First-pass prerequisite edges marked `confidence_level: INTERPRETED` until validated.
+- Explicit `confidence_level` per node (`EXTRACTED | INTERPRETED | SYNTHETIC` per [ADR 0030](../product/adr/0030-confidence-level-evidentiary-mode-on-nodes.md)). First-pass prerequisite edges marked `confidence_level: INTERPRETED` until validated.
 - Each node's `provenance` field carries its source attribution.
 
 ## Source approach
 
 Per [ROADMAP §5.2](../ROADMAP.md):
 
-- **SEP** as **structural reference only** — concept inventory, cross-references. SEP does not become hosted text per [ADR 0011](../adr/0011-no-hosted-copyrighted-material.md).
+- **SEP** as **structural reference only** — concept inventory, cross-references. SEP does not become hosted text per [ADR 0011](../product/adr/0011-no-hosted-copyrighted-material.md).
 - **Wikipedia** for accessible summaries (CC BY-SA — permits use with attribution).
 - **First-pass prerequisite edges generated via Claude;** mark `confidence_level: INTERPRETED` until validated against learner outcomes or expert review.
 - **Phase 4.5 survey output** ([`product/docs/content-strategy.md`](../product/docs/content-strategy.md) "Cross-Domain Reference Inventories — Survey") names the per-domain inventories and any prerequisite-shaped graph priors worth consulting. Sub-sessions consult it as a checklist; specific adoption decisions land as ADRs in-session if they involve non-trivial tradeoffs.
@@ -64,7 +64,7 @@ Per [`engine/operations/seed-chunked-authoring.md`](../engine/operations/seed-ch
 
 - All 8 subdomain sub-sessions closed; cross-domain edges pass committed.
 - Concept-level seed graph spans all named subdomains. Hundreds of nodes per subdomain.
-- Cross-domain edges first-class — `cross_domain_dependency` predicate populated per [ADR 0007](../adr/0007-cross-domain-porosity.md).
+- Cross-domain edges first-class — `cross_domain_dependency` predicate populated per [ADR 0007](../product/adr/0007-cross-domain-porosity.md).
 - `engine/tools/validate.py` clean against the full graph at Phase 5 close.
 
 ## Source documents (boot reads beyond CLAUDE.md auto-load)
@@ -76,12 +76,12 @@ Per sub-session:
 - [`product/docs/architecture.md`](../product/docs/architecture.md) — node/edge schema, granularity principle.
 - [`engine/operations/seed-chunked-authoring.md`](../engine/operations/seed-chunked-authoring.md) — workflow.
 - The target subdomain's SEP article(s) (web-fetched, not in-tree).
-- [`product/seed-graph/migrations/PREDICATE_MANIFEST.md`](../product/seed-graph/migrations/) — to verify predicate registration before using a new edge type.
-- [`product/seed-graph/migrations/ROUTING.md`](../product/seed-graph/migrations/) — to identify the next migration filename.
+- `product/seed-graph/migrations/PREDICATE_MANIFEST.md` — to verify predicate registration before using a new edge type. (Authored by `P_2` Phase 4; the path is forward-pointing until then.)
+- `product/seed-graph/migrations/ROUTING.md` — to identify the next migration filename. (Same forward-pointing status.)
 
 ## Load-bearing ADRs
 
-[ADR 0001](../adr/0001-pedagogical-edges-not-historical.md) (pedagogical edges, not historical), [ADR 0006](../adr/0006-domain-agnostic-architecture.md) (domain-agnostic architecture), [ADR 0007](../adr/0007-cross-domain-porosity.md) (cross-domain porosity), [ADR 0008](../adr/0008-concept-nodes-not-thinkers.md) (concept nodes, not thinkers), [ADR 0011](../adr/0011-no-hosted-copyrighted-material.md), [ADR 0016](../adr/0016-graph-construction-needs-live-validation.md), [ADR 0018](../adr/0018-flat-domain-tags-community-detection.md), [ADR 0030](../adr/0030-confidence-level-evidentiary-mode-on-nodes.md).
+[ADR 0001](../product/adr/0001-pedagogical-edges-not-historical.md) (pedagogical edges, not historical), [ADR 0006](../product/adr/0006-domain-agnostic-architecture.md) (domain-agnostic architecture), [ADR 0007](../product/adr/0007-cross-domain-porosity.md) (cross-domain porosity), [ADR 0008](../product/adr/0008-concept-nodes-not-thinkers.md) (concept nodes, not thinkers), [ADR 0011](../product/adr/0011-no-hosted-copyrighted-material.md), [ADR 0016](../engine/adr/0016-graph-construction-needs-live-validation.md), [ADR 0018](../product/adr/0018-flat-domain-tags-community-detection.md), [ADR 0030](../product/adr/0030-confidence-level-evidentiary-mode-on-nodes.md).
 
 ## Estimated context budget
 

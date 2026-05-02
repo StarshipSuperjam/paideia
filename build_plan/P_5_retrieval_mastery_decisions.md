@@ -10,9 +10,9 @@ The chunk is decision-dense; minimal new code. The work is judgment against the 
 
 ## Output (four ADRs)
 
-- **OQ-DEC1-A — Server-side mastery computation: confirm or revisit?** ADR settles whether mastery state lives server-side (computed from `mastery_snapshots` per [ADR 0023](../adr/0023-engagement-depth-aggregation.md), [ADR 0024](../adr/0024-engagement-depth-sub-signals-stored-raw.md), [ADR 0025](../adr/0025-historical-maximum-tracking.md)) or distributed differently. Default direction is confirm; the open question is whether the mature seed graph surfaces a constraint that warrants revisitation.
+- **OQ-DEC1-A — Server-side mastery computation: confirm or revisit?** ADR settles whether mastery state lives server-side (computed from `mastery_snapshots` per [ADR 0023](../product/adr/0023-engagement-depth-aggregation.md), [ADR 0024](../product/adr/0024-engagement-depth-sub-signals-stored-raw.md), [ADR 0025](../product/adr/0025-historical-maximum-tracking.md)) or distributed differently. Default direction is confirm; the open question is whether the mature seed graph surfaces a constraint that warrants revisitation.
 - **OQ-DEC1-B — Two-hop neighborhood retrieval shape for teaching session context.** ADR settles the retrieval shape: how the teaching endpoint gets its context window. Likely: current concept node + one-hop prerequisite nodes + two-hop neighborhood for entity resolution. The decision constrains the teaching layer's prompt template at [`P_7_teaching_layer.md`](P_7_teaching_layer.md).
-- **OQ-DEC1-C — Embedding strategy for entity resolution: pgvector + which embedding model.** ADR settles the embedding choice. pgvector is the default for the Postgres-anchored architecture per [ADR 0017](../adr/0017-postgres-recursive-ctes-over-owl-rdf.md); the model choice (OpenAI text-embedding-3-large, Voyage, Cohere, etc.) is the open variable.
+- **OQ-DEC1-C — Embedding strategy for entity resolution: pgvector + which embedding model.** ADR settles the embedding choice. pgvector is the default for the Postgres-anchored architecture per [ADR 0017](../product/adr/0017-postgres-recursive-ctes-over-owl-rdf.md); the model choice (OpenAI text-embedding-3-large, Voyage, Cohere, etc.) is the open variable.
 - **OQ-DEC1-D — Chunk-resolver index for SEP onward-reading vs direct SEP URL pointers.** ADR settles whether SEP onward-reading recommendations resolve via a chunk-resolver index or via direct URL pointers. Direct URL pointers are simpler but coarser; chunk-resolver is finer-grained but requires index maintenance.
 
 ## Success criteria
@@ -33,11 +33,11 @@ The chunk is decision-dense; minimal new code. The work is judgment against the 
 - [`product/docs/reading-system.md`](../product/docs/reading-system.md) — SEP onward-reading context for OQ-DEC1-D.
 - [`product/adr/0014-sonnet-teaches-opus-reviews.md`](../product/adr/0014-sonnet-teaches-opus-reviews.md) — Sonnet teaching context (informs OQ-DEC1-B retrieval shape).
 - [`product/adr/0017-postgres-recursive-ctes-over-owl-rdf.md`](../product/adr/0017-postgres-recursive-ctes-over-owl-rdf.md) — recursive CTE shape (informs OQ-DEC1-B).
-- [`product/seed-graph/migrations/`](../product/seed-graph/migrations/) — the now-mature seed (informs all four decisions by giving them a concrete graph to test against).
+- `product/seed-graph/migrations/` — the now-mature seed (informs all four decisions by giving them a concrete graph to test against). (Forward-pointing until `P_4` populates the seed.)
 
 ## Load-bearing ADRs
 
-[ADR 0014](../adr/0014-sonnet-teaches-opus-reviews.md), [ADR 0017](../adr/0017-postgres-recursive-ctes-over-owl-rdf.md), [ADR 0023](../adr/0023-engagement-depth-aggregation.md), [ADR 0024](../adr/0024-engagement-depth-sub-signals-stored-raw.md), [ADR 0025](../adr/0025-historical-maximum-tracking.md), [ADR 0029](../adr/0029-personal-financial-cost-ceiling.md) (cost-ceiling informs the embedding-model choice in OQ-DEC1-C).
+[ADR 0014](../product/adr/0014-sonnet-teaches-opus-reviews.md), [ADR 0017](../product/adr/0017-postgres-recursive-ctes-over-owl-rdf.md), [ADR 0023](../product/adr/0023-engagement-depth-aggregation.md), [ADR 0024](../product/adr/0024-engagement-depth-sub-signals-stored-raw.md), [ADR 0025](../product/adr/0025-historical-maximum-tracking.md), [ADR 0029](../product/adr/0029-personal-financial-cost-ceiling.md) (cost-ceiling informs the embedding-model choice in OQ-DEC1-C).
 
 ## Estimated context budget
 

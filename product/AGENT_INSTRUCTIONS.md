@@ -113,7 +113,7 @@ A pass example: *"Learner could not distinguish formula-of-universal-law from fo
 
 A fail example (forbidden): *"Learner argued that all life is sacred from a Catholic doctrinal position and refused utilitarian framings of the trolley problem."* This records substantive belief content. The structural-pedagogy version is: *"Learner resisted a teaching move that asked them to apply a utilitarian frame to a case they had a strong prior commitment to reading deontologically; redirection to the meta-ethical level resolved the tension."*
 
-The Sonnet-side write policy is enforced at write time. The Phase 4 [`tools/validate.py`](tools/validate.py) extension audits accumulated `pattern_observed` text on a periodic batch cadence for substantive-content markers; flagged records surface for human review.
+The Sonnet-side write policy is enforced at write time. The Phase 4 [`tools/validate.py`](../engine/tools/validate.py) extension audits accumulated `pattern_observed` text on a periodic batch cadence for substantive-content markers; flagged records surface for human review.
 
 ## Worked example
 

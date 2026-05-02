@@ -107,7 +107,7 @@ Per [ADR 0028](../adr/0028-input-side-scope-structural-not-prompt.md), the user 
 - **Returns the user to the Discovery surface** when exiting a diagnostic conversation (the diagnostic was reached from Discovery; the exit returns there).
 - **Is not a "general chat" surface.** The user who wants to do something else takes the exit and enters a different bounded context (or leaves the app), rather than drifting the current one.
 
-The exit affordance is the structural alternative to general chat. Its first-class status across all Engagement surfaces is a Phase 9 implementation requirement per the Phase 9 success criteria in [ROADMAP.md](../ROADMAP.md).
+The exit affordance is the structural alternative to general chat. Its first-class status across all Engagement surfaces is a Phase 9 implementation requirement per the Phase 9 success criteria in [ROADMAP.md](../../ROADMAP.md).
 
 ### Bridge surfacing in engagement
 

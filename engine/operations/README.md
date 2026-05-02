@@ -25,7 +25,7 @@ Procedural documentation. One file per topic. AI sessions discover topics by rea
 ### Decisions and review
 
 - [`adr-authoring.md`](adr-authoring.md) — Nygard template, status conventions, when an ADR is warranted.
-- [`document-voice.md`](document-voice.md) — expression contract for inward-facing project documentation; governs voice in the `docs/` tree, ADRs, root-level project files. Sibling tool to [`AGENT_INSTRUCTIONS.md`](../../AGENT_INSTRUCTIONS.md), separately scoped.
+- [`document-voice.md`](document-voice.md) — expression contract for inward-facing project documentation; governs voice in the `docs/` tree, ADRs, root-level project files. Sibling tool to [`AGENT_INSTRUCTIONS.md`](../../product/AGENT_INSTRUCTIONS.md), separately scoped.
 - [`sub-agent-validation.md`](sub-agent-validation.md) — when to spawn sub-agents, briefing style, output validation.
 - [`health-check.md`](health-check.md) — periodic project audit (per ADR 0022): categories, report template, cadence policy.
 

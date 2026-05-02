@@ -1,6 +1,6 @@
 # Document voice — expression contract for inward-facing documentation
 
-> An expression contract is a tool that constrains how the AI expresses itself for a specific surface. This document is the expression contract governing inward-facing project documentation: `docs/MISSION.md`, `ROADMAP.md`, the `docs/` tree, ADRs, and root-level project files. The project's other expression contract — [`AGENT_INSTRUCTIONS.md`](../../AGENT_INSTRUCTIONS.md), contracted in [ADR 0027](../../adr/0027-rendering-policy-prompt-layer-contract.md) — governs learner-facing prose. They are kindred tools, separately scoped.
+> An expression contract is a tool that constrains how the AI expresses itself for a specific surface. This document is the expression contract governing inward-facing project documentation: `docs/MISSION.md`, `ROADMAP.md`, the `docs/` tree, ADRs, and root-level project files. The project's other expression contract — [`AGENT_INSTRUCTIONS.md`](../../product/AGENT_INSTRUCTIONS.md), contracted in [ADR 0027](../../product/adr/0027-rendering-policy-prompt-layer-contract.md) — governs learner-facing prose. They are kindred tools, separately scoped.
 
 ## Posture
 
@@ -23,7 +23,7 @@ This is a working contract among the people and sessions that author and maintai
 Traceability is a four-layer system, redundantly covering different facets of the project's history. The body of a governed document does not duplicate any of them.
 
 - **ADRs** — the contract layer. Settled architectural decisions, Nygard format, Status / Context / Decision / Consequences. Citable and durable. Per [`adr-authoring.md`](adr-authoring.md).
-- **ENGINE_LOG.md** — the dated narrative. Material engine changes by category (Added / Changed / Removed / Deprecated). Anyone scanning project history reads this. (Was named `CHANGELOG.md` before [ADR 0037](../../adr/0037-engine-product-wall-and-changelog-rename.md); the `CHANGELOG.md` filename is now reserved for the future learner-visible product release log.)
+- **ENGINE_LOG.md** — the dated narrative. Material engine changes by category (Added / Changed / Removed / Deprecated). Anyone scanning project history reads this. (Was named `CHANGELOG.md` before [ADR 0037](../adr/0037-engine-product-wall-and-changelog-rename.md); the `CHANGELOG.md` filename is now reserved for the future learner-visible product release log.)
 - **MemPalace `decision`-tagged drawers** — the conversational story. Verbatim form, recoverable by similarity search. Per [`mempalace-tagging-conventions.md`](mempalace-tagging-conventions.md).
 - **Git history** — the granular blame. Every line's authorship and editing history, recoverable by `git log` and `git blame`.
 
@@ -65,7 +65,7 @@ The ADR cross-references that survive — MISSION.md naming "structured guidance
 **Exempt** — journal and snapshot files that are dated chronicles by design:
 
 - `STATE.md` — the daily snapshot
-- `ENGINE_LOG.md` — the dated narrative (was `CHANGELOG.md` before [ADR 0037](../../adr/0037-engine-product-wall-and-changelog-rename.md))
+- `ENGINE_LOG.md` — the dated narrative (was `CHANGELOG.md` before [ADR 0037](../adr/0037-engine-product-wall-and-changelog-rename.md))
 - `session/archive/*` — per-session journal
 - `docs/tensions.md` resolved entries — preserved historical record per the project's tension-resolution discipline (the entry was a present-state open question when authored; its `Resolved: YYYY-MM-DD` marker is the journal moment that closed it)
 - ADRs in Status: Superseded — they retain the supersession pointer per [`adr-authoring.md`](adr-authoring.md)
@@ -93,13 +93,13 @@ A refinement looks like this: a session encounters a passage where verification 
 
 **Substantive changes to the voice posture itself require a superseding ADR.** If the project decides that governed documents should narrate their own revision history inline — that the four-layer trace system is insufficient — that is a posture change, not a refinement, and warrants the deliberation a superseding ADR forces.
 
-This amendment asymmetry is appropriate to what this contract protects. Different expression contracts in the project carry amendment disciplines suited to their load-bearing surface. [ADR 0027](../../adr/0027-rendering-policy-prompt-layer-contract.md)'s rendering policy enumerates forbidden tokens as its load-bearing surface; tightening (adding a forbidden token) is cheap, loosening (removing one) is expensive, because what that contract protects is the hidden machinery each new token covers. This contract's load-bearing surface is the positive voice characterization, and the asymmetry inverts: refinement (sharpening the characterization) is cheap because it preserves the discipline; posture change is expensive because it is what the discipline binds.
+This amendment asymmetry is appropriate to what this contract protects. Different expression contracts in the project carry amendment disciplines suited to their load-bearing surface. [ADR 0027](../../product/adr/0027-rendering-policy-prompt-layer-contract.md)'s rendering policy enumerates forbidden tokens as its load-bearing surface; tightening (adding a forbidden token) is cheap, loosening (removing one) is expensive, because what that contract protects is the hidden machinery each new token covers. This contract's load-bearing surface is the positive voice characterization, and the asymmetry inverts: refinement (sharpening the characterization) is cheap because it preserves the discipline; posture change is expensive because it is what the discipline binds.
 
 ## See also
 
-- [`AGENT_INSTRUCTIONS.md`](../../AGENT_INSTRUCTIONS.md) — the project's expression contract for learner-facing prose.
-- [ADR 0027](../../adr/0027-rendering-policy-prompt-layer-contract.md) — the rendering policy contract `AGENT_INSTRUCTIONS.md` operationalizes.
-- [ADR 0036](../../adr/0036-expression-contract-for-inward-documents.md) — the decision record establishing this contract.
+- [`AGENT_INSTRUCTIONS.md`](../../product/AGENT_INSTRUCTIONS.md) — the project's expression contract for learner-facing prose.
+- [ADR 0027](../../product/adr/0027-rendering-policy-prompt-layer-contract.md) — the rendering policy contract `AGENT_INSTRUCTIONS.md` operationalizes.
+- [ADR 0036](../adr/0036-expression-contract-for-inward-documents.md) — the decision record establishing this contract.
 - [`adr-authoring.md`](adr-authoring.md) — the contract layer of the four-layer trace system; ADR vs ENGINE_LOG vs MemPalace boundary.
 - [`mempalace-tagging-conventions.md`](mempalace-tagging-conventions.md) — the `decision` tag on the conversational-story layer.
 - [`session-shutdown-sequence.md`](session-shutdown-sequence.md) — per-session protocol for landing changes in governed docs, ENGINE_LOG, and STATE.md.

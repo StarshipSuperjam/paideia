@@ -30,9 +30,9 @@ Health checks are not phase-anchored. They fall wherever the modulus lands; the 
 
 ## See also
 
-- [`docs/operations/health-check.md`](../docs/operations/health-check.md) — audit categories, report template, cadence policy.
+- [`docs/operations/health-check.md`](../operations/health-check.md) — audit categories, report template, cadence policy.
 - [`session/register_state.json`](../session/register_state.json) — `health_check_cadence` field (when present).
 - [`tools/validate.py`](../tools/validate.py) — emits `tools/validate-history.jsonl` consumed by health checks.
-- [`ROADMAP.md`](../ROADMAP.md) — Recurring section: health-check telemetry hooks.
+- [`ROADMAP.md`](../../ROADMAP.md) — Recurring section: health-check telemetry hooks.
 - ADR 0016 — Graph construction needs live validation (telemetry source).
 - `.claude/commands/start-engine.md` — boot procedure that fires the cadence trigger.

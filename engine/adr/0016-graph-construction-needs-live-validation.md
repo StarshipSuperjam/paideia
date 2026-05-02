@@ -31,8 +31,8 @@ Graph construction is **gated by a live validation utility** (`tools/validate.py
 ## See also
 
 - [`tools/validate.py`](../tools/validate.py) — `validate_graph()` extension point; ADR 0016 cited inline.
-- [`docs/operations/tools-validate-interpretation.md`](../docs/operations/tools-validate-interpretation.md) — exit codes, hard-fail vs soft-warn responses.
-- [`docs/operations/seed-chunked-authoring.md`](../docs/operations/seed-chunked-authoring.md) — per-session authoring workflow (Phase 4 placeholder, fleshed at Phase 4).
-- [`ROADMAP.md`](../ROADMAP.md) — Phase 4 success criteria.
+- [`docs/operations/tools-validate-interpretation.md`](../operations/tools-validate-interpretation.md) — exit codes, hard-fail vs soft-warn responses.
+- [`docs/operations/seed-chunked-authoring.md`](../operations/seed-chunked-authoring.md) — per-session authoring workflow (Phase 4 placeholder, fleshed at Phase 4).
+- [`ROADMAP.md`](../../ROADMAP.md) — Phase 4 success criteria.
 - ADR 0022 — Periodic project health checks (consumes validate-history telemetry).
 - `supabase/migrations/PREDICATE_MANIFEST.md` (Phase 4) — canonical edge-type registry.

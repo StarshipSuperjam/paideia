@@ -36,7 +36,7 @@ The audit-trail value the event-sourced architecture (per [ADR 0015](0015-event-
 
 - **`learner_events.cohort_id` is removed from the [ADR 0026](0026-persistent-learner-storage-structural-not-substantive.md) sub-decision (2) shape.** The structured columns are now `path_id`, `source_text_id`, `session_id`. The institutional column reservation that motivated `cohort_id` no longer exists. Adding it back would require a superseding ADR that reopens the institutional regime.
 
-- **Apple App Store guideline 5.1.1 is satisfied at the schema level.** The Phase 9 UI affordance ("delete my account") wires to a server endpoint that runs the cascade; the schema makes the cascade reliable. This is a precondition for App Store submission and aligns with the Phase 8 privacy-policy success criterion in [ROADMAP.md](../ROADMAP.md).
+- **Apple App Store guideline 5.1.1 is satisfied at the schema level.** The Phase 9 UI affordance ("delete my account") wires to a server endpoint that runs the cascade; the schema makes the cascade reliable. This is a precondition for App Store submission and aligns with the Phase 8 privacy-policy success criterion in [ROADMAP.md](../../ROADMAP.md).
 
 - **The audit-trail value of event-sourcing is retained for non-erasure use cases.** [ADR 0015](0015-event-sourced-learner-model.md)'s discipline still governs in-flight learners: events are the source of truth, mastery snapshots are derived. Hard-delete-with-cascade only fires on erasure requests, which are rare and irreversible. Day-to-day operation is unchanged.
 
@@ -48,7 +48,7 @@ The audit-trail value the event-sourced architecture (per [ADR 0015](0015-event-
 
 - **The cost-cap mechanism interaction is unchanged.** [ADR 0029](0029-personal-financial-cost-ceiling.md)'s cost-ceiling discipline is independent of the erasure mechanism. Cap behavior, telemetry, and degradation ladder are unaffected by this ADR's choice. (Note: in S-0012's supersession, [ADR 0029](0029-personal-financial-cost-ceiling.md)'s framing will be updated — cost ceiling reframed as a fixed annual operating subsidy budget rather than a bridge-to-grants — but its mechanism survives intact.)
 
-- **This commitment does not rise to [`docs/MISSION.md`](../docs/MISSION.md)'s strong-working-commitments list**, consistent with the [ADR 0026](0026-persistent-learner-storage-structural-not-substantive.md) and [ADR 0029](0029-personal-financial-cost-ceiling.md) precedent: erasure mechanics are operating discipline, not pedagogical commitment. Cross-references from [`docs/tensions.md`](../docs/tensions.md), [`docs/CROSS_REFERENCES.md`](../docs/CROSS_REFERENCES.md), and the Phase 3 entries in [ROADMAP.md](../ROADMAP.md) are sufficient.
+- **This commitment does not rise to [`docs/MISSION.md`](../docs/MISSION.md)'s strong-working-commitments list**, consistent with the [ADR 0026](0026-persistent-learner-storage-structural-not-substantive.md) and [ADR 0029](0029-personal-financial-cost-ceiling.md) precedent: erasure mechanics are operating discipline, not pedagogical commitment. Cross-references from [`docs/tensions.md`](../docs/tensions.md), [`docs/CROSS_REFERENCES.md`](../docs/CROSS_REFERENCES.md), and the Phase 3 entries in [ROADMAP.md](../../ROADMAP.md) are sufficient.
 
 - **The cascade is reliable, not reversible.** A user who deletes their account loses their mastery state. The product surface should communicate this clearly at the deletion confirmation step (Phase 9 UI work). There is no soft-delete or 30-day-grace-period mechanism in this ADR; if a future session decides such a mechanism is warranted, it lands as a superseding ADR.
 
@@ -62,5 +62,5 @@ The audit-trail value the event-sourced architecture (per [ADR 0015](0015-event-
 - [`docs/learner-model.md`](../docs/learner-model.md) — Event-Sourced Architecture; the table this ADR commits to cascade-deletion on at Phase 3.
 - [`docs/self-correction.md`](../docs/self-correction.md) — Tension Log Schema; cascade-deletion via the user link.
 - [`docs/business.md`](../docs/business.md) — Account Ownership and Transfer Path (data ownership clarity served by reliable erasure); Internal fine-tuning (inherits cascade implication).
-- [ROADMAP.md](../ROADMAP.md) — Phase 3 schema authoring (inherits cascade discipline); Phase 8 privacy policy + App Store questionnaire (cascade satisfies guideline 5.1.1); Phase 9 UI prototype (delete-account affordance).
+- [ROADMAP.md](../../ROADMAP.md) — Phase 3 schema authoring (inherits cascade discipline); Phase 8 privacy policy + App Store questionnaire (cascade satisfies guideline 5.1.1); Phase 9 UI prototype (delete-account affordance).
 - Apple App Store Review Guideline 5.1.1 — the consumer-erasure forcing function this ADR's mechanism satisfies.

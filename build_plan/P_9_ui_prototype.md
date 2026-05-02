@@ -4,7 +4,7 @@
 
 ## Phase scope
 
-Phase 9 is the product-ship phase. Per [ROADMAP Phase 9](../ROADMAP.md), the deliverable is the Discovery / Planning / Engagement triad surfaces per [`product/docs/ui-architecture.md`](../product/docs/ui-architecture.md), implemented in SwiftUI for iPhone + iPad first-class plus Mac via Designed-for-iPad opt-in per [ADR 0035](../adr/0035-multi-platform-apple-expansion.md).
+Phase 9 is the product-ship phase. Per [ROADMAP Phase 9](../ROADMAP.md), the deliverable is the Discovery / Planning / Engagement triad surfaces per [`product/docs/ui-architecture.md`](../product/docs/ui-architecture.md), implemented in SwiftUI for iPhone + iPad first-class plus Mac via Designed-for-iPad opt-in per [ADR 0035](../product/adr/0035-multi-platform-apple-expansion.md).
 
 The DeepTutor fork (per [`product/docs/infrastructure.md`](../product/docs/infrastructure.md)) is consulted only for what serves the Apple-native target. No Android, no web client, no native AppKit/Catalyst Mac app.
 
@@ -14,12 +14,12 @@ This is the chunk where the engine-tracked discipline relaxes. **ENGINE_LOG and 
 
 Per [ROADMAP Phase 9 success criteria](../ROADMAP.md), the triad surfaces and the supporting first-class UI primitives:
 
-- **Discovery surface** — dual-path: AI conversational onboarding bounded by the purpose-not-topic discipline per [ADR 0028](../adr/0028-input-side-scope-structural-not-prompt.md), plus a browseable concept catalog whose organization may consume the flat-domain-tags + community-detection algorithm per [ADR 0018](../adr/0018-flat-domain-tags-community-detection.md).
+- **Discovery surface** — dual-path: AI conversational onboarding bounded by the purpose-not-topic discipline per [ADR 0028](../product/adr/0028-input-side-scope-structural-not-prompt.md), plus a browseable concept catalog whose organization may consume the flat-domain-tags + community-detection algorithm per [ADR 0018](../product/adr/0018-flat-domain-tags-community-detection.md).
 - **Planning surface** — syllabus-as-plan with prerequisite gating; current/active syllabus view (hard-cap-of-five preserved per [`product/docs/session-lifecycle.md`](../product/docs/session-lifecycle.md)); quiet completion markers; mastered concepts visible in syllabus context (no separate trophy / library surface — foreclosed); cross-syllabus convergence noting at routing-after-concept-completion.
-- **Engagement surface** — three bounded contexts inherited structurally per [ADR 0028](../adr/0028-input-side-scope-structural-not-prompt.md): concept engagement, diagnostic, BYOB close reading.
-- **Bridge surfacing in context** — cross-domain edges surface contextually during planning ("studying this concept advances your path toward [other target] as well") and during engagement (callback references that bridge between domains). No standalone cross-domain visualization surface; no globe; no game-world rendering; no mastery-glow / tendril / colored-trail visualization per [ADR 0033](../adr/0033-mission-realignment-structured-guidance-for-self-learners.md).
+- **Engagement surface** — three bounded contexts inherited structurally per [ADR 0028](../product/adr/0028-input-side-scope-structural-not-prompt.md): concept engagement, diagnostic, BYOB close reading.
+- **Bridge surfacing in context** — cross-domain edges surface contextually during planning ("studying this concept advances your path toward [other target] as well") and during engagement (callback references that bridge between domains). No standalone cross-domain visualization surface; no globe; no game-world rendering; no mastery-glow / tendril / colored-trail visualization per [ADR 0033](../product/adr/0033-mission-realignment-structured-guidance-for-self-learners.md).
 - **Exit affordance** — first-class UI primitive; single visible control reachable in one action from any concept-engagement / diagnostic / close-reading surface.
-- **Delete-account affordance** — first-class UI primitive wired to the `ON DELETE CASCADE` discipline per [ADR 0031](../adr/0031-erasure-mechanism-and-individual-only-regime.md); satisfies Apple App Store guideline 5.1.1.
+- **Delete-account affordance** — first-class UI primitive wired to the `ON DELETE CASCADE` discipline per [ADR 0031](../product/adr/0031-erasure-mechanism-and-individual-only-regime.md); satisfies Apple App Store guideline 5.1.1.
 - **Data-export affordance** — first-class UI primitive; preserves cancellation-discipline honesty per [`product/docs/business.md`](../product/docs/business.md).
 - **Cost-cap mechanism** operates against the production user-facing surface, not just the [`P_8_evaluation_harness.md`](P_8_evaluation_harness.md) harness.
 - **No "general chat" surface** — free-form input only inside the three bounded contexts and within the Discovery surface's bounded AI conversational onboarding.
@@ -47,7 +47,7 @@ Per session within Phase 9 (the boot read is selective; not every session needs 
 
 ## Load-bearing ADRs
 
-[ADR 0007](../adr/0007-cross-domain-porosity.md), [ADR 0011](../adr/0011-no-hosted-copyrighted-material.md), [ADR 0018](../adr/0018-flat-domain-tags-community-detection.md), [ADR 0027](../adr/0027-rendering-policy-prompt-layer-contract.md), [ADR 0028](../adr/0028-input-side-scope-structural-not-prompt.md), [ADR 0029](../adr/0029-personal-financial-cost-ceiling.md), [ADR 0031](../adr/0031-erasure-mechanism-and-individual-only-regime.md), [ADR 0033](../adr/0033-mission-realignment-structured-guidance-for-self-learners.md), [ADR 0034](../adr/0034-discovery-planning-engagement-triad.md), [ADR 0035](../adr/0035-multi-platform-apple-expansion.md).
+[ADR 0007](../product/adr/0007-cross-domain-porosity.md), [ADR 0011](../product/adr/0011-no-hosted-copyrighted-material.md), [ADR 0018](../product/adr/0018-flat-domain-tags-community-detection.md), [ADR 0027](../product/adr/0027-rendering-policy-prompt-layer-contract.md), [ADR 0028](../product/adr/0028-input-side-scope-structural-not-prompt.md), [ADR 0029](../product/adr/0029-personal-financial-cost-ceiling.md), [ADR 0031](../product/adr/0031-erasure-mechanism-and-individual-only-regime.md), [ADR 0033](../product/adr/0033-mission-realignment-structured-guidance-for-self-learners.md), [ADR 0034](../product/adr/0034-discovery-planning-engagement-triad.md), [ADR 0035](../product/adr/0035-multi-platform-apple-expansion.md).
 
 ## Estimated context budget
 
@@ -71,12 +71,12 @@ Natural session families:
 ## Open tensions consumed
 
 - May surface concrete need that resolves the `OQ-WATCH-FLAG-FILE` watch entry per [`product/docs/tensions.md`](../product/docs/tensions.md).
-- May surface concrete need that opens an amendment to [ADR 0034](../adr/0034-discovery-planning-engagement-triad.md) for the library/bookshelf surface or the discovery dual-path narrowing (the two open-for-amendment-without-supersession items in [ROADMAP Phase 9](../ROADMAP.md)).
+- May surface concrete need that opens an amendment to [ADR 0034](../product/adr/0034-discovery-planning-engagement-triad.md) for the library/bookshelf surface or the discovery dual-path narrowing (the two open-for-amendment-without-supersession items in [ROADMAP Phase 9](../ROADMAP.md)).
 
 ## See also
 
 - [`../ROADMAP.md`](../ROADMAP.md) Phase 9 — full phase scope and success criteria.
 - [`product/docs/ui-architecture.md`](../product/docs/ui-architecture.md) — triad surface design.
 - [`product/docs/session-lifecycle.md`](../product/docs/session-lifecycle.md) — concept engagement, mode transitions, mastery verification.
-- [`../adr/0034-discovery-planning-engagement-triad.md`](../adr/0034-discovery-planning-engagement-triad.md), [`../adr/0035-multi-platform-apple-expansion.md`](../adr/0035-multi-platform-apple-expansion.md).
+- [`../adr/0034-discovery-planning-engagement-triad.md`](../product/adr/0034-discovery-planning-engagement-triad.md), [`../adr/0035-multi-platform-apple-expansion.md`](../product/adr/0035-multi-platform-apple-expansion.md).
 - [`product/CHANGELOG.md`](../product/CHANGELOG.md) — the reserved product release log; first entry at Phase 9 close.

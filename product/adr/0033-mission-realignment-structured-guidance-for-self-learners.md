@@ -75,7 +75,7 @@ The drift was not "we picked a bad UI." It was "we picked a UI before the value 
 
 - **Phase 1.5 opens at S-0013 (this session) and closes at S-0016.** Phase 2 (Build Plan Scaffolding) — previously queued for S-0013 per [ADR 0032](0032-personal-project-disposition.md)'s S-0012-close STATE.md handoff — defers to S-0017 so the per-phase chunks Phase 2 produces consume the realigned contract.
 
-- **Recovery from a silent drop is recorded here.** The Phase 1.5 plan was approved via plan-mode at S-0013 boot but the plan file landed at `/Users/shanekidd/.claude/plans/at-its-core-this-iterative-beaver.md` (local developer config), not in tracked project artifacts. STATE.md still pointed S-0013 at Phase 2. A subsequent session starting cold from STATE.md would have found no record of the realignment. The recovery — recording Phase 1.5 in [ROADMAP.md](../ROADMAP.md), STATE.md, and this ADR — is part of S-0013's scope, recorded so the silent-drop pattern is itself part of the visible session history. The lesson: plan-mode artifacts are durable for the AI's session-internal use but do not propagate into the project's session protocol on their own.
+- **Recovery from a silent drop is recorded here.** The Phase 1.5 plan was approved via plan-mode at S-0013 boot but the plan file landed at `/Users/shanekidd/.claude/plans/at-its-core-this-iterative-beaver.md` (local developer config), not in tracked project artifacts. STATE.md still pointed S-0013 at Phase 2. A subsequent session starting cold from STATE.md would have found no record of the realignment. The recovery — recording Phase 1.5 in [ROADMAP.md](../../ROADMAP.md), STATE.md, and this ADR — is part of S-0013's scope, recorded so the silent-drop pattern is itself part of the visible session history. The lesson: plan-mode artifacts are durable for the AI's session-internal use but do not propagate into the project's session protocol on their own.
 
 ## See also
 
@@ -86,6 +86,6 @@ The drift was not "we picked a bad UI." It was "we picked a UI before the value 
 - [ADR 0032](0032-personal-project-disposition.md) — operating discipline that protects pedagogy from builder-funnel-mechanic corruption; this ADR is the parallel "operating discipline that protects mission focus from presentation-surface drift."
 - [ADR 0001](0001-pedagogical-edges-not-historical.md) and [ADR 0014](0014-sonnet-teaches-opus-reviews.md) — the two load-bearing mechanisms of the realigned mission claim (structured graph + mastery-gating instructor).
 - [`docs/MISSION.md`](../docs/MISSION.md) — What this is reframed at S-0013 in this session.
-- [ROADMAP.md](../ROADMAP.md) — Phase 1.5 inserted at S-0013 in this session; Phase 9 success criteria rewritten at S-0015 per ADR 0035.
+- [ROADMAP.md](../../ROADMAP.md) — Phase 1.5 inserted at S-0013 in this session; Phase 9 success criteria rewritten at S-0015 per ADR 0035.
 - [`docs/ui-architecture.md`](../docs/ui-architecture.md) and [`docs/session-lifecycle.md`](../docs/session-lifecycle.md) — substantially rewritten at S-0014 per ADR 0034.
 - The Phase 1.5 plan reference: `/Users/shanekidd/.claude/plans/at-its-core-this-iterative-beaver.md` (local developer config; not a tracked project artifact). The plan file is the convening artifact of the realignment; ADRs 0033/0034/0035 + the doc rewrites are the durable artifacts that propagate forward.
