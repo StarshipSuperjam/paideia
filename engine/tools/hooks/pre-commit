@@ -121,5 +121,27 @@ if [ -n "$STAGED_PY" ] && [ -f engine/tools/validate.py ]; then
     fi
 fi
 
+# ---------------------------------------------------------------------------
+# Run SQL-discipline gates against staged migration files
+# (Layer 2 of ADR 0039 + migration-discipline.md — transaction wrap,
+#  CASCADE on FKs to users(id), RLS-enable on public.* tables, CHECK
+#  constraint shape on enum-modeled TEXT columns)
+# ---------------------------------------------------------------------------
+
+STAGED_SQL=$(git diff --cached --name-only --diff-filter=ACMR \
+    | grep -E '^product/seed-graph/migrations/.*\.sql$' || true)
+
+if [ -n "$STAGED_SQL" ] && [ -f engine/tools/validate.py ]; then
+    # shellcheck disable=SC2086
+    if ! python3 engine/tools/validate.py --sql-gates --files $STAGED_SQL; then
+        STATUS=$?
+        if [ "$STATUS" -ge 2 ]; then
+            echo "[pre-commit] engine/tools/validate.py --sql-gates reported hard-fails. Commit blocked." >&2
+            echo "  See engine/operations/migration-discipline.md for the gate-stack contract." >&2
+            exit 1
+        fi
+    fi
+fi
+
 echo "[pre-commit] Mode: $MODE — OK"
 exit 0

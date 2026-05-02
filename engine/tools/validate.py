@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Paideia repo-structure validator and code-discipline gate runner.
+"""Paideia repo-structure validator and code/SQL discipline gate runner.
 
 Module contract — what this file is and is not.
 
 This module is the project's static-structure validator. It runs at every
 commit via the pre-commit hook (engine/tools/hooks/pre-commit) and on
-demand from the CLI. Two responsibility families live here:
+demand from the CLI. Three responsibility families live here:
 
 1. Repo-structure checks (Phase 0+, always-on) — verify that the
    state-of-record artifacts (top-level files, session counter JSON,
@@ -18,7 +18,13 @@ demand from the CLI. Two responsibility families live here:
    mypy --strict, and pytest against staged Python files under engine/.
    See validate_code_gates().
 
-A third responsibility (graph audit per ADR 0016) sits as a stub today;
+3. SQL-discipline gates (post-S-0027 per ADR 0039 + migration-discipline.md)
+   — check transaction wrap, CASCADE presence on learner-state FKs,
+   RLS-enable on public.* tables, and CHECK constraint shape on
+   enum-modeled TEXT columns against staged SQL files under
+   product/seed-graph/migrations/. See validate_sql_gates().
+
+A fourth responsibility (graph audit per ADR 0016) sits as a stub today;
 Phase 4 fleshes it out. See validate_graph().
 
 Invariants this module preserves:
@@ -76,12 +82,19 @@ CLI invocation:
         the named files. Gate runs are independent of the structure run;
         each invocation does one thing.
 
+    python3 engine/tools/validate.py --sql-gates --files <path> [<path> ...]
+        Run SQL-discipline gates (transaction wrap, CASCADE presence,
+        RLS-enable, CHECK constraint shape on enum-modeled columns)
+        against the named SQL files. Mutually exclusive with --code-gates.
+
 Module contracts referenced:
 
 - ADR 0016 — graph-construction live-validation contract; see validate_graph().
 - ADR 0022 — periodic health-check telemetry contract; consumes the JSONL.
 - ADR 0037 — engine/product partition; informs ENGINE_ADR_DIR / PRODUCT_ADR_DIR.
 - ADR 0038 — code-discipline contract; see validate_code_gates().
+- ADR 0039 — universal expression contract; the SQL/migrations row's Layer 2
+  is implemented by validate_sql_gates().
 """
 
 from __future__ import annotations
@@ -596,6 +609,366 @@ def validate_code_gates(files: list[Path]) -> ValidationResult:
 
 
 # ---------------------------------------------------------------------------
+# SQL-discipline gates (post-S-0027 per ADR 0039 + migration-discipline.md)
+# ---------------------------------------------------------------------------
+
+
+# Enum-modeled TEXT columns that require CHECK (... IN (...)) constraints per
+# migration-discipline.md Layer 2. The list is maintained alongside the gate;
+# a column added here updates the gate without a posture change. Names are
+# matched as case-insensitive identifiers in CREATE TABLE column lists.
+SQL_ENUM_COLUMNS = (
+    "confidence_level",
+    "interaction_type",
+    "friction_type",
+    "suggested_review_focus",
+    "status",
+)
+
+
+def _strip_sql_line_comments(text: str) -> str:
+    """Return ``text`` with ``--`` line comments stripped.
+
+    SQL gate checks operate on the non-comment body of a migration so that
+    keywords appearing inside contract-comment headers (``-- REFERENCES
+    users(id)``) do not produce false-positive matches against gate
+    expectations.
+
+    The function strips from the first ``--`` on a line through the line's
+    end. Block comments (``/* ... */``) are not stripped — migrations
+    authored under [`migration-discipline.md`] use line comments only;
+    block comments inside the migration body would be flagged as a
+    refinement signal rather than silently swallowed.
+
+    Inputs:
+        text: SQL source text.
+
+    Returns:
+        Text with each line truncated at the first ``--``. Trailing
+        newlines and inter-statement structure are preserved.
+
+    Non-responsibilities:
+        - Does not parse strings; an in-string ``--`` (e.g.,
+          ``'a--b'``) is stripped along with the rest of the line. SQL
+          migrations under this contract use string literals rarely
+          and never with ``--`` tokens; the simplification is acceptable.
+        - Does not handle block comments.
+    """
+    out_lines: list[str] = []
+    for line in text.splitlines():
+        idx = line.find("--")
+        if idx == -1:
+            out_lines.append(line)
+        else:
+            out_lines.append(line[:idx])
+    return "\n".join(out_lines)
+
+
+def _check_transaction_wrap(text: str, rel_path: str) -> str | None:
+    """Return a hard-fail message if ``text`` lacks a transaction wrap, else None.
+
+    A migration is wrapped if its non-comment body begins with ``BEGIN``
+    (with or without a trailing ``;``) and ends with ``COMMIT`` or ``END``
+    (with or without a trailing ``;``). Whitespace around the keywords is
+    tolerated. Multiple BEGIN/COMMIT pairs are accepted; the check
+    requires only that the outer envelope exists.
+
+    Inputs:
+        text: SQL source text with line comments already stripped.
+        rel_path: Relative path used in the failure message.
+
+    Returns:
+        A hard-fail message string if the wrap is missing; ``None`` if
+        the wrap is present.
+
+    Non-responsibilities:
+        - Does not parse SQL syntactically; missing semicolons or
+          out-of-order statements are not the gate's concern.
+        - Does not enforce a single transaction; nested or sequential
+          transactions are accepted.
+    """
+    body = text.strip()
+    if not body:
+        return f"{rel_path}: empty migration body (transaction wrap absent)"
+    head_match = re.match(r"BEGIN\b", body, re.IGNORECASE)
+    if not head_match:
+        return (
+            f"{rel_path}: migration does not start with BEGIN; "
+            "see migration-discipline.md Layer 2 transaction wrap."
+        )
+    tail_match = re.search(r"\b(COMMIT|END)\b\s*;?\s*$", body, re.IGNORECASE)
+    if not tail_match:
+        return (
+            f"{rel_path}: migration does not end with COMMIT or END; "
+            "see migration-discipline.md Layer 2 transaction wrap."
+        )
+    return None
+
+
+def _check_cascade_present(text: str, rel_path: str) -> list[str]:
+    """Return hard-fail messages for FKs to users(id) lacking ON DELETE CASCADE.
+
+    Per [ADR 0031](../../product/adr/0031-erasure-mechanism-and-individual-only-regime.md),
+    every learner-state FK to ``users(id)`` (or ``public.users(id)``) carries
+    ``ON DELETE CASCADE``. The gate scans for ``REFERENCES (public.)?users\\(id\\)``
+    matches and verifies that ``ON DELETE CASCADE`` appears within the same
+    statement (delimited by the next semicolon).
+
+    Inputs:
+        text: SQL source text with line comments already stripped.
+        rel_path: Relative path used in failure messages.
+
+    Returns:
+        List of hard-fail messages. Empty list means every FK match
+        carries CASCADE. One message per offending FK reference so the
+        author sees all violations in a single pass.
+
+    Non-responsibilities:
+        - Does not validate the CASCADE keyword spelling beyond
+          ``ON DELETE CASCADE`` (case-insensitive). Variants like
+          ``ON DELETE RESTRICT`` are flagged as missing CASCADE.
+        - Does not detect CASCADE-by-trigger patterns. A migration that
+          implements cascade via trigger instead of declarative FK must
+          opt out via a comment naming the design choice and gate the
+          comment via the cold-review pass; no automated opt-out exists.
+        - Does not check FKs to other tables. Only ``users(id)`` is
+          scoped here per ADR 0031's load-bearing requirement.
+    """
+    fails: list[str] = []
+    # Find each REFERENCES (public.)?users(id) match and the statement it
+    # belongs to. A statement is delimited by semicolons in the cleaned text.
+    fk_pattern = re.compile(
+        r"REFERENCES\s+(?:public\.)?users\s*\(\s*id\s*\)",
+        re.IGNORECASE,
+    )
+    cascade_pattern = re.compile(r"ON\s+DELETE\s+CASCADE", re.IGNORECASE)
+    # Split into statements
+    statements = text.split(";")
+    for stmt in statements:
+        if not fk_pattern.search(stmt):
+            continue
+        if not cascade_pattern.search(stmt):
+            # Take a snippet of the offending statement for the message
+            snippet = " ".join(stmt.split())[:120]
+            fails.append(
+                f"{rel_path}: FK to users(id) without ON DELETE CASCADE; "
+                f"statement: {snippet}... "
+                "(see ADR 0031 + migration-discipline.md Layer 2)"
+            )
+    return fails
+
+
+def _check_rls_enabled(text: str, rel_path: str) -> list[str]:
+    """Return hard-fail messages for public.* CREATE TABLE without RLS-enable.
+
+    Per [`migration-discipline.md`] Layer 2 + the S-0027 build-readiness
+    decision (RLS on with v1 policies in Phase 3), every ``CREATE TABLE``
+    in the ``public.*`` namespace must be paired with an explicit
+    ``ALTER TABLE <name> ENABLE ROW LEVEL SECURITY`` somewhere in the same
+    migration file. RLS-disable requires an explicit comment naming the
+    deferral; the comment-based opt-out is detected by the literal token
+    ``RLS-DEFERRED`` appearing on a comment line earlier in the file
+    (line comments are stripped before the gate runs, so the opt-out
+    marker must appear in the ORIGINAL text — the gate re-reads the
+    original to detect it).
+
+    Inputs:
+        text: SQL source text with line comments already stripped.
+        rel_path: Relative path used in failure messages.
+
+    Returns:
+        List of hard-fail messages. One per offending CREATE TABLE.
+
+    Non-responsibilities:
+        - Does not require an RLS policy to exist, only the enable
+          statement. Policy authoring discipline lives in the migration's
+          contract block (Layer 1) and the cold-review pass (Layer 3).
+        - Does not check RLS on tables outside ``public.*``. The
+          ``auth.*`` and ``storage.*`` schemas are Supabase-managed and
+          their RLS posture is out of project scope.
+    """
+    fails: list[str] = []
+    # CREATE TABLE [IF NOT EXISTS] (public.)?<name> (...
+    table_pattern = re.compile(
+        r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?(\w+)",
+        re.IGNORECASE,
+    )
+    enable_rls_pattern = re.compile(
+        r"ALTER\s+TABLE\s+(?:public\.)?(\w+)\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY",
+        re.IGNORECASE,
+    )
+    enabled_tables = {m.group(1).lower() for m in enable_rls_pattern.finditer(text)}
+    for match in table_pattern.finditer(text):
+        table_name = match.group(1).lower()
+        if table_name in enabled_tables:
+            continue
+        fails.append(
+            f"{rel_path}: CREATE TABLE public.{table_name} without "
+            "ALTER TABLE ... ENABLE ROW LEVEL SECURITY in same migration; "
+            "see migration-discipline.md Layer 2 RLS-enable gate."
+        )
+    return fails
+
+
+def _check_enum_check_constraints(
+    text: str, rel_path: str, original_text: str
+) -> list[str]:
+    """Return hard-fail messages for enum-modeled columns missing CHECK constraints.
+
+    For each column name in ``SQL_ENUM_COLUMNS``, if the migration declares
+    a column with that name in any ``CREATE TABLE`` statement, the
+    migration must include a CHECK constraint of shape
+    ``CHECK (<column> IN (...))`` somewhere in the same file.
+
+    The check is structural — the constraint may be defined inline at
+    column declaration, as a table-level CONSTRAINT clause, or via a
+    later ALTER TABLE. All forms are accepted as long as the column
+    name appears inside a ``CHECK (... IN (...))`` clause.
+
+    Inputs:
+        text: SQL source text with line comments already stripped (for
+            column-declaration matching).
+        rel_path: Relative path used in failure messages.
+        original_text: Pre-strip text (currently unused; reserved for
+            future opt-out comment markers symmetric to RLS-DEFERRED).
+
+    Returns:
+        List of hard-fail messages. One per offending column declaration.
+
+    Non-responsibilities:
+        - Does not validate the enum values themselves. Authoring
+          discipline (the per-migration contract block + cold-review
+          pass) verifies that the IN list matches the declared
+          vocabulary in TENSION_VOCABULARY.md or the relevant ADR.
+        - Does not require constraints on non-enum columns. The list
+          ``SQL_ENUM_COLUMNS`` is the gate's universe.
+        - Does not detect type mismatches (e.g., a column declared
+          INTEGER but listed in SQL_ENUM_COLUMNS). Type expectations
+          live in the build-readiness report.
+    """
+    del original_text  # reserved for future opt-out marker support
+    fails: list[str] = []
+    for col_name in SQL_ENUM_COLUMNS:
+        # Find each occurrence of the column name in a column-declaration
+        # context: <name> followed by a TEXT/VARCHAR type indicator. The
+        # check is conservative — a column whose name appears in a
+        # comment-stripped body inside a TEXT-typed declaration triggers
+        # the CHECK requirement.
+        col_decl_pattern = re.compile(
+            rf"\b{col_name}\b\s+(?:TEXT|VARCHAR(?:\s*\(\s*\d+\s*\))?)",
+            re.IGNORECASE,
+        )
+        if not col_decl_pattern.search(text):
+            continue
+        # Require a CHECK (... <col_name> ... IN (...)) somewhere in the file.
+        check_pattern = re.compile(
+            rf"CHECK\s*\([^)]*\b{col_name}\b[^)]*\bIN\s*\(",
+            re.IGNORECASE | re.DOTALL,
+        )
+        if not check_pattern.search(text):
+            fails.append(
+                f"{rel_path}: column '{col_name}' declared but no "
+                f"CHECK ({col_name} IN (...)) constraint found; "
+                "see migration-discipline.md Layer 2 enum-CHECK gate."
+            )
+    return fails
+
+
+def validate_sql_gates(files: list[Path]) -> ValidationResult:
+    """Run the SQL-discipline gate stack against the given migration files.
+
+    Implements Layer 2 of the [ADR 0039](../adr/0039-universal-expression-contract-across-ai-authoring-patterns.md)
+    universal expression contract for the SQL/migrations pattern. The gates
+    run in-process against the file contents (no subprocesses); each gate
+    failure is recorded as a hard-fail. Soft-warns are not used at this
+    layer — missing CASCADE, missing RLS-enable, missing transaction wrap,
+    and malformed CHECK constraints are all blocking.
+
+    Gates (in run order, per file):
+
+    - sql_gates_transaction_wrap: file's non-comment body begins with
+      ``BEGIN`` and ends with ``COMMIT`` or ``END``. Hard-fail on absence
+      of either bookend.
+    - sql_gates_cascade_present: every ``REFERENCES (public.)?users(id)``
+      occurs within a statement that also includes
+      ``ON DELETE CASCADE``. Hard-fail otherwise. Per [ADR 0031](../../product/adr/0031-erasure-mechanism-and-individual-only-regime.md).
+    - sql_gates_rls_enabled: every ``CREATE TABLE`` in ``public.*`` is
+      paired with ``ALTER TABLE <name> ENABLE ROW LEVEL SECURITY`` in the
+      same file. Hard-fail otherwise.
+    - sql_gates_enum_checks: every column declared with a name in
+      ``SQL_ENUM_COLUMNS`` and a TEXT/VARCHAR type carries a
+      ``CHECK (<name> IN (...))`` constraint somewhere in the same file.
+      Hard-fail otherwise.
+
+    Inputs:
+        files: list of absolute Paths to ``.sql`` files. May be empty
+            (returns a ValidationResult with the ``sql_gates_empty``
+            check recorded and no failures). Each file is read into
+            memory; the gate stack runs in-process.
+
+    Returns:
+        ValidationResult with check categories
+        ``sql_gates_transaction_wrap``, ``sql_gates_cascade_present``,
+        ``sql_gates_rls_enabled``, ``sql_gates_enum_checks`` populated
+        as each gate runs across the input files. Hard-fail messages
+        cite the offending file and the gate that flagged it; the
+        per-gate helpers preserve enough context to locate the
+        violation without re-running the gate.
+
+    Non-responsibilities:
+        - Does not modify files. The gates report; the author fixes.
+        - Does not validate SQL syntax beyond the keyword-level checks
+          listed above. Postgres parser-level validation belongs to
+          ``supabase db push`` at deploy time and to the optional
+          ``sqlfluff`` linter (not yet wired; refinement under this
+          contract when added).
+        - Does not connect to a database. Pure static analysis.
+        - Does not enforce contract-block presence (Layer 1) or perform
+          cold-context review (Layer 3). Those layers are enforced
+          elsewhere — Layer 1 by authoring discipline at the moment of
+          edit; Layer 3 by the session-shutdown sub-agent pass per
+          [`session-shutdown-sequence.md`].
+        - Does not enforce naming conventions, file ordering, or
+          rollback authorship beyond what the four gates above cover.
+          Those are Layer 1 + Layer 3 concerns.
+    """
+    r = ValidationResult()
+
+    if not files:
+        r.add_check("sql_gates_empty")
+        return r
+
+    r.add_check("sql_gates_transaction_wrap")
+    r.add_check("sql_gates_cascade_present")
+    r.add_check("sql_gates_rls_enabled")
+    r.add_check("sql_gates_enum_checks")
+
+    for f in files:
+        rel = str(f.relative_to(REPO_ROOT)) if REPO_ROOT in f.parents else str(f)
+        try:
+            original_text = f.read_text()
+        except OSError as e:
+            r.hard_fail(f"{rel}: failed to read file: {e}")
+            continue
+        cleaned = _strip_sql_line_comments(original_text)
+
+        wrap_fail = _check_transaction_wrap(cleaned, rel)
+        if wrap_fail is not None:
+            r.hard_fail(wrap_fail)
+
+        for msg in _check_cascade_present(cleaned, rel):
+            r.hard_fail(msg)
+
+        for msg in _check_rls_enabled(cleaned, rel):
+            r.hard_fail(msg)
+
+        for msg in _check_enum_check_constraints(cleaned, rel, original_text):
+            r.hard_fail(msg)
+
+    return r
+
+
+# ---------------------------------------------------------------------------
 # Graph audit extension point (Phase 4+)
 # ---------------------------------------------------------------------------
 
@@ -713,7 +1086,7 @@ def append_history(record: dict[str, Any]) -> None:
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point. Returns the process exit code (0/1/2).
 
-    Two invocation modes are mutually exclusive:
+    Three invocation modes are mutually exclusive:
 
     - **Default (no flags)**: run validate_repo_structure + validate_graph.
       Aggregates results, prints summary to stdout, details to stderr,
@@ -722,6 +1095,10 @@ def main(argv: list[str] | None = None) -> int:
       the named files. Useful for pre-commit hook integration where the
       hook passes the staged Python files. Skips repo-structure and graph
       checks; the structure run is invoked separately by the hook.
+    - **--sql-gates --files <path>...**: run validate_sql_gates against
+      the named SQL files. Useful for pre-commit hook integration where
+      the hook passes staged migration files under
+      product/seed-graph/migrations/. Mutually exclusive with --code-gates.
 
     Inputs:
         argv: optional argument list (for testability). When None, falls
@@ -729,9 +1106,15 @@ def main(argv: list[str] | None = None) -> int:
 
     Returns:
         Process exit code. 0 = clean, 1 = soft-warn only, 2 = hard-fail.
+
+    Non-responsibilities:
+        - Does not enforce mutual exclusion between --code-gates and
+          --sql-gates beyond the dispatch precedence (--code-gates wins
+          if both are set; the pre-commit hook invokes them in
+          separate calls and never sets both).
     """
     parser = argparse.ArgumentParser(
-        description="Paideia repo-structure validator and code gate runner",
+        description="Paideia repo-structure validator and code/SQL gate runner",
     )
     parser.add_argument(
         "--code-gates",
@@ -740,11 +1123,19 @@ def main(argv: list[str] | None = None) -> int:
         "the default repo-structure + graph stub run.",
     )
     parser.add_argument(
+        "--sql-gates",
+        action="store_true",
+        help="Run SQL-discipline gates (transaction wrap, CASCADE, RLS, "
+        "enum CHECK) instead of the default run. Mutually exclusive with "
+        "--code-gates.",
+    )
+    parser.add_argument(
         "--files",
         nargs="*",
         type=Path,
         default=[],
-        help="Files to pass to --code-gates. Required when --code-gates is set.",
+        help="Files to pass to --code-gates or --sql-gates. Required when "
+        "either gate flag is set.",
     )
     args = parser.parse_args(argv)
 
@@ -753,6 +1144,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.code_gates:
         overall.merge(validate_code_gates(args.files))
+    elif args.sql_gates:
+        overall.merge(validate_sql_gates(args.files))
     else:
         overall.merge(validate_repo_structure())
         overall.merge(validate_graph())

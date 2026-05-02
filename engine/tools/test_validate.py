@@ -57,6 +57,7 @@ from validate import (  # noqa: E402
     validate_code_gates,
     validate_graph,
     validate_repo_structure,
+    validate_sql_gates,
 )
 
 
@@ -474,6 +475,272 @@ class TestValidateCodeGates:
         assert not any("no test file" in f for f in r.hard_fails), (
             f"unexpected hard_fails: {r.hard_fails}"
         )
+
+
+# ---------------------------------------------------------------------------
+# validate_sql_gates
+# ---------------------------------------------------------------------------
+
+
+# A clean migration that satisfies all four SQL gates: transaction wrap,
+# CASCADE on FK to users(id), RLS-enable on the public.* table, and CHECK
+# constraint on every enum-modeled column declared.
+_CLEAN_MIGRATION = """\
+-- Migration: 0001_test
+-- Purpose: synthetic clean migration for the gate suite.
+BEGIN;
+
+CREATE TABLE public.events (
+  id UUID PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL,
+  CHECK (status IN ('open', 'closed'))
+);
+
+ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
+
+COMMIT;
+"""
+
+
+def _write_sql(path: Path, body: str) -> None:
+    """Write a synthetic SQL migration file at ``path``."""
+    path.write_text(body)
+
+
+class TestValidateSqlGates:
+    """validate_sql_gates: each gate path, plus aggregate behavior."""
+
+    def test_empty_files_runs_sentinel_check(self) -> None:
+        """An empty file list runs the empty-check sentinel and no gate checks."""
+        r = validate_sql_gates([])
+        assert r.hard_fails == []
+        assert "sql_gates_empty" in r.checks_run
+        for gate in (
+            "sql_gates_transaction_wrap",
+            "sql_gates_cascade_present",
+            "sql_gates_rls_enabled",
+            "sql_gates_enum_checks",
+        ):
+            assert gate not in r.checks_run
+
+    def test_clean_migration_passes_all_gates(self, tmp_path: Path) -> None:
+        """A clean migration produces no hard-fails and runs all four gates."""
+        path = tmp_path / "0001_test.sql"
+        _write_sql(path, _CLEAN_MIGRATION)
+        r = validate_sql_gates([path])
+        assert r.hard_fails == [], f"unexpected fails: {r.hard_fails}"
+        for gate in (
+            "sql_gates_transaction_wrap",
+            "sql_gates_cascade_present",
+            "sql_gates_rls_enabled",
+            "sql_gates_enum_checks",
+        ):
+            assert gate in r.checks_run
+
+    def test_missing_begin_hard_fails(self, tmp_path: Path) -> None:
+        """A migration without BEGIN at the start hard-fails the wrap gate."""
+        body = _CLEAN_MIGRATION.replace("BEGIN;\n", "", 1)
+        path = tmp_path / "0001_test.sql"
+        _write_sql(path, body)
+        r = validate_sql_gates([path])
+        assert any("does not start with BEGIN" in f for f in r.hard_fails), (
+            f"hard_fails: {r.hard_fails}"
+        )
+
+    def test_missing_commit_hard_fails(self, tmp_path: Path) -> None:
+        """A migration without COMMIT/END at the end hard-fails the wrap gate."""
+        body = _CLEAN_MIGRATION.replace("COMMIT;\n", "", 1)
+        path = tmp_path / "0001_test.sql"
+        _write_sql(path, body)
+        r = validate_sql_gates([path])
+        assert any("does not end with COMMIT" in f for f in r.hard_fails), (
+            f"hard_fails: {r.hard_fails}"
+        )
+
+    def test_end_keyword_satisfies_wrap(self, tmp_path: Path) -> None:
+        """A migration ending in END (instead of COMMIT) satisfies the gate."""
+        body = _CLEAN_MIGRATION.replace("COMMIT;\n", "END;\n")
+        path = tmp_path / "0001_test.sql"
+        _write_sql(path, body)
+        r = validate_sql_gates([path])
+        assert not any("does not end with COMMIT" in f for f in r.hard_fails), (
+            f"unexpected fails: {r.hard_fails}"
+        )
+
+    def test_missing_cascade_hard_fails(self, tmp_path: Path) -> None:
+        """An FK to users(id) without ON DELETE CASCADE hard-fails."""
+        body = _CLEAN_MIGRATION.replace(
+            "REFERENCES public.users(id) ON DELETE CASCADE",
+            "REFERENCES public.users(id)",
+        )
+        path = tmp_path / "0001_test.sql"
+        _write_sql(path, body)
+        r = validate_sql_gates([path])
+        assert any("without ON DELETE CASCADE" in f for f in r.hard_fails), (
+            f"hard_fails: {r.hard_fails}"
+        )
+
+    def test_cascade_in_unqualified_users_reference(self, tmp_path: Path) -> None:
+        """The CASCADE gate matches REFERENCES users(id) without public. prefix."""
+        body = _CLEAN_MIGRATION.replace(
+            "REFERENCES public.users(id) ON DELETE CASCADE",
+            "REFERENCES users(id)",
+        )
+        path = tmp_path / "0001_test.sql"
+        _write_sql(path, body)
+        r = validate_sql_gates([path])
+        assert any("without ON DELETE CASCADE" in f for f in r.hard_fails), (
+            f"hard_fails: {r.hard_fails}"
+        )
+
+    def test_cascade_check_ignores_comments(self, tmp_path: Path) -> None:
+        """A REFERENCES users(id) inside a -- comment does not trigger the gate."""
+        # The comment-stripping helper removes line comments before checks
+        # run, so a comment naming the FK pattern should not produce a fail.
+        body = (
+            "-- Notes: REFERENCES users(id) is the standard FK shape.\n"
+            + _CLEAN_MIGRATION
+        )
+        path = tmp_path / "0001_test.sql"
+        _write_sql(path, body)
+        r = validate_sql_gates([path])
+        assert r.hard_fails == [], f"unexpected fails: {r.hard_fails}"
+
+    def test_missing_rls_enable_hard_fails(self, tmp_path: Path) -> None:
+        """A public.* CREATE TABLE without ENABLE ROW LEVEL SECURITY hard-fails."""
+        body = _CLEAN_MIGRATION.replace(
+            "ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;\n", ""
+        )
+        path = tmp_path / "0001_test.sql"
+        _write_sql(path, body)
+        r = validate_sql_gates([path])
+        assert any("ENABLE ROW LEVEL SECURITY" in f for f in r.hard_fails), (
+            f"hard_fails: {r.hard_fails}"
+        )
+
+    def test_unqualified_alter_table_satisfies_rls(self, tmp_path: Path) -> None:
+        """ALTER TABLE events (no public. prefix) satisfies the RLS gate."""
+        body = _CLEAN_MIGRATION.replace(
+            "ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;",
+            "ALTER TABLE events ENABLE ROW LEVEL SECURITY;",
+        )
+        path = tmp_path / "0001_test.sql"
+        _write_sql(path, body)
+        r = validate_sql_gates([path])
+        assert not any("ENABLE ROW LEVEL SECURITY" in f for f in r.hard_fails), (
+            f"unexpected fails: {r.hard_fails}"
+        )
+
+    def test_missing_enum_check_hard_fails(self, tmp_path: Path) -> None:
+        """A status TEXT column without CHECK constraint hard-fails."""
+        body = _CLEAN_MIGRATION.replace(
+            "  CHECK (status IN ('open', 'closed'))\n",
+            "",
+        ).replace(
+            "  status TEXT NOT NULL,\n",
+            "  status TEXT NOT NULL\n",
+        )
+        path = tmp_path / "0001_test.sql"
+        _write_sql(path, body)
+        r = validate_sql_gates([path])
+        assert any("no CHECK" in f and "status" in f for f in r.hard_fails), (
+            f"hard_fails: {r.hard_fails}"
+        )
+
+    def test_confidence_level_check_required(self, tmp_path: Path) -> None:
+        """A confidence_level column requires a CHECK (... IN ...) constraint."""
+        body = """\
+-- Migration: 0002_nodes
+BEGIN;
+CREATE TABLE public.nodes (
+  id UUID PRIMARY KEY,
+  confidence_level TEXT NOT NULL DEFAULT 'INTERPRETED'
+);
+ALTER TABLE public.nodes ENABLE ROW LEVEL SECURITY;
+COMMIT;
+"""
+        path = tmp_path / "0002_nodes.sql"
+        _write_sql(path, body)
+        r = validate_sql_gates([path])
+        assert any("confidence_level" in f and "no CHECK" in f for f in r.hard_fails), (
+            f"hard_fails: {r.hard_fails}"
+        )
+
+    def test_confidence_level_with_check_passes(self, tmp_path: Path) -> None:
+        """A confidence_level column with a CHECK constraint passes."""
+        body = """\
+-- Migration: 0002_nodes
+BEGIN;
+CREATE TABLE public.nodes (
+  id UUID PRIMARY KEY,
+  confidence_level TEXT NOT NULL DEFAULT 'INTERPRETED'
+    CHECK (confidence_level IN ('EXTRACTED', 'INTERPRETED', 'SYNTHETIC'))
+);
+ALTER TABLE public.nodes ENABLE ROW LEVEL SECURITY;
+COMMIT;
+"""
+        path = tmp_path / "0002_nodes.sql"
+        _write_sql(path, body)
+        r = validate_sql_gates([path])
+        assert r.hard_fails == [], f"unexpected fails: {r.hard_fails}"
+
+    def test_unreadable_file_hard_fails(self, tmp_path: Path) -> None:
+        """A path that does not exist hard-fails with read-failure message."""
+        bogus = tmp_path / "missing.sql"
+        r = validate_sql_gates([bogus])
+        assert any("failed to read file" in f for f in r.hard_fails), (
+            f"hard_fails: {r.hard_fails}"
+        )
+
+    def test_aggregates_across_multiple_files(self, tmp_path: Path) -> None:
+        """Per-file failures all surface in a single ValidationResult."""
+        # File 1: missing CASCADE
+        body1 = _CLEAN_MIGRATION.replace(
+            "REFERENCES public.users(id) ON DELETE CASCADE",
+            "REFERENCES public.users(id)",
+        )
+        path1 = tmp_path / "0001_a.sql"
+        _write_sql(path1, body1)
+        # File 2: missing RLS enable
+        body2 = _CLEAN_MIGRATION.replace(
+            "ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;\n", ""
+        )
+        path2 = tmp_path / "0002_b.sql"
+        _write_sql(path2, body2)
+        r = validate_sql_gates([path1, path2])
+        # Both failures surface in one run
+        assert any("CASCADE" in f and "0001_a.sql" in f for f in r.hard_fails)
+        assert any(
+            "ENABLE ROW LEVEL SECURITY" in f and "0002_b.sql" in f for f in r.hard_fails
+        )
+
+
+class TestMainSqlGatesMode:
+    """main(): --sql-gates dispatch."""
+
+    def test_sql_gates_clean_returns_zero(self, tmp_path: Path) -> None:
+        """--sql-gates against a clean migration exits 0."""
+        path = tmp_path / "0001_test.sql"
+        _write_sql(path, _CLEAN_MIGRATION)
+        rc = main(["--sql-gates", "--files", str(path)])
+        assert rc == 0
+
+    def test_sql_gates_no_files_returns_zero(self) -> None:
+        """--sql-gates with no --files exits 0 via the empty-check sentinel."""
+        rc = main(["--sql-gates"])
+        assert rc == 0
+
+    def test_sql_gates_dirty_returns_two(self, tmp_path: Path) -> None:
+        """--sql-gates against a migration with hard-fails exits 2."""
+        body = _CLEAN_MIGRATION.replace(
+            "REFERENCES public.users(id) ON DELETE CASCADE",
+            "REFERENCES public.users(id)",
+        )
+        path = tmp_path / "0001_test.sql"
+        _write_sql(path, body)
+        rc = main(["--sql-gates", "--files", str(path)])
+        assert rc == 2
 
 
 # ---------------------------------------------------------------------------

@@ -25,20 +25,30 @@ For every artifact created or modified in this session, ask:
 
 The audit catches structural mistakes. The spot-check catches judgment mistakes.
 
-### 3. Cold-context review pass (sessions that modified tracked Python under engine/)
+### 3. Cold-context review pass (sessions that modified tracked Python under engine/ or SQL under product/seed-graph/migrations/)
 
-Layer 3 of the [code-discipline contract](code-discipline.md) per [ADR 0038](../adr/0038-expression-contract-for-ai-authored-code.md). Sessions that did not modify any `engine/**/*.py` skip this step.
+Layer 3 of the universal expression contract per [ADR 0039](../adr/0039-universal-expression-contract-across-ai-authoring-patterns.md). Two pattern rows currently carry a Layer 3 cold-review trigger: Python/engine per [ADR 0038](../adr/0038-expression-contract-for-ai-authored-code.md) + [`code-discipline.md`](code-discipline.md), and SQL/migrations per [`migration-discipline.md`](migration-discipline.md). Sessions that did not modify either of those scopes skip this step. Sessions that modified both run both branches.
+
+#### Python/engine branch
 
 Identify the modified Python files in this session: `git diff --name-only <session-base>..HEAD | grep -E '^engine/.*\.py$'`. The session-base is the commit that immediately precedes the eager-claim — typically `git merge-base origin/main HEAD~`, or simply `HEAD~N` where N is the number of commits this session has produced.
 
 Launch a sub-agent (Explore type) with no session context. The agent's brief is the cold-review prompt template in [`code-discipline.md`](code-discipline.md) — the agent reads each modified file's contract block, then reads the implementation, then reports per-file whether the code matches its contract or where the contract and code drift apart. Cite specific contract claims and code lines for each mismatch.
 
-Record findings in `engine/session/current.json`'s `outcome_summary`:
+#### SQL/migrations branch
 
-- **All matches.** Append `"cold-review pass: <N> file(s), all match contract."` to `outcome_summary`.
-- **Mismatches found.** Append the per-file findings verbatim, then a one-sentence response per finding distinguishing addressed-in-session from deferred-to-follow-up. Material drift that warrants follow-up — code that contradicts a contract block in a way the session did not catch — surfaces as a new HANDOFF.md entry or a follow-up-task line in `outcome_summary` so the next session sees it.
+Identify the modified SQL files in this session: `git diff --name-only <session-base>..HEAD | grep -E '^product/seed-graph/migrations/.*\.sql$'`.
 
-The pass is fresh-eyes by construction: the sub-agent has no memory of the authoring session's premises and so cannot share its blind spots. The mechanism targets the compound-drift failure mode — a wrong premise built upon by internally-consistent code that passes tests authored against the same premise. Cold-review surfaces premise drift; lint/type/test gates do not.
+Launch a sub-agent (Explore type) with no session context. The agent's brief is the cold-review prompt template in [`migration-discipline.md`](migration-discipline.md) — the agent reads each modified migration's contract comment block, then reads the migration body, then reports per-file whether the body matches the contract and whether the migration honors the discipline (CASCADE on FKs to users(id), RLS-enable on public.* tables, CHECK constraint shape on enum-modeled columns, transaction wrap, JSONB constraint shape, idempotency).
+
+#### Recording findings
+
+Record findings from each branch in `engine/session/current.json`'s `outcome_summary`:
+
+- **All matches.** Append `"cold-review pass (<branch>): <N> file(s), all match contract."` to `outcome_summary`.
+- **Mismatches found.** Append the per-file findings verbatim, then a one-sentence response per finding distinguishing addressed-in-session from deferred-to-follow-up. Material drift that warrants follow-up — code or SQL that contradicts a contract block in a way the session did not catch — surfaces as a new HANDOFF.md entry or a follow-up-task line in `outcome_summary` so the next session sees it.
+
+The pass is fresh-eyes by construction: the sub-agent has no memory of the authoring session's premises and so cannot share its blind spots. The mechanism targets the compound-drift failure mode — a wrong premise built upon by internally-consistent artifacts that pass automated checks authored against the same premise. Cold-review surfaces premise drift; lint/type/test/SQL-gate checks do not.
 
 ### 4. Update `STATE.md`
 
@@ -70,6 +80,8 @@ Skip these — not material:
 - In-session commit messages on application code (Phase 9+; tracked in git only).
 - Typo fixes, formatting cleanups, link repairs.
 - Minor wording revisions inside an existing doc.
+
+For SQL migrations: log the session-level filenames as authored (e.g., `0001_users.sql`, `0002_nodes.sql`). Supabase migration version tracking is separate and automatic — `supabase db push` records its own deployment-version metadata in the dev DB. The two are orthogonal; ENGINE_LOG records what the session wrote, Supabase records what got applied where.
 
 At the next release tag (e.g., `0.1.0` at Phase 0 close), the `[Unreleased]` block gets promoted to a dated section.
 
@@ -164,7 +176,7 @@ The next session picks up cleanly from STATE.md without re-deriving where things
 
 A clean close runs steps 1–8 in sequence. If the session crashes, hits a network error, or otherwise halts mid-shutdown, the observable state determines the recovery path:
 
-1. **Halted before step 7 (archive).** `current.json` present; `register_state.json` `current_status: in_progress`. Resume from step 1 — run `tools/validate.py`, complete spot-check, run cold-review pass if any Python under engine/ was modified, finish updating STATE.md / ENGINE_LOG, fill `outcome_summary`, then archive and final-commit.
+1. **Halted before step 7 (archive).** `current.json` present; `register_state.json` `current_status: in_progress`. Resume from step 1 — run `tools/validate.py`, complete spot-check, run cold-review pass for any modified Python under engine/ and any modified SQL under product/seed-graph/migrations/, finish updating STATE.md / ENGINE_LOG, fill `outcome_summary`, then archive and final-commit.
 
 2. **Halted between archive (step 7) and final commit (step 8).** `archive/S-<NNNN>.json` present, `current.json` absent, `register_state.json` `current_status: closed`. The archive move sits unstaged or staged in the working tree. Stage and commit the planned final commit; FF main; push.
 
