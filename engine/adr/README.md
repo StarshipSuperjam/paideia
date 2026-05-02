@@ -25,7 +25,7 @@ The `Status:` field is required; `engine/tools/validate.py` soft-warns on ADR fi
 
 ## Index
 
-The engine collection has **8 ADRs total — all Accepted**. Engine ADRs are about how the build apparatus works (graph validation infrastructure, periodic project audits, expression contracts for engine-internal documents and engine-side code, the engine/product partition itself, the universal expression contract spanning all AI authoring patterns, the build-readiness gate before substantive build sessions, cascade-analysis discipline). The full ADR collection across the project is **41** (8 engine + 33 product).
+The engine collection has **9 ADRs total — all Accepted**. Engine ADRs are about how the build apparatus works (graph validation infrastructure, periodic project audits, expression contracts for engine-internal documents and engine-side code, the engine/product partition itself, the universal expression contract spanning all AI authoring patterns, the build-readiness gate before substantive build sessions, cascade-analysis discipline, soft-warn lifecycle). The full ADR collection across the project is **42** (9 engine + 33 product).
 
 | ADR | Title | Status |
 |---|---|---|
@@ -37,6 +37,7 @@ The engine collection has **8 ADRs total — all Accepted**. Engine ADRs are abo
 | [0039](0039-universal-expression-contract-across-ai-authoring-patterns.md) | Universal expression contract across AI authoring patterns | Accepted |
 | [0040](0040-build-readiness-gate-before-substantive-build-sessions.md) | Build-readiness gate before substantive build sessions | Accepted |
 | [0041](0041-cascade-analysis-discipline.md) | Cascade-analysis discipline: mechanical checks plus manual procedures | Accepted |
+| [0042](0042-soft-warn-lifecycle-archive-canon.md) | Soft-warn lifecycle: persistent warns surface at boot; archive is canon | Accepted |
 
 ## Adding a new engine ADR
 

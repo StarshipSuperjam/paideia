@@ -85,15 +85,33 @@ For SQL migrations: log the session-level filenames as authored (e.g., `0001_use
 
 At the next release tag (e.g., `0.1.0` at Phase 0 close), the `[Unreleased]` block gets promoted to a dated section.
 
-### 6. Fill `session/current.json` `outcome_summary`
+### 6. Fill `session/current.json` `outcome_summary` and `outcome_summary_soft_warns`
 
-~50 words. What got done, soft-warn category counts, anything noteworthy for health-check telemetry. Example shape:
+`outcome_summary` is ~50 words of prose. What got done, anything noteworthy for the next session, what tradeoffs surfaced. Example shape:
 
 ```
 "outcome_summary": "Procedural layer landed: CLAUDE.md + 11 operations docs + MISSION.md + CROSS_REFERENCES.md. Hooks wired for MemPalace capture. CONTEXT.md retired. validate.py: 0 hard-fails, 2 soft-warns (expected_future_file_missing for adr/, will resolve in S-0003). Next: S-0003 ADR collection."
 ```
 
-Honest summaries beat flattering ones — health-check trend analysis depends on them.
+Honest summaries beat flattering ones — health-check trend analysis and the next session's boot procedure both depend on them.
+
+`outcome_summary_soft_warns` is the structured trend canon per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md). Computed from `validate.py`'s final-run output of this session — the per-category soft-warn counts. Shape:
+
+```json
+"outcome_summary_soft_warns": {
+  "expected_future_file_missing": 0,
+  "adr_missing_status": 0,
+  "adr_index_inconsistent": 0,
+  "cross_reference_broken": 0,
+  "engine_log_format": 0,
+  "state_format": 0,
+  "superseded_adr_currency": 0,
+  "adr_back_reference_orphan": 2,
+  "adr_consequences_deliverable_audit": 0
+}
+```
+
+All known soft-warn categories appear in the block, even with zero counts; absent keys signal "this category did not exist at this session's close" rather than "this category fired zero times." The boot-time persistent-warn surface (per [`soft-warn-lifecycle.md`](soft-warn-lifecycle.md)) reads this field across the last 5 archives and surfaces categories appearing in 3-or-more.
 
 ### 7. Archive the claim
 

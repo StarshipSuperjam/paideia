@@ -59,6 +59,30 @@ An ADR file in `adr/` either is not referenced from `adr/README.md`'s per-phase 
 
 Recoverable — either add the missing index row (most common case: a new ADR was authored without the index update), or align the `Status:` field to match the index. The check normalizes around the four core status keywords; markdown-link decoration inside the status column is tolerated. False positives should refine the check rather than be papered over.
 
+### `superseded_adr_currency`
+
+A doc cites an ADR whose `Status:` is now `Superseded by ADR NNNN`, and the citation does not mark itself as historical. Active from S-0029 onward per [ADR 0041](../adr/0041-cascade-analysis-discipline.md). Recoverable — re-point the citation to the new ADR, or add a `(superseded by ADR NNNN)` qualifier if the reference is intentionally historical, or rewrite the surrounding paragraph if the supersession changes substance. The check excludes `*/adr/*.md` and `engine/ENGINE_LOG.md`.
+
+False positives: a superseded-ADR mention that legitimately reads as historical context but the surrounding 50 chars do not include "superseded" or the new ADR id. Suppress by adding the qualifier or by widening the surrounding context to include the marker.
+
+### `adr_back_reference_orphan`
+
+An ADR with `Status: Accepted` has zero citations from `.md` files outside `*/adr/*`. Active from S-0029 onward per [ADR 0041](../adr/0041-cascade-analysis-discipline.md). The warn names a question, not a defect: is this ADR load-bearing for future work, or is it dead weight?
+
+Suppress with the `Orphan-OK` annotation per [`cascade-discipline.md`](cascade-discipline.md):
+
+```markdown
+- **Orphan-OK:** <reason>; revisit at <session-id-or-phase>
+```
+
+The annotation is a deferral, not a permanent exemption. The periodic health check audits the orphan-OK list.
+
+### `adr_consequences_deliverable_audit`
+
+An ADR's Consequences section anticipated a deliverable "around S-NNNN," that session is closed (per `engine/session/archive/`), and a deliverable file path also named in the ADR text is absent on disk. Active from S-0029 onward per [ADR 0041](../adr/0041-cascade-analysis-discipline.md). Heuristic regex: catches the literal "tools/foo.py around S-0025" shape; does not catch promises in different prose forms.
+
+Recoverable — either land the deliverable (with closing-commit handshake per [`cascade-discipline.md`](cascade-discipline.md): cite the ADR id in the commit message), or amend the ADR's Consequences section to remove the now-obsolete promise, or document the deferral with a new expected session.
+
 ### Phase-4-specific (stubbed today)
 
 When Phase 4 fleshes out the graph audit, additional categories appear:
@@ -75,13 +99,21 @@ Each Phase-4 category has a recoverable fix per ADR 0016 and the seed-chunked-au
 
 ## Response posture
 
-- **A soft-warn that recurs across multiple sessions** — indicates either a fix that keeps regressing (escalate to a structural change, not repeated patching) or a category that doesn't actually want to be zero (re-evaluate).
+- **A soft-warn that recurs across multiple sessions** — formalized into a discipline per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md). The boot-time persistent-warn surface flags categories firing in 3-or-more of the last 5 archives; categories firing in 10 consecutive archives reach the escalation criterion (promote to hard-fail, accept and annotate, or address inline) per [`soft-warn-lifecycle.md`](soft-warn-lifecycle.md).
 - **A new hard-fail in CI on a commit that passed locally** — clock skew on `validate-history.jsonl` writes is fine to ignore; everything else is a real divergence to investigate.
 - **Validator runtime > 3s** — Phase 4 graph audit budget is 3s on a 100-node test seed. If the structural-only checks (Phase 0+) start exceeding ~500ms, they've grown beyond their scope.
 
+## Persistent-warn annotation
+
+When the escalation criterion ([`soft-warn-lifecycle.md`](soft-warn-lifecycle.md), 10 consecutive archives) lands on "accept and annotate," the category gets an entry below explaining why the persistence is expected and what condition would resolve it. The boot surface respects the annotation by suppressing the surface for sessions that match the named condition.
+
+*(No annotated categories yet — first annotations expected when the structured-data window matures.)*
+
 ## Telemetry
 
-Every run appends a JSONL record to `tools/validate-history.jsonl` (gitignored — per-clone state). The health-check audit consumes this for trend analysis. See [`health-check.md`](health-check.md).
+Trend canon: committed `engine/session/archive/S-NNNN.json` field `outcome_summary_soft_warns` per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md). Read by `engine/tools/health_check.py` and the `/start-engine` boot procedure.
+
+Per-invocation forensics: `engine/tools/validate-history.jsonl` (gitignored, per-clone). Useful for "when did this warn first appear" / "which commit introduced it" / "validator runtime drift."
 
 ## See also
 
