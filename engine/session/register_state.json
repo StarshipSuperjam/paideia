@@ -3,5 +3,5 @@
   "format": "S-NNNN where N is a zero-padded 4-digit counter. Sessions claim a slot eagerly at start (write current.json + bump next_id + commit + push) so concurrent sessions cannot collide.",
   "next_id": "0032",
   "last_claimed": "S-0031",
-  "current_status": "in_progress"
+  "current_status": "closed"
 }
