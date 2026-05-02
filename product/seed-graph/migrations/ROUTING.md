@@ -42,12 +42,30 @@ Rationale settled in S-0027 build-readiness exercise per T2-D in [`engine/build_
 
 Each migration file gets one entry below documenting what that session added and why (~200-400 words). This is the long-form audit trail. Future sessions read these to understand the seed graph's history without grep-ing the .sql files.
 
-(Empty until Phase 5. Each Phase 5 subdomain session appends one section here at session close.)
-
 ---
 
-### `0001_schema_nodes_edges.sql` — *(Phase 3)*
+### S-0028 — Phase 3 schema lands (`0001` through `0008`)
 
-(Placeholder: fleshed out in Phase 3 when the schema lands.)
+S-0028 deployed the Phase 3 schema to `paideia-dev` (PostgreSQL 17.6) via eight migrations under [`engine/build_readiness/phase_3_sql.md`](../../../engine/build_readiness/phase_3_sql.md)'s contract. The build session inherited a fully-resolved Tier 1 decision set from S-0027's gate exercise; substantive design questions were answered in advance (auth model, RLS posture, JSONB vocabularies, expression contract, gate protocol). S-0028's role was implementation under the universal expression contract per [ADR 0039](../../../engine/adr/0039-universal-expression-contract-across-ai-authoring-patterns.md).
+
+**`0001_users_mirror.sql`** — `public.users` mirror table (UUID id, email, created_at) plus `handle_new_auth_user` and `handle_deleted_auth_user` trigger functions on `auth.users`. Both INSERT and DELETE triggers required for ADR 0031's cascade discipline; the gate report T1-A originally specified INSERT only, an under-specification S-0028 corrected. RLS enabled with self-select-only policy.
+
+**`0002_nodes.sql`** — `public.nodes` per architecture.md "Node Schema". `id TEXT PRIMARY KEY` (slugified human-readable concept names). CHECK constraints on `confidence_level` (per ADR 0030) and `status` (3-value enum per gate T2-A). RLS with read-allowed-to-authenticated.
+
+**`0003_edges.sql`** — `public.edges` with `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`, `source_id`/`target_id TEXT REFERENCES public.nodes(id)`, `edge_type TEXT` (intentionally unconstrained per architecture.md:182), `UNIQUE (source_id, target_id, edge_type)`. Weight and confidence CHECKed [0,1].
+
+**`0004_settings.sql`** — singleton key/value store; seeded with `('graph_version', 1::JSONB)` per gate T2-D. Service-role-only RLS.
+
+**`0005_learner_events.sql`** — event-sourced log per ADR 0015. FK `user_id UUID REFERENCES public.users(id) ON DELETE CASCADE` per ADR 0031. Sub-signals stored raw (`generative_ratio`, `scaffolding_distance`, `novelty`) per ADR 0024. Structured context columns (`path_id`, `source_text_id`, `session_id`) per ADR 0026 + ADR 0031 (no `cohort_id`). Table-level CHECK `sub_signals_range_or_null` per gate T2-B.
+
+**`0006_mastery_snapshots.sql`** — cached mastery state per ADR 0023/0024/0025. Composite PK `(user_id, concept_id)`, `max_historical_score DEFAULT 0`. Two indexes per gate T2-C. RLS with `user_id = auth.uid()` policy.
+
+**`0007_tension_log.sql`** — per self-correction.md + ADR 0026. IMMUTABLE function `tension_log_exchange_summary_valid_v1` enforces v1 vocabularies from [TENSION_VOCABULARY.md](TENSION_VOCABULARY.md). `user_id` added per ADR 0031 Consequences (self-correction.md schema omits the column; cascade discipline mandates it).
+
+**`0008_security_hardening.sql`** — addresses three Supabase advisor findings against S-0028's authored functions: pin search_path on `tension_log_exchange_summary_valid_v1`; `REVOKE EXECUTE` on the two trigger functions from PUBLIC, anon, authenticated. Triggers continue firing through the trigger system; only the PostgREST RPC surface is closed.
+
+**Gate-report corrections recorded inline in `phase_3_sql.md`.** The build session corrected three gate-report drifts from canonical design docs: nodes.id type (T2-C/T2-E declared `concept_id UUID` / `source_id UUID`; architecture.md is `nodes.id TEXT`), `type` vs `edge_type` (architecture.md uses `edge_type`), and edge `provenance`/`evidence` JSONB-vs-TEXT (architecture.md is TEXT for both). Corrections preserve the gate's halting discipline by keeping the report aligned with implemented schema.
+
+**Verification.** `validate.py --sql-gates` clean per migration (4 gates, 0 hard-fails on each); pre-commit gate stack clean across all build commits; live-schema verification via Supabase MCP `list_tables` + `execute_sql` confirms 7 tables, 7 RLS policies, 3 cascade-on-user FKs, and CHECK constraint shapes match design. Post-apply security advisor returned only the Supabase-internal `rls_auto_enable` finding (out of project scope). Branch-based rollback verification per gate T2-H was downgraded to "migrations applied cleanly the first time" because Supabase development branches are cost-bearing and S-0028's auto-mode posture defers cost-bearing operations to explicit user confirmation. Forward-pointer recorded in `outcome_summary` for the next gate exercise (likely Phase 4 / S-0029 — local Supabase CLI setup or branch-based verification).
 
 ---

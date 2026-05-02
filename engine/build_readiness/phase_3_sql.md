@@ -10,7 +10,9 @@ The five Tier 1 findings from the adversarial analysis preceding S-0027 (preserv
 
 ### T1-A — Auth model: local `users` table mirror
 
-**Decision.** Phase 3 creates a local `public.users` table that mirrors `auth.users` (Supabase-managed). A trigger on `auth.users` insertion populates the mirror. App-schema foreign keys target `public.users(id)` with `ON DELETE CASCADE`. Account deletion deletes the `auth.users` row, which cascades through the trigger to the `public.users` row, which (via declarative `ON DELETE CASCADE`) cascades through every learner-state row in one transaction.
+**Decision.** Phase 3 creates a local `public.users` table that mirrors `auth.users` (Supabase-managed). Triggers on `auth.users` INSERT and DELETE keep the mirror synchronized. App-schema foreign keys target `public.users(id)` with `ON DELETE CASCADE`. Account deletion deletes the `auth.users` row, which propagates via the DELETE trigger to the `public.users` row, which (via declarative `ON DELETE CASCADE`) cascades through every learner-state row in one transaction.
+
+**S-0028 correction.** Originally specified an INSERT trigger only. Without a paired DELETE trigger, account deletion via Supabase Auth removes the `auth.users` row but never deletes the `public.users` mirror, and the `ON DELETE CASCADE` on learner-state FKs never fires — silently violating ADR 0031. S-0028's `0001_users_mirror.sql` includes both `on_auth_user_created` and `on_auth_user_deleted` triggers. Recorded in ENGINE_LOG `### Changed`.
 
 **Rationale.** The decision keeps cascade discipline declarative wherever possible (one trigger plus standard ON DELETE CASCADE clauses, vs. a stored-procedure-only cleanup endpoint). It also avoids app-schema FKs targeting the Supabase-managed `auth.users` table directly, which Postgres permits but Supabase tooling makes awkward.
 
@@ -107,7 +109,7 @@ CONSTRAINT sub_signals_range_or_null CHECK (
 ```sql
 CREATE TABLE public.mastery_snapshots (
   user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  concept_id UUID NOT NULL REFERENCES public.nodes(id),
+  concept_id TEXT NOT NULL REFERENCES public.nodes(id),
   mastery_score NUMERIC NOT NULL,
   max_historical_score NUMERIC NOT NULL DEFAULT 0,
   engagement_depth NUMERIC NULL,
@@ -124,6 +126,8 @@ CREATE POLICY mastery_snapshots_user_isolation ON public.mastery_snapshots
 ```
 
 The cache is mutable (one row per user-concept pair). `computed_at` records last refresh; staleness checks at Phase 6/7 use the column. `max_historical_score` defaults to 0; recomputation discipline lives at Phase 6 per ADR 0025.
+
+**S-0028 correction.** Originally declared `concept_id UUID`. `nodes.id` is `TEXT` per [`product/docs/architecture.md:103`](../../product/docs/architecture.md) (slugified human-readable concept name with explicit cross-domain readability rationale at architecture.md:124) and [`product/docs/self-correction.md:34`](../../product/docs/self-correction.md). The fragment is updated to `concept_id TEXT REFERENCES public.nodes(id)`. The drift was gate-session typo, not a settled design change. Recorded in ENGINE_LOG `### Changed`.
 
 ### T2-D — `settings.graph_version` initialization and increment contract
 
@@ -149,25 +153,27 @@ The increment contract for Phase 5 seed sessions lives in [`product/seed-graph/m
 ```sql
 CREATE TABLE public.edges (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  source_id UUID NOT NULL REFERENCES public.nodes(id),
-  target_id UUID NOT NULL REFERENCES public.nodes(id),
-  type TEXT NOT NULL,
-  weight NUMERIC NOT NULL DEFAULT 1.0
+  source_id TEXT NOT NULL REFERENCES public.nodes(id),
+  target_id TEXT NOT NULL REFERENCES public.nodes(id),
+  edge_type TEXT NOT NULL DEFAULT 'pedagogical_prerequisite',
+  weight REAL NOT NULL DEFAULT 1.0
     CHECK (weight BETWEEN 0 AND 1),
-  confidence NUMERIC NOT NULL DEFAULT 0.5
+  confidence REAL NOT NULL DEFAULT 1.0
     CHECK (confidence BETWEEN 0 AND 1),
-  provenance JSONB,
-  evidence JSONB,
-  graph_version_added INTEGER NOT NULL,
-  UNIQUE (source_id, target_id, type)
+  provenance TEXT NOT NULL DEFAULT 'human',
+  evidence TEXT,
+  graph_version_added INTEGER NOT NULL DEFAULT 1,
+  UNIQUE (source_id, target_id, edge_type)
 );
 ```
 
-The `UNIQUE (source_id, target_id, type)` permits multiple edges of different types between the same node pair (a prerequisite edge AND a cross-domain edge between A and B can coexist). Upsert semantics (insert vs ON CONFLICT DO UPDATE) are per-session decisions for Phase 5+; the schema permits both.
+The `UNIQUE (source_id, target_id, edge_type)` permits multiple edges of different types between the same node pair (a prerequisite edge AND a cross-domain edge between A and B can coexist). Upsert semantics (insert vs ON CONFLICT DO UPDATE) are per-session decisions for Phase 5+; the schema permits both.
 
-The `type` column is intentionally unconstrained at the schema layer per architecture.md:182. Predicate validation lives at PREDICATE_MANIFEST.md/Phase 4 audit.
+The `edge_type` column is intentionally unconstrained at the schema layer per architecture.md:182. Predicate validation lives at PREDICATE_MANIFEST.md/Phase 4 audit.
 
 Edges do NOT directly reference users; they have no learner-state and no cascade requirement. RLS on `edges` mirrors `nodes` (read-allowed for authenticated users; service-role for writes).
+
+**S-0028 corrections.** The pre-S-0028 fragment named (a) `source_id`/`target_id` as `UUID`, (b) the column as `type`, (c) `provenance` and `evidence` as `JSONB`. All three diverge from [`product/docs/architecture.md`](../../product/docs/architecture.md) "Edge Schema" which authors `source_id`/`target_id` as `TEXT REFERENCES nodes(id)` (matching `nodes.id TEXT`), the column as `edge_type`, and `provenance` as `TEXT NOT NULL DEFAULT 'human'` plus `evidence` as `TEXT` (free-text with "may be structured (JSON) later" optionality). The architecture-doc shape is the design source per STATE.md ("translating product/docs/architecture.md ... into live tables"); the gate fragment was updated to match. Recorded in ENGINE_LOG `### Changed`.
 
 ### T2-F — `learner_events.session_id` is opaque
 
