@@ -100,6 +100,8 @@ Procedural depth lives in `engine/operations/` — one file per topic. Browse wi
 - `migration-discipline.md` — Layer 1 source-of-truth for SQL migrations (per ADR 0039): per-migration contract block shape, naming convention, transaction wrap, CASCADE discipline, RLS posture, CHECK constraint shape, rollback authorship, cold-review prompt template.
 - `expression-contract-instantiation.md` — pattern instantiation table (per ADR 0039): per-pattern Layer 1 / Layer 2 / Layer 3 mapping. New AI authoring patterns add a row before authoring begins ("no row, no authoring").
 - `build-readiness-gate.md` — halting discipline before substantive build sessions (per ADR 0040): adversarial reconnaissance, Tier 1 / Tier 2 / Tier 3 triage, build-readiness report at `engine/build_readiness/<phase>_<chunk>.md`. Build sessions read the report at boot; halt on unresolved Tier 1.
+- `cascade-discipline.md` — three soft-warn validator checks plus manual procedures for cascade audits (per ADR 0041): superseded-ADR-citation currency, ADR back-reference orphan detection, ADR Consequences-deliverable audit. Manual procedures attached to file rename, ADR supersession, ops-doc restructure, deliverable handshake.
+- `soft-warn-lifecycle.md` — how soft-warns surface across sessions (per ADR 0042): trend canon in committed `engine/session/archive/*.json`, persistent-warn surface at boot, escalation criterion at ≥10 sessions persistence.
 - `health-check.md` — audit categories, report template, cadence policy.
 
 Project context (the *what* and *why*, not the *how*):

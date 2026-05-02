@@ -25,7 +25,7 @@ The `Status:` field is required; `engine/tools/validate.py` soft-warns on ADR fi
 
 ## Index
 
-The product collection has **33 ADRs total — 31 Accepted plus 2 Superseded** ([ADR 0002](0002-commercial-sustainability-without-pedagogical-compromise.md) by [ADR 0032](0032-personal-project-disposition.md); [ADR 0032](0032-personal-project-disposition.md) by [ADR 0035](0035-multi-platform-apple-expansion.md)). The full project ADR collection is **37** (33 product + 4 engine in `engine/adr/`); ADR numbers are drawn from a single shared sequence and do not duplicate across the partition. ADRs are grouped below by the structural role they play in the project.
+The product collection has **33 ADRs total — 31 Accepted plus 2 Superseded** ([ADR 0002](0002-commercial-sustainability-without-pedagogical-compromise.md) by [ADR 0032](0032-personal-project-disposition.md); [ADR 0032](0032-personal-project-disposition.md) by [ADR 0035](0035-multi-platform-apple-expansion.md)). The canonical project-wide ADR count lives in [`engine/STATE.md`](../../engine/STATE.md); the engine subtree carries the engine-side ADRs in [`engine/adr/`](../../engine/adr/). ADR numbers are drawn from a single shared sequence and do not duplicate across the partition. ADRs are grouped below by the structural role they play in the project.
 
 ### Strong working commitments (ADRs 0001–0012)
 
