@@ -74,11 +74,48 @@ Path: `engine/build_readiness/<phase>_<chunk>.md` where `<phase>` matches the bu
 
 The report's structure is the template below.
 
-### 7. Update STATE.md to point at the report
+### 7. Source-document citation pass (per ADR 0040 gate-on-the-gate amendment)
+
+Before the report is declared complete, every Tier 1 and Tier 2 decision in the report must explicitly cite the source-document line(s) that ground the decision. The citation form is `<doc-path>:L<line>` or `<doc-path>:L<start>-<end>` for ranges, or `<ADR-id>:L<line>` for ADR citations.
+
+If a decision is grounded in multiple source documents (e.g., architecture.md establishes the shape, ADR 0026 establishes the rationale), cite both. If a decision is grounded in conversational consensus from this gate session rather than a source document, write `decided in S-<NNNN> conversation` — but flag it in Tier 1's resolution prose so the cold-review pass below knows it has no document to verify against.
+
+The citation discipline serves the cold-review pass that follows; without citations the cold-review has no grounding to verify against and falls back to authorial trust (which is what the gate exists to avoid).
+
+### 8. Cold-review pass against citations (per ADR 0040 gate-on-the-gate amendment)
+
+Launch a sub-agent (Explore type) with no session context. Brief: "Read this build-readiness report. For each Tier 1 and Tier 2 decision, fetch each cited source-document passage. Verify that the cited passage supports the decision claimed. Report per decision: matches | partial | discrepancy | citation-not-found | citation-misquoted, with the relevant excerpt for any non-match. Also flag any decision lacking a citation that names a fact-of-the-world rather than a conversational consensus."
+
+The sub-agent has no memory of the gate session's authoring premises and so cannot share its blind spots. The mechanism targets the failure mode S-0028 surfaced: the gate session improvised a column shape (UUID for `mastery_snapshots.concept_id`) that contradicted [`product/docs/architecture.md`](../../product/docs/architecture.md)'s portable-mastery design (which requires TEXT). The citation-and-cold-review combination would have caught this at gate close: the Tier 2 decision had no architecture.md citation, the cold reviewer would have flagged "T2-C: no source citation for column type — what's the design source?", the gate session would have had to look up architecture.md, and the divergence would have surfaced before S-0028.
+
+Findings block gate close until resolved. Resolution paths:
+
+- **Match.** No action; the citation supports the decision.
+- **Partial.** The citation supports part of the decision; either tighten the decision to what the citation supports, or add additional citations covering the rest.
+- **Discrepancy.** The citation contradicts the decision. Either the decision is wrong (amend it to match the source) or the source is wrong (amend the source — typically with the user, since source-document changes are themselves substantive). Either way, the gate session does not close until alignment is restored.
+- **Citation-not-found.** The cited line does not exist; the gate session likely cited a stale line number after editing the source. Update the citation.
+- **Citation-misquoted.** The cited passage exists but the gate session's paraphrase of it is misleading. Rewrite the gate report's prose to match the source.
+
+Findings are appended to the gate session's `outcome_summary` even after resolution — they are calibration data for refining the gate's adversarial-analysis stage (Step 2's Explore agents).
+
+#### S-0028 case study — what cold-review would have caught
+
+S-0028's Phase 3 SQL build session against [`../build_readiness/phase_3_sql.md`](../build_readiness/phase_3_sql.md) found four divergences mid-build:
+
+| Gate report claim | Source-document reality | What cold-review would have surfaced |
+|---|---|---|
+| T1-A: DELETE trigger missing or under-specified for `auth.users` mirror | [`product/adr/0031-erasure-mechanism-and-individual-only-regime.md`](../../product/adr/0031-erasure-mechanism-and-individual-only-regime.md) Consequences mandates DELETE-trigger cascade alongside INSERT trigger | "T1-A cites no ADR/source for the trigger shape — only the auth model. What grounds the trigger specification?" |
+| T2-C: `mastery_snapshots.concept_id UUID` | [`product/docs/architecture.md`](../../product/docs/architecture.md) Node Schema names id as TEXT (slugified concept identifier); portable-mastery commitment requires concept_id to match nodes.id | "T2-C cites no architecture.md line for concept_id type — what's the design source for UUID?" |
+| T2-E: `edges.source_id`/`target_id UUID`, `type TEXT`, `provenance JSONB`, `evidence JSONB` | architecture.md Edge Schema names source_id/target_id as TEXT FK to nodes.id, `edge_type`, and TEXT for provenance/evidence | Same shape: "T2-E cites no architecture.md line for column types — what's the design source?" |
+| Gate report's T1/T2 decisions in general | architecture.md is the authoritative design document for graph schema; gate report did not cross-reference it | "Multiple T2 decisions cite no source document for column types. Is architecture.md the authoritative design source? If yes, every T2 decision needs an architecture.md citation." |
+
+The citation discipline (Step 7) plus the cold-review pass (Step 8) together convert "the build session catches gate errors mid-build" into "the gate session catches its own errors at close." The build session implements without re-deciding, which is the design intent of [ADR 0040](../adr/0040-build-readiness-gate-before-substantive-build-sessions.md).
+
+### 9. Update STATE.md to point at the report
 
 The "Next session work item" block in STATE.md gains a line: `Gated by [`engine/build_readiness/<phase>_<chunk>.md`](build_readiness/<phase>_<chunk>.md).` The build session reads the line at boot and follows it.
 
-The gate session's `outcome_summary` records: report path, Tier 1 / Tier 2 / Tier 3 counts, any open follow-ups (gate sessions can also produce work that didn't fit the gate's scope and surfaces as "next gate session" or "next health check" pointers).
+The gate session's `outcome_summary` records: report path, Tier 1 / Tier 2 / Tier 3 counts, citation-and-cold-review findings (matches and resolutions), any open follow-ups (gate sessions can also produce work that didn't fit the gate's scope and surfaces as "next gate session" or "next health check" pointers).
 
 ## Build-readiness report template
 
