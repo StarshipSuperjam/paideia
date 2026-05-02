@@ -1,6 +1,8 @@
 # Session build lifecycle
 
 > How a build session boots, runs, and commits. The shutdown sequence (close work) lives in [`session-shutdown-sequence.md`](session-shutdown-sequence.md).
+>
+> **Canonical invocation:** Skill `session-build-lifecycle` (per [ADR 0044](../adr/0044-skill-conversion-recipe-vs-reference.md)). The skill's body is the procedural form of this document; this document is the Layer 1 source-of-truth prose. Updates flow doc → skill, never the reverse.
 
 ## When this applies
 

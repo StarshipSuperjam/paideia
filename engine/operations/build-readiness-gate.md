@@ -3,6 +3,8 @@
 > The operational surface for [ADR 0040](../adr/0040-build-readiness-gate-before-substantive-build-sessions.md). The gate runs before every substantive build session. Its deliverable is a build-readiness report at `engine/build_readiness/<phase>_<chunk>.md` that the build session reads at boot.
 >
 > Sibling to [`session-build-lifecycle.md`](session-build-lifecycle.md) (the build session itself) and [`session-shutdown-sequence.md`](session-shutdown-sequence.md) (close-of-session protocol). The gate sits temporally before the lifecycle.
+>
+> **Canonical invocation:** Skill `build-readiness-gate` (per [ADR 0044](../adr/0044-skill-conversion-recipe-vs-reference.md)). The skill's body is the procedural form of this document; this document is the Layer 1 source-of-truth prose. Updates flow doc → skill, never the reverse.
 
 ## When the gate runs
 

@@ -1,6 +1,8 @@
 # Session shutdown sequence
 
 > How a build session closes cleanly. Boot procedure lives in [`session-build-lifecycle.md`](session-build-lifecycle.md).
+>
+> **Canonical invocation:** Skill `session-shutdown-sequence` (per [ADR 0044](../adr/0044-skill-conversion-recipe-vs-reference.md)). The skill's body is the procedural form of this document; this document is the Layer 1 source-of-truth prose. Updates flow doc → skill, never the reverse.
 
 ## When this runs
 

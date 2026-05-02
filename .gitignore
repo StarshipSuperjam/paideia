@@ -5,12 +5,15 @@
 
 # Claude Code per-project config
 # Top-level .claude/ contents are local-only EXCEPT .claude/commands/ (slash
-# commands, e.g., /start-engine) and .claude/settings.json (project-scoped
-# hooks for MemPalace capture, per docs/operations/mempalace-operations.md).
+# commands, e.g., /start-engine), .claude/skills/ (user-defined Skills
+# per ADR 0044), and .claude/settings.json (project-scoped hooks per
+# ADR 0043 + mempalace-operations.md).
 # settings.local.json remains gitignored — it carries per-developer permissions.
 .claude/*
 !.claude/commands/
 !.claude/commands/*
+!.claude/skills/
+!.claude/skills/**
 !.claude/settings.json
 
 # MCP server config — contains secret access tokens, kept local-only
