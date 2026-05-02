@@ -473,6 +473,279 @@ def validate_repo_structure() -> ValidationResult:
                 f"{name} not yet authored (will land in S-0002 or later)",
             )
 
+    # Cascade-analysis discipline checks per ADR 0041 (S-0029 onward).
+    r.merge(validate_superseded_adr_currency())
+    r.merge(validate_adr_back_reference_orphan())
+    r.merge(validate_adr_consequences_deliverable_audit())
+
+    return r
+
+
+# ---------------------------------------------------------------------------
+# Cascade-analysis checks (post-S-0029 per ADR 0041)
+# ---------------------------------------------------------------------------
+
+
+def _tracked_md_files(exclude_dirs: list[str]) -> list[Path]:
+    """Return tracked Markdown files in the repo, excluding named directories.
+
+    Walks REPO_ROOT for *.md files, skipping any path whose parts include any
+    name in ``exclude_dirs``. Excludes .git, .claude/worktrees, node_modules,
+    and any directories the caller specifies.
+
+    Used by the cascade-analysis checks to scope their grep without importing
+    git tooling. Approximation of `git ls-files '*.md'` excluding the common
+    untracked-but-present cases (worktree mirrors, hook caches).
+
+    Non-responsibilities:
+        - Does not call git. Consumers that need exact tracked-file membership
+          should invoke git ls-files directly.
+    """
+    skip = {".git", "node_modules", "__pycache__"} | set(exclude_dirs)
+    out: list[Path] = []
+    for path in REPO_ROOT.rglob("*.md"):
+        # Skip if any part of the path matches a skip name OR if path is
+        # under .claude/worktrees/ (worktree mirrors duplicate tracked files).
+        parts = path.relative_to(REPO_ROOT).parts
+        if any(p in skip for p in parts):
+            continue
+        if len(parts) >= 2 and parts[0] == ".claude" and parts[1] == "worktrees":
+            continue
+        out.append(path)
+    return out
+
+
+def validate_superseded_adr_currency() -> ValidationResult:
+    """Soft-warn on docs that cite a Superseded ADR without historical marker.
+
+    For each ADR with Status `Superseded by ADR NNNN`, finds the new ADR's
+    id and greps tracked .md files (excluding ADR files themselves and
+    ENGINE_LOG.md / product/CHANGELOG.md). Soft-warns on any citation of
+    the superseded ADR's id whose surrounding 50 chars do not include
+    "superseded" (case-insensitive) or the new ADR's id.
+
+    Per ADR 0041 / cascade-discipline.md.
+
+    Returns:
+        ValidationResult with check ``cascade_superseded_adr_currency``
+        recorded and soft-warns under category
+        ``superseded_adr_currency``.
+
+    Non-responsibilities:
+        - Does not parse markdown link syntax beyond looking for the ADR
+          id substring. False positives possible if an ADR id appears
+          incidentally in unrelated prose.
+        - Does not modify any file.
+    """
+    r = ValidationResult()
+    r.add_check("cascade_superseded_adr_currency")
+
+    superseded_pattern = re.compile(
+        r"^[\s*\-]*Status[\s*]*:[\s*]*Superseded by ADR\s+(\d{4})",
+        re.MULTILINE | re.IGNORECASE,
+    )
+
+    superseded_map: dict[str, str] = {}  # old_id -> new_id
+    for adr_dir in (ENGINE_ADR_DIR, PRODUCT_ADR_DIR):
+        if not adr_dir.is_dir():
+            continue
+        for adr_file in sorted(adr_dir.glob("[0-9][0-9][0-9][0-9]-*.md")):
+            text = adr_file.read_text()
+            m = superseded_pattern.search(text)
+            if m:
+                old_id = adr_file.name[:4]
+                superseded_map[old_id] = m.group(1)
+
+    if not superseded_map:
+        return r
+
+    md_files = _tracked_md_files(exclude_dirs=[])
+    for md_path in md_files:
+        rel = md_path.relative_to(REPO_ROOT)
+        # Skip ADR files (their narration of supersession is appropriate).
+        parts = rel.parts
+        if "adr" in parts:
+            continue
+        # Skip the changelog files (their job is historical narration).
+        if rel.name in {"ENGINE_LOG.md", "CHANGELOG.md"}:
+            continue
+        try:
+            text = md_path.read_text()
+        except OSError:
+            continue
+        for old_id, new_id in superseded_map.items():
+            for match in re.finditer(rf"ADR\s+{old_id}\b", text):
+                start = max(0, match.start() - 50)
+                end = min(len(text), match.end() + 50)
+                window = text[start:end].lower()
+                if "superseded" in window or new_id in window:
+                    continue
+                r.soft_warn(
+                    "superseded_adr_currency",
+                    f"{rel}: cites ADR {old_id} (superseded by ADR {new_id}) "
+                    f"without historical marker",
+                )
+    return r
+
+
+def _has_orphan_ok_annotation(adr_text: str) -> bool:
+    """Return True if an ADR carries the Orphan-OK suppression header.
+
+    The annotation form is `- **Orphan-OK:** <reason>; revisit at <id>` per
+    cascade-discipline.md. The pattern matches the bold-around-label form
+    permissively to tolerate authoring variation.
+    """
+    return bool(
+        re.search(
+            r"^[\s*\-]*Orphan-OK[\s*]*:[\s*]*\S",
+            adr_text,
+            re.MULTILINE | re.IGNORECASE,
+        )
+    )
+
+
+def validate_adr_back_reference_orphan() -> ValidationResult:
+    """Soft-warn on Accepted ADRs with no inbound citation outside their subtree.
+
+    For each ADR with Status `Accepted`, greps tracked .md files outside
+    `*/adr/*` for the ADR's id. Soft-warns when zero matches found, unless
+    the ADR carries an `Orphan-OK` annotation.
+
+    Per ADR 0041 / cascade-discipline.md.
+
+    Returns:
+        ValidationResult with check ``cascade_adr_back_reference_orphan``
+        recorded and soft-warns under category ``adr_back_reference_orphan``.
+
+    Non-responsibilities:
+        - Does not distinguish ENGINE_LOG.md mentions from substantive
+          citations. ENGINE_LOG entries naming an ADR count as inbound
+          (an ADR that landed and got logged is not orphaned in the
+          sense this check targets).
+    """
+    r = ValidationResult()
+    r.add_check("cascade_adr_back_reference_orphan")
+
+    accepted_status = re.compile(
+        r"^[\s*\-]*Status[\s*]*:[\s*]*Accepted\b",
+        re.MULTILINE | re.IGNORECASE,
+    )
+
+    md_files = _tracked_md_files(exclude_dirs=[])
+    non_adr_md = [p for p in md_files if "adr" not in p.relative_to(REPO_ROOT).parts]
+
+    for adr_dir in (ENGINE_ADR_DIR, PRODUCT_ADR_DIR):
+        if not adr_dir.is_dir():
+            continue
+        for adr_file in sorted(adr_dir.glob("[0-9][0-9][0-9][0-9]-*.md")):
+            text = adr_file.read_text()
+            if not accepted_status.search(text):
+                continue
+            if _has_orphan_ok_annotation(text):
+                continue
+            adr_id = adr_file.name[:4]
+            cited = False
+            for md_path in non_adr_md:
+                try:
+                    md_text = md_path.read_text()
+                except OSError:
+                    continue
+                if re.search(rf"\b(?:ADR\s+)?{adr_id}\b", md_text):
+                    # Disambiguate: bare four-digit numbers occur in many
+                    # contexts. Require either "ADR <id>" or the id appearing
+                    # adjacent to a markdown link to the ADR file.
+                    if re.search(rf"ADR\s+{adr_id}\b|\b{adr_id}-[\w-]+\.md", md_text):
+                        cited = True
+                        break
+            if not cited:
+                rel = adr_file.relative_to(REPO_ROOT)
+                r.soft_warn(
+                    "adr_back_reference_orphan",
+                    f"{rel}: Accepted ADR has no inbound citation outside */adr/*; "
+                    "annotate Orphan-OK to suppress if intentional",
+                )
+    return r
+
+
+def validate_adr_consequences_deliverable_audit() -> ValidationResult:
+    """Soft-warn on ADR Consequences promises whose target session closed without delivery.
+
+    Heuristic regex against each ADR's Consequences section for substrings of
+    the form ``(anticipated|lands?|expected|targeted) (around |at |in )?S-NNNN``.
+    For each match, checks whether the named session is closed (per
+    `engine/session/archive/`); if closed, looks for a backtick-wrapped or
+    markdown-link path also mentioned nearby and soft-warns when that path
+    does not exist on disk.
+
+    Per ADR 0041 / cascade-discipline.md. The check's value is partial
+    coverage of a class with zero coverage today; false negatives are
+    acknowledged.
+
+    Returns:
+        ValidationResult with check ``cascade_adr_consequences_deliverable``
+        recorded and soft-warns under category
+        ``adr_consequences_deliverable_audit``.
+
+    Non-responsibilities:
+        - Does not catch promises in prose forms that don't match the
+          regex (e.g., "ships at the next milestone").
+        - Does not retroactively check that a delivered file matches the
+          ADR's Consequences description; only that something at the named
+          path exists.
+    """
+    r = ValidationResult()
+    r.add_check("cascade_adr_consequences_deliverable")
+
+    archive_dir = REPO_ROOT / "engine" / "session" / "archive"
+    if not archive_dir.is_dir():
+        return r
+    archives_closed = {p.stem for p in archive_dir.glob("S-[0-9][0-9][0-9][0-9].json")}
+
+    deliverable_pattern = re.compile(
+        r"(?:anticipated|lands?|expected|targeted)\s+"
+        r"(?:around\s+|at\s+|in\s+)?S-(\d{4})",
+        re.IGNORECASE,
+    )
+    consequences_pattern = re.compile(
+        r"^##\s+Consequences\s*$.*?(?=^##\s+|\Z)",
+        re.MULTILINE | re.DOTALL,
+    )
+
+    for adr_dir in (ENGINE_ADR_DIR, PRODUCT_ADR_DIR):
+        if not adr_dir.is_dir():
+            continue
+        for adr_file in sorted(adr_dir.glob("[0-9][0-9][0-9][0-9]-*.md")):
+            text = adr_file.read_text()
+            cons_match = consequences_pattern.search(text)
+            if not cons_match:
+                continue
+            cons_text = cons_match.group(0)
+            for m in deliverable_pattern.finditer(cons_text):
+                target_session = f"S-{m.group(1)}"
+                if target_session not in archives_closed:
+                    continue
+                window_start = max(0, m.start() - 200)
+                window_end = min(len(cons_text), m.end() + 200)
+                window = cons_text[window_start:window_end]
+                paths = re.findall(r"`([\w./_-]+\.(?:py|md|sql|json))`", window)
+                paths += re.findall(r"\]\(([\w./_-]+\.(?:py|md|sql|json))\)", window)
+                # Resolve each path against both repo root AND the ADR file's
+                # directory (relative-link convention in markdown). A path
+                # that resolves under either is considered delivered.
+                missing = []
+                for p in paths:
+                    if (REPO_ROOT / p).exists():
+                        continue
+                    if (adr_file.parent / p).resolve().exists():
+                        continue
+                    missing.append(p)
+                if missing:
+                    rel = adr_file.relative_to(REPO_ROOT)
+                    r.soft_warn(
+                        "adr_consequences_deliverable_audit",
+                        f"{rel}: Consequences promised {missing} for "
+                        f"{target_session} (closed) — file(s) absent on disk",
+                    )
     return r
 
 

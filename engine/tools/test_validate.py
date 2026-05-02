@@ -54,10 +54,13 @@ from validate import (  # noqa: E402
     append_history,
     main,
     session_id_from_current,
+    validate_adr_back_reference_orphan,
+    validate_adr_consequences_deliverable_audit,
     validate_code_gates,
     validate_graph,
     validate_repo_structure,
     validate_sql_gates,
+    validate_superseded_adr_currency,
 )
 
 
@@ -754,6 +757,204 @@ def test_validate_graph_returns_stub_result() -> None:
     assert r.hard_fails == []
     assert r.soft_warns == {}
     assert "graph_audit_stub" in r.checks_run
+
+
+# ---------------------------------------------------------------------------
+# Cascade-analysis checks (per ADR 0041)
+# ---------------------------------------------------------------------------
+
+
+def _write_adr(
+    repo: Path, *, engine: bool, num: str, status: str, body: str = ""
+) -> Path:
+    """Helper: write an ADR file under the appropriate subtree."""
+    adr_dir = repo / ("engine" if engine else "product") / "adr"
+    path = adr_dir / f"{num}-test-{num}.md"
+    path.write_text(
+        f"# ADR {num} — Test\n\n- **Status:** {status}\n- **Date:** 2026-05-01\n\n"
+        f"## Context\n\nTest.\n\n## Decision\n\nTest.\n\n## Consequences\n\n{body}\n"
+    )
+    return path
+
+
+class TestSupersededAdrCurrency:
+    """validate_superseded_adr_currency: stale-citation detection."""
+
+    def test_no_superseded_adrs_returns_empty(self, synthetic_repo: Path) -> None:
+        """No superseded ADRs in the repo means no checks fire."""
+        r = validate_superseded_adr_currency()
+        assert r.soft_warns == {}
+        assert "cascade_superseded_adr_currency" in r.checks_run
+
+    def test_unmarked_citation_warns(self, synthetic_repo: Path) -> None:
+        """Doc citing a superseded ADR without historical marker warns."""
+        _write_adr(
+            synthetic_repo, engine=True, num="0050", status="Superseded by ADR 0051"
+        )
+        _write_adr(synthetic_repo, engine=True, num="0051", status="Accepted")
+        # Doc that cites 0050 without "superseded" or "0051" nearby.
+        (synthetic_repo / "product" / "docs" / "stale.md").write_text(
+            "Per ADR 0050, the cake is a lie.\n"
+        )
+        r = validate_superseded_adr_currency()
+        assert "superseded_adr_currency" in r.soft_warns
+
+    def test_historical_marker_suppresses_warn(self, synthetic_repo: Path) -> None:
+        """Citation with 'superseded' nearby does not warn."""
+        _write_adr(
+            synthetic_repo, engine=True, num="0050", status="Superseded by ADR 0051"
+        )
+        _write_adr(synthetic_repo, engine=True, num="0051", status="Accepted")
+        (synthetic_repo / "product" / "docs" / "history.md").write_text(
+            "Per ADR 0050 (superseded by ADR 0051), the original framing was X.\n"
+        )
+        r = validate_superseded_adr_currency()
+        assert "superseded_adr_currency" not in r.soft_warns
+
+    def test_new_adr_id_in_window_suppresses_warn(self, synthetic_repo: Path) -> None:
+        """Citation with the new ADR id nearby does not warn."""
+        _write_adr(
+            synthetic_repo, engine=True, num="0050", status="Superseded by ADR 0051"
+        )
+        _write_adr(synthetic_repo, engine=True, num="0051", status="Accepted")
+        (synthetic_repo / "product" / "docs" / "ok.md").write_text(
+            "ADR 0050 — see also ADR 0051 for the current framing.\n"
+        )
+        r = validate_superseded_adr_currency()
+        assert "superseded_adr_currency" not in r.soft_warns
+
+    def test_adr_files_excluded_from_grep(self, synthetic_repo: Path) -> None:
+        """Citations inside */adr/* files are not flagged (their job is narration)."""
+        _write_adr(
+            synthetic_repo, engine=True, num="0050", status="Superseded by ADR 0051"
+        )
+        _write_adr(synthetic_repo, engine=True, num="0051", status="Accepted")
+        # Another ADR file that mentions 0050 without marker — should not warn.
+        _write_adr(
+            synthetic_repo,
+            engine=True,
+            num="0052",
+            status="Accepted",
+            body="ADR 0050 framing carries forward.",
+        )
+        r = validate_superseded_adr_currency()
+        assert "superseded_adr_currency" not in r.soft_warns
+
+    def test_engine_log_excluded(self, synthetic_repo: Path) -> None:
+        """ENGINE_LOG.md is excluded — its job is historical narration."""
+        _write_adr(
+            synthetic_repo, engine=True, num="0050", status="Superseded by ADR 0051"
+        )
+        _write_adr(synthetic_repo, engine=True, num="0051", status="Accepted")
+        (synthetic_repo / "engine" / "ENGINE_LOG.md").write_text(
+            "## [Unreleased]\n\n### Changed\n\n- ADR 0050 status flipped.\n"
+        )
+        r = validate_superseded_adr_currency()
+        assert "superseded_adr_currency" not in r.soft_warns
+
+
+class TestAdrBackReferenceOrphan:
+    """validate_adr_back_reference_orphan: zero-inbound-citation detection."""
+
+    def test_cited_adr_does_not_warn(self, synthetic_repo: Path) -> None:
+        """An Accepted ADR cited from a non-ADR doc is not orphaned."""
+        _write_adr(synthetic_repo, engine=True, num="0050", status="Accepted")
+        (synthetic_repo / "product" / "docs" / "uses.md").write_text(
+            "See ADR 0050 for the contract.\n"
+        )
+        r = validate_adr_back_reference_orphan()
+        assert "adr_back_reference_orphan" not in r.soft_warns
+
+    def test_uncited_accepted_adr_warns(self, synthetic_repo: Path) -> None:
+        """An Accepted ADR with no inbound non-ADR citation warns."""
+        _write_adr(synthetic_repo, engine=True, num="0050", status="Accepted")
+        r = validate_adr_back_reference_orphan()
+        assert "adr_back_reference_orphan" in r.soft_warns
+
+    def test_orphan_ok_annotation_suppresses(self, synthetic_repo: Path) -> None:
+        """Orphan-OK annotation suppresses the warn."""
+        adr_dir = synthetic_repo / "engine" / "adr"
+        path = adr_dir / "0050-orphan-ok.md"
+        path.write_text(
+            "# ADR 0050 — Test\n\n"
+            "- **Status:** Accepted\n"
+            "- **Orphan-OK:** load-bearing for Phase 7; revisit at S-0050\n"
+            "- **Date:** 2026-05-01\n\n"
+            "## Context\n\nTest.\n\n## Decision\n\nTest.\n\n## Consequences\n\n"
+        )
+        r = validate_adr_back_reference_orphan()
+        assert "adr_back_reference_orphan" not in r.soft_warns
+
+    def test_superseded_adr_not_checked(self, synthetic_repo: Path) -> None:
+        """Superseded ADRs are not subject to the orphan check (only Accepted)."""
+        _write_adr(
+            synthetic_repo, engine=True, num="0050", status="Superseded by ADR 0051"
+        )
+        r = validate_adr_back_reference_orphan()
+        assert "adr_back_reference_orphan" not in r.soft_warns
+
+
+class TestAdrConsequencesDeliverableAudit:
+    """validate_adr_consequences_deliverable_audit: promised-but-absent detection."""
+
+    def test_no_archive_dir_returns_empty(
+        self, synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Without an archive dir, the audit cannot check session closure."""
+        # Synthetic_repo doesn't create archive/; this is the natural state.
+        r = validate_adr_consequences_deliverable_audit()
+        assert r.soft_warns == {}
+
+    def test_promise_for_unclosed_session_no_warn(self, synthetic_repo: Path) -> None:
+        """A promise for a session that hasn't closed yet is not flagged."""
+        archive_dir = synthetic_repo / "engine" / "session" / "archive"
+        archive_dir.mkdir()
+        # No archives — target session not closed.
+        _write_adr(
+            synthetic_repo,
+            engine=True,
+            num="0050",
+            status="Accepted",
+            body="`tools/foo.py` lands around S-0099.",
+        )
+        r = validate_adr_consequences_deliverable_audit()
+        assert "adr_consequences_deliverable_audit" not in r.soft_warns
+
+    def test_promise_for_closed_session_with_missing_path_warns(
+        self, synthetic_repo: Path
+    ) -> None:
+        """A promise for a closed session with an absent path warns."""
+        archive_dir = synthetic_repo / "engine" / "session" / "archive"
+        archive_dir.mkdir()
+        (archive_dir / "S-0005.json").write_text("{}")
+        _write_adr(
+            synthetic_repo,
+            engine=True,
+            num="0050",
+            status="Accepted",
+            body="`tools/missing.py` lands around S-0005.",
+        )
+        r = validate_adr_consequences_deliverable_audit()
+        assert "adr_consequences_deliverable_audit" in r.soft_warns
+
+    def test_promise_for_closed_session_with_present_path_no_warn(
+        self, synthetic_repo: Path
+    ) -> None:
+        """A promise for a closed session with the path present does not warn."""
+        archive_dir = synthetic_repo / "engine" / "session" / "archive"
+        archive_dir.mkdir()
+        (archive_dir / "S-0005.json").write_text("{}")
+        (synthetic_repo / "tools").mkdir()
+        (synthetic_repo / "tools" / "delivered.py").write_text("# delivered")
+        _write_adr(
+            synthetic_repo,
+            engine=True,
+            num="0051",
+            status="Accepted",
+            body="`tools/delivered.py` lands around S-0005.",
+        )
+        r = validate_adr_consequences_deliverable_audit()
+        assert "adr_consequences_deliverable_audit" not in r.soft_warns
 
 
 # ---------------------------------------------------------------------------

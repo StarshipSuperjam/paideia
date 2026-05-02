@@ -20,8 +20,8 @@ Health checks are not phase-anchored. They fall wherever the modulus lands; the 
 
 ## Consequences
 
-- The cadence machinery is built in S-0001 (`session/register_state.json` carries `health_check_cadence`; the boot procedure computes the modulus). The health-check session itself runs from `docs/operations/health-check.md` (categories, report template).
-- `tools/health_check.py` is anticipated to land around S-0025 (one of the pre-first-check sessions); the pre-first-check window allows the script to be authored against telemetry that has accumulated rather than against an empty data set. **First check expected around S-0030.**
+- The cadence machinery is built in S-0001 (`engine/session/register_state.json` carries `health_check_cadence`; the boot procedure computes the modulus). The health-check session itself runs from [`engine/operations/health-check.md`](../operations/health-check.md) (categories, report template).
+- [`engine/tools/health_check.py`](../tools/health_check.py) **landed at S-0029** under the ADR 0038 three-layer code-discipline contract; the deliverable handshake per [`engine/operations/cascade-discipline.md`](../operations/cascade-discipline.md) closes the original anticipation in this entry. Trend canon for the script is the structured `outcome_summary_soft_warns` field in committed session archives, per [ADR 0042](0042-soft-warn-lifecycle-archive-canon.md). **First check expected around S-0030.**
 - Audit categories (per `docs/operations/health-check.md`): soft-warn trend analysis, ADR status drift, ENGINE_LOG cadence, doc/code consistency, MemPalace coverage gaps, `tensions.md` aging, file-size and complexity heuristics.
 - Defer is a first-class option. If the cadence fires during a busy phase (e.g., mid-Phase 5 seed authoring with 6+ subdomain sessions in flight), the user defers; the trigger re-fires at the next satisfied modulus. Audits are not blocking.
 - The audit produces a report (template in `docs/operations/health-check.md`) and one or more ENGINE_LOG entries (`Changed`/`Removed`/`Added`) for any cleanups landed in the audit session. Findings that warrant follow-up become explicit work items in `STATE.md`.
@@ -30,9 +30,10 @@ Health checks are not phase-anchored. They fall wherever the modulus lands; the 
 
 ## See also
 
-- [`docs/operations/health-check.md`](../operations/health-check.md) — audit categories, report template, cadence policy.
-- [`session/register_state.json`](../session/register_state.json) — `health_check_cadence` field (when present).
-- [`tools/validate.py`](../tools/validate.py) — emits `tools/validate-history.jsonl` consumed by health checks.
+- [`engine/operations/health-check.md`](../operations/health-check.md) — audit categories, report template, cadence policy.
+- [`engine/tools/health_check.py`](../tools/health_check.py) — the producing script (landed at S-0029).
+- [`engine/session/register_state.json`](../session/register_state.json) — `health_check_cadence` field (when present).
+- [`engine/tools/validate.py`](../tools/validate.py) — emits `engine/tools/validate-history.jsonl`; structured per-session soft-warn counts in `engine/session/archive/*.json` per [ADR 0042](0042-soft-warn-lifecycle-archive-canon.md) are the trend canon health checks consume.
 - [`ROADMAP.md`](../../ROADMAP.md) — Recurring section: health-check telemetry hooks.
 - ADR 0016 — Graph construction needs live validation (telemetry source).
 - `.claude/commands/start-engine.md` — boot procedure that fires the cadence trigger.
