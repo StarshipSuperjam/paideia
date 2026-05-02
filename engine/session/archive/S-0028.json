@@ -1,0 +1,11 @@
+{
+  "id": "S-0028",
+  "started_at": "2026-05-02T17:51:12Z",
+  "closed_at": "2026-05-02T18:30:00Z",
+  "status": "closed",
+  "working_on": "Phase 3 SQL schema implementation per build_plan/P_1_sql_schema.md and engine/build_readiness/phase_3_sql.md — 7 migrations under product/seed-graph/migrations/ deployed to paideia-dev",
+  "outcome_summary": "Phase 3 SQL schema landed: 8 migrations (0001 users mirror + INSERT/DELETE triggers; 0002 nodes; 0003 edges; 0004 settings; 0005 learner_events; 0006 mastery_snapshots; 0007 tension_log with v1 JSONB CHECK; 0008 security hardening) deployed to paideia-dev (PG 17.6) via Supabase MCP. All FKs to public.users(id) cascade per ADR 0031; RLS on all 7 public tables with 7 policies. validate.py 11/0/0; SQL gates 4/0/0 per file; pytest 56/56; cold-review pass: all 8 files match contract. Three gate-report drifts corrected inline per architecture.md authoritative design (T1-A DELETE trigger; T2-C concept_id UUID->TEXT; T2-E edges UUID->TEXT, type->edge_type, JSONB->TEXT). Two forward-pointers for S-0029 gate exercise: (a) branch-based rollback verification downgraded due to Supabase branch cost + auto-mode posture; (b) sub-signal NULL permissiveness on composite interaction types per gate T2-B CHECK semantics — strict intent in learner-model.md:60 is application-layer. Post-apply security advisor returned only Supabase-internal rls_auto_enable finding (out of project scope).",
+  "approved_plan": "/Users/shanekidd/.claude/plans/ticklish-skipping-axolotl.md",
+  "branch": "claude/trusting-cartwright-7dac23",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/trusting-cartwright-7dac23"
+}
