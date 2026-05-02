@@ -12,11 +12,11 @@ A build session is any conversation that types `Start Engine` or invokes `/start
 
 1. **Read `STATE.md`.** Get current phase, last build session, next-session work item, GitHub URL, Supabase project ref, infrastructure pointers.
 
-2. **Health-check cadence trigger.** Read `session/register_state.json`. Parse the trailing 4-digit counter from `last_claimed`. If `counter % health_check_cadence == 0` (default cadence: 30), propose:
+2. **Health-check cadence trigger.** Read `session/register_state.json`. Parse the trailing 4-digit counter from `next_id` (the slot about to be claimed). If `counter % health_check_cadence == 0` (default cadence: 30), propose:
 
-   > "Last claimed was S-NNNN. Cadence trigger fires for a project health check (see `docs/operations/health-check.md`). Run the audit now or defer?"
+   > "Next slot is S-NNNN. Cadence trigger fires for a project health check (see `engine/operations/health-check.md`). Run the audit now or defer?"
 
-   User accepts → the session's work becomes the audit. User defers → proceed with planned work; flag re-fires next session.
+   User accepts → the session's work becomes the audit. User defers → proceed with planned work; record deferral in `outcome_summary` at close. The `next_id`-based logic was corrected at S-0031 per [ADR 0043](../adr/0043-hook-architecture.md); the SessionStart hook (`engine/tools/hooks/session-start.sh`) emits the same surface from the harness side regardless of how the session is launched.
 
 3. **Query MemPalace.** Use `mempalace_search` with terms derived from STATE.md's next-session work item. Surface anything the user previously named that's relevant. Skip if MemPalace is not yet initialized (early sessions before S-0002 close).
 

@@ -4,7 +4,7 @@
 
 ## What lives here
 
-One markdown file per audit, named `S-NNNN.md` after the session that produced it. The first audit is expected at S-0030 (cadence trigger fires when `last_claimed mod 30 == 0`).
+One markdown file per audit, named `S-NNNN.md` after the session that produced it. The first audit landed at S-0030 (cadence trigger fires when `next_id mod 30 == 0` — the slot about to be claimed, per [ADR 0043](../../engine/adr/0043-hook-architecture.md) which corrected the original `last_claimed` off-by-one at S-0031).
 
 Each report carries the four-section structure from [`TEMPLATE.md`](TEMPLATE.md): Fit, Gaps, Dead weight, Bloat — each with observations and corrective actions or "no action."
 

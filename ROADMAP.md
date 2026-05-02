@@ -395,7 +395,7 @@ See also: [ADR 0007](product/adr/0007-cross-domain-porosity.md), [ADR 0011](prod
 
 ## Recurring — Project health checks (per ADR 0022)
 
-**Not phase-anchored.** Every ~30 sessions (configurable cadence), the project's own machinery is audited for fit / gaps / dead weight / bloat. The cadence trigger fires automatically at session boot when `last_claimed mod health_check_cadence == 0`. User accepts (the session's work is the audit, per `docs/operations/health-check.md`) or defers.
+**Not phase-anchored.** Every ~30 sessions (configurable cadence), the project's own machinery is audited for fit / gaps / dead weight / bloat. The cadence trigger fires automatically at session boot when `next_id mod health_check_cadence == 0` — the slot about to be claimed is the cadence-numbered session, per [ADR 0043](engine/adr/0043-hook-architecture.md) which corrected the original `last_claimed` off-by-one at S-0031. User accepts (the session's work is the audit, per [`engine/operations/health-check.md`](engine/operations/health-check.md)) or defers.
 
 **First check expected around S-0030.** `engine/tools/health_check.py` produces the audit report; trend telemetry reads the committed `engine/session/archive/*.json` per [ADR 0042](engine/adr/0042-soft-warn-lifecycle-archive-canon.md).
 
