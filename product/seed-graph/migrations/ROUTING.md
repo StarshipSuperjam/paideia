@@ -1,6 +1,6 @@
-# supabase/migrations/ — Routing manifest
+# product/seed-graph/migrations/ — Routing manifest
 
-> **Placeholder created S-0001. Fleshed out in Phase 4** when graph construction begins. The numeric prefix scheme below is the contract; the per-session narrative section grows one entry per migration file.
+> Routing manifest for SQL migrations under `product/seed-graph/migrations/`. The directory location was settled in S-0027's gate exercise per [`engine/build_readiness/phase_3_sql.md`](../../../engine/build_readiness/phase_3_sql.md); files moved from `supabase/migrations/` in the same commit. Per-session narrative section grows one entry per migration file as Phase 5 seed-authoring sessions land.
 
 ## Numeric prefix scheme
 
@@ -22,6 +22,21 @@ Migration files follow `00NN_<purpose>_<scope>.sql` so their natural sort order 
 **Gaps are acceptable.** A new subdomain claims the next available `00N0` slot rather than re-numbering. Files within a range are committed in numeric order so `supabase db push` applies them deterministically.
 
 **Compound-domain handling.** A concept that spans two subdomains (e.g., a philosophy-of-science concept that's also epistemology) is written into the migration file of the higher-precedence subdomain (per `docs/architecture.md` precedence rules) with `domain[]` carrying both tags. It is NOT split across two migrations.
+
+## graph_version increment contract
+
+The `settings.graph_version` counter is initialized at `1` in the Phase 3 schema migration that creates `settings`. Phase 5 seed-authoring sessions follow this contract:
+
+1. At session boot (after slot claim, before authoring), read the current `settings.graph_version` value.
+2. Increment by one in a single transaction at the start of authoring.
+3. Every node and edge inserted in this session writes that incremented value to `graph_version_added`.
+4. Commit the transaction at session shutdown only if all inserts succeed.
+
+The contract makes `graph_version_added` deterministic per session: a node and an edge from the same Phase 5 session carry the same `graph_version_added`, even if they land in different migration files. Cross-session coordination (two parallel Phase 5 sessions seeding different subdomains) is handled by the eager-claim + atomic-increment combination — each session's increment is its own; concurrent runs produce monotonic values.
+
+Phase 6 self-correction sessions follow the same contract for any nodes/edges they author. Phase 3 schema migrations do not increment the counter; they initialize it at `1` and stop.
+
+Rationale settled in S-0027 build-readiness exercise per T2-D in [`engine/build_readiness/phase_3_sql.md`](../../../engine/build_readiness/phase_3_sql.md).
 
 ## Per-session narrative
 
