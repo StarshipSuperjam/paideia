@@ -32,6 +32,32 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "engine/tools/hooks/session-start.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "engine/tools/hooks/post-adr-write.sh"
+          },
+          {
+            "type": "command",
+            "command": "engine/tools/hooks/post-state-edit.sh"
+          }
+        ]
+      }
     ]
   }
 }

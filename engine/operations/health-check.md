@@ -1,14 +1,16 @@
 # Project health check
 
-> Periodic audit of the project's own machinery: does our discipline match what we're producing? Per ADR 0022 (lands in S-0003). Cadence trigger fires automatically at session boot when `last_claimed mod health_check_cadence == 0` (default cadence: 30).
+> Periodic audit of the project's own machinery: does our discipline match what we're producing? Per ADR 0022 (lands in S-0003). Cadence trigger fires automatically at session boot when `next_id mod health_check_cadence == 0` (default cadence: 30) — the slot about to be claimed is the cadence-numbered session.
 
-The first check is expected around S-0030. `tools/health_check.py` lands in one of the sessions ~S-0025. Until then, the audit is run by the AI manually against the categories below.
+The first check landed at S-0030 (manual fire at the project-setup-to-project-build phase boundary; see [`docs/health-checks/S-0030.md`](../../docs/health-checks/S-0030.md)). [`engine/tools/health_check.py`](../tools/health_check.py) was authored at S-0029 per [ADR 0022](../adr/0022-periodic-project-health-checks.md). Future cadence triggers fire at S-0060, S-0090, etc.
 
 ## When the trigger fires
 
-At session boot, `/start-engine` parses the trailing 4-digit counter from `last_claimed` (e.g., `S-0030` → `0030` → `30`) and computes `counter % cadence`. If `0`, surface the proposal:
+At session boot, the SessionStart hook (`engine/tools/hooks/session-start.sh` per [ADR 0043](../adr/0043-hook-architecture.md)) parses the trailing 4-digit counter from `next_id` (the slot about to be claimed; e.g., `next_id: "0030"` → `30`) and computes `counter % cadence`. If `0`, surface the proposal:
 
-> "Last claimed was S-0030. Cadence trigger fires for a project health check. Run the audit now or defer?"
+> "Next slot is S-0030. Cadence trigger fires for a project health check. Run the audit now or defer?"
+
+The `/start-engine` slash command's documented procedure mirrors this logic at step 2; the hook surfaces the prompt regardless of how the session is launched. The pre-S-0031 logic used `last_claimed` rather than `next_id` and fired the trigger at the session AFTER the cadence-numbered session, contradicting ROADMAP.md and ADR 0022 prose intent. The S-0030 audit surfaced the off-by-one; S-0031 corrected it across all three carriers (this doc, `start-engine.md`, the SessionStart hook).
 
 The user's response routes:
 
