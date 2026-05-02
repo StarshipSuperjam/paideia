@@ -1,0 +1,9 @@
+# Engine-tool dependencies — code discipline gate stack per ADR 0038.
+# Install with: pip install -r engine/tools/requirements.txt
+#
+# These tools enforce Layer 2 of the code-discipline contract
+# (ruff + mypy + pytest) per engine/operations/code-discipline.md.
+
+ruff>=0.4.0
+mypy>=1.10.0
+pytest>=8.0.0

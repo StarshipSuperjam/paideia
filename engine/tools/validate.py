@@ -1,31 +1,59 @@
 #!/usr/bin/env python3
-"""
-Paideia repo-structure validator.
+"""Paideia repo-structure validator and code-discipline gate runner.
 
-Runs at every commit (via the pre-commit hook) and on demand. Validates the
-state-of-record artifacts (top-level files, session counter, ADRs, ENGINE_LOG,
-docs/) for structural integrity.
+Module contract — what this file is and is not.
 
-This script is the seed for what becomes the Phase 4 graph audit utility.
-The graph-audit extension point lives in `validate_graph()` below — see ADR
-0016 for the full contract that lands when Phase 4 is built.
+This module is the project's static-structure validator. It runs at every
+commit via the pre-commit hook (engine/tools/hooks/pre-commit) and on
+demand from the CLI. Two responsibility families live here:
 
-Behavior summary
-----------------
-- Repo-structure checks (Phase 0+): always run; defensive against missing
-  files (warns + skips checks for files that haven't been authored yet).
-- Graph-audit checks (Phase 4+): stub that does nothing today; will gain
-  hard-fail and soft-warn checks against the live Supabase DB when fleshed.
+1. Repo-structure checks (Phase 0+, always-on) — verify that the
+   state-of-record artifacts (top-level files, session counter JSON,
+   ADR Status fields, ADR-vs-index consistency, ENGINE_LOG format,
+   STATE.md current-phase pointer, CROSS_REFERENCES.md link resolution,
+   files expected from S-0002 onward) match their structural contracts.
+   See validate_repo_structure().
 
-Output
-------
-- Stdout: structured summary lines (one per check category)
-- Stderr: soft-warn details
-- Exit code: 0 (clean), 1 (soft-warn only), 2 (hard-fail)
+2. Code-discipline gates (post-S-0026 per ADR 0038) — invoke ruff,
+   mypy --strict, and pytest against staged Python files under engine/.
+   See validate_code_gates().
 
-Telemetry
----------
-Every invocation appends a single line to `tools/validate-history.jsonl`:
+A third responsibility (graph audit per ADR 0016) sits as a stub today;
+Phase 4 fleshes it out. See validate_graph().
+
+Invariants this module preserves:
+
+- Read-only with respect to the repo. The validator never modifies tracked
+  files. Only writes are to engine/tools/validate-history.jsonl (telemetry,
+  appended) and to stdout/stderr (the run's report).
+- Deterministic for a given working tree. Two runs against the same tree
+  produce the same checks_run list, hard_fails, and soft_warns categories.
+  Telemetry rows differ in timestamp and duration_ms only.
+- Resilient to absent optional files. Files expected from later sessions
+  (e.g., engine/operations/README.md before S-0002) are soft-warned, not
+  hard-failed.
+- Single-process, single-threaded. ValidationResult accumulates results
+  across the run; concurrent access is not supported.
+
+Non-responsibilities:
+
+- No auto-fix. The validator reports; it does not modify state.
+- No DB connectivity until Phase 4. validate_graph() is a stub.
+- No git or worktree management. The pre-commit hook handles git; this
+  module receives staged-file paths and runs gates against them.
+
+Output contract:
+
+- Stdout: structured summary lines, one per check category, plus
+  per-category soft-warn counts.
+- Stderr: per-failure detail lines tagged [hard-fail] or
+  [soft-warn:<category>].
+- Exit code: 0 (clean), 1 (soft-warn only), 2 (hard-fail).
+
+Telemetry side effect:
+
+Every invocation appends a single JSON line to
+engine/tools/validate-history.jsonl:
 
     {
       "timestamp": ISO-8601 UTC,
@@ -36,14 +64,32 @@ Every invocation appends a single line to `tools/validate-history.jsonl`:
       "duration_ms": float
     }
 
-Health checks (per ADR 0022) consume this JSONL for trend analysis.
+Health checks per ADR 0022 consume this JSONL for trend analysis.
+
+CLI invocation:
+
+    python3 engine/tools/validate.py
+        Run repo-structure checks plus the graph-audit stub.
+
+    python3 engine/tools/validate.py --code-gates --files <path> [<path> ...]
+        Run code-discipline gates (ruff, mypy --strict, pytest) against
+        the named files. Gate runs are independent of the structure run;
+        each invocation does one thing.
+
+Module contracts referenced:
+
+- ADR 0016 — graph-construction live-validation contract; see validate_graph().
+- ADR 0022 — periodic health-check telemetry contract; consumes the JSONL.
+- ADR 0037 — engine/product partition; informs ENGINE_ADR_DIR / PRODUCT_ADR_DIR.
+- ADR 0038 — code-discipline contract; see validate_code_gates().
 """
 
 from __future__ import annotations
 
+import argparse
 import json
-import os
 import re
+import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
@@ -97,22 +143,74 @@ PRODUCT_ADR_DIR = REPO_ROOT / "product" / "adr"
 
 @dataclass
 class ValidationResult:
-    """Aggregates check outcomes across the run."""
+    """Aggregator for check outcomes across a single validate.py invocation.
+
+    Two-tier outcome model is the load-bearing design choice. Hard-fails
+    block the pre-commit hook (the runner exits 2); soft-warns are advisory
+    (exit 1) and feed health-check telemetry per ADR 0022. Per-function
+    validators (validate_repo_structure, validate_code_gates, validate_graph)
+    each return their own ValidationResult; main() merges them via merge().
+
+    Fields:
+        checks_run: ordered list of check-category names attempted in this run.
+            Records coverage regardless of pass/fail; downstream telemetry
+            distinguishes "check ran and was clean" from "check did not run".
+        hard_fails: list of failure messages. Any non-empty list causes exit 2.
+            Messages accumulate so a single run surfaces all blockers rather
+            than one-at-a-time.
+        soft_warns: dict from stable category string to list of messages.
+            Categories are the telemetry aggregation key (e.g.,
+            "adr_index_inconsistent", "cross_reference_broken").
+
+    Concurrency: single-process, single-threaded. The dataclass is mutable
+    and not safe for concurrent use; each validate.py run owns its instance.
+
+    Non-responsibilities:
+        - Does not enforce category-name conventions. Callers pass any string;
+          consistency with existing categories is the caller's responsibility
+          for telemetry comparability.
+        - Does not deduplicate. Repeated add_check/hard_fail/soft_warn calls
+          with identical arguments record duplicates.
+    """
 
     checks_run: list[str] = field(default_factory=list)
     hard_fails: list[str] = field(default_factory=list)
     soft_warns: dict[str, list[str]] = field(default_factory=dict)
 
     def add_check(self, name: str) -> None:
+        """Record that a check category named ``name`` was attempted.
+
+        Append-only; duplicates are recorded as duplicates. The pass/fail
+        status is conveyed separately via hard_fail/soft_warn.
+        """
         self.checks_run.append(name)
 
     def hard_fail(self, msg: str) -> None:
+        """Record a blocking failure with message ``msg``.
+
+        Hard-fails accumulate; the run continues so a single pass surfaces
+        all blockers. The runner exits 2 if any hard-fail is recorded.
+        """
         self.hard_fails.append(msg)
 
     def soft_warn(self, category: str, msg: str) -> None:
+        """Record an advisory warning under telemetry category ``category``.
+
+        Categories aggregate across runs in the JSONL telemetry log; use
+        established names (see existing call sites for the catalog) to
+        preserve cross-session comparability. Within a category, messages
+        accumulate in encounter order.
+        """
         self.soft_warns.setdefault(category, []).append(msg)
 
     def merge(self, other: ValidationResult) -> None:
+        """Merge ``other``'s outcomes into self in-place.
+
+        Concatenates checks_run and hard_fails preserving order; extends
+        each soft-warn category list. ``other`` is not mutated. Used by
+        main() to combine per-function results into a single overall
+        aggregate.
+        """
         self.checks_run.extend(other.checks_run)
         self.hard_fails.extend(other.hard_fails)
         for cat, msgs in other.soft_warns.items():
@@ -125,9 +223,52 @@ class ValidationResult:
 
 
 def validate_repo_structure() -> ValidationResult:
-    """Validate top-level files, session/, ADRs, ENGINE_LOG, STATE, ROADMAP.
+    """Run the always-on repo-structure check suite; return the result.
 
-    Soft-warns are recoverable; hard-fails require fixing before commit.
+    Pure with respect to repo state — reads files, returns a value, performs
+    no writes. Telemetry side effects (JSONL append, stdout/stderr) live in
+    main(), not here.
+
+    Check categories (in run order):
+
+    - top_level_required, engine_required: existence checks for the project's
+      load-bearing root files (README.md, LICENSE, SECURITY.md, ROADMAP.md,
+      HANDOFF.md, CLAUDE.md) and engine-required files (engine/STATE.md,
+      engine/ENGINE_LOG.md). Hard-fail on missing.
+    - session_register, session_current: JSON schema checks on
+      engine/session/register_state.json (always present) and
+      engine/session/current.json (only between eager-claim and archive).
+      Hard-fail on missing required keys, malformed JSON, or non-S-NNNN id.
+    - engine_log_format, state_current_phase: lightweight format checks on
+      ENGINE_LOG.md (has [Unreleased] section) and STATE.md (has
+      "Current phase" field). Soft-warn on absence — these files may be
+      mid-edit during a session.
+    - adr_status: every ADR file under engine/adr/ and product/adr/ carries
+      a Status field (Nygard template). Soft-warn on missing.
+    - adr_index_consistency: each subtree's README.md indexes its ADRs and
+      the indexed Status keyword matches the file's. Soft-warn on either
+      direction of mismatch — the index is human-curated and tolerates
+      formatting variation.
+    - cross_references_resolve: every relative-path link in
+      product/docs/CROSS_REFERENCES.md resolves to a file. Soft-warn on
+      broken targets.
+    - future_files_present: files expected from S-0002 onward exist.
+      Soft-warn during S-0001; hard-fail equivalent does not exist
+      (intentional — the validator runs from S-0001's first commit).
+
+    Returns:
+        ValidationResult with checks_run populated for every category attempted
+        and hard_fails / soft_warns populated as the checks run. Empty result
+        means all checks ran and all passed.
+
+    Non-responsibilities:
+        - Does not validate ADR cross-link integrity beyond the
+          CROSS_REFERENCES.md file itself. ADR-internal links (e.g., ADR
+          0036 referencing ADR 0027) are not resolved.
+        - Does not enforce ENGINE_LOG entry quality. Only the section
+          header presence is checked.
+        - Does not connect to any database. Graph-side checks live in
+          validate_graph().
     """
     r = ValidationResult()
 
@@ -157,9 +298,7 @@ def validate_repo_structure() -> ValidationResult:
                         f"engine/session/register_state.json missing key: {key}"
                     )
         except json.JSONDecodeError as e:
-            r.hard_fail(
-                f"engine/session/register_state.json is not valid JSON: {e}"
-            )
+            r.hard_fail(f"engine/session/register_state.json is not valid JSON: {e}")
 
     # current.json schema (only if file exists — may be archived between sessions)
     r.add_check("session_current")
@@ -169,9 +308,7 @@ def validate_repo_structure() -> ValidationResult:
             current = json.loads(current_path.read_text())
             for key in ("id", "started_at", "status", "working_on"):
                 if key not in current:
-                    r.hard_fail(
-                        f"engine/session/current.json missing key: {key}"
-                    )
+                    r.hard_fail(f"engine/session/current.json missing key: {key}")
             if not re.match(r"^S-\d{4}$", current.get("id", "")):
                 r.hard_fail(
                     f"engine/session/current.json id does not match S-NNNN "
@@ -219,9 +356,7 @@ def validate_repo_structure() -> ValidationResult:
             continue
         for adr_file in sorted(adr_dir.glob("[0-9][0-9][0-9][0-9]-*.md")):
             text = adr_file.read_text()
-            if not re.search(
-                r"^[\s*\-]*Status[\s*]*:[\s*]*\S", text, re.MULTILINE
-            ):
+            if not re.search(r"^[\s*\-]*Status[\s*]*:[\s*]*\S", text, re.MULTILINE):
                 r.soft_warn(
                     "adr_missing_status",
                     f"{adr_file.relative_to(REPO_ROOT)}: no Status field found",
@@ -329,6 +464,138 @@ def validate_repo_structure() -> ValidationResult:
 
 
 # ---------------------------------------------------------------------------
+# Code-discipline gates (post-S-0026 per ADR 0038)
+# ---------------------------------------------------------------------------
+
+
+def validate_code_gates(files: list[Path]) -> ValidationResult:
+    """Run the code-discipline gate stack against the given Python files.
+
+    Implements Layer 2 of the ADR 0038 expression contract for AI-authored
+    code. The gates run as subprocesses against the named files; each gate
+    failure is recorded as a hard-fail. Soft-warns are not used at this
+    layer — type errors, lint violations, format failures, missing tests,
+    and test failures are all blocking.
+
+    Gates (in run order):
+
+    - ruff_check: ``python3 -m ruff check <files>``. Hard-fail on non-zero
+      exit. Lint-rule violations across the project's ruff configuration.
+    - ruff_format: ``python3 -m ruff format --check <files>``. Hard-fail
+      on non-zero exit. The file's existing format does not match the
+      project style.
+    - mypy_strict: ``python3 -m mypy --strict <files>``. Hard-fail on
+      non-zero exit. Annotation gaps, Any leakage, missing return types,
+      and other strict-mode issues.
+    - test_presence: each non-test source file (file whose name does not
+      start with ``test_`` and whose path is not under a ``tests/``
+      directory) has a sibling ``test_<name>.py`` or a
+      ``tests/test_<name>.py``. Hard-fail on missing.
+    - pytest_run: ``python3 -m pytest <test_files>`` against the discovered
+      test files. Hard-fail on non-zero exit.
+
+    Inputs:
+        files: list of absolute Paths to Python source files. May be empty
+            (returns a ValidationResult with the ``code_gates_empty`` check
+            recorded and no failures).
+
+    Returns:
+        ValidationResult with check categories
+        ``code_gates_ruff_check``, ``code_gates_ruff_format``,
+        ``code_gates_mypy``, ``code_gates_test_presence``,
+        ``code_gates_pytest`` populated as each gate runs. Hard-fail
+        messages include the failing tool's stdout (and stderr where
+        useful) so the offending gate's output is visible without re-running.
+
+    Non-responsibilities:
+        - Does not modify files (no auto-fix). Callers run ``ruff check
+          --fix`` or ``ruff format`` manually after seeing the failures.
+        - Does not install the gate-stack tools. The caller arranges
+          installation per engine/tools/requirements.txt.
+        - Does not validate that the gate-stack tools are on PATH. The
+          ``python3 -m`` invocation pattern means importable presence
+          suffices; if a tool is not importable, the subprocess returns
+          non-zero and the failure surfaces as that gate's hard-fail.
+        - Does not enforce contract-block presence (Layer 1) or perform
+          cold-context review (Layer 3). Those layers are enforced
+          elsewhere — Layer 1 by authoring discipline at the moment of
+          edit; Layer 3 by the session-shutdown sub-agent pass.
+    """
+    r = ValidationResult()
+
+    if not files:
+        r.add_check("code_gates_empty")
+        return r
+
+    file_args = [str(f) for f in files]
+
+    # Layer 2 gate 1: ruff check (lint)
+    r.add_check("code_gates_ruff_check")
+    proc = subprocess.run(
+        ["python3", "-m", "ruff", "check", *file_args],
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        r.hard_fail(f"ruff check failed:\n{proc.stdout}{proc.stderr}".rstrip())
+
+    # Layer 2 gate 2: ruff format --check
+    r.add_check("code_gates_ruff_format")
+    proc = subprocess.run(
+        ["python3", "-m", "ruff", "format", "--check", *file_args],
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        r.hard_fail(f"ruff format check failed:\n{proc.stdout}{proc.stderr}".rstrip())
+
+    # Layer 2 gate 3: mypy --strict
+    r.add_check("code_gates_mypy")
+    proc = subprocess.run(
+        ["python3", "-m", "mypy", "--strict", *file_args],
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        r.hard_fail(f"mypy --strict failed:\n{proc.stdout}{proc.stderr}".rstrip())
+
+    # Layer 2 gate 4: test presence — each non-test source file has a
+    # corresponding test_<name>.py (sibling or in tests/ subdirectory).
+    r.add_check("code_gates_test_presence")
+    test_files: list[Path] = []
+    for f in files:
+        if f.name.startswith("test_") or "tests" in f.parts:
+            # Test files themselves don't need their own tests
+            continue
+        sibling_test = f.parent / f"test_{f.name}"
+        nested_test = f.parent / "tests" / f"test_{f.name}"
+        if sibling_test.is_file():
+            test_files.append(sibling_test)
+        elif nested_test.is_file():
+            test_files.append(nested_test)
+        else:
+            rel = f.relative_to(REPO_ROOT) if REPO_ROOT in f.parents else f
+            r.hard_fail(
+                f"no test file for {rel}: expected test_{f.name} alongside "
+                f"or under {f.parent.name}/tests/"
+            )
+
+    # Layer 2 gate 5: pytest run against the discovered test files
+    r.add_check("code_gates_pytest")
+    if test_files:
+        test_args = [str(t) for t in test_files]
+        proc = subprocess.run(
+            ["python3", "-m", "pytest", "-q", *test_args],
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode != 0:
+            r.hard_fail(f"pytest failed:\n{proc.stdout}{proc.stderr}".rstrip())
+
+    return r
+
+
+# ---------------------------------------------------------------------------
 # Graph audit extension point (Phase 4+)
 # ---------------------------------------------------------------------------
 
@@ -386,7 +653,17 @@ def validate_graph(connection_string: str | None = None) -> ValidationResult:
 
 
 def session_id_from_current() -> str:
-    """Return the in-progress session id, or 'outside-session' if none."""
+    """Return the in-progress session id, or 'outside-session' if none.
+
+    Reads engine/session/current.json. The file exists only between an
+    eager-claim ritual's commit and the matching session-shutdown archive,
+    so absence is the normal case for invocations between sessions.
+
+    Returns:
+        ``"S-NNNN"`` when current.json exists and has an ``id`` field;
+        ``"outside-session"`` when the file is absent, malformed, or
+        lacks an id. Never raises — telemetry is best-effort.
+    """
     current_path = REPO_ROOT / "engine" / "session" / "current.json"
     if not current_path.is_file():
         return "outside-session"
@@ -398,7 +675,28 @@ def session_id_from_current() -> str:
 
 
 def append_history(record: dict[str, Any]) -> None:
-    """Append a JSONL telemetry record. Best-effort; never fails the run."""
+    """Append a JSONL telemetry record to engine/tools/validate-history.jsonl.
+
+    Best-effort: never raises. The file is gitignored (per .gitignore's
+    ``engine/tools/validate-history.jsonl`` rule); telemetry is per-clone,
+    not committed. ADR 0022 health checks consume the file for trend analysis.
+
+    Inputs:
+        record: dict serializable to JSON. Caller is responsible for shape;
+            health-check telemetry expects keys ``timestamp``, ``session_id``,
+            ``checks_run``, ``hard_fails``, ``soft_warns``, ``duration_ms``.
+
+    Side effect:
+        Creates the parent directory if absent (mkdir parents=True). Appends
+        a single line ``json.dumps(record, separators=(",", ":")) + "\\n"``.
+        File-system errors are swallowed (OSError caught) so a failed
+        telemetry write never poisons a validate run.
+
+    Non-responsibilities:
+        - Does not rotate the JSONL file. Health checks are responsible for
+          summarization and pruning.
+        - Does not validate the record shape.
+    """
     try:
         HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
         with HISTORY_FILE.open("a") as f:
@@ -412,11 +710,53 @@ def append_history(record: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    """CLI entry point. Returns the process exit code (0/1/2).
+
+    Two invocation modes are mutually exclusive:
+
+    - **Default (no flags)**: run validate_repo_structure + validate_graph.
+      Aggregates results, prints summary to stdout, details to stderr,
+      appends telemetry to the JSONL log.
+    - **--code-gates --files <path>...**: run validate_code_gates against
+      the named files. Useful for pre-commit hook integration where the
+      hook passes the staged Python files. Skips repo-structure and graph
+      checks; the structure run is invoked separately by the hook.
+
+    Inputs:
+        argv: optional argument list (for testability). When None, falls
+            back to sys.argv[1:].
+
+    Returns:
+        Process exit code. 0 = clean, 1 = soft-warn only, 2 = hard-fail.
+    """
+    parser = argparse.ArgumentParser(
+        description="Paideia repo-structure validator and code gate runner",
+    )
+    parser.add_argument(
+        "--code-gates",
+        action="store_true",
+        help="Run code-discipline gates (ruff, mypy, pytest) instead of "
+        "the default repo-structure + graph stub run.",
+    )
+    parser.add_argument(
+        "--files",
+        nargs="*",
+        type=Path,
+        default=[],
+        help="Files to pass to --code-gates. Required when --code-gates is set.",
+    )
+    args = parser.parse_args(argv)
+
     start = time.monotonic()
     overall = ValidationResult()
-    overall.merge(validate_repo_structure())
-    overall.merge(validate_graph())
+
+    if args.code_gates:
+        overall.merge(validate_code_gates(args.files))
+    else:
+        overall.merge(validate_repo_structure())
+        overall.merge(validate_graph())
+
     duration_ms = (time.monotonic() - start) * 1000
 
     # Print summary to stdout
