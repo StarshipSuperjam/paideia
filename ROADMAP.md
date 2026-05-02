@@ -6,7 +6,7 @@ This document names every phase, its scope, its success criteria, and the archit
 
 `STATE.md` names the *current* phase and the *next session's work item*. This file names the *whole arc*.
 
-Phase headings carry **[ENGINE]** or **[PRODUCT]** markers per [ADR 0037](engine/adr/0037-engine-product-wall-and-changelog-rename.md): engine phases author the AI build apparatus that constructs Paideia (session protocol, validators, build_plan scaffolding, infrastructure, tooling); product phases author Paideia content itself (seed graph, teaching layer prototype, UI). The markers are the first installment of the engine / product partition; the structural folder migration executes after Phase 2 closes and before Phase 5 opens.
+Phase headings carry **[ENGINE]** or **[PRODUCT]** markers per [ADR 0037](engine/adr/0037-engine-product-wall-and-changelog-rename.md): engine phases author the AI build apparatus that constructs Paideia (session protocol, validators, build_plan scaffolding, infrastructure, tooling); product phases author Paideia content itself (seed graph, teaching layer prototype, UI). The repo is partitioned into `engine/` and `product/` subtrees per the same ADR.
 
 ---
 
@@ -114,14 +114,14 @@ See also: [ADR 0027](product/adr/0027-rendering-policy-prompt-layer-contract.md)
 
 ## Phase 2 — Build Plan Scaffolding **[ENGINE]**
 
-**Output:** a `build_plan/` directory naming the chunked authoring sessions for Phases 3-9, and the working contract for each session. Plus the standing build-readiness gate protocol (per [ADR 0040](engine/adr/0040-build-readiness-gate-before-substantive-build-sessions.md), authored at S-0027) that precedes every substantive build session from Phase 3 forward.
+**Output:** a `build_plan/` directory naming the chunked authoring sessions for Phases 3-9, and the working contract for each session. Plus the standing build-readiness gate protocol per [ADR 0040](engine/adr/0040-build-readiness-gate-before-substantive-build-sessions.md) that precedes every substantive build session from Phase 3 forward.
 
 - `build_plan/MANIFEST.md` — orientation, session schedule, phase mapping
 - `build_plan/00_preamble.md` — orienting prose
 - `build_plan/00_session_schedule.md` — every session by ID with scope, source documents, output target, budget tier
 - `build_plan/P_0_contract_lock.md` — retroactive Phase 1 record
 - `build_plan/P_1_sql_schema.md` through `build_plan/P_13_ui_prototype.md` — per-phase chunks
-- `engine/build_readiness/<phase>_<chunk>.md` — build-readiness reports authored by gate sessions, consumed by build sessions at boot. The home directory and report template land at S-0027 alongside [ADR 0040](engine/adr/0040-build-readiness-gate-before-substantive-build-sessions.md).
+- `engine/build_readiness/<phase>_<chunk>.md` — build-readiness reports authored by gate sessions, consumed by build sessions at boot, per [ADR 0040](engine/adr/0040-build-readiness-gate-before-substantive-build-sessions.md).
 
 This file (`ROADMAP.md`) names the phases at a high level. `build_plan/` names the per-session work within each phase. `engine/build_readiness/` carries the per-build-session decision input.
 
@@ -129,7 +129,7 @@ This file (`ROADMAP.md`) names the phases at a high level. `build_plan/` names t
 
 ## Phase 3 — SQL Schema Implementation **[ENGINE]**
 
-**Gated by** [`engine/build_readiness/phase_3_sql.md`](engine/build_readiness/phase_3_sql.md) — the build-readiness report authored by S-0027 that resolves Tier 1 decisions in advance and documents Tier 2 column shapes / constraint forms / indexes for the build session to implement without re-deciding. Per [ADR 0040](engine/adr/0040-build-readiness-gate-before-substantive-build-sessions.md), every substantive build session reads its gate report at boot.
+**Gated by** [`engine/build_readiness/phase_3_sql.md`](engine/build_readiness/phase_3_sql.md) — the build-readiness report that resolves Tier 1 decisions in advance and documents Tier 2 column shapes / constraint forms / indexes for the build session to implement without re-deciding. Per [ADR 0040](engine/adr/0040-build-readiness-gate-before-substantive-build-sessions.md), every substantive build session reads its gate report at boot.
 
 **Output:** Postgres schema deployed to Supabase via versioned migrations.
 
@@ -143,7 +143,7 @@ Translate `docs/architecture.md` and `docs/learner-model.md` schemas into:
 - `tension_log` table — per `docs/self-correction.md`; JSONB enum vocabularies per [`product/seed-graph/migrations/TENSION_VOCABULARY.md`](product/seed-graph/migrations/TENSION_VOCABULARY.md)
 - `settings` — graph_version counter (initialized at 1; increment contract per ROUTING.md)
 
-Stack: Supabase migrations at `product/seed-graph/migrations/0001_*.sql` and forward (location settled at S-0027).
+Stack: Supabase migrations at `product/seed-graph/migrations/0001_*.sql` and forward.
 
 ### Phase 3 success criteria
 
@@ -397,7 +397,7 @@ See also: [ADR 0007](product/adr/0007-cross-domain-porosity.md), [ADR 0011](prod
 
 **Not phase-anchored.** Every ~30 sessions (configurable cadence), the project's own machinery is audited for fit / gaps / dead weight / bloat. The cadence trigger fires automatically at session boot when `last_claimed mod health_check_cadence == 0`. User accepts (the session's work is the audit, per `docs/operations/health-check.md`) or defers.
 
-**First check expected around S-0030.** `tools/health_check.py` lands in one of the sessions ~S-0025.
+**First check expected around S-0030.** `engine/tools/health_check.py` produces the audit report; trend telemetry reads the committed `engine/session/archive/*.json` per [ADR 0042](engine/adr/0042-soft-warn-lifecycle-archive-canon.md).
 
 Telemetry hooks built in S-0001:
 - `tools/validate-history.jsonl` (append-only, soft-warn category trends)

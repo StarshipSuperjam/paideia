@@ -2,7 +2,7 @@
 
 A knowledge mastery app built on a pedagogical dependency graph. Generates personalized learning paths, provides AI-driven Socratic teaching, and tracks mastery across texts and sessions. Philosophy is the first domain; the architecture is domain-agnostic.
 
-**Status:** design and prototyping. Foundation phase closed (S-0003); Phase 1 (Contract Lock) opens at S-0004.
+**Status:** design and early implementation. Project setup complete; Phase 3 (SQL schema) deployed. `engine/STATE.md` carries the current phase and next session's work item; `engine/ENGINE_LOG.md` carries the full history.
 
 **Repository:** https://github.com/StarshipSuperjam/paideia (private)
 
@@ -20,7 +20,7 @@ For full project vision and audience framing, see [`product/docs/MISSION.md`](pr
 
 ## Repo map
 
-The repo is partitioned into `engine/` (the AI build apparatus the user and Claude run together to construct Paideia) and `product/` (Paideia itself — pedagogy, content, runtime architecture). Partition committed in [ADR 0037](engine/adr/0037-engine-product-wall-and-changelog-rename.md) and executed at S-0024.
+The repo is partitioned into `engine/` (the AI build apparatus the user and Claude run together to construct Paideia) and `product/` (Paideia itself — pedagogy, content, runtime architecture). Partition per [ADR 0037](engine/adr/0037-engine-product-wall-and-changelog-rename.md).
 
 ```
 paideia/
@@ -147,8 +147,6 @@ Proprietary, all rights reserved. See `LICENSE`.
 
 ## Project history
 
-**Pre-foundation design phase.** 8 of 14 prompt-pack sessions closed (Schema Foundations, Session Lifecycle, Assessment & Mastery Verification, Self-Correction & Node Mapping, Reading System & Outline Generation, Product Identity & Institutional Design, Learner Model Implementation, Seed Graph & Node Schema). Settled the 12 strong working commitments and the architectural decisions absorbed into ADRs 0001–0022 during S-0003. Backup tag at `pre-foundation-v0.0.0` (commit `fa70b8c`).
+**Pre-foundation design phase.** 8 of 14 prompt-pack sessions closed (Schema Foundations, Session Lifecycle, Assessment & Mastery Verification, Self-Correction & Node Mapping, Reading System & Outline Generation, Product Identity & Institutional Design, Learner Model Implementation, Seed Graph & Node Schema). Settled the strong working commitments and the architectural decisions that became the project's first ADRs. Backup tag at `pre-foundation-v0.0.0` (commit `fa70b8c`).
 
-**Foundation phase (S-0001 → S-0003) — closed.** Industry-standard project skeleton, session-protocol layer with eager-claim ritual + bimodal hook, MemPalace integration with capture hooks, procedural layer (CLAUDE.md + 11-file `docs/operations/` library + MISSION.md + CROSS_REFERENCES.md), 22-ADR collection. `tools/validate.py` returns 0 hard-fails / 0 soft-warns at Foundation close.
-
-**Phase 1 (Contract Lock) — pending.** Opens at S-0004 with prompt-pack Session 9 (Engagement Depth Aggregation). Per [`ROADMAP.md`](ROADMAP.md), Phase 1 also closes prompt-pack Sessions 10–11, authors `AGENT_INSTRUCTIONS.md`, and adds `confidence_level` to the node schema.
+**Project setup and current build state.** `engine/STATE.md` carries the canonical current state (current phase, last build session, next session's work item). `engine/ENGINE_LOG.md` carries the full chronological history of engine changes. Backup tags annotate phase boundaries (`pre-phase-3-v0.0.1` cut before Phase 3 SQL build).

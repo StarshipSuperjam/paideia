@@ -2,7 +2,7 @@
 
 > Settled architectural decisions about **the AI build apparatus** — how the user and Claude run together to construct Paideia. Validators, hooks, session lifecycle, MemPalace integration, operations conventions, expression contracts for inward documentation. Companion index: [`product/adr/README.md`](../../product/adr/README.md) carries decisions about Paideia-the-product (pedagogy, learner model, schema, business, runtime architecture).
 >
-> The engine/product partition was committed in [ADR 0037](0037-engine-product-wall-and-changelog-rename.md) and executed at S-0024.
+> The engine/product partition is committed in [ADR 0037](0037-engine-product-wall-and-changelog-rename.md).
 
 ADRs are durable, structured, and citable — the **contract layer** of two-layer decision recording (per `CLAUDE.md`). The **story layer** (verbatim conversational reasoning) lives in MemPalace `decision`-tagged drawers.
 
