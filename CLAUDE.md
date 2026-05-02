@@ -9,11 +9,11 @@
 Every session begins by reading these in order:
 
 1. **`engine/STATE.md`** — current phase, last-closed session, next-session work item, infrastructure pointers.
-2. **`engine/session/register_state.json`** — counter state. If `last_claimed`'s 4-digit suffix mod 30 == 0, the health-check cadence trigger fires (see `engine/operations/health-check.md`).
+2. **`engine/session/register_state.json`** — counter state. If `next_id`'s 4-digit suffix mod 30 == 0, the health-check cadence trigger fires (see `engine/operations/health-check.md`). The `SessionStart` hook (`engine/tools/hooks/session-start.sh` per [ADR 0043](engine/adr/0043-hook-architecture.md)) emits the cadence surface from the harness side regardless of how the session is launched, so steps 1–2 are also mechanically backstopped.
 3. **MemPalace** — query `mempalace_search` with terms derived from the next-session work item. Surface anything relevant the user previously named.
 4. **Files referenced by `engine/STATE.md` and `ROADMAP.md`** for the current work.
 
-`/start-engine` automates this and claims the next slot. See `.claude/commands/start-engine.md`.
+`/start-engine` automates this and claims the next slot. The slash command's documented procedure routes through the `session-build-lifecycle` Skill (per [ADR 0044](engine/adr/0044-skill-conversion-recipe-vs-reference.md)). See `.claude/commands/start-engine.md` and `.claude/skills/session-build-lifecycle/SKILL.md`.
 
 ## First-session reading order
 
@@ -29,7 +29,12 @@ Other operations docs are defer-on-demand: read when the session's work item ref
 ## Two session modes
 
 - **Default — exploration.** No project file edits to tracked files. No commits. No slot claim. Sketch in conversation. MemPalace captures with the `exploration` tag (via the stop/precompact hooks in `.claude/settings.json`). When discussion converges on something worth committing, offer `/start-engine`.
-- **Build — `/start-engine`.** Eager-claims the next slot, allows commits and project file edits, runs the shutdown sequence at close. Procedure: `engine/operations/session-build-lifecycle.md` + `engine/operations/session-shutdown-sequence.md`.
+- **Build — `/start-engine`.** Eager-claims the next slot, allows commits and project file edits, runs the shutdown sequence at close. Canonical invocation routes through three user-defined Skills under `.claude/skills/` (per [ADR 0044](engine/adr/0044-skill-conversion-recipe-vs-reference.md)):
+  - `session-build-lifecycle` — boot procedure invoked at session start (Layer 1 doc: `engine/operations/session-build-lifecycle.md`).
+  - `session-shutdown-sequence` — close procedure invoked at session end (Layer 1 doc: `engine/operations/session-shutdown-sequence.md`).
+  - `build-readiness-gate` — gate procedure invoked before substantive build sessions (Layer 1 doc: `engine/operations/build-readiness-gate.md`).
+
+  All three Skills carry `disable-model-invocation: true` — the AI invokes deliberately rather than auto-firing on description match. The Layer 1 ops docs remain the source-of-truth; updates flow doc → skill, never the reverse.
 
 ## Standing rules
 
@@ -88,13 +93,21 @@ ADRs answer "what's settled?". MemPalace answers "have we considered X before?".
 
 ### Posture vs machinery
 
-Several rules above are postures held by AI discipline, not machinery enforced by validators or hooks:
+Some rules above remain postures held by AI discipline:
 
 - The **pushback rule** — no log, no audit; a session that fails to surface a real risk leaves no trace.
-- **Two-layer decision recording** — `engine/tools/validate.py` does not check whether a settled decision was filed to MemPalace alongside its ADR.
-- The **startup ceremony order** — the four steps run by judgment; nothing prevents skipping or reordering.
+- The **startup ceremony order** — steps 1, 3, and 4 run by judgment; nothing prevents skipping or reordering. Step 2 (the cadence trigger) is now mechanized via the `SessionStart` hook per [ADR 0043](engine/adr/0043-hook-architecture.md), but the order in which the AI consumes the surface remains posture.
+- **Skill invocation** — the three build-mode Skills (`session-build-lifecycle`, `session-shutdown-sequence`, `build-readiness-gate`) carry `disable-model-invocation: true`. The AI is responsible for invoking each at the appropriate moment; the harness will not auto-fire them.
 
-The choice is deliberate: these don't admit clean mechanical detection. The cost is that drift accumulates silently if discipline lapses. The mitigation is awareness — a session that knows the rule is unenforced can hold itself accountable rather than mistake the absence of an alarm for the presence of compliance.
+These postures don't admit clean mechanical detection. The cost is that drift accumulates silently if discipline lapses. The mitigation is awareness — a session that knows the rule is unenforced can hold itself accountable rather than mistake the absence of an alarm for the presence of compliance.
+
+Other rules previously held by posture are now mechanized:
+
+- **Two-layer decision recording** is soft-enforced by the `PostToolUse` hook on ADR writes (`engine/tools/hooks/post-adr-write.sh` per [ADR 0043](engine/adr/0043-hook-architecture.md)) — the hook reminds when an ADR write produces no matching `decision`-tagged MemPalace drawer. The reminder is non-blocking; the AI may proceed if the apparent absence is intentional.
+- **STATE.md required-fields verification** is soft-enforced by the `PostToolUse` hook on STATE.md edits (`engine/tools/hooks/post-state-edit.sh` per [ADR 0043](engine/adr/0043-hook-architecture.md)) — the hook surfaces reminders for empty rows or placeholder tokens.
+- **Health-check cadence trigger** is mechanized by the `SessionStart` hook (`engine/tools/hooks/session-start.sh` per [ADR 0043](engine/adr/0043-hook-architecture.md)) — fires regardless of whether `/start-engine` is invoked.
+
+Soft enforcement preserves AI judgment. A reminder can be acknowledged and overridden in legitimate cases (an ADR supersession that intentionally reuses an existing decision drawer; a STATE.md edit with a transient placeholder mid-edit). Hard enforcement was rejected for these rules in [ADR 0043](engine/adr/0043-hook-architecture.md) because the legitimate-exception surface is non-empty.
 
 ## Topical pointers
 
