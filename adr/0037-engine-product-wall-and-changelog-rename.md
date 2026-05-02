@@ -34,19 +34,19 @@ Proposed shape:
 │   ├── session/                ← session register + archive
 │   ├── adr/                    ← engine ADRs
 │   ├── ENGINE_LOG.md           ← was CHANGELOG.md
-│   ├── STATE.md                ← session state
-│   └── CLAUDE.md               ← AI orientation
+│   └── STATE.md                ← session state
 ├── product/                    ← Paideia content
 │   ├── adr/                    ← pedagogy + product-architecture ADRs
 │   ├── docs/                   ← MISSION, pedagogy, architecture, learner-model, content-strategy, business
 │   ├── seed-graph/             ← Phase 5 onward
 │   ├── AGENT_INSTRUCTIONS.md   ← rendering policy (product-facing)
 │   └── CHANGELOG.md            ← reserved, first entry Phase 9
+├── CLAUDE.md                   ← stays at root (edge-case; see below)
 ├── ROADMAP.md                  ← stays at root with [ENGINE] / [PRODUCT] phase markers
 └── README.md                   ← stays at root; orients to both subtrees
 ```
 
-Edge-case resolutions: (a) ADRs that bridge engine and product — `AGENT_INSTRUCTIONS.md` and [ADR 0027](0027-rendering-policy-prompt-layer-contract.md) (rendering policy) are *about* how the engine talks to learners; their consumer-of-record is learner-facing prose, so they file under `product/`. The engine side cross-references. (b) `ROADMAP.md` and `README.md` stay at root as orientation surfaces — they speak to both subtrees. (c) `.claude/` stays at root because Claude Code expects it there.
+Edge-case resolutions: (a) ADRs that bridge engine and product — `AGENT_INSTRUCTIONS.md` and [ADR 0027](0027-rendering-policy-prompt-layer-contract.md) (rendering policy) are *about* how the engine talks to learners; their consumer-of-record is learner-facing prose, so they file under `product/`. The engine side cross-references. (b) `ROADMAP.md` and `README.md` stay at root as orientation surfaces — they speak to both subtrees. (c) `.claude/` and `CLAUDE.md` stay at root because Claude Code expects them there. `.claude/` is the harness's settings/commands/hooks tree; `CLAUDE.md` is the project-orientation file Claude Code auto-loads only by walking ancestor directories from cwd — a subdirectory `engine/CLAUDE.md` would not auto-load at session start (subdirectory `CLAUDE.md` files load lazily, only when files inside that subtree are touched), which would break the load-bearing boot ceremony. The wall this ADR commits to is conceptual — partition by what kind of artifact, not a physical-purity test that every engine artifact must live under `engine/`. `CLAUDE.md`'s content is engine-side; its location is determined by the harness's expectations, identical to `.claude/`'s rationale. The light-revision settling this folds into edge-case (c) at S-0024 (the migration session).
 
 The naming choice — `ENGINE_LOG.md` over `MACHINERY_LOG.md` — matches the project's existing `/start-engine` build-mode command vocabulary directly; "machinery" is a separate posture-discipline term in [`CLAUDE.md`](../CLAUDE.md) (`### Posture vs machinery` distinguishes rules-held-by-judgment from rules-enforced-by-validators) and overloading it onto the file would conflate two distinct concepts the project keeps separate.
 
