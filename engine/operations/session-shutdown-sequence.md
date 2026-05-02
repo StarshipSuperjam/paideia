@@ -25,7 +25,22 @@ For every artifact created or modified in this session, ask:
 
 The audit catches structural mistakes. The spot-check catches judgment mistakes.
 
-### 3. Update `STATE.md`
+### 3. Cold-context review pass (sessions that modified tracked Python under engine/)
+
+Layer 3 of the [code-discipline contract](code-discipline.md) per [ADR 0038](../adr/0038-expression-contract-for-ai-authored-code.md). Sessions that did not modify any `engine/**/*.py` skip this step.
+
+Identify the modified Python files in this session: `git diff --name-only <session-base>..HEAD | grep -E '^engine/.*\.py$'`. The session-base is the commit that immediately precedes the eager-claim — typically `git merge-base origin/main HEAD~`, or simply `HEAD~N` where N is the number of commits this session has produced.
+
+Launch a sub-agent (Explore type) with no session context. The agent's brief is the cold-review prompt template in [`code-discipline.md`](code-discipline.md) — the agent reads each modified file's contract block, then reads the implementation, then reports per-file whether the code matches its contract or where the contract and code drift apart. Cite specific contract claims and code lines for each mismatch.
+
+Record findings in `engine/session/current.json`'s `outcome_summary`:
+
+- **All matches.** Append `"cold-review pass: <N> file(s), all match contract."` to `outcome_summary`.
+- **Mismatches found.** Append the per-file findings verbatim, then a one-sentence response per finding distinguishing addressed-in-session from deferred-to-follow-up. Material drift that warrants follow-up — code that contradicts a contract block in a way the session did not catch — surfaces as a new HANDOFF.md entry or a follow-up-task line in `outcome_summary` so the next session sees it.
+
+The pass is fresh-eyes by construction: the sub-agent has no memory of the authoring session's premises and so cannot share its blind spots. The mechanism targets the compound-drift failure mode — a wrong premise built upon by internally-consistent code that passes tests authored against the same premise. Cold-review surfaces premise drift; lint/type/test gates do not.
+
+### 4. Update `STATE.md`
 
 Edit the `## Current` table:
 
@@ -37,7 +52,7 @@ Edit the `## Next session work item` block:
 - Replace with the next session's scope. Be concrete: what files get authored, what files get retired, what success looks like. The next session reads this cold; it should be sufficient.
 - If this session uncovered new work that should sit before what was previously next, surface it here and update `ROADMAP.md` if the change crosses a phase boundary.
 
-### 4. Update `ENGINE_LOG.md`
+### 5. Update `ENGINE_LOG.md`
 
 `ENGINE_LOG.md` is the dated-narrative layer for material engine changes — the renamed `CHANGELOG.md` per [ADR 0037](../adr/0037-engine-product-wall-and-changelog-rename.md). The `CHANGELOG.md` filename is reserved for future learner-visible product release content (first entry at Phase 9); session shutdowns write here.
 
@@ -58,7 +73,7 @@ Skip these — not material:
 
 At the next release tag (e.g., `0.1.0` at Phase 0 close), the `[Unreleased]` block gets promoted to a dated section.
 
-### 5. Fill `session/current.json` `outcome_summary`
+### 6. Fill `session/current.json` `outcome_summary`
 
 ~50 words. What got done, soft-warn category counts, anything noteworthy for health-check telemetry. Example shape:
 
@@ -68,7 +83,7 @@ At the next release tag (e.g., `0.1.0` at Phase 0 close), the `[Unreleased]` blo
 
 Honest summaries beat flattering ones — health-check trend analysis depends on them.
 
-### 6. Archive the claim
+### 7. Archive the claim
 
 ```bash
 mv session/current.json session/archive/S-<NNNN>.json
@@ -97,7 +112,7 @@ Update `session/register_state.json`:
 }
 ```
 
-### 7. Final commit + main FF + push
+### 8. Final commit + main FF + push
 
 Commit message uses Conventional Commits with the session ID:
 
@@ -147,11 +162,11 @@ The next session picks up cleanly from STATE.md without re-deriving where things
 
 ## Recovery (interrupted shutdown)
 
-A clean close runs steps 1–7 in sequence. If the session crashes, hits a network error, or otherwise halts mid-shutdown, the observable state determines the recovery path:
+A clean close runs steps 1–8 in sequence. If the session crashes, hits a network error, or otherwise halts mid-shutdown, the observable state determines the recovery path:
 
-1. **Halted before step 6 (archive).** `current.json` present; `register_state.json` `current_status: in_progress`. Resume from step 1 — run `tools/validate.py`, complete spot-check, finish updating STATE.md / ENGINE_LOG, fill `outcome_summary`, then archive and final-commit.
+1. **Halted before step 7 (archive).** `current.json` present; `register_state.json` `current_status: in_progress`. Resume from step 1 — run `tools/validate.py`, complete spot-check, run cold-review pass if any Python under engine/ was modified, finish updating STATE.md / ENGINE_LOG, fill `outcome_summary`, then archive and final-commit.
 
-2. **Halted between archive (step 6) and final commit (step 7).** `archive/S-<NNNN>.json` present, `current.json` absent, `register_state.json` `current_status: closed`. The archive move sits unstaged or staged in the working tree. Stage and commit the planned final commit; FF main; push.
+2. **Halted between archive (step 7) and final commit (step 8).** `archive/S-<NNNN>.json` present, `current.json` absent, `register_state.json` `current_status: closed`. The archive move sits unstaged or staged in the working tree. Stage and commit the planned final commit; FF main; push.
 
 3. **Halted after final commit, before FF + push.** Final commit exists locally; `git log origin/main..HEAD` shows it. FF main and push. No state edits required.
 

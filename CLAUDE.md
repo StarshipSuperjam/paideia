@@ -96,6 +96,7 @@ Procedural depth lives in `engine/operations/` — one file per topic. Browse wi
 - `tools-validate-interpretation.md` — hard-fail vs soft-warn, what to do with each.
 - `escalation-criteria.md` — when to interrupt user; redundant with auto-mode criteria above but with worked examples.
 - `adr-authoring.md` — Nygard template, status conventions, when an ADR is warranted.
+- `code-discipline.md` — three-layer expression contract for AI-authored code (per ADR 0038): contract-first prose, mechanical gates (ruff/mypy/pytest in pre-commit), cold-context review pass at shutdown.
 - `health-check.md` — audit categories, report template, cadence policy.
 
 Project context (the *what* and *why*, not the *how*):
