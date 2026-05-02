@@ -56,30 +56,38 @@ from typing import Any
 # Paths and configuration
 # ---------------------------------------------------------------------------
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-HISTORY_FILE = REPO_ROOT / "tools" / "validate-history.jsonl"
+# Validator lives at engine/tools/validate.py post-S-0024 migration; REPO_ROOT
+# walks three levels up (validate.py → tools/ → engine/ → repo root).
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+HISTORY_FILE = REPO_ROOT / "engine" / "tools" / "validate-history.jsonl"
 
 REQUIRED_TOP_LEVEL = [
     "README.md",
     "LICENSE",
-    "ENGINE_LOG.md",
     "SECURITY.md",
-    "STATE.md",
     "ROADMAP.md",
     "HANDOFF.md",
+    "CLAUDE.md",
+]
+
+# Engine-side required files (post-S-0024 migration per ADR 0037).
+REQUIRED_ENGINE_FILES = [
+    "engine/STATE.md",
+    "engine/ENGINE_LOG.md",
 ]
 
 # Files whose existence is expected from S-0002 onward — we soft-skip if
-# they don't exist yet during S-0001.
+# they don't exist yet during S-0001. Paths reflect post-S-0024 layout.
 EXPECTED_FROM_S0002 = [
-    "CLAUDE.md",
-    "docs/MISSION.md",
-    "docs/CROSS_REFERENCES.md",
-    "docs/operations/README.md",
+    "product/docs/MISSION.md",
+    "product/docs/CROSS_REFERENCES.md",
+    "engine/operations/README.md",
 ]
 
-# ADR collection lives here from S-0003 onward.
-ADR_DIR = REPO_ROOT / "adr"
+# ADR collection split across engine/adr/ and product/adr/ post-S-0024
+# per ADR 0037's partition.
+ENGINE_ADR_DIR = REPO_ROOT / "engine" / "adr"
+PRODUCT_ADR_DIR = REPO_ROOT / "product" / "adr"
 
 
 # ---------------------------------------------------------------------------
@@ -129,72 +137,87 @@ def validate_repo_structure() -> ValidationResult:
         if not (REPO_ROOT / name).is_file():
             r.hard_fail(f"missing required top-level file: {name}")
 
-    # session/ scaffolding
+    # Engine-required files (post-S-0024 migration)
+    r.add_check("engine_required")
+    for name in REQUIRED_ENGINE_FILES:
+        if not (REPO_ROOT / name).is_file():
+            r.hard_fail(f"missing required engine file: {name}")
+
+    # engine/session/ scaffolding
     r.add_check("session_register")
-    register_path = REPO_ROOT / "session" / "register_state.json"
+    register_path = REPO_ROOT / "engine" / "session" / "register_state.json"
     if not register_path.is_file():
-        r.hard_fail("missing session/register_state.json")
+        r.hard_fail("missing engine/session/register_state.json")
     else:
         try:
             register = json.loads(register_path.read_text())
             for key in ("next_id", "last_claimed", "current_status"):
                 if key not in register:
-                    r.hard_fail(f"session/register_state.json missing key: {key}")
+                    r.hard_fail(
+                        f"engine/session/register_state.json missing key: {key}"
+                    )
         except json.JSONDecodeError as e:
-            r.hard_fail(f"session/register_state.json is not valid JSON: {e}")
+            r.hard_fail(
+                f"engine/session/register_state.json is not valid JSON: {e}"
+            )
 
     # current.json schema (only if file exists — may be archived between sessions)
     r.add_check("session_current")
-    current_path = REPO_ROOT / "session" / "current.json"
+    current_path = REPO_ROOT / "engine" / "session" / "current.json"
     if current_path.is_file():
         try:
             current = json.loads(current_path.read_text())
             for key in ("id", "started_at", "status", "working_on"):
                 if key not in current:
-                    r.hard_fail(f"session/current.json missing key: {key}")
+                    r.hard_fail(
+                        f"engine/session/current.json missing key: {key}"
+                    )
             if not re.match(r"^S-\d{4}$", current.get("id", "")):
                 r.hard_fail(
-                    f"session/current.json id does not match S-NNNN format: "
-                    f"{current.get('id')}"
+                    f"engine/session/current.json id does not match S-NNNN "
+                    f"format: {current.get('id')}"
                 )
         except json.JSONDecodeError as e:
-            r.hard_fail(f"session/current.json is not valid JSON: {e}")
+            r.hard_fail(f"engine/session/current.json is not valid JSON: {e}")
 
-    # ENGINE_LOG.md parseable as Keep-a-Changelog (lightweight check: has
-    # [Unreleased] section). The file is the renamed CHANGELOG.md per ADR
+    # engine/ENGINE_LOG.md parseable as Keep-a-Changelog (lightweight check:
+    # has [Unreleased] section). The file is the renamed CHANGELOG.md per ADR
     # 0037 (engine / product wall); it carries the dated narrative for
     # material engine changes. The CHANGELOG.md filename is reserved for
     # future learner-visible product release content (first entry at Phase 9).
     r.add_check("engine_log_format")
-    engine_log_path = REPO_ROOT / "ENGINE_LOG.md"
+    engine_log_path = REPO_ROOT / "engine" / "ENGINE_LOG.md"
     if engine_log_path.is_file():
         text = engine_log_path.read_text()
         if "[Unreleased]" not in text and "## [Unreleased]" not in text:
             r.soft_warn(
                 "engine_log_format",
-                "ENGINE_LOG.md missing [Unreleased] section header",
+                "engine/ENGINE_LOG.md missing [Unreleased] section header",
             )
 
-    # STATE.md current-phase pointer
+    # engine/STATE.md current-phase pointer
     r.add_check("state_current_phase")
-    state_path = REPO_ROOT / "STATE.md"
+    state_path = REPO_ROOT / "engine" / "STATE.md"
     if state_path.is_file():
         text = state_path.read_text()
         if "Current phase" not in text:
             r.soft_warn(
                 "state_format",
-                "STATE.md missing 'Current phase' field",
+                "engine/STATE.md missing 'Current phase' field",
             )
 
-    # ADR Status fields (only when adr/ exists — S-0003 onward).
-    # Accepts the Nygard template's bold form (`- **Status:** Accepted`),
-    # plain form (`Status: Accepted`), and the bold-around-label variant
-    # (`- **Status**: Accepted`). Any of: leading list-bullet/whitespace/
-    # asterisks, the literal "Status", optional whitespace/asterisks, a
-    # colon, optional whitespace/asterisks, then a non-whitespace value.
+    # ADR Status fields. Iterates both engine/adr/ and product/adr/ post the
+    # S-0024 partition. Accepts the Nygard template's bold form (`- **Status:**
+    # Accepted`), plain form (`Status: Accepted`), and the bold-around-label
+    # variant (`- **Status**: Accepted`). Any of: leading list-bullet/
+    # whitespace/asterisks, the literal "Status", optional whitespace/
+    # asterisks, a colon, optional whitespace/asterisks, then a non-whitespace
+    # value.
     r.add_check("adr_status")
-    if ADR_DIR.is_dir():
-        for adr_file in sorted(ADR_DIR.glob("[0-9][0-9][0-9][0-9]-*.md")):
+    for adr_dir in (ENGINE_ADR_DIR, PRODUCT_ADR_DIR):
+        if not adr_dir.is_dir():
+            continue
+        for adr_file in sorted(adr_dir.glob("[0-9][0-9][0-9][0-9]-*.md")):
             text = adr_file.read_text()
             if not re.search(
                 r"^[\s*\-]*Status[\s*]*:[\s*]*\S", text, re.MULTILINE
@@ -204,9 +227,10 @@ def validate_repo_structure() -> ValidationResult:
                     f"{adr_file.relative_to(REPO_ROOT)}: no Status field found",
                 )
 
-    # ADR index/file consistency (only when adr/ + adr/README.md exist).
+    # ADR index/file consistency. Each subtree (engine/adr/, product/adr/) has
+    # its own README.md index; this check runs per-subtree.
     # Soft-warn `adr_index_inconsistent` covers two cases:
-    #   - ADR file present in adr/ but not referenced from adr/README.md
+    #   - ADR file present but not referenced from its subtree's README.md
     #   - ADR file's Status core keyword differs from the index's status
     #     column for that ADR (Accepted / Superseded / Deprecated / Proposed)
     # Soft-warn rather than hard-fail because the index is human-curated and
@@ -214,44 +238,47 @@ def validate_repo_structure() -> ValidationResult:
     # column, supersession pointers, etc.); false positives should refine
     # the check rather than be papered over.
     r.add_check("adr_index_consistency")
-    index_path = ADR_DIR / "README.md"
-    if ADR_DIR.is_dir() and index_path.is_file():
-        index_text = index_path.read_text()
 
-        # Index rows look like `| [NNNN](NNNN-...md) | Title | Status |`.
-        # Match the leading bracketed NNNN as the row anchor and the third
-        # cell's contents as the index status. Multiple sections share the
-        # same row format, so a single regex covers all per-phase tables.
+    # Index rows look like `| [NNNN](NNNN-...md) | Title | Status |`.
+    # Match the leading bracketed NNNN as the row anchor and the third
+    # cell's contents as the index status. Multiple sections share the
+    # same row format, so a single regex covers all per-phase tables.
+    row_pattern = re.compile(
+        r"^\|\s*\[(\d{4})\]\([^)]+\)\s*\|\s*[^|]+\|\s*([^|]+?)\s*\|"
+    )
+    file_status_pattern = re.compile(
+        r"^[\s*\-]*Status[\s*]*:[\s*]*(.+?)\s*$",
+        re.MULTILINE,
+    )
+    status_keywords = ("superseded", "deprecated", "accepted", "proposed")
+
+    def _core_status(s: str) -> str:
+        stripped = re.sub(r"[*_`]", "", s).lower()
+        for kw in status_keywords:
+            if kw in stripped:
+                return kw
+        return ""
+
+    for adr_dir in (ENGINE_ADR_DIR, PRODUCT_ADR_DIR):
+        index_path = adr_dir / "README.md"
+        if not (adr_dir.is_dir() and index_path.is_file()):
+            continue
+        index_rel = index_path.relative_to(REPO_ROOT)
+        index_text = index_path.read_text()
         indexed_status: dict[str, str] = {}
-        row_pattern = re.compile(
-            r"^\|\s*\[(\d{4})\]\([^)]+\)\s*\|\s*[^|]+\|\s*([^|]+?)\s*\|"
-        )
         for line in index_text.splitlines():
             m = row_pattern.match(line)
             if m:
                 indexed_status[m.group(1)] = m.group(2).strip()
 
-        file_status_pattern = re.compile(
-            r"^[\s*\-]*Status[\s*]*:[\s*]*(.+?)\s*$",
-            re.MULTILINE,
-        )
-        status_keywords = ("superseded", "deprecated", "accepted", "proposed")
-
-        def _core_status(s: str) -> str:
-            stripped = re.sub(r"[*_`]", "", s).lower()
-            for kw in status_keywords:
-                if kw in stripped:
-                    return kw
-            return ""
-
-        for adr_file in sorted(ADR_DIR.glob("[0-9][0-9][0-9][0-9]-*.md")):
+        for adr_file in sorted(adr_dir.glob("[0-9][0-9][0-9][0-9]-*.md")):
             num = adr_file.name[:4]
             rel = adr_file.relative_to(REPO_ROOT)
 
             if num not in indexed_status:
                 r.soft_warn(
                     "adr_index_inconsistent",
-                    f"{rel}: ADR not referenced in adr/README.md index",
+                    f"{rel}: ADR not referenced in {index_rel} index",
                 )
                 continue
 
@@ -270,11 +297,11 @@ def validate_repo_structure() -> ValidationResult:
                     f"index '{index_core}'",
                 )
 
-    # docs/CROSS_REFERENCES.md entries resolve (S-0002 onward)
+    # product/docs/CROSS_REFERENCES.md entries resolve (S-0002 onward).
     # Links are resolved relative to the file's directory (standard markdown
     # behavior), then normalized so paths above repo-root flag as broken.
     r.add_check("cross_references_resolve")
-    cross_ref_path = REPO_ROOT / "docs" / "CROSS_REFERENCES.md"
+    cross_ref_path = REPO_ROOT / "product" / "docs" / "CROSS_REFERENCES.md"
     if cross_ref_path.is_file():
         text = cross_ref_path.read_text()
         link_dir = cross_ref_path.parent
@@ -286,7 +313,7 @@ def validate_repo_structure() -> ValidationResult:
             if not target_path.is_file():
                 r.soft_warn(
                     "cross_reference_broken",
-                    f"docs/CROSS_REFERENCES.md → {target} does not exist",
+                    f"product/docs/CROSS_REFERENCES.md → {target} does not exist",
                 )
 
     # Files expected from S-0002 (soft-skip during S-0001)
@@ -360,7 +387,7 @@ def validate_graph(connection_string: str | None = None) -> ValidationResult:
 
 def session_id_from_current() -> str:
     """Return the in-progress session id, or 'outside-session' if none."""
-    current_path = REPO_ROOT / "session" / "current.json"
+    current_path = REPO_ROOT / "engine" / "session" / "current.json"
     if not current_path.is_file():
         return "outside-session"
     try:

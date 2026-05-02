@@ -2,22 +2,23 @@
 #
 # Paideia pre-commit hook.
 #
-# Enforces the bimodal session protocol and runs tools/validate.py.
+# Enforces the bimodal session protocol and runs engine/tools/validate.py.
+# Paths reflect the post-S-0024 engine/product partition per ADR 0037.
 #
-# Three modes detected from session/ state + staged changes:
+# Three modes detected from engine/session/ state + staged changes:
 #
 #   build     — current.json exists with status: in_progress.
 #               All commits permitted (subject to validate.py passing).
 #
 #   closing   — current.json was deleted in the staged commit (via git mv to
-#               session/archive/) AND register_state.json transitions to
-#               current_status: "closed". This is the legitimate session-close
-#               commit; allowed.
+#               engine/session/archive/) AND register_state.json transitions
+#               to current_status: "closed". This is the legitimate
+#               session-close commit; allowed.
 #
 #   exploration — neither of the above. Default mode for design-partner work.
-#               Restricts commits to: .claude/plans/, HANDOFF.md, docs/tensions.md,
-#               docs/ideation.md. Anything else triggers a refusal with a
-#               pointer to /start-engine.
+#               Restricts commits to: .claude/plans/, HANDOFF.md,
+#               product/docs/tensions.md, product/docs/ideation.md. Anything
+#               else triggers a refusal with a pointer to /start-engine.
 #
 # Validation always runs, regardless of mode. Hard-fails block the commit;
 # soft-warns are advisory.
@@ -27,8 +28,8 @@ set -e
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
-CURRENT_FILE="session/current.json"
-REGISTER_FILE="session/register_state.json"
+CURRENT_FILE="engine/session/current.json"
+REGISTER_FILE="engine/session/register_state.json"
 
 # ---------------------------------------------------------------------------
 # Mode detection
@@ -59,22 +60,23 @@ fi
 # ---------------------------------------------------------------------------
 
 if [ "$MODE" = "exploration" ]; then
-    # Restrict to: .claude/plans/, HANDOFF.md, docs/tensions.md, docs/ideation.md
+    # Allowed: .claude/plans/, HANDOFF.md, product/docs/tensions.md,
+    # product/docs/ideation.md (paths reflect post-S-0024 partition).
     DISALLOWED=$(git diff --cached --name-only \
         | grep -v -E '^\.claude/plans/' \
         | grep -v -E '^HANDOFF\.md$' \
-        | grep -v -E '^docs/tensions\.md$' \
-        | grep -v -E '^docs/ideation\.md$' \
+        | grep -v -E '^product/docs/tensions\.md$' \
+        | grep -v -E '^product/docs/ideation\.md$' \
         || true)
     if [ -n "$DISALLOWED" ]; then
         echo "[pre-commit] Exploration-mode commit blocked." >&2
         echo "" >&2
         echo "  Default-mode posture is design partner — no commits to tracked" >&2
         echo "  project files. Allowed paths in this mode:" >&2
-        echo "    .claude/plans/   (plan files)" >&2
-        echo "    HANDOFF.md       (running log)" >&2
-        echo "    docs/tensions.md (open questions)" >&2
-        echo "    docs/ideation.md (captured ideas)" >&2
+        echo "    .claude/plans/                 (plan files)" >&2
+        echo "    HANDOFF.md                     (running log)" >&2
+        echo "    product/docs/tensions.md       (open questions)" >&2
+        echo "    product/docs/ideation.md       (captured ideas)" >&2
         echo "" >&2
         echo "  Disallowed staged paths:" >&2
         echo "$DISALLOWED" | sed 's/^/    /' >&2
@@ -85,14 +87,14 @@ if [ "$MODE" = "exploration" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Run validate.py
+# Run engine/tools/validate.py
 # ---------------------------------------------------------------------------
 
-if [ -f tools/validate.py ]; then
-    if ! python3 tools/validate.py; then
+if [ -f engine/tools/validate.py ]; then
+    if ! python3 engine/tools/validate.py; then
         STATUS=$?
         if [ "$STATUS" -ge 2 ]; then
-            echo "[pre-commit] tools/validate.py reported hard-fails. Commit blocked." >&2
+            echo "[pre-commit] engine/tools/validate.py reported hard-fails. Commit blocked." >&2
             exit 1
         fi
         # exit 1 from validate.py = soft-warns only; advisory, don't block

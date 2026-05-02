@@ -1,12 +1,16 @@
-# Architecture Decision Records
+# Product Architecture Decision Records
 
-> Settled architectural decisions. Each ADR is durable, structured, and citable — the **contract layer** of two-layer decision recording (per `CLAUDE.md`). The **story layer** (verbatim conversational reasoning) lives in MemPalace `decision`-tagged drawers.
+> Settled architectural decisions about **Paideia as a product** — pedagogy, learner model, curriculum, schema, runtime architecture, business, deployment. Companion index: [`engine/adr/README.md`](../../engine/adr/README.md) carries decisions about the AI build apparatus.
+>
+> The engine/product partition was committed in [ADR 0037](../../engine/adr/0037-engine-product-wall-and-changelog-rename.md) and executed at S-0024.
+
+ADRs are durable, structured, and citable — the **contract layer** of two-layer decision recording (per `CLAUDE.md`). The **story layer** (verbatim conversational reasoning) lives in MemPalace `decision`-tagged drawers.
 
 ADRs answer **"what's settled?"**. MemPalace answers **"have we considered X before?"**. Neither replaces the other.
 
 ## Authoring guidance
 
-Full procedure — Nygard template, status conventions, when an ADR is warranted, and the ADR-vs-ENGINE_LOG-vs-MemPalace boundary — lives in [`docs/operations/adr-authoring.md`](../docs/operations/adr-authoring.md). This README only indexes the collection.
+Full procedure — Nygard template, status conventions, when an ADR is warranted, and the ADR-vs-ENGINE_LOG-vs-MemPalace boundary — lives in [`../../engine/operations/adr-authoring.md`](../../engine/operations/adr-authoring.md). This README only indexes the product collection.
 
 ## Status conventions (quick reference)
 
@@ -17,11 +21,11 @@ Full procedure — Nygard template, status conventions, when an ADR is warranted
 | `Deprecated` | No longer in force; no replacement exists. ADR remains in place — it carries the historical reasoning. |
 | `Superseded by ADR NNNN` | Replaced by a newer ADR. Pointer is one-directional (older → newer). |
 
-The `Status:` field is required; `tools/validate.py` soft-warns on ADR files missing it.
+The `Status:` field is required; `engine/tools/validate.py` soft-warns on ADR files missing it.
 
 ## Index
 
-The collection has **37 ADRs total — 35 Accepted plus 2 Superseded** ([ADR 0002](0002-commercial-sustainability-without-pedagogical-compromise.md) by [ADR 0032](0032-personal-project-disposition.md); [ADR 0032](0032-personal-project-disposition.md) by [ADR 0035](0035-multi-platform-apple-expansion.md)). ADRs are grouped below by the structural role they play in the project: the strong working commitments (0001–0012), the foundational architectural decisions (0013–0022), the Phase 1 Contract Lock additions (0023–0032), and the Phase 1.5 Mission Realignment additions (0033–0037).
+The product collection has **33 ADRs total — 31 Accepted plus 2 Superseded** ([ADR 0002](0002-commercial-sustainability-without-pedagogical-compromise.md) by [ADR 0032](0032-personal-project-disposition.md); [ADR 0032](0032-personal-project-disposition.md) by [ADR 0035](0035-multi-platform-apple-expansion.md)). The full project ADR collection is **37** (33 product + 4 engine in `engine/adr/`); ADR numbers are drawn from a single shared sequence and do not duplicate across the partition. ADRs are grouped below by the structural role they play in the project.
 
 ### Strong working commitments (ADRs 0001–0012)
 
@@ -40,22 +44,22 @@ The collection has **37 ADRs total — 35 Accepted plus 2 Superseded** ([ADR 000
 | [0011](0011-no-hosted-copyrighted-material.md) | No hosted or distributed copyrighted material | Accepted |
 | [0012](0012-freshman-defaults-autodidact-ceiling.md) | Freshman defaults, autodidact ceiling | Accepted |
 
-### Architectural decisions (ADRs 0013–0022)
+### Architectural decisions (ADRs 0013–0021, product-side)
 
 | ADR | Title | Status |
 |---|---|---|
 | [0013](0013-mastery-verification-organic-escalation.md) | Mastery verification as organic escalation | Accepted |
 | [0014](0014-sonnet-teaches-opus-reviews.md) | Sonnet teaches, Opus reviews | Accepted |
 | [0015](0015-event-sourced-learner-model.md) | Event-sourced learner model | Accepted |
-| [0016](0016-graph-construction-needs-live-validation.md) | Graph construction needs live validation | Accepted |
 | [0017](0017-postgres-recursive-ctes-over-owl-rdf.md) | Postgres + recursive CTEs over OWL/RDF | Accepted |
 | [0018](0018-flat-domain-tags-community-detection.md) | Flat domain tags + community detection | Accepted |
 | [0019](0019-two-column-rigor-score-override.md) | Two-column rigor score override model | Accepted |
 | [0020](0020-teaching-notes-separate-from-summary.md) | Teaching notes separate from summary | Accepted |
 | [0021](0021-node-deprecation-status-superseded-by.md) | Node deprecation via status + superseded_by | Accepted |
-| [0022](0022-periodic-project-health-checks.md) | Periodic project health checks | Accepted |
 
-### Phase 1 — Contract Lock (ADRs 0023–)
+> [ADR 0016](../../engine/adr/0016-graph-construction-needs-live-validation.md) (graph validation infrastructure) and [ADR 0022](../../engine/adr/0022-periodic-project-health-checks.md) (periodic health checks) sit in this numerical range but file under `engine/adr/` because their load-bearing reader is the build apparatus.
+
+### Phase 1 — Contract Lock (ADRs 0023–0032)
 
 | ADR | Title | Status |
 |---|---|---|
@@ -70,25 +74,31 @@ The collection has **37 ADRs total — 35 Accepted plus 2 Superseded** ([ADR 000
 | [0031](0031-erasure-mechanism-and-individual-only-regime.md) | Erasure mechanism (hard-delete with cascade); individual-only data regime | Accepted |
 | [0032](0032-personal-project-disposition.md) | Personal project disposition; refusal-not-deferral commercial closure (supersedes ADR 0002) | Superseded by [ADR 0035](0035-multi-platform-apple-expansion.md) |
 
-### Phase 1.5 — Mission Realignment (ADRs 0033–)
+### Phase 1.5 — Mission Realignment (ADRs 0033–0035, product-side)
 
 | ADR | Title | Status |
 |---|---|---|
 | [0033](0033-mission-realignment-structured-guidance-for-self-learners.md) | Mission realignment: structured guidance for self-learners; globe / reward visual-system obsolescence | Accepted |
 | [0034](0034-discovery-planning-engagement-triad.md) | Discovery / Planning / Engagement triad as primary product structure | Accepted |
 | [0035](0035-multi-platform-apple-expansion.md) | Multi-platform Apple expansion; iPhone + iPad first-class via SwiftUI, Mac via Designed-for-iPad (supersedes ADR 0032) | Accepted |
-| [0036](0036-expression-contract-for-inward-documents.md) | Expression contract for inward-facing documentation | Accepted |
-| [0037](0037-engine-product-wall-and-changelog-rename.md) | Engine / product wall; CHANGELOG.md renames to ENGINE_LOG.md | Accepted |
 
-## Adding a new ADR
+> [ADR 0036](../../engine/adr/0036-expression-contract-for-inward-documents.md) (expression contract for inward-facing documentation) and [ADR 0037](../../engine/adr/0037-engine-product-wall-and-changelog-rename.md) (engine/product wall) sit in this numerical range but file under `engine/adr/` because they govern engine-internal practice.
 
-1. Pick the next unused 4-digit number.
+## Adding a new product ADR
+
+1. Pick the next unused 4-digit number from the **shared** ADR numbering pool (engine + product use a single sequence per ADR 0037 — numbers do not duplicate across the partition).
 2. Filename: `NNNN-kebab-case-title.md`.
-3. Use the Nygard template from [`docs/operations/adr-authoring.md`](../docs/operations/adr-authoring.md).
+3. Use the Nygard template from [`../../engine/operations/adr-authoring.md`](../../engine/operations/adr-authoring.md).
 4. Add a row to the index above in the same commit.
-5. Add an ENGINE_LOG entry under `[Unreleased]` → `Added`.
-6. (If the ADR resolves an open tension) update `docs/tensions.md`.
+5. Add an entry to [`../../engine/ENGINE_LOG.md`](../../engine/ENGINE_LOG.md) under `[Unreleased]` → `Added`.
+6. (If the ADR resolves an open tension) update [`../docs/tensions.md`](../docs/tensions.md).
 7. Capture the conversational reasoning that produced the ADR in a MemPalace `decision`-tagged drawer (verbatim form, recall-by-similarity).
+
+## Engine vs product — partition criterion
+
+An ADR files under `product/adr/` if its load-bearing reader is Paideia-as-a-product: pedagogy, learner model, schema, runtime architecture, business, deployment, rendering policy (because the consumer-of-record for rendering policy is learner-facing prose, per [ADR 0037](../../engine/adr/0037-engine-product-wall-and-changelog-rename.md) edge-case (a)). An ADR files under `engine/adr/` if its load-bearing reader is the build apparatus itself.
+
+Edge cases settle at the time of authoring or via supersession; the partition is reversible per file. See [ADR 0037](../../engine/adr/0037-engine-product-wall-and-changelog-rename.md) for the full criterion and the migration history.
 
 ## When an ADR supersedes another
 
@@ -96,3 +106,4 @@ The collection has **37 ADRs total — 35 Accepted plus 2 Superseded** ([ADR 000
 - The old ADR's `Status:` flips to `Superseded by ADR NNNN` (one-directional pointer).
 - The old ADR file is **not deleted** — the historical reasoning remains queryable.
 - ENGINE_LOG records both: `Added` for the new ADR, `Changed` for the supersession.
+- Supersession can cross the engine/product partition; the new ADR files in whichever subtree fits its load-bearing reader.

@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "tools/hooks/mempalace-hook-wrapper.sh --hook stop --harness claude-code"
+            "command": "engine/tools/hooks/mempalace-hook-wrapper.sh --hook stop --harness claude-code"
           }
         ]
       }
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "tools/hooks/mempalace-hook-wrapper.sh --hook precompact --harness claude-code"
+            "command": "engine/tools/hooks/mempalace-hook-wrapper.sh --hook precompact --harness claude-code"
           }
         ]
       }

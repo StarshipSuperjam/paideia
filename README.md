@@ -14,67 +14,73 @@ Paideia is built on a **pedagogical dependency graph** — not a historical infl
 
 Users select a target topic. The system traverses prerequisites, topologically sorts them, and generates a reading syllabus for each step. A persistent learner model tracks mastery across sessions and texts.
 
-For full project vision and audience framing, see [`docs/MISSION.md`](docs/MISSION.md). The 12 strong working commitments and 10 architectural decisions are recorded as ADRs in [`adr/`](adr/) (the contract layer).
+For full project vision and audience framing, see [`product/docs/MISSION.md`](product/docs/MISSION.md). The strong working commitments and architectural decisions are recorded as ADRs split across [`engine/adr/`](engine/adr/) (the AI build apparatus) and [`product/adr/`](product/adr/) (Paideia-the-product) per [ADR 0037](engine/adr/0037-engine-product-wall-and-changelog-rename.md).
 
 ---
 
 ## Repo map
 
+The repo is partitioned into `engine/` (the AI build apparatus the user and Claude run together to construct Paideia) and `product/` (Paideia itself — pedagogy, content, runtime architecture). Partition committed in [ADR 0037](engine/adr/0037-engine-product-wall-and-changelog-rename.md) and executed at S-0024.
+
 ```
 paideia/
 ├── README.md                       # this file
 ├── LICENSE                         # proprietary, all rights reserved (Shane Kidd)
-├── ENGINE_LOG.md                   # engine state-of-record audit log (Keep-a-Changelog format); was CHANGELOG.md before [ADR 0037]
 ├── SECURITY.md                     # vulnerability disclosure policy
-├── CLAUDE.md                       # AI orientation; auto-loaded; lightweight startup ceremony
-├── STATE.md                        # current phase + next session's work item
-├── ROADMAP.md                      # phase sequence with success criteria
+├── CLAUDE.md                       # AI orientation; auto-loaded by Claude Code; engine-side content kept at root because the harness expects it there (ADR 0037 edge-case (c))
+├── ROADMAP.md                      # phase sequence with success criteria; carries [ENGINE] / [PRODUCT] markers
 ├── HANDOFF.md                      # running log of items deferred to future major-state-transitions
 │
-├── docs/                           # design documents
-│   ├── MISSION.md                  # vision, audience framing, strong working commitments (with ADR cross-refs)
-│   ├── CROSS_REFERENCES.md         # high-value file-dependency cross-references; phase-boundary checks
-│   ├── architecture.md             # graph data model
-│   ├── pedagogy.md                 # teaching design
-│   ├── learner-model.md            # mastery, decay, events
-│   ├── self-correction.md          # tension log, reviewer pipeline
-│   ├── infrastructure.md           # tech stack, deployment
-│   ├── ui-architecture.md          # Discovery / Planning / Engagement triad surfaces
-│   ├── content-strategy.md         # corpus, licensing
-│   ├── session-lifecycle.md        # entry flow
-│   ├── reading-system.md           # close reading
-│   ├── expansion.md                # future scope
-│   ├── business.md                 # commercial model
-│   ├── tensions.md                 # open questions (active)
-│   ├── ideation.md                 # captured but not yet consumed
-│   ├── prep-paideia-prompt-pack.md # 14-session deliberation prompts (sessions 1–8 closed pre-foundation)
-│   ├── mempalace.yaml              # MemPalace wing/room config
-│   ├── entities.json               # MemPalace entity classification (projects-only)
-│   └── operations/                 # procedures by topic; one file per topic; AI sees topics via `ls`
+├── engine/                         # the AI build apparatus
+│   ├── STATE.md                    # current phase + next session's work item
+│   ├── ENGINE_LOG.md               # engine state-of-record audit log (Keep-a-Changelog format); was CHANGELOG.md before ADR 0037
+│   ├── adr/                        # engine ADRs (graph validation, health checks, expression contracts, the partition itself)
+│   │   ├── README.md               # engine-side index
+│   │   └── NNNN-<title>.md         # one per decision (0016, 0022, 0036, 0037)
+│   ├── operations/                 # procedural docs — one file per topic; the lifecycle, validators, hook wiring, MemPalace conventions
+│   ├── session/                    # session-protocol layer
+│   │   ├── register_state.json     # counter (next_id, last_claimed, current_status)
+│   │   ├── current.json            # claim file — only present during in-progress sessions
+│   │   └── archive/                # closed sessions, one S-NNNN.json per
+│   └── tools/                      # build tooling
+│       ├── validate.py             # cross-reference + format validator (extension point for Phase 4 graph audit per ADR 0016)
+│       ├── validate-history.jsonl  # per-invocation telemetry; consumed by health checks (per ADR 0022)
+│       ├── sweep_worktrees.sh      # cleanup utility, run on demand
+│       ├── setup.sh                # symlinks pre-commit hook into .git/hooks/
+│       └── hooks/
+│           ├── pre-commit          # validates and enforces bimodal session protocol (build / closing / exploration)
+│           └── mempalace-hook-wrapper.sh  # captures stop/precompact events to MemPalace
 │
-├── adr/                            # 22 numbered Architecture Decision Records (all Status: Accepted)
-│   ├── README.md                   # index + status conventions; full Nygard guidance in docs/operations/adr-authoring.md
-│   └── NNNN-<title>.md             # one per decision (0001–0012 commitments; 0013–0022 architectural decisions)
+├── product/                        # Paideia itself
+│   ├── AGENT_INSTRUCTIONS.md       # rendering policy (product-facing; consumer-of-record is learner-facing prose per ADR 0027)
+│   ├── CHANGELOG.md                # reserved learner-visible product release log; first entry at Phase 9 release prep
+│   ├── adr/                        # product ADRs (pedagogy, learner model, schema, business, runtime architecture)
+│   │   ├── README.md               # product-side index
+│   │   └── NNNN-<title>.md         # 33 ADRs (0001–0015 minus 0016, 0017–0021, 0023–0035 minus 0036/0037)
+│   └── docs/                       # design documents
+│       ├── MISSION.md              # vision, audience framing, strong working commitments (with ADR cross-refs)
+│       ├── CROSS_REFERENCES.md     # high-value file-dependency cross-references; phase-boundary checks
+│       ├── architecture.md         # graph data model
+│       ├── pedagogy.md             # teaching design
+│       ├── pedagogy/inferences.md  # inference patterns
+│       ├── learner-model.md        # mastery, decay, events
+│       ├── self-correction.md      # tension log, reviewer pipeline
+│       ├── infrastructure.md       # tech stack, deployment
+│       ├── ui-architecture.md      # Discovery / Planning / Engagement triad surfaces
+│       ├── content-strategy.md     # corpus, licensing
+│       ├── session-lifecycle.md    # entry flow
+│       ├── reading-system.md       # close reading
+│       ├── expansion.md            # future scope
+│       ├── business.md             # commercial model
+│       ├── tensions.md             # open questions (active); pre-commit-hook-allowed in exploration mode
+│       ├── ideation.md             # captured but not yet consumed; pre-commit-hook-allowed in exploration mode
+│       ├── prep-paideia-prompt-pack.md  # 14-session deliberation prompts (sessions 1–8 closed pre-foundation)
+│       ├── mempalace.yaml          # MemPalace wing/room config
+│       └── entities.json           # MemPalace entity classification (projects-only)
 │
-├── session/                        # session-protocol layer
-│   ├── register_state.json         # counter (next_id, last_claimed, current_status)
-│   ├── current.json                # claim file — only present during in-progress sessions
-│   └── archive/                    # closed sessions, one S-NNNN.json per
+├── build_plan/                     # per-phase build chunks bridging engine and product (orientation + per-phase contracts + migration bridge)
 │
-├── supabase/                       # Phase 3+ migrations
-│   └── migrations/
-│       ├── ROUTING.md              # numeric prefix scheme + per-session narrative manifest (placeholder; Phase 4)
-│       └── PREDICATE_MANIFEST.md   # canonical edge-type registry (placeholder; Phase 4)
-│
-├── tools/                          # build tooling
-│   ├── validate.py                 # cross-reference + format validator (extension point for Phase 4 graph audit)
-│   ├── validate-history.jsonl      # per-invocation telemetry; consumed by health checks (per ADR 0022)
-│   ├── sweep_worktrees.sh          # cleanup utility, run on demand
-│   ├── setup.sh                    # symlinks pre-commit hook into .git/hooks/
-│   └── hooks/
-│       └── pre-commit              # validates and enforces bimodal session protocol (build / closing / exploration)
-│
-├── .claude/
+├── .claude/                        # Claude Code harness configuration (stays at root per ADR 0037)
 │   ├── commands/
 │   │   └── start-engine.md         # slash command — claims next session slot
 │   ├── settings.json               # Stop and PreCompact hooks wiring MemPalace capture
@@ -85,7 +91,7 @@ paideia/
 └── .env.example                    # template
 ```
 
-The full repo map mirrors `STATE.md` and `ROADMAP.md`. `STATE.md` names the current phase; `ROADMAP.md` names the whole arc.
+The full repo map mirrors `engine/STATE.md` and `ROADMAP.md`. `engine/STATE.md` names the current phase; `ROADMAP.md` names the whole arc.
 
 ---
 
@@ -97,17 +103,17 @@ This project is built primarily by AI sessions. Two session modes:
 
 Just open Claude Code in this repo and start chatting. Default posture is **design partner**: discuss, sketch, push back, work through ideas in conversation. **No project file edits to tracked files. No commits. No slot claim.** When a discussion converges on something worth committing, convert with `/start-engine`.
 
-The pre-commit hook restricts exploration-mode commits to: `.claude/plans/`, `HANDOFF.md`, `docs/tensions.md`, `docs/ideation.md`. Anything else is refused with a pointer to `/start-engine`.
+The pre-commit hook restricts exploration-mode commits to: `.claude/plans/`, `HANDOFF.md`, `product/docs/tensions.md`, `product/docs/ideation.md`. Anything else is refused with a pointer to `/start-engine`.
 
 MemPalace captures exploration conversations under the `exploration` tag — knowing "we considered X, rejected for reason Y" prevents re-litigation.
 
 ### Build mode — `Start Engine` or `/start-engine`
 
-Type `Start Engine` (or invoke the slash command `/start-engine`) to convert to a build session. The slash command claims the next slot via the eager-claim ritual: bumps `session/register_state.json`, writes `session/current.json`, commits + pushes the claim immediately so concurrent sessions cannot collide. Then does the planned work, runs the shutdown sequence (audit + spot-check + STATE/ENGINE_LOG updates + archive + commit + push) at close.
+Type `Start Engine` (or invoke the slash command `/start-engine`) to convert to a build session. The slash command claims the next slot via the eager-claim ritual: bumps `engine/session/register_state.json`, writes `engine/session/current.json`, commits + pushes the claim immediately so concurrent sessions cannot collide. Then does the planned work, runs the shutdown sequence (audit + spot-check + `engine/STATE.md` / `engine/ENGINE_LOG.md` updates + archive + commit + push) at close.
 
-Build sessions write to MemPalace under `decision` / `work` tags; build sessions update `ENGINE_LOG.md`, ADR statuses, `STATE.md`.
+Build sessions write to MemPalace under `decision` / `work` tags; build sessions update `engine/ENGINE_LOG.md`, ADR statuses, `engine/STATE.md`.
 
-For procedural depth, see `CLAUDE.md` and `docs/operations/`.
+For procedural depth, see `CLAUDE.md` and `engine/operations/`.
 
 ---
 
@@ -118,7 +124,7 @@ git clone https://github.com/StarshipSuperjam/paideia.git
 cd paideia
 
 # Install pre-commit hook (validates structure + enforces session protocol on every commit)
-./tools/setup.sh
+./engine/tools/setup.sh
 
 # Create local .env from template
 cp .env.example .env
@@ -126,7 +132,7 @@ cp .env.example .env
 
 # Create local .mcp.json (the committed copy is gitignored as it carries PATs)
 # Configure Supabase MCP (project ref ozooosgnuzxqqypotlke) and MemPalace MCP
-# See docs/operations/mempalace-operations.md for MemPalace install + init
+# See engine/operations/mempalace-operations.md for MemPalace install + init
 ```
 
 After setup, restart Claude Code so the new MCP servers load.

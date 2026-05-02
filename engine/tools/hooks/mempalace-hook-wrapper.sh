@@ -16,11 +16,12 @@
 # log is per-clone state, not project state).
 
 # Resolve repo root. Prefer git's view; fall back to the wrapper's own location
-# (the script lives at <repo>/tools/hooks/mempalace-hook-wrapper.sh).
+# (the script lives at <repo>/engine/tools/hooks/mempalace-hook-wrapper.sh
+# post-S-0024 partition migration per ADR 0037).
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
 if [ -z "$REPO_ROOT" ]; then
     SCRIPT_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
-    REPO_ROOT="$(cd "$SCRIPT_DIR/../.." 2>/dev/null && pwd)"
+    REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." 2>/dev/null && pwd)"
 fi
 
 LOG_DIR="$REPO_ROOT/.claude/logs"

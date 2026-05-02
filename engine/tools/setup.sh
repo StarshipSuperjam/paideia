@@ -16,11 +16,11 @@ cd "$REPO_ROOT"
 # pre-commit hook
 # ---------------------------------------------------------------------------
 
-HOOK_SOURCE="$REPO_ROOT/tools/hooks/pre-commit"
+HOOK_SOURCE="$REPO_ROOT/engine/tools/hooks/pre-commit"
 HOOK_TARGET="$(git rev-parse --git-path hooks)/pre-commit"
 
 if [ ! -f "$HOOK_SOURCE" ]; then
-    echo "[setup] error: tools/hooks/pre-commit not found" >&2
+    echo "[setup] error: engine/tools/hooks/pre-commit not found" >&2
     exit 1
 fi
 
@@ -38,7 +38,7 @@ echo "[setup] pre-commit hook installed → $HOOK_TARGET"
 # ---------------------------------------------------------------------------
 
 if ! command -v python3 >/dev/null 2>&1; then
-    echo "[setup] warning: python3 not on PATH; tools/validate.py will not run" >&2
+    echo "[setup] warning: python3 not on PATH; engine/tools/validate.py will not run" >&2
 fi
 
 echo "[setup] done."
