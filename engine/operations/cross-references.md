@@ -1,0 +1,67 @@
+# Engine-side cross-references
+
+> High-value file dependencies on the engine side of the partition. Sibling to [`product/docs/CROSS_REFERENCES.md`](../../product/docs/CROSS_REFERENCES.md), which carries the product-side mapping. When changing a contract, an operations doc, or a tool here, check the files that depend on it. Per [ADR 0037](../adr/0037-engine-product-wall-and-changelog-rename.md) (engine/product wall) and [ADR 0041](../adr/0041-cascade-analysis-discipline.md) (cascade-analysis discipline).
+
+This file complements the validator's mechanical checks. The validator catches: link resolution (`cross_references_resolve`), index consistency (`adr_index_consistency`), supersession-citation currency (`superseded_adr_currency`), Accepted-ADR orphans (`adr_back_reference_orphan`), and Consequences-deliverable promises (`adr_consequences_deliverable_audit`). What this file adds: the prose-level dependency map for things the validator does not parse — "if you change validate.py's check inventory, here are the docs that name the check categories."
+
+## Engine ADRs → consumers
+
+Each engine ADR's load-bearing readers — the docs and code that operationalize the ADR's contract.
+
+- **[ADR 0016](../adr/0016-graph-construction-needs-live-validation.md)** (graph construction needs live validation) → [`engine/tools/validate.py`](../tools/validate.py)'s `validate_graph()` stub (Phase 4 fleshes it out); [`ROADMAP.md`](../../ROADMAP.md) Phase 4 success criteria; [`build_plan/P_2_graph_validation.md`](../../build_plan/P_2_graph_validation.md).
+- **[ADR 0022](../adr/0022-periodic-project-health-checks.md)** (periodic project health checks) → [`engine/operations/health-check.md`](health-check.md); [`engine/tools/health_check.py`](../tools/health_check.py); [`docs/health-checks/`](../../docs/health-checks/) report directory; [`.claude/commands/start-engine.md`](../../.claude/commands/start-engine.md) cadence trigger; [`engine/operations/soft-warn-lifecycle.md`](soft-warn-lifecycle.md) trend canon.
+- **[ADR 0036](../adr/0036-expression-contract-for-inward-documents.md)** (expression contract for inward documentation) → [`engine/operations/document-voice.md`](document-voice.md); every operations doc inherits the contract; the amendment asymmetry is referenced by ADRs 0038, 0039, 0040, 0041, 0042.
+- **[ADR 0037](../adr/0037-engine-product-wall-and-changelog-rename.md)** (engine/product wall, CHANGELOG rename) → repo structure (engine/ vs product/); `engine/ENGINE_LOG.md` (renamed file); both `engine/adr/README.md` and `product/adr/README.md`; [`README.md`](../../README.md) repo-map section; [`engine/tools/validate.py`](../tools/validate.py) `ENGINE_ADR_DIR` / `PRODUCT_ADR_DIR` constants and `REQUIRED_ENGINE_FILES` list.
+- **[ADR 0038](../adr/0038-expression-contract-for-ai-authored-code.md)** (expression contract for AI-authored code) → [`engine/operations/code-discipline.md`](code-discipline.md); [`engine/tools/validate.py`](../tools/validate.py) `validate_code_gates()`; [`engine/tools/hooks/pre-commit`](../tools/hooks/pre-commit) code-gates branch; [`engine/operations/session-shutdown-sequence.md`](session-shutdown-sequence.md) Step 3 (cold-review pass).
+- **[ADR 0039](../adr/0039-universal-expression-contract-across-ai-authoring-patterns.md)** (universal expression contract) → [`engine/operations/expression-contract-instantiation.md`](expression-contract-instantiation.md); [`engine/operations/migration-discipline.md`](migration-discipline.md); [`engine/tools/validate.py`](../tools/validate.py) `validate_sql_gates()`; [`engine/tools/hooks/pre-commit`](../tools/hooks/pre-commit) sql-gates branch; the cascade- and soft-warn-discipline ops docs cite this as the pattern to follow when adding new authoring patterns.
+- **[ADR 0040](../adr/0040-build-readiness-gate-before-substantive-build-sessions.md)** (build-readiness gate) → [`engine/operations/build-readiness-gate.md`](build-readiness-gate.md); [`engine/build_readiness/`](../build_readiness/) report directory; [`engine/operations/session-build-lifecycle.md`](session-build-lifecycle.md) Step 5 (boot-time gate-report read).
+- **[ADR 0041](../adr/0041-cascade-analysis-discipline.md)** (cascade-analysis discipline) → [`engine/operations/cascade-discipline.md`](cascade-discipline.md); [`engine/tools/validate.py`](../tools/validate.py) three new soft-warn checks; [`engine/operations/tools-validate-interpretation.md`](tools-validate-interpretation.md) per-category sections.
+- **[ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md)** (soft-warn lifecycle, archive canon) → [`engine/operations/soft-warn-lifecycle.md`](soft-warn-lifecycle.md); [`engine/operations/session-shutdown-sequence.md`](session-shutdown-sequence.md) Step 6 (structured `outcome_summary_soft_warns` field); [`engine/operations/tools-validate-interpretation.md`](tools-validate-interpretation.md) Telemetry section; [`.claude/commands/start-engine.md`](../../.claude/commands/start-engine.md) Step 2b (boot-time persistent-warn surface); [`engine/tools/health_check.py`](../tools/health_check.py) reads the structured field.
+
+## Operations docs → consumers
+
+Each operations doc's downstream readers (other ops docs, tools, the harness, ADRs that cite it).
+
+- **[`code-discipline.md`](code-discipline.md)** → ADR 0038; ADR 0039 (cited as the precedent for the universal contract); session-shutdown-sequence.md; expression-contract-instantiation.md; CLAUDE.md Topical pointers; cascade-discipline.md (the cold-review pattern).
+- **[`migration-discipline.md`](migration-discipline.md)** → ADR 0039; session-shutdown-sequence.md (Step 3 SQL branch); expression-contract-instantiation.md; CLAUDE.md Topical pointers.
+- **[`expression-contract-instantiation.md`](expression-contract-instantiation.md)** → ADR 0039; build-readiness-gate.md (the "no row, no authoring" check); cascade-discipline.md and soft-warn-lifecycle.md add no row (they extend existing patterns rather than open new ones); CLAUDE.md Topical pointers.
+- **[`build-readiness-gate.md`](build-readiness-gate.md)** → ADR 0040; ADR 0041 (the cold-review extension applied to gate reports); session-build-lifecycle.md (Step 5 reads gate report); engine/build_readiness/ reports; CLAUDE.md Topical pointers.
+- **[`cascade-discipline.md`](cascade-discipline.md)** → ADR 0041; tools-validate-interpretation.md (three new check categories); session-shutdown-sequence.md (cascade-audit pass extension); build-readiness-gate.md (downstream-impact triage question); CLAUDE.md Topical pointers.
+- **[`soft-warn-lifecycle.md`](soft-warn-lifecycle.md)** → ADR 0042; session-shutdown-sequence.md (Step 6 structured field); tools-validate-interpretation.md (Telemetry + Persistent-warn annotation); .claude/commands/start-engine.md (Step 2b boot surface); health_check.py (reads the structured field); CLAUDE.md Topical pointers.
+- **[`health-check.md`](health-check.md)** → ADR 0022; engine/tools/health_check.py (the producing script); docs/health-checks/ (where reports live); .claude/commands/start-engine.md (cadence trigger); ROADMAP.md (Recurring section).
+- **[`session-build-lifecycle.md`](session-build-lifecycle.md)** → CLAUDE.md (auto-loaded; cited from boot ceremony); .claude/commands/start-engine.md (mirrors the procedure); session-shutdown-sequence.md (sibling); build-readiness-gate.md (referenced in Step 5).
+- **[`session-shutdown-sequence.md`](session-shutdown-sequence.md)** → CLAUDE.md auto-load; session-build-lifecycle.md; tools-validate-interpretation.md; code-discipline.md (Step 3 cold-review for Python); migration-discipline.md (Step 3 cold-review for SQL); soft-warn-lifecycle.md (Step 6 structured field); cascade-discipline.md (cascade-audit pass).
+- **[`tools-validate-interpretation.md`](tools-validate-interpretation.md)** → CLAUDE.md auto-load; session-shutdown-sequence.md; health-check.md; cascade-discipline.md; soft-warn-lifecycle.md.
+- **[`adr-authoring.md`](adr-authoring.md)** → CLAUDE.md auto-load; every ADR's "See also" sections; session-shutdown-sequence.md (when to author an ADR vs. ENGINE_LOG entry).
+- **[`escalation-criteria.md`](escalation-criteria.md)** → CLAUDE.md auto-load; ADR 0040 (gate sessions invert the default); session-build-lifecycle.md; auto-mode interrupt criteria.
+- **[`mempalace-operations.md`](mempalace-operations.md)** → CLAUDE.md auto-load; .claude/settings.json (hook wiring); session-build-lifecycle.md (Step 3 query).
+- **[`mempalace-tagging-conventions.md`](mempalace-tagging-conventions.md)** → mempalace-operations.md; CLAUDE.md two-layer-decision-recording rule; session-shutdown-sequence.md.
+- **[`document-voice.md`](document-voice.md)** → ADR 0036; expression-contract-instantiation.md (Prose/inward row); every operations doc inherits the contract.
+- **[`README.md`](README.md)** → none mechanical; the index is browsed by humans.
+
+## Tools → consumers
+
+- **[`engine/tools/validate.py`](../tools/validate.py)** → [`engine/tools/hooks/pre-commit`](../tools/hooks/pre-commit) (invokes on every commit); [`engine/tools/test_validate.py`](../tools/test_validate.py); [`engine/tools/health_check.py`](../tools/health_check.py) (reads its telemetry); tools-validate-interpretation.md (documents categories); cascade-discipline.md (documents the three new checks); soft-warn-lifecycle.md (documents trend-canon source).
+- **[`engine/tools/health_check.py`](../tools/health_check.py)** → docs/health-checks/README.md; health-check.md; .claude/commands/start-engine.md (run on cadence trigger acceptance).
+- **[`engine/tools/hooks/pre-commit`](../tools/hooks/pre-commit)** → invoked by git on every commit; calls validate.py; tools-validate-interpretation.md documents response posture.
+- **[`engine/tools/hooks/mempalace-hook-wrapper.sh`](../tools/hooks/mempalace-hook-wrapper.sh)** → wired in [`.claude/settings.json`](../../.claude/settings.json) Stop and PreCompact hooks.
+- **[`engine/tools/setup.sh`](../tools/setup.sh)** → README.md "Setup for a fresh clone" section; symlinks pre-commit hook into .git/hooks/.
+
+## Harness → consumers
+
+- **[`CLAUDE.md`](../../CLAUDE.md)** (auto-loaded by Claude Code) → references every operations doc above; session-build-lifecycle.md and session-shutdown-sequence.md cite back; the Posture-vs-machinery section enumerates posture rules across the project.
+- **[`.claude/settings.json`](../../.claude/settings.json)** → Stop + PreCompact hooks call mempalace-hook-wrapper.sh; future Session β hooks (post-S-0030) bind to PostToolUse on ADR writes, SessionStart on cadence trigger, PostToolUse on STATE.md edits.
+- **[`.claude/commands/start-engine.md`](../../.claude/commands/start-engine.md)** → invoked when user types `/start-engine`; mirrors session-build-lifecycle.md; reads health-check.md cadence and soft-warn-lifecycle.md boot surface.
+
+## When to update this file
+
+Add an entry when a new operations doc, ADR, or tool becomes load-bearing for an existing one. Remove an entry when a file is retired or its dependency is severed (per cascade-discipline.md "Renaming or moving a tracked file" procedure).
+
+This file is human-curated. The validator does not consume it; it is reference for the AI and the user. The validator's `cross_references_resolve` check covers `product/docs/CROSS_REFERENCES.md` only — extending the validator to cover this file is queued for a future session if the cost of stale entries here grows beyond the cost of mechanical detection.
+
+## See also
+
+- [`product/docs/CROSS_REFERENCES.md`](../../product/docs/CROSS_REFERENCES.md) — product-side dependency map (sibling).
+- [`cascade-discipline.md`](cascade-discipline.md) — the cascade procedures that update this file.
+- [ADR 0037](../adr/0037-engine-product-wall-and-changelog-rename.md) — the partition this file's scope is grounded in.
+- [ADR 0041](../adr/0041-cascade-analysis-discipline.md) — the discipline that motivates engine-side coverage.

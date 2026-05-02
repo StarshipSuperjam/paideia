@@ -101,6 +101,7 @@ Procedural depth lives in `engine/operations/` — one file per topic. Browse wi
 - `expression-contract-instantiation.md` — pattern instantiation table (per ADR 0039): per-pattern Layer 1 / Layer 2 / Layer 3 mapping. New AI authoring patterns add a row before authoring begins ("no row, no authoring").
 - `build-readiness-gate.md` — halting discipline before substantive build sessions (per ADR 0040): adversarial reconnaissance, Tier 1 / Tier 2 / Tier 3 triage, build-readiness report at `engine/build_readiness/<phase>_<chunk>.md`. Build sessions read the report at boot; halt on unresolved Tier 1.
 - `cascade-discipline.md` — three soft-warn validator checks plus manual procedures for cascade audits (per ADR 0041): superseded-ADR-citation currency, ADR back-reference orphan detection, ADR Consequences-deliverable audit. Manual procedures attached to file rename, ADR supersession, ops-doc restructure, deliverable handshake.
+- `cross-references.md` — engine-side dependency map (companion to product/docs/CROSS_REFERENCES.md): engine ADRs → consumers; operations docs → consumers; tools → consumers; harness → consumers. Read when restructuring an engine ADR, ops doc, or tool.
 - `soft-warn-lifecycle.md` — how soft-warns surface across sessions (per ADR 0042): trend canon in committed `engine/session/archive/*.json`, persistent-warn surface at boot, escalation criterion at ≥10 sessions persistence.
 - `health-check.md` — audit categories, report template, cadence policy.
 

@@ -1,6 +1,8 @@
-# Cross-references
+# Cross-references — product side
 
-> High-value file dependencies. When changing a commitment or a downstream file, check the files that depend on it. This is not exhaustive — it captures connections where a change would silently break something.
+> High-value file dependencies on the product side of the partition. Companion: [`engine/operations/cross-references.md`](../../engine/operations/cross-references.md) carries the engine-side dependency map.
+>
+> When changing a commitment or a downstream file, check the files that depend on it. This is not exhaustive — it captures connections where a change would silently break something.
 
 The validator (`engine/tools/validate.py`) checks that every `.md` link in this file resolves to an existing file. Keep paths accurate. The file lives under `product/docs/` per the engine/product partition committed in [ADR 0037](../../engine/adr/0037-engine-product-wall-and-changelog-rename.md); engine-side targets are reached via `../../engine/…`, product-side targets via `../adr/…` or sibling-relative `…`.
 
