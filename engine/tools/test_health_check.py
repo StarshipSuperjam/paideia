@@ -326,6 +326,25 @@ def test_audit_gaps_promised_deliverable_present(synthetic_repo: Path) -> None:
     assert not any("Consequences promise" in obs for obs, _ in findings.observations)
 
 
+def test_audit_gaps_promised_path_relative_to_adr_dir(synthetic_repo: Path) -> None:
+    """Path resolution tries ADR-directory-relative when repo-root-relative fails."""
+    write_archive(synthetic_repo, "S-0014")
+    # Sibling ADR exists in the same product/adr/ directory.
+    sibling = synthetic_repo / "product" / "adr" / "0099-sibling.md"
+    sibling.write_text("# ADR 0099 — Sibling")
+    write_adr(
+        synthetic_repo,
+        engine=False,
+        num="0050",
+        status="Accepted",
+        body="See [ADR 0099](0099-sibling.md), lands at S-0014.",
+    )
+    findings = audit_gaps()
+    # `0099-sibling.md` does not resolve from REPO_ROOT but does resolve
+    # from product/adr/. Should NOT warn (mirrors validate.py dual-resolution).
+    assert not any("Consequences promise" in obs for obs, _ in findings.observations)
+
+
 # ---------------------------------------------------------------------------
 # audit_dead_weight
 # ---------------------------------------------------------------------------

@@ -513,9 +513,16 @@ def audit_gaps() -> CategoryFindings:
                 path_candidates += re.findall(
                     r"\]\(([\w./_-]+\.(?:py|md|sql|json))\)", line
                 )
-                missing_paths = [
-                    p for p in path_candidates if not (REPO_ROOT / p).exists()
-                ]
+                # Resolve each path against both repo root AND the ADR file's
+                # directory (relative-link convention in markdown). Mirrors
+                # validate.py's validate_adr_consequences_deliverable_audit.
+                missing_paths = []
+                for p in path_candidates:
+                    if (REPO_ROOT / p).exists():
+                        continue
+                    if (adr_file.parent / p).resolve().exists():
+                        continue
+                    missing_paths.append(p)
                 if missing_paths:
                     rel = adr_file.relative_to(REPO_ROOT)
                     promised_but_absent.append(

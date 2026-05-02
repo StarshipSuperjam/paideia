@@ -194,9 +194,11 @@ If a future session decides to reopen the institutional regime, that decision la
 ---
 
 ## OQ-WATCH-FLAG-FILE
-**Added: 2026-04-29 (S-0001) | Status: Open (tagged: `watch`) | Decide at: ~session 30 health check**
+**Added: 2026-04-29 (S-0001) | Status: Resolved (2026-05-02, S-0030 health check) | Resolution: keep unified file**
 
 When the volume of "things to watch for in future evidence that aren't actionable yet but shouldn't be forgotten" justifies a separate `docs/watch-flags.md` file (vs. the current "fold into tensions.md with explicit `watch` tag"), separate it. The session-30 health check (per ADR 0022) should re-evaluate this. If `watch`-tagged tensions exceed ~10 entries, separating reduces the cognitive load of scanning tensions.md. If fewer, the unified file is simpler.
+
+**Resolved at S-0030:** 2 `watch`-tagged tensions in current set (this entry + OQ-PEDAGOGY-INFERENCE-LOCUS) out of 13 total OQ entries — well under the 10-entry threshold. **Decision: keep the unified file.** Re-evaluate at the next health check (cadence ~S-0060) if the watch-tag count grows. See [`docs/health-checks/S-0030.md`](../../docs/health-checks/S-0030.md) for the audit.
 
 ---
 
