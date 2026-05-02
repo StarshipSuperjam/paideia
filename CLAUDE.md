@@ -52,6 +52,17 @@ Routine judgment calls during a session are session-internal and recorded in `en
 - Substantive extraction work: target 60% context, hard cap 70%.
 - Mechanical/procedural work: target 70%, hard cap 80%.
 
+The percentages refer to the active context window (1M tokens for Claude Opus 4.7, the model the project currently runs under). Absolute thresholds: ~600K (substantive target), ~700K (substantive cap), ~700K (mechanical target), ~800K (mechanical cap). These are higher than pre-1M intuitions; a session at 30% load (~300K tokens) is comfortably within budget, not near the cap.
+
+**Do not propose splitting, deferring, or re-scoping a session based on "this feels big" alone.** Read the actual percentage. The default is single-session full execution; splits require a concrete blocker (the percentage itself, an external constraint surfaced mid-work, a structural reason such as foundations-vs-mechanization that's named in the plan up front).
+
+Worked examples:
+
+- 20% load while planning a multi-file refactor: not a budget concern. Continue.
+- 35% load mid-extraction with three large operations docs still to read: not yet a concern; estimate the additional load (each doc adds ~5-10% typically) and continue.
+- 65% load mid-extraction with substantive new code yet to author: this is the moment to consider whether to halt at the next sensible boundary. Concrete cap, not "feels big."
+- 75% load on mechanical procedural work (drift sweep, link audit): approaching the mechanical cap; either finish the immediate task and close, or queue the remainder as next-session work with a specific pointer.
+
 If a session hits its cap mid-work, halt at the next sensible boundary, write `outcome_summary` with partial-completion notes, archive `engine/session/current.json` with `status: closed_partial`, push, and the next session picks up.
 
 ### End-state-quality first-pass
