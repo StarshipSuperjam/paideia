@@ -20,9 +20,22 @@ A build session is any conversation that types `Start Engine` or invokes `/start
 
 4. **Read referenced docs.** STATE.md and ROADMAP.md will name specific files relevant to the work. Read them before claiming the slot — the slot claim should be informed.
 
-5. **Claim the slot via the eager-claim ritual** (see below).
+5. **Read the build-readiness report** (substantive build sessions only, per [ADR 0040](../adr/0040-build-readiness-gate-before-substantive-build-sessions.md)). STATE.md's "Next session work item" names the report at `engine/build_readiness/<phase>_<chunk>.md` for substantive build sessions. Read the report end-to-end:
 
-6. **Begin substantive work.** The slot is held atomically; concurrent sessions cannot collide. Make file edits, run tools, commit incrementally as work progresses. Each commit must pass `tools/validate.py` (enforced by the pre-commit hook in `tools/hooks/pre-commit`).
+   - **Pre-session decisions section** — Tier 1 resolutions inherited from the gate session. The build session implements against these, not around them.
+   - **Tier 2 decisions section** — concrete column shapes, constraint forms, default values. Implement exactly as documented; the gate session settled these in advance precisely so the build session does not re-decide under build pressure.
+   - **Tier 3 forward pointers** — decisions explicitly deferred. Honor the deferral; do not pre-empt by inventing answers.
+   - **Success criteria** — the build session verifies these at shutdown.
+
+   If the report is **absent** for a session work item that requires one (substantive build phase), the session converts to a gate session: do not author the planned artifacts; instead run the gate procedure per [`build-readiness-gate.md`](build-readiness-gate.md) and produce the report. The next session opens as the build session.
+
+   If the report is **present but contains unresolved Tier 1 items**, the session halts and escalates to the user — the gate session did not finish its job. Do not attempt to resolve Tier 1 in-flight; the build session's mode is auto-by-default for routine judgment, not for foundational decisions.
+
+   Operational sessions (health checks, ENGINE_LOG-only edits, retrievability cleanups, gate sessions themselves) skip this step — they do not require build-readiness reports per [ADR 0040](../adr/0040-build-readiness-gate-before-substantive-build-sessions.md)'s scope.
+
+6. **Claim the slot via the eager-claim ritual** (see below).
+
+7. **Begin substantive work.** The slot is held atomically; concurrent sessions cannot collide. Make file edits, run tools, commit incrementally as work progresses. Each commit must pass `tools/validate.py` (enforced by the pre-commit hook in `tools/hooks/pre-commit`). For substantive build sessions, the build-readiness report is the canonical decision-of-record — when implementation choices arise that the report did not anticipate, they fall into one of three buckets: (a) routine in-session judgment, recorded in `outcome_summary`; (b) escalation candidates per [`escalation-criteria.md`](escalation-criteria.md); (c) signals that the gate session under-specified — surface in `outcome_summary` so the next gate exercise refines.
 
 ## Eager-claim ritual
 

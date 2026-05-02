@@ -97,6 +97,9 @@ Procedural depth lives in `engine/operations/` — one file per topic. Browse wi
 - `escalation-criteria.md` — when to interrupt user; redundant with auto-mode criteria above but with worked examples.
 - `adr-authoring.md` — Nygard template, status conventions, when an ADR is warranted.
 - `code-discipline.md` — three-layer expression contract for AI-authored code (per ADR 0038): contract-first prose, mechanical gates (ruff/mypy/pytest in pre-commit), cold-context review pass at shutdown.
+- `migration-discipline.md` — Layer 1 source-of-truth for SQL migrations (per ADR 0039): per-migration contract block shape, naming convention, transaction wrap, CASCADE discipline, RLS posture, CHECK constraint shape, rollback authorship, cold-review prompt template.
+- `expression-contract-instantiation.md` — pattern instantiation table (per ADR 0039): per-pattern Layer 1 / Layer 2 / Layer 3 mapping. New AI authoring patterns add a row before authoring begins ("no row, no authoring").
+- `build-readiness-gate.md` — halting discipline before substantive build sessions (per ADR 0040): adversarial reconnaissance, Tier 1 / Tier 2 / Tier 3 triage, build-readiness report at `engine/build_readiness/<phase>_<chunk>.md`. Build sessions read the report at boot; halt on unresolved Tier 1.
 - `health-check.md` — audit categories, report template, cadence policy.
 
 Project context (the *what* and *why*, not the *how*):
