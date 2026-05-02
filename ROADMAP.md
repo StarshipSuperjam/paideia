@@ -114,39 +114,44 @@ See also: [ADR 0027](product/adr/0027-rendering-policy-prompt-layer-contract.md)
 
 ## Phase 2 — Build Plan Scaffolding **[ENGINE]**
 
-**Output:** a `build_plan/` directory naming the chunked authoring sessions for Phases 3-9, and the working contract for each session.
+**Output:** a `build_plan/` directory naming the chunked authoring sessions for Phases 3-9, and the working contract for each session. Plus the standing build-readiness gate protocol (per [ADR 0040](engine/adr/0040-build-readiness-gate-before-substantive-build-sessions.md), authored at S-0027) that precedes every substantive build session from Phase 3 forward.
 
 - `build_plan/MANIFEST.md` — orientation, session schedule, phase mapping
 - `build_plan/00_preamble.md` — orienting prose
 - `build_plan/00_session_schedule.md` — every session by ID with scope, source documents, output target, budget tier
 - `build_plan/P_0_contract_lock.md` — retroactive Phase 1 record
 - `build_plan/P_1_sql_schema.md` through `build_plan/P_13_ui_prototype.md` — per-phase chunks
+- `engine/build_readiness/<phase>_<chunk>.md` — build-readiness reports authored by gate sessions, consumed by build sessions at boot. The home directory and report template land at S-0027 alongside [ADR 0040](engine/adr/0040-build-readiness-gate-before-substantive-build-sessions.md).
 
-This file (`ROADMAP.md`) names the phases at a high level. `build_plan/` names the per-session work within each phase.
+This file (`ROADMAP.md`) names the phases at a high level. `build_plan/` names the per-session work within each phase. `engine/build_readiness/` carries the per-build-session decision input.
 
 ---
 
 ## Phase 3 — SQL Schema Implementation **[ENGINE]**
 
+**Gated by** [`engine/build_readiness/phase_3_sql.md`](engine/build_readiness/phase_3_sql.md) — the build-readiness report authored by S-0027 that resolves Tier 1 decisions in advance and documents Tier 2 column shapes / constraint forms / indexes for the build session to implement without re-deciding. Per [ADR 0040](engine/adr/0040-build-readiness-gate-before-substantive-build-sessions.md), every substantive build session reads its gate report at boot.
+
 **Output:** Postgres schema deployed to Supabase via versioned migrations.
 
 Translate `docs/architecture.md` and `docs/learner-model.md` schemas into:
 
+- `users` table — local mirror of `auth.users` (Supabase Auth) trigger-populated; FK target for every learner-state cascade per [ADR 0031](product/adr/0031-erasure-mechanism-and-individual-only-regime.md) (T1-A in the gate report)
 - `nodes` table — id, label, domain[], summary, teaching_notes, aliases[], rigor_score_computed, rigor_score_adjustment, **confidence_level** (per Phase 1.3), confidence (numeric), provenance, status, superseded_by, graph_version_added, timestamps
 - `edges` table — source_id, target_id, type, weight, confidence, provenance, evidence, graph_version_added
 - `learner_events` table — event-sourced log per `docs/learner-model.md`
 - `mastery_snapshots` table — cached mastery state
-- `tension_log` table — per `docs/self-correction.md`
-- `settings` — graph_version counter
+- `tension_log` table — per `docs/self-correction.md`; JSONB enum vocabularies per [`product/seed-graph/migrations/TENSION_VOCABULARY.md`](product/seed-graph/migrations/TENSION_VOCABULARY.md)
+- `settings` — graph_version counter (initialized at 1; increment contract per ROUTING.md)
 
-Stack: Supabase migrations at `supabase/migrations/0001_*.sql` and forward.
+Stack: Supabase migrations at `product/seed-graph/migrations/0001_*.sql` and forward (location settled at S-0027).
 
 ### Phase 3 success criteria
 
 - `supabase db push` applies the migrations cleanly to dev DB
-- `\d+ nodes` shows expected columns including `confidence_level`
-- Migration rollback works
-- `tension_log` and `learner_events` schemas conform to ADR 0026 (`exchange_summary` as JSONB-with-named-fields; `learner_events.context` as structured columns; no free-text grab-bags); the OQ-PRIVACY-A erasure mechanism and OQ-PRIVACY-B institutional-regime column reservation are settled before migration authoring begins
+- `\d+ nodes` shows expected columns including `confidence_level` with CHECK constraint
+- Migration rollback works (verified per the rollback test sequence in the gate report T2-H)
+- `tension_log` and `learner_events` schemas conform to ADR 0026 (`exchange_summary` as JSONB-with-named-fields with v1 vocabularies enforced as CHECK constraints; `learner_events.context` as structured columns; no free-text grab-bags); RLS on with v1 policies for every learner-state table; OQ-PRIVACY-A erasure mechanism and OQ-PRIVACY-B institutional-regime column reservation already settled by [ADR 0031](product/adr/0031-erasure-mechanism-and-individual-only-regime.md)
+- Every Tier 2 decision in [`engine/build_readiness/phase_3_sql.md`](engine/build_readiness/phase_3_sql.md) is implemented exactly as documented; the build session does not re-decide
 
 ---
 
