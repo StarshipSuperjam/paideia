@@ -14,7 +14,8 @@ See [`../operations/build-readiness-gate.md`](../operations/build-readiness-gate
 
 | Report | Gate session | Build session | Status |
 |---|---|---|---|
-| [`phase_3_sql.md`](phase_3_sql.md) | S-0027 | S-0028 | Authored, awaiting build session |
+| [`phase_3_sql.md`](phase_3_sql.md) | S-0027 | S-0028 | Build session closed |
+| [`phase_4_graph_validation.md`](phase_4_graph_validation.md) | S-0034 | S-0035 | Authored, awaiting build session |
 
 ## Lifecycle
 
