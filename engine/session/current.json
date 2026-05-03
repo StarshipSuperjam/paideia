@@ -1,0 +1,10 @@
+{
+  "id": "S-0037",
+  "started_at": "2026-05-03T19:53:14Z",
+  "status": "in_progress",
+  "working_on": "Phase 4 graph validation build session — flesh out validate_graph() per ADR 0016 (psycopg + service_role; Kosaraju SCC; 3 hard-fails + 7 soft-warns; --validate-only and --export-snapshot modes); author PREDICATE_MANIFEST.md v1; fix ROUTING.md range collision; flesh out seed-chunked-authoring.md; T2-I path corrections; 7 new outcome_summary_soft_warns keys.",
+  "outcome_summary": null,
+  "approved_plan": "engine/build_readiness/phase_4_graph_validation.md",
+  "branch": "claude/hardcore-napier-c3c830",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/hardcore-napier-c3c830"
+}
