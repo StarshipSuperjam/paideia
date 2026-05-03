@@ -91,11 +91,28 @@ Skip these — not material:
 
 For SQL migrations: log the session-level filenames as authored. Supabase migration version tracking is separate and automatic.
 
-### 6. Fill `outcome_summary` and `outcome_summary_soft_warns`
+### 6. Write session diary entry
+
+Per [`mempalace-operations.md`](../../../engine/operations/mempalace-operations.md) "Project usage scope". The MemPalace diary carries the AI's first-person reflection on the session — distinct from `outcome_summary` (outcome-focused) and ENGINE_LOG (third-person artifact narrative). What surprised me, what I noticed but didn't act on, what feels load-bearing for the next session, where my judgment was uncertain.
+
+Build sessions only. Default-mode (exploration) sessions skip — no slot, no formal close.
+
+Call `mempalace_diary_write` with `agent_name: "claude"` (project convention). Content shape: 150-400 words, first person. Recommended structure:
+
+- **What I worked on this session** — high-level enough to be findable by `mempalace_diary_read` at the next session's boot.
+- **What surprised me** — premises that didn't hold, side-discoveries.
+- **What I noticed but deferred** — observations next-session-relevant. (If actionable enough, also surface in HANDOFF.md or as a follow-up task in `outcome_summary`.)
+- **Where my judgment was uncertain** — places I made a call I'd want a fresh-eyes review on.
+
+If the diary write is skipped (deliberately or by accident), record `diary_skipped: 1` in `outcome_summary_soft_warns` at step 7 below. Per [ADR 0042](../../../engine/adr/0042-soft-warn-lifecycle-archive-canon.md)'s 3-of-5 threshold, three skipped diary writes in the last five sessions fire a persistent-warn at the next session's boot — the mechanical adoption check.
+
+If the MemPalace MCP server is unavailable at shutdown, attempt the write; if it fails, record `diary_skipped: 1` and proceed. The session does not block on the diary.
+
+### 7. Fill `outcome_summary` and `outcome_summary_soft_warns`
 
 `outcome_summary` is ~50 words of prose. What got done, anything noteworthy for the next session, what tradeoffs surfaced. Honest summaries beat flattering ones — health-check trend analysis and the next session's boot procedure both depend on them.
 
-`outcome_summary_soft_warns` is the structured trend canon per [ADR 0042](../../../engine/adr/0042-soft-warn-lifecycle-archive-canon.md). Computed from `validate.py`'s final-run output — the per-category soft-warn counts. Shape:
+`outcome_summary_soft_warns` is the structured trend canon per [ADR 0042](../../../engine/adr/0042-soft-warn-lifecycle-archive-canon.md). Computed from `validate.py`'s final-run output (per-category soft-warn counts) plus session-state findings the validator does not see (`diary_skipped` from step 6). Shape:
 
 ```json
 "outcome_summary_soft_warns": {
@@ -107,13 +124,14 @@ For SQL migrations: log the session-level filenames as authored. Supabase migrat
   "state_format": 0,
   "superseded_adr_currency": 0,
   "adr_back_reference_orphan": 2,
-  "adr_consequences_deliverable_audit": 0
+  "adr_consequences_deliverable_audit": 0,
+  "diary_skipped": 0
 }
 ```
 
-All known soft-warn categories appear in the block, even with zero counts; absent keys signal "this category did not exist at this session's close" rather than "this category fired zero times." The boot-time persistent-warn surface (per `soft-warn-lifecycle.md`) reads this field across the last 5 archives.
+All known soft-warn categories appear in the block, even with zero counts; absent keys signal "this category did not exist at this session's close" rather than "this category fired zero times." The boot-time persistent-warn surface (per `soft-warn-lifecycle.md`) reads this field across the last 5 archives. `diary_skipped` is session-state (recorded by step 6), not validator output.
 
-### 7. Archive the claim
+### 8. Archive the claim
 
 ```bash
 git mv engine/session/current.json engine/session/archive/S-<NNNN>.json
@@ -142,7 +160,7 @@ Update `engine/session/register_state.json`:
 }
 ```
 
-### 8. Final commit + main FF + push
+### 9. Final commit + main FF + push
 
 Conventional Commits with the session ID:
 

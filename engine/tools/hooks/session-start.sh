@@ -179,5 +179,45 @@ else
     echo "[session-start] Persistent warns: none above the 3-of-5 threshold."
 fi
 
-log_ok "cadence=$CADENCE_REMAINDER persistent-warns=$PERSISTENT_FOUND"
+# ---------------------------------------------------------------------------
+# Scheduled-audit surface (engine/scheduled_audits.json)
+# ---------------------------------------------------------------------------
+#
+# Added at S-0032 per the MemPalace audit plan. Distinct from the cadence-30
+# health-check trigger above: that fires for broad project audits at
+# regular intervals; this surfaces one-time adoption-checks tied to
+# specific session-numbered triggers added by prior decisions.
+
+SCHEDULED_AUDITS_FILE="$REPO_ROOT/engine/scheduled_audits.json"
+SCHEDULED_FOUND=0
+
+if [ -f "$SCHEDULED_AUDITS_FILE" ]; then
+    # Match entries whose trigger_session equals "S-$NEXT_ID" (exact) or
+    # whose trigger_session is in the past (a deferred audit that hasn't
+    # landed yet). The numeric comparison uses the same 10# base-10 forcing
+    # as the cadence calculation above.
+    SCHEDULED_ENTRIES="$(jq -r --arg next "S-$NEXT_ID" '
+        (.audits // [])
+        | map(select(
+            .trigger_session == $next
+            or (
+                (.trigger_session // "" | sub("^S-0*"; "") | tonumber? // -1)
+                <= ($next | sub("^S-0*"; "") | tonumber? // -1)
+            )
+        ))
+        | .[]
+        | "  - \(.trigger_session): \(.description)"
+    ' "$SCHEDULED_AUDITS_FILE" 2>/dev/null)"
+
+    if [ -n "$SCHEDULED_ENTRIES" ]; then
+        {
+            echo "[session-start] Scheduled audits due (engine/scheduled_audits.json):"
+            echo "$SCHEDULED_ENTRIES"
+            echo "  Run the audit this session, or document the deferral in outcome_summary."
+        } >&2
+        SCHEDULED_FOUND=1
+    fi
+fi
+
+log_ok "cadence=$CADENCE_REMAINDER persistent-warns=$PERSISTENT_FOUND scheduled=$SCHEDULED_FOUND"
 exit 0

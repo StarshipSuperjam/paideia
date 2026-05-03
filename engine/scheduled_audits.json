@@ -1,0 +1,13 @@
+{
+  "description": "Scheduled near-term audits surfaced by the SessionStart hook (engine/tools/hooks/session-start.sh) when next_id matches an entry's trigger_session. Distinct from the cadence-30 health check (ADR 0022) — the cadence trigger fires for broad project audits at next_id mod 30 == 0; entries here fire for one-time adoption-checks tied to specific session-numbered triggers added by prior decisions.",
+  "format": "Each entry: trigger_session (S-NNNN), description (what to audit and how), added_at (S-NNNN that scheduled it), added_per (the doc or ADR that motivated the entry).",
+  "lifecycle": "Entries persist until the trigger session boots, surfaces the audit at boot, and the audit lands. The session that runs the audit removes the entry as part of close (or, if the audit is deferred, leaves the entry in place — re-fires next session). No automatic expiry; an entry whose trigger_session is in the past keeps firing until the audit lands or the entry is removed.",
+  "audits": [
+    {
+      "trigger_session": "S-0042",
+      "description": "First near-term audit of pushback/lesson tag adoption (per S-0032 audit Improvement G). Count drawers tagged `pushback` and `lesson` filed since S-0032; flag if either count is zero or near-zero (adoption failure). The cadence-30 health check at S-0060 takes over after this near-term audit.",
+      "added_at": "S-0032",
+      "added_per": "engine/operations/mempalace-tagging-conventions.md `pushback` + `lesson` tag definitions; mempalace audit plan Improvement G"
+    }
+  ]
+}

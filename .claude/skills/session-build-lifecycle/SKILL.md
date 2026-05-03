@@ -42,6 +42,10 @@ The calibration window per `soft-warn-lifecycle.md` is in effect until 5 structu
 
 Use the MemPalace MCP tool `mempalace_search` with terms derived from `engine/STATE.md`'s next-session work item. Surface anything the user previously named that's relevant. Skip if MemPalace is not yet initialized (early sessions before S-0002).
 
+### 3b. Read recent diary entries
+
+Per [`mempalace-operations.md`](../../../engine/operations/mempalace-operations.md) "Project usage scope" (diary adopted at S-0032). Call `mempalace_diary_read agent_name="claude" last_n=3` to see the previous three sessions' first-person AI reflections — what surprised the prior AI, what they noticed but deferred, what felt load-bearing for this session, where their judgment was uncertain. Surface anything that bears on the work about to be claimed; skip silently when the diary is empty (early adoption window).
+
 ### 4. Read referenced docs
 
 `engine/STATE.md` and `ROADMAP.md` will name specific files relevant to the work. Read them before claiming the slot — the slot claim should be informed.

@@ -20,6 +20,8 @@ A build session is any conversation that types `Start Engine` or invokes `/start
 
 3. **Query MemPalace.** Use `mempalace_search` with terms derived from STATE.md's next-session work item. Surface anything the user previously named that's relevant. Skip if MemPalace is not yet initialized (early sessions before S-0002 close).
 
+3b. **Read recent diary entries.** Per [`mempalace-operations.md`](mempalace-operations.md) "Project usage scope" (diary adopted at S-0032). Call `mempalace_diary_read agent_name="claude" last_n=3` to see the previous three sessions' first-person AI reflections — what surprised the prior AI, what they noticed but deferred, what felt load-bearing for this session, where their judgment was uncertain. Surface anything that bears on the work about to be claimed; skip silently when the diary is empty (early adoption window).
+
 4. **Read referenced docs.** STATE.md and ROADMAP.md will name specific files relevant to the work. Read them before claiming the slot — the slot claim should be informed.
 
 5. **Read the build-readiness report** (substantive build sessions only, per [ADR 0040](../adr/0040-build-readiness-gate-before-substantive-build-sessions.md)). STATE.md's "Next session work item" names the report at `engine/build_readiness/<phase>_<chunk>.md` for substantive build sessions. Read the report end-to-end:
