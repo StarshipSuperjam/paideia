@@ -38,3 +38,48 @@ Halls connect rooms within a wing. Tunnels connect rooms across wings.
 **Auto-detection:** `mempalace init <dir>` detects rooms from folder structure. Run AFTER S-0001's `docs/` reorganization so rooms map to subdirectories (e.g., `docs/operations/` → operations room). S-0002 plan: `mempalace init docs/` then `mempalace mine docs/`.
 
 ---
+
+## Pre-commit hook STATUS-capture bug + side-discovery audit mechanism (set at S-0032 close for S-0033)
+
+**Two coupled items.** The first is a specific bug. The second is the structural fix that would have prevented this entry from being authored at session-end as a postscript (which the user called out as itself being the problematic pattern).
+
+### Item 1: Pre-commit hook silently allows hard-fails through
+
+**Symptom observed at S-0032 across multiple commits:** `engine/tools/hooks/pre-commit` ran the secondary code-gates and sql-gates blocks (lines 109-144), they reported hard-fails (`ruff format check failed`, `mypy --strict failed`) to stderr, but the commit completed anyway with `[pre-commit] Mode: build — OK`.
+
+**Diagnosis:** The `if ! cmd; then STATUS=$?; ...` pattern at lines 94-101, 112-122, and 134-144 captures `$?` after the negated pipeline. When a `! cmd` pipeline runs and `cmd` exits non-zero, the pipeline's exit status (and therefore `$?`) becomes 0 (success of the negation). So `STATUS=$?` always gets 0 inside the then-branch, and `[ "$STATUS" -ge 2 ]` always evaluates false, so the block falls through to `exit 0`.
+
+**Fix:** Replace each `if ! cmd; then STATUS=$?; ...` block with one of these patterns:
+- `cmd; STATUS=$?` (simpler — but requires `set +e` / `set -e` toggle around it because `set -e` is on at line 26).
+- `cmd || STATUS=$?` (preserves `set -e` semantics — `STATUS` only gets the exit code when `cmd` fails).
+
+After choosing, follow with the existing `if [ "$STATUS" -ge 2 ]; then ... exit 1; fi` block.
+
+**Verification:** Write a Python file with a deliberate syntax error, stage it, attempt commit. Expected: blocked with exit 1 and a clear error message. Without the fix: commit completes despite the hard-fail.
+
+**Why it matters:** A commit gate that silently lets hard-fails through undermines confidence in every gate-checked commit downstream. Fix lands BEFORE the next substantive build session (Phase 4 build-readiness gate) so the gate exercise's own commits are cleanly gated.
+
+### Item 2: Side-discovery audit at shutdown (the structural fix)
+
+**Pattern this addresses:** The AI repeatedly notices out-of-scope issues during a session, mentions them in commit messages or end-of-session prose ("flagged for follow-up"), and they vanish without a mechanical surface that triggers future action. S-0032 demonstrated this twice — the pre-commit bug above was flagged in commit cbff859 and again in the close commit, both times with no scheduled-audit entry. The user called the pattern out at session end. This handoff entry exists because the AI was at 60% context and could not start S-0033 to capture mechanically; the next-best surface was HANDOFF.md.
+
+**Proposed mechanism for S-0033:**
+
+1. New script `engine/tools/audit_side_discoveries.py`. Scans this session's commit messages (between the eager-claim commit and HEAD~ at shutdown time) for follow-up markers: `flagged`, `follow-up`, `TODO`, `FIXME`, `deferred`, `noted for`, `future session`, `next session`, `pending`, `out of scope`. For each match, prints the marker with surrounding context and the commit SHA.
+
+2. The script's exit code: 0 if no markers found OR all markers have a confirmed disposition; 2 (hard-fail) if any unconfirmed marker remains. Disposition confirmation: AI provides a structured input (file, JSON, CLI flag) saying "marker X in commit Y is dispositioned by Z," where Z is one of: a `scheduled_audits.json` entry id, a `tensions.md` OQ-id, a `HANDOFF.md` section heading, an "addressed inline" reference to a fix-commit SHA, or "acceptable, no action required" with reasoning.
+
+3. Wire into `engine/operations/session-shutdown-sequence.md` as a new step before outcome_summary fill (so dispositions feed into outcome_summary, and so a missing capture blocks the close — same mechanical shape as the existing `outcome_summary_soft_warns` discipline). Mirror in the `session-shutdown-sequence` Skill body.
+
+4. Add tests: a session with no follow-up markers passes; a session with markers but all dispositioned passes; a session with markers and any undispositioned fails.
+
+**Note on the "had to load a session to schedule a session" barrier:** The current pre-commit hook treats post-close (no current.json, register status closed) as exploration mode and only allows commits to `.claude/plans/`, `HANDOFF.md`, `product/docs/tensions.md`, `product/docs/ideation.md`. `engine/scheduled_audits.json` is the engine-side surface for one-time future-session triggers but is NOT in the allowed list — so adding an entry between sessions requires opening a new session. That's a self-inflicted barrier. S-0033 should either (a) add `engine/scheduled_audits.json` to the exploration-mode allowed-paths list, or (b) decide that the barrier is intentional (e.g., scheduling is itself substantive engine work) and document the rationale. The user's framing at S-0032 close was "ridiculous" — the (a) path is recommended.
+
+### S-0033 scope
+
+- Pre-commit hook fix (Item 1).
+- Side-discovery audit script + ops-doc step + Skill mirror + tests (Item 2).
+- Add `engine/scheduled_audits.json` (and any other engine-side scheduling/handoff surfaces) to the pre-commit hook's exploration-mode allowed-paths list with rationale comment.
+- Phase 4 build-readiness gate exercise (the originally-planned S-0032 work, deferred at S-0032, deferred again at S-0033 by the user direction at S-0032 close) → moves to S-0034.
+
+---
