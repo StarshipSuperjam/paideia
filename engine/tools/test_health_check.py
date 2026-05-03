@@ -109,7 +109,6 @@ def synthetic_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(health_check, "REPORT_DIR", tmp_path / "docs" / "health-checks")
     # Universal-scan paths added at S-0041; monkeypatch so tests don't scan the real repo.
     monkeypatch.setattr(health_check, "BUILD_PLAN_DIR", tmp_path / "build_plan")
-    monkeypatch.setattr(health_check, "PRODUCT_DOCS_DIR", tmp_path / "product" / "docs")
     return tmp_path
 
 

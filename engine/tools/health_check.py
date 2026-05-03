@@ -30,9 +30,21 @@ Inputs (read):
   candidates).
 - engine/ENGINE_LOG.md — entry counts by date for Fit fidelity check.
 - product/docs/tensions.md — open tensions for Gaps; aged tensions
-  (>10 sessions open without movement) flagged.
+  (>TENSION_AGE_SESSIONS sessions open without movement) flagged.
 - product/docs/ideation.md — unconsumed entries for Dead-weight.
-- engine/operations/*.md — file sizes for Bloat.
+- All .md files under REPO_ROOT (universal scan added at S-0041 per
+  user direction; filesystem rglob with DEAD_WEIGHT_SKIP_PATH_PREFIXES
+  + DEAD_WEIGHT_SKIP_NAMES filter) — read by audit_dead_weight (staleness
+  per S-NNNN commit reference + inbound-citation count), audit_bloat
+  (line counts > LARGE_DOC_LINES), audit_gaps (TBD/TODO/FIXME marker
+  detection). The "scanned" set is filesystem-resident, NOT git-tracked
+  — gitignored .md files are scanned too unless they fall under a
+  skip-prefix.
+- build_plan/*.md — read by audit_gaps for chunk-vs-archive cross-
+  reference (universal scan added at S-0041).
+- git log per scanned .md file — `_last_touched_session` extracts the
+  highest S-NNNN reference from commit subjects + bodies for staleness
+  computation.
 - engine/tools/validate-history.jsonl — per-invocation telemetry for Fit
   validator-runtime drift (opportunistic; absent on fresh clones).
 
@@ -41,6 +53,15 @@ Outputs (written):
 - docs/health-checks/S-NNNN.md — populated report following the shape
   in docs/health-checks/TEMPLATE.md, extended with the MemPalace
   section. Each of the five sections is non-empty.
+- engine/session/register_state.json (non-dry-run only) —
+  `bump_last_audit_session` writes the session_id to the
+  `last_audit_session` field at report-emit time. Per ADR 0022
+  Consequences amendment at S-0041, this field is the canonical "audit
+  happened" anchor that the SessionStart hook (engine/tools/hooks/
+  session-start.sh) and validate.py's `health_check_overdue` check both
+  consume to compute overdue state. Best-effort: failures log to stderr
+  but do not raise (the report on disk is the durable artifact; the
+  field bump is advisory tracking).
 - Stdout: progress messages and final report path.
 - Exit code: 0 (report written), 2 (missing required input).
 
@@ -124,7 +145,6 @@ IDEATION_PATH = REPO_ROOT / "product" / "docs" / "ideation.md"
 OPERATIONS_DIR = REPO_ROOT / "engine" / "operations"
 VALIDATE_HISTORY_PATH = REPO_ROOT / "engine" / "tools" / "validate-history.jsonl"
 REPORT_DIR = REPO_ROOT / "docs" / "health-checks"
-PRODUCT_DOCS_DIR = REPO_ROOT / "product" / "docs"
 BUILD_PLAN_DIR = REPO_ROOT / "build_plan"
 
 # Tunable thresholds. Calibration changes are amendment-tracked under ADR 0042
@@ -138,8 +158,8 @@ PRODUCT_DOC_STALE_SESSIONS = 20  # tracked .md unmodified >20 sessions = stale c
 
 # Universal-scan opt-out lists (per S-0041 user direction: the audit assesses
 # the entire system; opt-out only when there's a structural reason). Path
-# prefixes are matched against `git ls-files` output; names are the file's
-# basename.
+# prefixes are matched against the REPO_ROOT-relative path of each .md
+# file the filesystem scan returns; names are the file's basename.
 DEAD_WEIGHT_SKIP_PATH_PREFIXES = (
     ".claude/",  # Claude Code harness state — not project artifacts
     "engine/tools/test_fixtures/",  # parser-tool test fixtures (per ADR 0047)
@@ -757,7 +777,8 @@ def audit_dead_weight() -> CategoryFindings:
     audit close (the prior opt-in design only scanned ADRs + operations docs
     + ideation.md, missing prep-paideia-prompt-pack.md which had been stale
     for 24 sessions in product/docs/). The new design scans every .md file
-    tracked by git and applies two signals universally — staleness (no S-NNNN
+    found by filesystem walk under REPO_ROOT (with skip-prefix filter)
+    and applies two signals universally — staleness (no S-NNNN
     commit reference newer than PRODUCT_DOC_STALE_SESSIONS sessions ago) and
     inbound-citation count (count of other .md files mentioning this file's
     name). Files that hit either signal land in the report; the AI/user
@@ -908,7 +929,7 @@ def audit_bloat() -> CategoryFindings:
 
     **Universal-scan rewrite at S-0041** per user direction (the prior
     opt-in design only scanned engine/operations/, missing oversized files
-    elsewhere). The new design scans every .md file tracked by git
+    elsewhere). The new design scans every .md file under REPO_ROOT
     (filtered through DEAD_WEIGHT_SKIP_PATH_PREFIXES + DEAD_WEIGHT_SKIP_NAMES)
     and flags any over LARGE_DOC_LINES. The AI/user triages at audit-read
     time — ADRs over 300 lines often reflect a decision that became three;
