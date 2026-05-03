@@ -3,5 +3,10 @@
   "format": "S-NNNN where N is a zero-padded 4-digit counter. Sessions claim a slot eagerly at start (write current.json + bump next_id + commit + push) so concurrent sessions cannot collide.",
   "next_id": "0033",
   "last_claimed": "S-0032",
-  "current_status": "in_progress"
+  "current_status": "in_progress",
+  "health_check_cadence": 10,
+  "health_check_cadence_history": [
+    {"cadence": 30, "from_session": "S-0001", "to_session": "S-0032", "reason": "default cadence per ADR 0022"},
+    {"cadence": 10, "from_session": "S-0033", "to_session": null, "reason": "S-0032 user direction: tighten to 10 because the S-0032 audit surfaced enough silent failures (broken auto-capture hook, inflated 1/42 metric, ADR-companion room-split) that 30-session intervals are too sparse. Raise back later when the project performs more consistently."}
+  ]
 }

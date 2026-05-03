@@ -46,7 +46,7 @@ The surface is informational; it does not block the session's planned work. The 
 
 The default `K=5` and threshold of `3/5` are calibration points. Tighten the threshold if surfaces are consistently no-action; loosen if real persistence goes unsurfaced. Calibration changes are recorded in this document with rationale; major calibration changes (e.g., changing the default K) are ADR-tracked under [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md)'s amendment discipline.
 
-The cadence-trigger health check at S-mod-30 ([ADR 0022](../adr/0022-periodic-project-health-checks.md)) consumes the same archive data with a longer window — typically the full archive — and produces the structured Fit / Gaps / Dead-weight / Bloat report. The boot surface is the day-to-day analogue; the health check is the periodic deep audit.
+The cadence-trigger health check at `S-mod-N` (where N is `health_check_cadence` in `engine/session/register_state.json`; default 10 as of S-0033, was 30 from S-0001 to S-0032 per ADR 0022 Consequences amendment; see [ADR 0022](../adr/0022-periodic-project-health-checks.md)) consumes the same archive data with a longer window — typically the full archive — and produces the structured Fit / Gaps / Dead-weight / Bloat report. The boot surface is the day-to-day analogue; the health check is the periodic deep audit.
 
 ## Closing discipline
 
@@ -62,7 +62,7 @@ A soft-warn category that persists with non-zero count for `≥10` consecutive s
 - **Accept and annotate.** The warn is not actionable in the current project state but is real signal. The category gets a "expected to persist until <condition>" annotation in [`tools-validate-interpretation.md`](tools-validate-interpretation.md), and the boot surface suppresses the category for sessions that match the annotation's condition (e.g., "expected_future_file_missing for Phase 7 file expected to fire until Phase 7 opens"). The annotation is itself revisited at the next health check.
 - **Address inline.** The persistent warn names a real fix that has been deferred. The session that observes the 10-session threshold either does the fix or queues it as the next session's primary work.
 
-The 10-session threshold is informed by the cadence-trigger interval (every 30 sessions). A warn persisting through one-third of a cadence cycle has had multiple opportunities to be acted on; persistence beyond that is structural rather than transient.
+The 10-session threshold was originally informed by the then-cadence-30 interval (a warn persisting through one-third of a cycle had multiple opportunities to be acted on; persistence beyond that is structural rather than transient). At S-0033 the cadence tightened to 10, so the 10-session threshold is now exactly one cadence cycle; revisit at the first cadence-10 audit (S-0040) whether the threshold should also tighten (e.g., to 5) so that escalation can fire within a cycle. Recording the calibration question here per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md)'s amendment discipline; no immediate change.
 
 ## Migration from the jsonl-as-canon model
 

@@ -83,10 +83,13 @@ fi
 NEXT_INT=$((10#$NEXT_ID))
 
 # Cadence read from register_state.json's optional `health_check_cadence`
-# field, defaulting to 30 per the project default.
-CADENCE="$(jq -r '.health_check_cadence // 30' "$REGISTER_FILE" 2>/dev/null)"
+# field, defaulting to 10 per the project default at S-0032 (was 30 pre-S-0033;
+# tightened because the S-0032 MemPalace audit surfaced enough silent failures
+# that 30-session intervals were too sparse — raise back when the project
+# performs more consistently). Override via register_state.json.
+CADENCE="$(jq -r '.health_check_cadence // 10' "$REGISTER_FILE" 2>/dev/null)"
 if ! echo "$CADENCE" | grep -qE '^[0-9]+$' || [ "$CADENCE" -lt 1 ]; then
-    CADENCE=30
+    CADENCE=10
 fi
 
 CADENCE_REMAINDER=$((NEXT_INT % CADENCE))

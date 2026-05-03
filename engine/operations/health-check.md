@@ -1,8 +1,8 @@
 # Project health check
 
-> Periodic audit of the project's own machinery: does our discipline match what we're producing? Per ADR 0022 (lands in S-0003). Cadence trigger fires automatically at session boot when `next_id mod health_check_cadence == 0` (default cadence: 30) — the slot about to be claimed is the cadence-numbered session.
+> Periodic audit of the project's own machinery: does our discipline match what we're producing? Per ADR 0022 (lands in S-0003). Cadence trigger fires automatically at session boot when `next_id mod health_check_cadence == 0` (default cadence: 10 as of S-0033, was 30 from S-0001 to S-0032 — tightened by user direction at S-0032 because the audit there surfaced enough silent failures that the 30-session window was too sparse; see ADR 0022 Consequences amendment) — the slot about to be claimed is the cadence-numbered session.
 
-The first check landed at S-0030 (manual fire at the project-setup-to-project-build phase boundary; see [`docs/health-checks/S-0030.md`](../../docs/health-checks/S-0030.md)). [`engine/tools/health_check.py`](../tools/health_check.py) was authored at S-0029 per [ADR 0022](../adr/0022-periodic-project-health-checks.md). Future cadence triggers fire at S-0060, S-0090, etc.
+The first check landed at S-0030 (manual fire at the project-setup-to-project-build phase boundary; see [`docs/health-checks/S-0030.md`](../../docs/health-checks/S-0030.md)). [`engine/tools/health_check.py`](../tools/health_check.py) was authored at S-0029 per [ADR 0022](../adr/0022-periodic-project-health-checks.md). Under the cadence-10 default the next natural fires are S-0040, S-0050, S-0060, etc.
 
 ## When the trigger fires
 
@@ -17,7 +17,7 @@ The user's response routes:
 - **Accept** — the session's work *is* the audit. Author a report (template below) and commit it under `docs/health-checks/S-NNNN.md`.
 - **Defer** — proceed with planned work; the trigger fires again next session, and again the session after, until accepted or the user explicitly disables the cadence in `register_state.json` for some bounded window.
 
-The cadence is configurable per-project in `register_state.json` (add `health_check_cadence: <integer>`). 30 is the default. Lower for fast-moving phases; higher when phases are long and structurally settled.
+The cadence is configurable per-project in `register_state.json` via the `health_check_cadence` field. **10 is the default as of S-0033** (was 30 from S-0001 to S-0032). The change is recorded in `register_state.json`'s `health_check_cadence_history` field with reasoning. Lower for fast-moving phases or when telemetry shows fast drift; higher when phases are long and structurally settled. Re-evaluate as part of any cadence-numbered audit.
 
 ## Audit categories
 
@@ -111,9 +111,10 @@ Each corrective action either:
 
 Defaults work for most phases. Re-evaluate the cadence:
 
-- If health checks consistently produce no actionable findings — raise the cadence (e.g., 30 → 50).
-- If health checks consistently produce large finding lists — lower the cadence (e.g., 30 → 15).
+- If health checks consistently produce no actionable findings — raise the cadence (e.g., 10 → 20 → 30).
+- If health checks consistently produce large finding lists — lower the cadence (e.g., 10 → 5).
 - During transitions between phases — consider a one-off audit at the boundary, independent of the regular cadence.
+- The cadence was tightened from 30 → 10 at S-0033 because the S-0032 MemPalace audit surfaced enough accumulated silent failures that the 30-session window was too sparse. Raise back when the project demonstrates more consistent execution (multiple consecutive cadence audits with minimal corrective action).
 
 ## See also
 

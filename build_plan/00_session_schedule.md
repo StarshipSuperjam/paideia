@@ -41,10 +41,10 @@ Per [ADR 0037](../engine/adr/0037-engine-product-wall-and-changelog-rename.md):
 
 ## Cadence triggers
 
-The health-check cadence trigger fires every 30 sessions (configurable per [`engine/operations/health-check.md`](../engine/operations/health-check.md)). The trigger fires at the boot of the cadence-numbered session itself when `next_id mod 30 == 0` (the slot about to be claimed; per [ADR 0043](../engine/adr/0043-hook-architecture.md) which corrected the original `last_claimed` off-by-one at S-0031):
+The health-check cadence trigger fires every 10 sessions as of S-0033 (was every 30 from S-0001 to S-0032, tightened by user direction per ADR 0022 Consequences amendment; configurable per [`engine/operations/health-check.md`](../engine/operations/health-check.md)). The trigger fires at the boot of the cadence-numbered session itself when `next_id mod health_check_cadence == 0` (the slot about to be claimed; per [ADR 0043](../engine/adr/0043-hook-architecture.md) which corrected the original `last_claimed` off-by-one at S-0031):
 
 - S-0030 — first cadence trigger; landed manually as a phase-boundary fire (see [`docs/health-checks/S-0030.md`](../docs/health-checks/S-0030.md)).
-- S-0060, S-0090, S-0120 — subsequent firings under the corrected logic.
+- S-0040, S-0050, S-0060, ... — subsequent firings under the corrected logic at the new cadence-10.
 
 Sessions that fire the cadence trigger pause and propose the audit at boot per the boot procedure in [`engine/operations/session-build-lifecycle.md`](../engine/operations/session-build-lifecycle.md).
 

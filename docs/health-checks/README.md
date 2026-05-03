@@ -4,7 +4,7 @@
 
 ## What lives here
 
-One markdown file per audit, named `S-NNNN.md` after the session that produced it. The first audit landed at S-0030 (cadence trigger fires when `next_id mod 30 == 0` — the slot about to be claimed, per [ADR 0043](../../engine/adr/0043-hook-architecture.md) which corrected the original `last_claimed` off-by-one at S-0031).
+One markdown file per audit, named `S-NNNN.md` after the session that produced it. The first audit landed at S-0030 (cadence trigger fires when `next_id mod health_check_cadence == 0` — the slot about to be claimed, per [ADR 0043](../../engine/adr/0043-hook-architecture.md) which corrected the original `last_claimed` off-by-one at S-0031). The cadence is 10 as of S-0033 (was 30 from S-0001 to S-0032; tightened by user direction at S-0032 per ADR 0022 Consequences amendment).
 
 Each report carries the four-section structure from [`TEMPLATE.md`](TEMPLATE.md): Fit, Gaps, Dead weight, Bloat — each with observations and corrective actions or "no action."
 
@@ -20,7 +20,7 @@ The cadence trigger fires at session boot (per [`engine/operations/session-build
 
 ## Cadence
 
-Default: every 30 sessions. Configurable in `engine/session/register_state.json` as the optional key `health_check_cadence`. Re-evaluation per [`engine/operations/health-check.md`](../../engine/operations/health-check.md) cadence policy — raise when audits consistently produce no action; lower when they consistently produce large finding lists.
+Default: every 10 sessions as of S-0033 (was 30 from S-0001 to S-0032; tightened at S-0033 per ADR 0022 Consequences amendment). Configurable in `engine/session/register_state.json` via the `health_check_cadence` key; the field's history is recorded in `health_check_cadence_history`. Re-evaluation per [`engine/operations/health-check.md`](../../engine/operations/health-check.md) cadence policy — raise when audits consistently produce no action; lower when they consistently produce large finding lists.
 
 ## Why at repo root, not under engine/ or product/
 

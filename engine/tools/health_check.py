@@ -10,10 +10,14 @@ Per ADR 0022 (periodic project health checks) and ADR 0042 (soft-warn
 lifecycle: archive is canon).
 
 The script is invoked when the cadence trigger fires at session boot
-(default cadence: 30 sessions; configurable in
-engine/session/register_state.json). It reads only committed sources;
-gitignored telemetry (engine/tools/validate-history.jsonl) is consumed
-opportunistically when present but the script does not depend on it.
+(default cadence: 10 sessions as of S-0033, was 30 from S-0001 to S-0032
+per ADR 0022 Consequences amendment; configurable in
+engine/session/register_state.json via the health_check_cadence field).
+It reads only committed sources for the structural audit categories;
+the MemPalace audit category (added at S-0033) shells out to the local
+mempalace CLI for drawer counts. Gitignored telemetry
+(engine/tools/validate-history.jsonl) is consumed opportunistically when
+present but the script does not depend on it.
 
 Inputs (read):
 
@@ -52,11 +56,6 @@ Edge cases:
 
 Non-responsibilities:
 
-- Does not query MemPalace. The MCP server is not reliably reachable
-  from a CLI script; the AI augments the Fit section manually with
-  mempalace_search results after this script writes the structural
-  sections (per docs/health-checks/README.md "How a report gets
-  produced" step 2).
 - Does not modify any audited file. Only writes the report.
 - Does not auto-commit. The session that ran the audit stages and
   commits the report per the standard session-shutdown sequence.
@@ -96,7 +95,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import shutil
+import subprocess
 import sys
 from collections import Counter
 from collections.abc import Mapping
@@ -184,12 +186,13 @@ class HealthCheckReport:
     """
 
     session_id: str
-    cadence: int = 30
+    cadence: int = 10
     last_check: str | None = None
     fit: CategoryFindings = field(default_factory=CategoryFindings)
     gaps: CategoryFindings = field(default_factory=CategoryFindings)
     dead_weight: CategoryFindings = field(default_factory=CategoryFindings)
     bloat: CategoryFindings = field(default_factory=CategoryFindings)
+    mempalace: CategoryFindings = field(default_factory=CategoryFindings)
 
 
 # ---------------------------------------------------------------------------
@@ -276,8 +279,9 @@ def audit_fit(archives: list[Path]) -> CategoryFindings:
     findings = CategoryFindings()
 
     # Soft-warn distribution across recent archives (per ADR 0042).
-    # Walk archives in reverse-chronological order; bounded by the
-    # cadence-interval window (default 30) when more archives exist.
+    # Walk archives in reverse-chronological order; bounded to a 30-archive
+    # window (sufficient even under the cadence-10 default at S-0033 — three
+    # full cycles of trend data per audit).
     recent = archives[-30:]
     if not recent:
         findings.add(
@@ -732,6 +736,234 @@ def audit_bloat() -> CategoryFindings:
 
 
 # ---------------------------------------------------------------------------
+# MemPalace audit (added at S-0033 per the S-0032 MemPalace audit plan)
+# ---------------------------------------------------------------------------
+
+
+def _resolve_mempalace_binary() -> str | None:
+    """Resolve the mempalace CLI binary path.
+
+    Mirrors the resolution pattern in engine/tools/hooks/mempalace-hook-wrapper.sh
+    and post-adr-write.sh (per ADR 0043): try PATH, fall back to the
+    user-scope install at ~/Library/Python/3.9/bin/mempalace. Returns
+    None if neither resolves.
+    """
+    on_path = shutil.which("mempalace")
+    if on_path:
+        return on_path
+    fallback = Path.home() / "Library" / "Python" / "3.9" / "bin" / "mempalace"
+    if fallback.is_file() and os.access(fallback, os.X_OK):
+        return str(fallback)
+    return None
+
+
+def _run_mempalace(binary: str, *args: str) -> str | None:
+    """Run mempalace CLI; return stdout or None on error.
+
+    Captures stderr but discards it. Best-effort; the audit gracefully
+    handles failures by returning None and the caller skips the
+    corresponding finding. 30-second timeout — the CLI is fast against a
+    local palace.
+    """
+    try:
+        result = subprocess.run(
+            [binary, *args],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        if result.returncode == 0:
+            return result.stdout
+    except (subprocess.SubprocessError, OSError):
+        pass
+    return None
+
+
+def _count_adrs() -> int:
+    """Count ADR files across engine/adr/ and product/adr/."""
+    count = 0
+    for adr_dir in (ENGINE_ADR_DIR, PRODUCT_ADR_DIR):
+        if adr_dir.is_dir():
+            count += sum(1 for _ in adr_dir.glob("[0-9][0-9][0-9][0-9]-*.md"))
+    return count
+
+
+def audit_mempalace(archives: list[Path]) -> CategoryFindings:
+    """Audit the project's MemPalace usage health.
+
+    Added at S-0033 per the S-0032 MemPalace audit plan (Improvement D).
+    Closes the loop from the audit's central finding: the project's
+    MemPalace usage was previously evaluated only by manual observation,
+    and the S-0030 audit's "1 decision drawer for 42 ADRs" headline was
+    structurally wrong because it counted by room name only. This audit
+    category provides a mechanical view of MemPalace state every cadence.
+
+    Reports:
+
+    - Decisions-room drawer count vs ADR count. Per the room-targeting
+      conventions added at S-0032 (engine/operations/mempalace-tagging-conventions.md),
+      ADR-companion drawers belong in the `decisions` room. A ratio
+      significantly below 1.0 indicates two-layer-recording compliance
+      drift even after the post-adr-write hook reminder (per ADR 0043).
+    - `pushback`-tagged drawer count. Adoption metric for the convention
+      added at S-0032. Zero or near-zero suggests the convention isn't
+      being used in practice.
+    - `lesson`-tagged drawer count. Same.
+    - Diary discipline via `diary_skipped` soft-warn in recent archives.
+      The shutdown-sequence step 6 (added at S-0032) emits this key in
+      outcome_summary_soft_warns when a build session closes without a
+      diary write.
+
+    Returns CategoryFindings.
+
+    Failure modes:
+    - mempalace CLI not installed (PATH + fallback both miss). Records
+      a single "CLI not available" finding and returns; downstream
+      counts are skipped.
+    - mempalace daemon down. Same handling.
+    - mempalace status / search returns non-zero. Each call is
+      independent; one failure doesn't suppress the others.
+    """
+    findings = CategoryFindings()
+
+    binary = _resolve_mempalace_binary()
+    if binary is None:
+        findings.add(
+            "MemPalace CLI not on PATH and not at ~/Library/Python/3.9/bin/mempalace",
+            "Install per engine/operations/mempalace-operations.md, or document the "
+            "absence (e.g., CI environment) so subsequent audits skip silently.",
+        )
+        return findings
+
+    # Drawer counts per room (via `mempalace status`).
+    status_text = _run_mempalace(binary, "status")
+    if status_text is None:
+        findings.add(
+            "mempalace status returned no output; daemon may be down or palace path misconfigured",
+            "Diagnose via `mempalace status` directly; check ~/.mempalace/config.json.",
+        )
+    else:
+        room_counts: dict[str, int] = {}
+        for m in re.finditer(r"ROOM:\s*(\S+)\s+(\d+)\s+drawers?", status_text):
+            room_counts[m.group(1)] = int(m.group(2))
+        adr_count = _count_adrs()
+        decisions_count = room_counts.get("decisions", 0)
+        if adr_count > 0:
+            ratio = decisions_count / adr_count
+            if ratio < 0.5:
+                findings.add(
+                    f"Decisions-room drawers ({decisions_count}) significantly below "
+                    f"ADR count ({adr_count}); ratio {ratio:.2f}",
+                    "Two-layer recording compliance gap. Audit which ADRs lack a "
+                    "decision-tagged companion via the post-adr-write hook reminder log "
+                    "(.claude/logs/post-adr-write.log) or ad-hoc mempalace_search per ADR.",
+                )
+            elif ratio < 0.9:
+                findings.add(
+                    f"Decisions-room drawers ({decisions_count}) modestly below "
+                    f"ADR count ({adr_count}); ratio {ratio:.2f}",
+                    "Watch — likely a small number of ADRs without companions. "
+                    "Spot-check the most recent ADRs.",
+                )
+            else:
+                findings.add(
+                    f"Decisions-room drawers ({decisions_count}) approximate ADR count "
+                    f"({adr_count}); ratio {ratio:.2f} — two-layer recording is healthy",
+                    "no action",
+                )
+        # Per the room-targeting conventions, residual general/ should
+        # shrink over time as classification cleanups land. Surface the
+        # current count so the trend is visible across audits.
+        general_count = room_counts.get("general", 0)
+        if general_count > 0:
+            findings.add(
+                f"general-room drawer count: {general_count} "
+                "(legacy mining content + auto-capture default)",
+                "Trend-watch across audits — should shrink as classification cleanups "
+                "land per engine/operations/mempalace-tagging-conventions.md "
+                "Room-targeting conventions.",
+            )
+
+    # Adoption counts for `pushback` and `lesson` tags. The CLI search
+    # returns full drawer bodies; raw match counts include false
+    # positives (operations docs that *describe* the tags but aren't
+    # tag-applied themselves). Filter to drawers whose body carries a
+    # `Tags:` line that includes the bare tag word — same heuristic as
+    # the post-adr-write hook's `decision`-tag check (per ADR 0043).
+    for tag in ("pushback", "lesson"):
+        search_text = _run_mempalace(
+            binary, "search", tag, "--wing", "paideia", "--results", "50"
+        )
+        if search_text is None:
+            findings.add(
+                f"mempalace search for `{tag}` returned no output",
+                "Skip; diagnose CLI separately if persistent.",
+            )
+            continue
+        # Each result is bracketed by a "[N] paideia / <room>" header.
+        # Split on those headers and inspect each block's body for a
+        # `Tags:` line containing the tag.
+        blocks = re.split(r"^\s*\[\d+\]\s+paideia\s*/\s*\w+", search_text, flags=re.MULTILINE)
+        tag_pattern = re.compile(rf"\*?\*?Tags:\*?\*?[^\n]*\b{re.escape(tag)}\b")
+        tagged_blocks = [b for b in blocks if tag_pattern.search(b)]
+        tagged_count = len(tagged_blocks)
+        if tagged_count == 0:
+            findings.add(
+                f"No drawers tagged `{tag}` found in MemPalace",
+                f"Convention adoption gap. Either the {tag} convention isn't being "
+                "used in practice (review at next session), or no qualifying moments "
+                "have arisen since the convention was added at S-0032.",
+            )
+        else:
+            findings.add(
+                f"`{tag}`-tagged drawers in MemPalace: {tagged_count} confirmed by Tags-line match",
+                "no action",
+            )
+
+    # Diary discipline via diary_skipped soft-warn in recent archives.
+    diary_skipped_count = 0
+    archives_with_diary_field = 0
+    for archive_path in archives[-10:]:
+        archive = read_archive(archive_path)
+        sw = soft_warns_from_archive(archive)
+        if "diary_skipped" in sw:
+            archives_with_diary_field += 1
+            diary_skipped_count += sw["diary_skipped"]
+
+    if archives_with_diary_field == 0:
+        findings.add(
+            "No structured diary_skipped data in recent archives "
+            "(field added at S-0033 — calibration window)",
+            "Re-check after several post-S-0033 sessions accumulate.",
+        )
+    else:
+        skip_rate = diary_skipped_count / archives_with_diary_field
+        if skip_rate >= 0.5:
+            findings.add(
+                f"Diary skip rate: {diary_skipped_count}/{archives_with_diary_field} "
+                f"recent archives ({skip_rate:.0%})",
+                "Adoption gap. Per ADR 0042's 3-of-5 threshold, the persistent-warn "
+                "surface should already be firing at boot. Investigate per "
+                "engine/operations/session-shutdown-sequence.md step 6 — diary write "
+                "is committed convention as of S-0033, not optional.",
+            )
+        else:
+            findings.add(
+                f"Diary discipline: {diary_skipped_count}/{archives_with_diary_field} "
+                f"recent skips ({skip_rate:.0%})",
+                "no action",
+            )
+
+    if findings.is_empty():
+        findings.add(
+            "No MemPalace observations surfaced.",
+            "no action",
+        )
+    return findings
+
+
+# ---------------------------------------------------------------------------
 # Report emission
 # ---------------------------------------------------------------------------
 
@@ -789,17 +1021,23 @@ def render_report(report: HealthCheckReport) -> str:
         report.bloat,
         "What's grown past its purpose?",
     )
+    mempalace_md = render_section(
+        "MemPalace",
+        report.mempalace,
+        "Is the project's semantic-memory layer in healthy use?",
+    )
 
     total_findings = (
         len(report.fit.observations)
         + len(report.gaps.observations)
         + len(report.dead_weight.observations)
         + len(report.bloat.observations)
+        + len(report.mempalace.observations)
     )
     summary = (
         f"Audit ran against the structured-data window. {total_findings} observation(s) "
-        "across the four categories. Augment with MemPalace-recall observation per "
-        "docs/health-checks/README.md before triaging."
+        "across the five categories. Triage findings into the three response paths per "
+        "engine/operations/health-check.md."
     )
 
     return (
@@ -813,13 +1051,18 @@ def render_report(report: HealthCheckReport) -> str:
         f"{gaps_md}\n"
         f"{dead_weight_md}\n"
         f"{bloat_md}\n"
+        f"{mempalace_md}\n"
         f"## Cadence calibration\n\n"
         f"Is the current cadence ({report.cadence} sessions) right for current project velocity?\n\n"
-        f"- If consistently no-action: raise (e.g., 30 → 50).\n"
-        f"- If consistently large action lists: lower (e.g., 30 → 15).\n"
-        f"- During phase transitions: consider one-off audit at the boundary.\n\n"
+        f"- If consistently no-action: raise (e.g., 10 → 20 → 30).\n"
+        f"- If consistently large action lists: lower (e.g., 10 → 5).\n"
+        f"- During phase transitions: consider one-off audit at the boundary.\n"
+        f"- The cadence was tightened from 30 → 10 at S-0033 because the S-0032 "
+        f"MemPalace audit surfaced enough silent failures that 30 was too sparse "
+        f"(per ADR 0022 Consequences amendment). Raise back when audits show "
+        f"consistent low-action.\n\n"
         f"This audit's recommendation: keep at {report.cadence} (override after "
-        f"reading the four sections).\n\n"
+        f"reading the five sections).\n\n"
         f"## Summary\n\n"
         f"{summary}\n"
     )
@@ -848,23 +1091,24 @@ def emit_report(report: HealthCheckReport, dry_run: bool = False) -> Path | None
 
 
 def detect_cadence() -> int:
-    """Return the cadence interval from register_state.json or default 30.
+    """Return the cadence interval from register_state.json or default 10.
 
-    Looks for the optional `health_check_cadence` key. Defaults to 30 if
-    absent or malformed.
+    Looks for the optional `health_check_cadence` key. Defaults to 10 if
+    absent or malformed (was 30 from S-0001 to S-0032; tightened to 10 at
+    S-0033 by user direction per ADR 0022 Consequences amendment).
     """
     register_path = REPO_ROOT / "engine" / "session" / "register_state.json"
     if not register_path.is_file():
-        return 30
+        return 10
     try:
         register = json.loads(register_path.read_text())
     except (OSError, json.JSONDecodeError):
-        return 30
+        return 10
     if isinstance(register, dict):
-        cadence = register.get("health_check_cadence", 30)
+        cadence = register.get("health_check_cadence", 10)
         if isinstance(cadence, int) and cadence > 0:
             return cadence
-    return 30
+    return 10
 
 
 def detect_last_check() -> str | None:
@@ -929,6 +1173,7 @@ def main(argv: list[str] | None = None) -> int:
     report.gaps = audit_gaps()
     report.dead_weight = audit_dead_weight()
     report.bloat = audit_bloat()
+    report.mempalace = audit_mempalace(archives)
 
     out_path = emit_report(report, dry_run=args.dry_run)
     if out_path is not None:

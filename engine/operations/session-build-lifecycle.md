@@ -12,7 +12,7 @@ A build session is any conversation that types `Start Engine` or invokes `/start
 
 1. **Read `STATE.md`.** Get current phase, last build session, next-session work item, GitHub URL, Supabase project ref, infrastructure pointers.
 
-2. **Health-check cadence trigger.** Read `session/register_state.json`. Parse the trailing 4-digit counter from `next_id` (the slot about to be claimed). If `counter % health_check_cadence == 0` (default cadence: 30), propose:
+2. **Health-check cadence trigger.** Read `session/register_state.json`. Parse the trailing 4-digit counter from `next_id` (the slot about to be claimed). If `counter % health_check_cadence == 0` (default cadence: 10 as of S-0033, was 30 pre-S-0033 — see ADR 0022 Consequences amendment), propose:
 
    > "Next slot is S-NNNN. Cadence trigger fires for a project health check (see `engine/operations/health-check.md`). Run the audit now or defer?"
 

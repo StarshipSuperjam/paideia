@@ -479,7 +479,10 @@ def test_emit_report_dry_run(
 
 
 def test_detect_cadence_default(synthetic_repo: Path) -> None:
-    assert detect_cadence() == 30
+    # Default tightened from 30 → 10 at S-0033 per ADR 0022 Consequences
+    # amendment. The user-direction rationale: too many silent failures
+    # accumulated under the 30-session window.
+    assert detect_cadence() == 10
 
 
 def test_detect_cadence_custom(synthetic_repo: Path) -> None:
@@ -500,7 +503,8 @@ def test_detect_cadence_custom(synthetic_repo: Path) -> None:
 def test_detect_cadence_malformed(synthetic_repo: Path) -> None:
     register = synthetic_repo / "engine" / "session" / "register_state.json"
     register.write_text("not valid json")
-    assert detect_cadence() == 30
+    # Malformed-fallback default also tightened from 30 → 10 at S-0033.
+    assert detect_cadence() == 10
 
 
 def test_detect_last_check_none(synthetic_repo: Path) -> None:
