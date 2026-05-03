@@ -28,16 +28,18 @@ Phase headings carry **[ENGINE]** or **[PRODUCT]** markers per [ADR 0037](engine
 
 **Output:** every remaining design ambiguity that would propagate into the seed graph is settled, audit-checked, and durable.
 
-### 1.1 Close pending prompt-pack sessions (9, 10, 11)
+### 1.1 Prompt-pack sessions — all dispositioned at S-0041
 
-The 14-session prompt pack is at `docs/prep-paideia-prompt-pack.md`. Sessions 1-8 closed pre-Foundation. Sessions 9-14 remaining; ordered by blocking priority:
+The 14-session prompt pack at [`product/docs/prep-paideia-prompt-pack.md`](product/docs/prep-paideia-prompt-pack.md) (path moved from `docs/` to `product/docs/` in S-0024 per [ADR 0037](engine/adr/0037-engine-product-wall-and-changelog-rename.md)) was authored at S-0001 as a deliberation queue. Sessions 1-8 closed pre-Foundation. Per the S-0041 disposition pass:
 
-- **Session 9 — Engagement Depth Aggregation.** Blocks prototype work (composite engagement signal feeds mastery computation). Run as the first SA-tracked work session after Foundation closes.
-- **Session 10 — Decay Parameter Verification.** Depends on Session 9.
-- **Session 11 — Historical Maximum Tracking.** Small schema decision, independent of 9 and 10.
-- **Session 12 — Fork Maintenance Timeline.** Deferred until after Phase 7 (DeepTutor fork is a Phase 7 prototype dependency; maintenance posture is a downstream concern).
-- **Session 13 — Gamification & Milestone Tone.** Mostly resolved as a sensibility (per `docs/business.md` and `docs/pedagogy.md`). Re-open if a concrete gamification feature is proposed.
-- **Session 14 — Media Edge Quality.** Deferred until Phase 5 surfaces concrete cross-domain cases that test the supplementary-media-as-metadata commitment.
+- **~~Session 9 — Engagement Depth Aggregation.~~** Closed at S-0004 (consumed by [ADR 0023](product/adr/0023-engagement-depth-aggregation.md)).
+- **~~Session 10 — Decay Parameter Verification.~~** Retired at S-0041 — superseded by Phase 7+ empirical verification once the learner model runs against real telemetry. The synthetic-arithmetic walkthroughs the prompt requested are lower-value than ongoing calibration against real event streams.
+- **~~Session 11 — Historical Maximum Tracking.~~** Closed at S-0006 (consumed by [ADR 0025](product/adr/0025-historical-maximum-tracking.md)).
+- **Session 12 — Fork Maintenance Timeline.** Open with concrete decide-trigger (S-0041 amendment): the first session where a DeepTutor-divergence question arises OR the first Phase 7 infrastructure session, whichever comes first. Tension entry remains in `product/docs/tensions.md`.
+- **~~Session 13 — Gamification & Milestone Tone.~~** Closed at S-0016 (settled by [ADR 0033](product/adr/0033-mission-realignment-structured-guidance-for-self-learners.md), [ADR 0034](product/adr/0034-discovery-planning-engagement-triad.md), and the [ADR 0027](product/adr/0027-rendering-policy-prompt-layer-contract.md) S-0016 voice-discipline extension).
+- **Session 14 — Media Edge Quality.** Open with phase-pinned decide-by trigger (S-0041 amendment): the first Phase 7 session that proposes adding media edges to the schema. Tension entry remains in `product/docs/tensions.md`.
+
+**Net status (S-0041):** 12 of 14 prompts closed (8 pre-Foundation + 4 dispositioned in S-0004/S-0006/S-0016/S-0041). 2 prompts remain open with phase-pinned decide-by triggers (Sessions 12 and 14). The prompt-pack file is now historical reference plus a decide-trigger surface for the two open prompts; it does not appear on the active near-term work queue.
 
 ### 1.2 Author rendering policy and sibling commitments
 

@@ -26,8 +26,17 @@ fi
 REMOVED=0
 SKIPPED=0
 
-# Iterate worktrees (skip the current/main one)
-git worktree list --porcelain | awk '/^worktree / {print $2}' | tail -n +2 | while read -r WT_PATH; do
+# Iterate worktrees (skip the current/main one).
+#
+# Process substitution (`< <(...)`) instead of pipe-to-while so the loop body
+# runs in the parent shell, not a subshell — REMOVED/SKIPPED counters
+# survive the loop. The pipe form silently zeroed both counters at end-of-
+# loop (the per-iteration increments lived in the subshell that the pipe
+# spawned), surfaced at S-0041 catch-up worktree sweep where the final
+# "[sweep] removed N, skipped K" line read "removed 0, skipped 0" despite
+# 37 actual removals. Fixed inline at S-0041 per the audit's "Default to
+# fix-in-context" discipline.
+while IFS= read -r WT_PATH; do
     if [ ! -d "$WT_PATH" ]; then
         echo "[sweep] worktree path missing: $WT_PATH (skipping)" >&2
         SKIPPED=$((SKIPPED + 1))
@@ -67,7 +76,7 @@ git worktree list --porcelain | awk '/^worktree / {print $2}' | tail -n +2 | whi
         git branch -d "$BRANCH" 2>/dev/null || true
         REMOVED=$((REMOVED + 1))
     fi
-done
+done < <(git worktree list --porcelain | awk '/^worktree / {print $2}' | tail -n +2)
 
 if [ "$DRY_RUN" = true ]; then
     echo "[sweep] dry run complete. Re-run with --apply to actually remove."

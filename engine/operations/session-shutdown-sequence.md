@@ -141,6 +141,13 @@ Call `mempalace_diary_write` with `agent_name: "claude"` (project convention per
 - **What I noticed but deferred** — observations that are out-of-scope for this session but next-session-relevant. (If actionable enough, also surface in HANDOFF.md or as a follow-up task in `outcome_summary`; the diary is the lower-formality channel for things that don't quite warrant a tracked task.)
 - **Where my judgment was uncertain** — places I made a call I'd want a fresh-eyes review on, or where I'd phrase the question differently if I were starting fresh.
 
+After the diary write, run the **`pushback` / `lesson` capture check** (added at S-0041 per the second project health check audit's adoption-gap finding — the tags were defined at S-0032 with zero applications across the eight intervening sessions because the convention was too implicit to reach the AI's authoring loop without an explicit prompt). Ask explicitly:
+
+- **Did this session produce a `pushback` moment?** A `pushback` moment is a verbatim exchange where you (the AI) surfaced an unnamed risk specifically (not generic concern), the user heard it, and the conversation changed direction in response. Self-pushback also qualifies — your own self-critique that the user accepted. If yes, capture it now via `mempalace_add_drawer` per the [`pushback` tag definition in mempalace-tagging-conventions.md](mempalace-tagging-conventions.md). The capture preserves verbatim user framing + verbatim AI pushback + verbatim user acceptance + one-line summary of the change. Without verbatim, the recall value collapses.
+- **Did this session produce a `lesson` candidate?** A `lesson` candidate is a procedural failure with a non-obvious cause and a working fix — "we tried X, it failed because non-obvious Y, the fix that worked was Z." A bug whose cause was obvious-once-named also qualifies if the *identification* was the value. If yes, capture it now via `mempalace_add_drawer` per the [`lesson` tag definition](mempalace-tagging-conventions.md). The capture preserves the failed approach (specific enough to be findable on similar approaches), the non-obvious reason it failed, the working fix, and optional pointers to related ADRs or ops docs.
+
+Both capture decisions are explicit yes/no asks at every shutdown — not a heuristic for the AI to apply by judgment alone (the S-0041 audit measured: judgment-alone produced zero captures across S-0033 → S-0040). When the answer is no, no drawer is written and the session proceeds. When the answer is yes, the drawer is written before step 8 so the capture is durable before the archive moves.
+
 If the diary write is skipped (deliberately or by accident), record `diary_skipped: 1` in `outcome_summary_soft_warns` at step 8 below. Per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md)'s 3-of-5 threshold, three skipped diary writes in the last five sessions fire a persistent-warn at the next session's boot. That is the mechanical adoption check — drift surfaces automatically without any session having to remember.
 
 If the MemPalace MCP server is unavailable at shutdown, attempt the write; if it fails, record `diary_skipped: 1` and proceed. The session does not block on the diary.
@@ -276,7 +283,25 @@ The next session picks up cleanly from STATE.md without re-deriving where things
 
 ## Recovery (interrupted shutdown)
 
-A clean close runs steps 1–10 in sequence. If the session crashes, hits a network error, or otherwise halts mid-shutdown, the observable state determines the recovery path:
+A clean close runs steps 1–10 in sequence. If the session crashes, hits a network error, or otherwise halts mid-shutdown, the observable state determines the recovery path.
+
+### Pre-recovery sanity check (verify the prior close did not already land)
+
+**Before invoking any recovery scenario below, verify the prior close did not already land upstream.** A fresh worktree opened immediately after a prior session closed cleanly may show post-eager-claim state (current.json present, register status in_progress, STATE.md pre-close) because the worktree's checked-out files reflect a commit that pre-dates the close — not because the close was halted. Running recovery on a stale checkout produces real corruption from a phantom problem (re-archiving an already-archived current.json, re-editing STATE.md atop the close narrative, duplicate ENGINE_LOG entries). The discovery surface that prompted this check was the post-S-0033 stale-checkout boundary case (HANDOFF.md, retroactively dispositioned at S-0041).
+
+Run:
+
+```bash
+git fetch origin && git log --oneline origin/main -10
+```
+
+If a `chore(session): close S-NNNN` commit for the slot named in `register_state.json`'s `last_claimed` field is visible upstream, the prior session closed cleanly and the local checkout is stale, not halted. Update the local checkout to that commit (`git pull --ff-only` if the branch tracks origin/main, or `git reset --hard origin/main` on a throwaway branch) and proceed with the *next* session's work; do not run recovery.
+
+The asymmetry that justifies the check: a halted shutdown leaves no upstream close commit (the halt prevented the push); a stale checkout always has the upstream close commit. One `git log` check distinguishes them.
+
+Concrete trigger condition for the stale-checkout shape: `register_state.json`'s `current_status: in_progress` AND `current.json` exists locally AND `git log origin/main` shows a `close S-<that-slot>` commit. The genuine halt shape is the same minus the third clause.
+
+### Recovery scenarios
 
 1. **Halted before step 9 (archive).** `current.json` present; `register_state.json` `current_status: in_progress`. Resume from step 1 — run `tools/validate.py`, complete spot-check, run cold-review pass for any modified Python under engine/ and any modified SQL under product/seed-graph/migrations/, finish updating STATE.md / ENGINE_LOG, run the side-discovery audit, write the diary entry, fill `outcome_summary`, then archive and final-commit.
 

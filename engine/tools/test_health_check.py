@@ -107,6 +107,9 @@ def synthetic_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         tmp_path / "engine" / "tools" / "validate-history.jsonl",
     )
     monkeypatch.setattr(health_check, "REPORT_DIR", tmp_path / "docs" / "health-checks")
+    # Universal-scan paths added at S-0041; monkeypatch so tests don't scan the real repo.
+    monkeypatch.setattr(health_check, "BUILD_PLAN_DIR", tmp_path / "build_plan")
+    monkeypatch.setattr(health_check, "PRODUCT_DOCS_DIR", tmp_path / "product" / "docs")
     return tmp_path
 
 
@@ -372,7 +375,9 @@ def test_audit_dead_weight_uncited_ops_doc(synthetic_repo: Path) -> None:
         "# Lonely\n\nNo one cites me.\n"
     )
     findings = audit_dead_weight()
-    assert any("no inbound citations" in obs for obs, _ in findings.observations)
+    # S-0041 universal-scan rewrite changed wording from "no inbound" to
+    # "zero inbound citations"; both phrasings target the same finding.
+    assert any("zero inbound citations" in obs for obs, _ in findings.observations)
 
 
 def test_audit_dead_weight_cited_ops_doc(synthetic_repo: Path) -> None:
@@ -383,7 +388,7 @@ def test_audit_dead_weight_cited_ops_doc(synthetic_repo: Path) -> None:
     findings = audit_dead_weight()
     # Should not flag popular.md as uncited.
     for obs, _ in findings.observations:
-        assert "popular.md" not in obs or "no inbound" not in obs
+        assert "popular.md" not in obs or "zero inbound" not in obs
 
 
 def test_audit_dead_weight_unconsumed_ideation(synthetic_repo: Path) -> None:

@@ -124,14 +124,36 @@ IDEATION_PATH = REPO_ROOT / "product" / "docs" / "ideation.md"
 OPERATIONS_DIR = REPO_ROOT / "engine" / "operations"
 VALIDATE_HISTORY_PATH = REPO_ROOT / "engine" / "tools" / "validate-history.jsonl"
 REPORT_DIR = REPO_ROOT / "docs" / "health-checks"
+PRODUCT_DOCS_DIR = REPO_ROOT / "product" / "docs"
+BUILD_PLAN_DIR = REPO_ROOT / "build_plan"
 
 # Tunable thresholds. Calibration changes are amendment-tracked under ADR 0042
 # (soft-warn-lifecycle.md) for trend windows and ADR 0022 for audit thresholds.
 SOFT_WARN_PERSISTENCE_BOOT_SURFACE = (3, 5)  # 3-of-last-5 archives surfaces
 SOFT_WARN_PERSISTENCE_ESCALATION = 10  # consecutive archives → escalation
-LARGE_OPS_DOC_LINES = 300  # >300 lines is a Bloat candidate per health-check.md
+LARGE_DOC_LINES = 300  # >300 lines is a Bloat candidate per health-check.md
 DEPRECATED_ADR_AGE_SESSIONS = 20  # Deprecated for >20 sessions without successor
 TENSION_AGE_SESSIONS = 10  # Tension open >10 sessions without movement
+PRODUCT_DOC_STALE_SESSIONS = 20  # tracked .md unmodified >20 sessions = stale candidate
+
+# Universal-scan opt-out lists (per S-0041 user direction: the audit assesses
+# the entire system; opt-out only when there's a structural reason). Path
+# prefixes are matched against `git ls-files` output; names are the file's
+# basename.
+DEAD_WEIGHT_SKIP_PATH_PREFIXES = (
+    ".claude/",  # Claude Code harness state — not project artifacts
+    "engine/tools/test_fixtures/",  # parser-tool test fixtures (per ADR 0047)
+    "engine/session/archive/",  # per-session archives — staleness is by design
+    "docs/health-checks/",  # historical audit reports
+)
+DEAD_WEIGHT_SKIP_NAMES: frozenset[str] = frozenset(
+    {
+        "LICENSE",
+        "SECURITY.md",
+        # Index files: cited but legitimately stable surface
+        # (no skip — they should still surface citation count for sanity).
+    }
+)
 
 
 # ---------------------------------------------------------------------------
@@ -428,14 +450,23 @@ def audit_fit(archives: list[Path]) -> CategoryFindings:
 def audit_gaps() -> CategoryFindings:
     """Audit what's missing that should be there.
 
-    Reads:
-    - product/docs/tensions.md for tensions open >10 sessions without
-      movement (heuristic: counts session-id mentions; an "Updated:" or
-      "Resolved:" line counts as movement).
+    **Universal-scan extension at S-0041** per user direction (every audit
+    category should assess the entire system, not opt-in subsets). The
+    prior design only scanned tensions.md + ADR Consequences — the
+    extended scan adds two universal signals:
+
+    - **TBD/TODO/FIXME markers** in any tracked .md file. These mark
+      author-acknowledged gaps that may have been forgotten.
+    - **Unstarted build_plan/ chunks**: build_plan/*.md files that have
+      not been referenced by any closed session's archive (per session_id
+      mention in archive outcome_summary fields).
+
+    Plus the existing tension and ADR-Consequences signals:
+    - product/docs/tensions.md for tensions open >TENSION_AGE_SESSIONS
+      sessions without movement (heuristic: counts session-id mentions;
+      an "Updated:" or "Resolved:" line counts as movement).
     - ADR Consequences sections for promised-but-not-delivered work
       (mirrors validator's adr_consequences_deliverable_audit category).
-    - engine/STATE.md for unresolved open questions (heuristic: lines
-      starting with "OQ-" without a "decided" or "settled" marker).
 
     Returns CategoryFindings.
     """
@@ -544,6 +575,80 @@ def audit_gaps() -> CategoryFindings:
             "session.",
         )
 
+    # Universal scan: TBD / TODO / FIXME markers in tracked .md files.
+    all_md = _list_scanned_md_files()
+    marker_pattern = re.compile(r"\b(TBD|TODO|FIXME)\b")
+    files_with_markers: list[tuple[str, int]] = []
+    for md_path in all_md:
+        if md_path.name in DEAD_WEIGHT_SKIP_NAMES:
+            continue
+        # Skip files where these tokens are part of the content's domain
+        # (e.g., docs that describe the markers themselves). The S-0041
+        # acceptable-list is files that reference the tokens definitionally
+        # rather than as live gaps. Keep narrow to start.
+        try:
+            md_rel_str = str(md_path.relative_to(REPO_ROOT))
+        except ValueError:
+            continue
+        if (
+            md_rel_str
+            in {
+                "engine/operations/session-shutdown-sequence.md",  # describes the audit-side-discoveries marker list
+                "HANDOFF.md",  # historical entries that include the marker tokens
+                "engine/tools/test_audit_side_discoveries.py",  # not .md; defensive
+                "engine/operations/expression-contract-instantiation.md",  # TBD is the convention's own decide-by-pattern marker
+                "engine/ENGINE_LOG.md",  # historical narrative referring to the marker list as audit input
+                "engine/adr/0043-hook-architecture.md",  # describes the post-state-edit hook's marker-detection list
+            }
+        ):
+            continue
+        try:
+            text = md_path.read_text()
+        except OSError:
+            continue
+        matches = marker_pattern.findall(text)
+        if matches:
+            files_with_markers.append((md_rel_str, len(matches)))
+    if files_with_markers:
+        files_with_markers.sort(key=lambda x: -x[1])
+        listing = ", ".join(f"{p} ({n})" for p, n in files_with_markers[:8])
+        more = (
+            f"; +{len(files_with_markers) - 8} more"
+            if len(files_with_markers) > 8
+            else ""
+        )
+        findings.add(
+            f"{len(files_with_markers)} tracked .md file(s) with TBD/TODO/FIXME "
+            f"markers: {listing}{more}",
+            "Per file: each marker is an author-acknowledged gap. Either close "
+            'the gap inline (default per CLAUDE.md "Default to fix-in-context"), '
+            "or replace the marker with an explicit decide-by trigger naming the "
+            "phase or session that resolves it.",
+        )
+
+    # Universal scan: build_plan/ chunks not yet started.
+    if BUILD_PLAN_DIR.is_dir():
+        archives = list_archives()
+        archive_text = " ".join(
+            archive_path.read_text()
+            for archive_path in archives
+            if archive_path.is_file()
+        )
+        unreferenced_chunks: list[str] = []
+        for chunk_file in sorted(BUILD_PLAN_DIR.glob("*.md")):
+            if chunk_file.name in {"README.md", "MANIFEST.md"}:
+                continue
+            if chunk_file.name not in archive_text:
+                unreferenced_chunks.append(chunk_file.name)
+        if unreferenced_chunks:
+            findings.add(
+                f"{len(unreferenced_chunks)} build_plan/ chunk(s) not yet referenced "
+                f"by any closed session's archive: {', '.join(unreferenced_chunks)}",
+                "Per chunk: confirm phase sequencing per ROADMAP. Chunks for "
+                "later phases are expected to be unreferenced; chunks whose "
+                "phase has opened without consumption are gaps.",
+            )
+
     if findings.is_empty():
         findings.add(
             "No Gaps surfaced by mechanical audit.",
@@ -557,28 +662,130 @@ def audit_gaps() -> CategoryFindings:
 # ---------------------------------------------------------------------------
 
 
+def _list_scanned_md_files() -> list[Path]:
+    """Return all .md files under REPO_ROOT in audit scope.
+
+    Walks the filesystem under REPO_ROOT (not `git ls-files`, which would
+    require a real git repo and break the synthetic-repo test fixtures).
+    Filters out paths starting with DEAD_WEIGHT_SKIP_PATH_PREFIXES.
+
+    Returns absolute paths; empty list on filesystem error.
+    """
+    paths: list[Path] = []
+    try:
+        for md_path in REPO_ROOT.rglob("*.md"):
+            try:
+                rel = str(md_path.relative_to(REPO_ROOT))
+            except ValueError:
+                continue
+            if any(rel.startswith(p) for p in DEAD_WEIGHT_SKIP_PATH_PREFIXES):
+                continue
+            paths.append(md_path)
+    except OSError:
+        return []
+    return sorted(paths)
+
+
+def _last_touched_session(path: Path) -> int | None:
+    """Return the highest S-NNNN session id from the file's git log, or None.
+
+    Reads the full git log of the path (not just -1) and extracts every
+    S-NNNN reference from commit subjects + bodies. The max is the most
+    recent session that touched the file — even if the literal latest
+    commit didn't carry an S-NNNN tag (a manual fixup commit, for example).
+
+    Returns None when git fails or no S-NNNN reference appears in any
+    commit touching the path.
+    """
+    try:
+        rel = path.relative_to(REPO_ROOT)
+    except ValueError:
+        return None
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(REPO_ROOT),
+                "log",
+                "--format=%s%n%b%n----",
+                "--",
+                str(rel),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+    except (subprocess.SubprocessError, OSError):
+        return None
+    if result.returncode != 0:
+        return None
+    matches = re.findall(r"\bS-(\d{4})\b", result.stdout)
+    if not matches:
+        return None
+    return max(int(m) for m in matches)
+
+
+def _count_inbound_citations(path: Path, all_md_files: list[Path]) -> int:
+    """Count distinct .md files (other than path itself) that mention path.name.
+
+    Heuristic: filename match. False positives possible if two files share
+    a basename in different directories; rare in this project (filenames
+    are reasonably unique). False negatives possible if the file is cited
+    by full-path-with-different-basename — also rare.
+
+    Returns 0 if uncited.
+    """
+    name = path.name
+    count = 0
+    for other in all_md_files:
+        if other == path:
+            continue
+        try:
+            if name in other.read_text():
+                count += 1
+        except OSError:
+            continue
+    return count
+
+
 def audit_dead_weight() -> CategoryFindings:
     """Audit what no longer earns its keep.
 
-    Reads:
-    - ADR collection for Deprecated entries (Status: Deprecated).
-    - Operations docs for inbound-citation count (grep across all .md
-      files for the doc filename); zero-citation docs are dead-weight
-      candidates.
-    - product/docs/ideation.md for unconsumed entries (heuristic:
-      entries without a "Consumed:" or "Promoted:" marker).
+    **Universal-scan rewrite at S-0041** per user direction at the catch-up
+    audit close (the prior opt-in design only scanned ADRs + operations docs
+    + ideation.md, missing prep-paideia-prompt-pack.md which had been stale
+    for 24 sessions in product/docs/). The new design scans every .md file
+    tracked by git and applies two signals universally — staleness (no S-NNNN
+    commit reference newer than PRODUCT_DOC_STALE_SESSIONS sessions ago) and
+    inbound-citation count (count of other .md files mentioning this file's
+    name). Files that hit either signal land in the report; the AI/user
+    triages at audit-read time. Opt-out via DEAD_WEIGHT_SKIP_PATH_PREFIXES
+    + DEAD_WEIGHT_SKIP_NAMES below.
+
+    Plus the two Deprecated/Unconsumed special-purpose checks the prior
+    design carried (kept because they apply category-specific semantics that
+    universal scanning doesn't capture):
+
+    - **Deprecated ADRs** (Status: Deprecated for >DEPRECATED_ADR_AGE_SESSIONS
+      sessions without successor): structural archival candidates.
+    - **Unconsumed ideation entries** in product/docs/ideation.md: per-entry
+      retire/promote/accept disposition.
 
     Returns CategoryFindings.
 
     Non-responsibilities:
-        - Does not call git for stale-worktree detection. That belongs
-          to a shell wrapper around this script if needed.
+        - Does not call git for stale-worktree detection. The
+          `engine/tools/sweep_worktrees.sh` utility handles that on demand.
         - Does not enforce removal. Surfaces candidates; the AI/user
-          decides.
+          decides per-finding.
+        - Does not parse .py / .json / .yaml — staleness for non-.md
+          artifacts is out of scope (would surface every test fixture).
     """
     findings = CategoryFindings()
 
-    # Deprecated ADRs.
+    # Deprecated ADRs (special-purpose check; kept from pre-S-0041 design).
     deprecated: list[str] = []
     for adr_dir in (ENGINE_ADR_DIR, PRODUCT_ADR_DIR):
         if not adr_dir.is_dir():
@@ -600,41 +807,65 @@ def audit_dead_weight() -> CategoryFindings:
             "_archive/ move if reasoning is fully redistributed.",
         )
 
-    # Operations docs with no inbound citations.
-    if OPERATIONS_DIR.is_dir():
-        all_md_files = list(REPO_ROOT.rglob("*.md"))
-        # Exclude files we won't search through (the doc itself; node_modules
-        # equivalents). A simple heuristic: skip files inside docs/ subtree
-        # that are themselves the candidate doc.
-        op_doc_names = [
-            p.name for p in OPERATIONS_DIR.glob("*.md") if p.name != "README.md"
-        ]
-        uncited_ops: list[str] = []
-        for op_name in op_doc_names:
-            cited = False
-            for md_path in all_md_files:
-                if md_path.name == op_name and md_path.parent == OPERATIONS_DIR:
-                    continue  # the doc itself
-                try:
-                    if op_name in md_path.read_text():
-                        cited = True
-                        break
-                except OSError:
-                    continue
-            if not cited:
-                uncited_ops.append(op_name)
-        if uncited_ops:
-            findings.add(
-                f"{len(uncited_ops)} operations doc(s) with no inbound citations: "
-                + ", ".join(uncited_ops),
-                "Per doc: confirm load-bearing for future work; if not, retire "
-                "or absorb into a sibling doc.",
-            )
+    # Universal scan over all tracked .md files.
+    all_md = _list_scanned_md_files()
+    archives = list_archives()
+    latest_session_int = 0
+    if archives:
+        latest_match = re.match(r"S-(\d{4})", archives[-1].stem)
+        if latest_match:
+            latest_session_int = int(latest_match.group(1))
 
-    # Unconsumed ideation entries.
+    stale_files: list[tuple[str, int]] = []
+    uncited_files: list[str] = []
+    for md_path in all_md:
+        try:
+            rel = str(md_path.relative_to(REPO_ROOT))
+        except ValueError:
+            continue
+        if md_path.name in DEAD_WEIGHT_SKIP_NAMES:
+            continue
+        # Staleness: last-touched session per git log; >threshold = stale.
+        if latest_session_int > 0:
+            last_touched = _last_touched_session(md_path)
+            if last_touched is not None:
+                age = latest_session_int - last_touched
+                if age > PRODUCT_DOC_STALE_SESSIONS:
+                    stale_files.append((rel, age))
+        # Inbound citations: count of OTHER .md files mentioning name.
+        # Skip ADR files because the validator's adr_back_reference_orphan
+        # check (per ADR 0041) covers the same ground with sharper semantics.
+        if "/adr/" not in rel:
+            citations = _count_inbound_citations(md_path, all_md)
+            if citations == 0:
+                uncited_files.append(rel)
+
+    if stale_files:
+        listing = "; ".join(f"{p} (age {n} sessions)" for p, n in stale_files)
+        findings.add(
+            f"{len(stale_files)} tracked .md file(s) with no S-NNNN commit "
+            f"reference in >{PRODUCT_DOC_STALE_SESSIONS} sessions: {listing}",
+            "Per file: confirm load-bearing (some files are legitimately "
+            "stable — MISSION.md / LICENSE / older ADRs); retire stale ones "
+            "with explicit disposition (mark historical with banner, or "
+            "absorb into a current artifact). The S-0041 prep-paideia-prompt-"
+            "pack disposition is the canonical pattern — close consumed "
+            "sessions in-place with cross-refs, name explicit decide-by "
+            "triggers for any genuinely-open prompts.",
+        )
+
+    if uncited_files:
+        findings.add(
+            f"{len(uncited_files)} tracked .md file(s) with zero inbound "
+            f"citations from other .md files: {', '.join(uncited_files)}",
+            "Per file: confirm load-bearing (some files are entry points "
+            "that nothing else cites — README.md, MISSION.md); retire "
+            "genuinely-orphaned content with explicit disposition.",
+        )
+
+    # Unconsumed ideation entries (special-purpose check; per-entry semantic).
     if IDEATION_PATH.is_file():
         ideation_text = IDEATION_PATH.read_text()
-        # Each entry is a section starting with `## ` in the file.
         entries = re.findall(r"^##\s+(.+)$", ideation_text, re.MULTILINE)
         unconsumed: list[str] = []
         for entry_title in entries:
@@ -675,11 +906,15 @@ def audit_dead_weight() -> CategoryFindings:
 def audit_bloat() -> CategoryFindings:
     """Audit what's grown past its purpose.
 
-    Reads:
-    - engine/operations/*.md for line counts; flags files >300 lines
-      per health-check.md's heuristic.
-    - ADR collection for topic clustering (heuristic: title-token
-      overlap suggests a single decision became multiple).
+    **Universal-scan rewrite at S-0041** per user direction (the prior
+    opt-in design only scanned engine/operations/, missing oversized files
+    elsewhere). The new design scans every .md file tracked by git
+    (filtered through DEAD_WEIGHT_SKIP_PATH_PREFIXES + DEAD_WEIGHT_SKIP_NAMES)
+    and flags any over LARGE_DOC_LINES. The AI/user triages at audit-read
+    time — ADRs over 300 lines often reflect a decision that became three;
+    docs over 300 lines often reflect multiple concerns to split.
+
+    Plus the existing duration-trend signal:
     - Recent archive durations (closed_at - started_at) for shutdown
       overhead; flags upward trend.
 
@@ -687,18 +922,31 @@ def audit_bloat() -> CategoryFindings:
     """
     findings = CategoryFindings()
 
-    # Operations docs > LARGE_OPS_DOC_LINES.
+    # Universal scan: every tracked .md file > LARGE_DOC_LINES.
+    all_md = _list_scanned_md_files()
     large_docs: list[tuple[str, int]] = []
-    if OPERATIONS_DIR.is_dir():
-        for op_doc in sorted(OPERATIONS_DIR.glob("*.md")):
-            line_count = len(op_doc.read_text().splitlines())
-            if line_count > LARGE_OPS_DOC_LINES:
-                large_docs.append((op_doc.name, line_count))
+    for md_path in all_md:
+        if md_path.name in DEAD_WEIGHT_SKIP_NAMES:
+            continue
+        try:
+            line_count = len(md_path.read_text().splitlines())
+        except OSError:
+            continue
+        if line_count > LARGE_DOC_LINES:
+            try:
+                rel = str(md_path.relative_to(REPO_ROOT))
+            except ValueError:
+                continue
+            large_docs.append((rel, line_count))
     if large_docs:
+        large_docs.sort(key=lambda x: -x[1])  # largest first
         listing = ", ".join(f"{name} ({n} lines)" for name, n in large_docs)
         findings.add(
-            f"{len(large_docs)} operations doc(s) over {LARGE_OPS_DOC_LINES} lines: {listing}.",
-            "Per doc: split if multiple concerns; accept if single coherent topic.",
+            f"{len(large_docs)} tracked .md file(s) over {LARGE_DOC_LINES} lines: {listing}.",
+            "Per doc: split if multiple concerns; accept if single coherent "
+            "topic. ADRs over the threshold often reflect a single decision "
+            "that became three; ops docs over the threshold often reflect "
+            "multiple concerns ripe for splitting.",
         )
 
     # Session duration trend (recent archives).

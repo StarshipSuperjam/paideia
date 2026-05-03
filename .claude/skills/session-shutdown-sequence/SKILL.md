@@ -139,6 +139,13 @@ Call `mempalace_diary_write` with `agent_name: "claude"` (project convention). C
 - **What I noticed but deferred** — observations next-session-relevant. (If actionable enough, also surface in HANDOFF.md or as a follow-up task in `outcome_summary`.)
 - **Where my judgment was uncertain** — places I made a call I'd want a fresh-eyes review on.
 
+After the diary write, run the **`pushback` / `lesson` capture check** (added at S-0041 per the second project health check audit's adoption-gap finding — the tags were defined at S-0032 with zero applications across S-0033 → S-0040 because the convention was too implicit to reach the AI's authoring loop without an explicit prompt). Ask explicitly:
+
+- **Did this session produce a `pushback` moment?** (Verbatim exchange where AI surfaced an unnamed risk specifically, user heard it, conversation changed direction. Self-pushback also qualifies.) If yes, capture now via `mempalace_add_drawer` per the [`pushback` tag definition](../../../engine/operations/mempalace-tagging-conventions.md). Verbatim user framing + verbatim AI pushback + verbatim user acceptance + one-line summary.
+- **Did this session produce a `lesson` candidate?** (Procedural failure with non-obvious cause + working fix; bug whose cause was obvious-once-named also qualifies if identification was the value.) If yes, capture now via `mempalace_add_drawer` per the [`lesson` tag definition](../../../engine/operations/mempalace-tagging-conventions.md). Failed approach + non-obvious reason + working fix + optional ADR/ops-doc pointers.
+
+Both capture decisions are explicit yes/no asks at every shutdown — judgment-alone produced zero captures across the eight sessions between tag definition (S-0032) and the audit (S-0041). When the answer is no, no drawer is written. When yes, the drawer lands before step 8 so capture is durable before archive.
+
 If the diary write is skipped (deliberately or by accident), record `diary_skipped: 1` in `outcome_summary_soft_warns` at step 8 below. Per [ADR 0042](../../../engine/adr/0042-soft-warn-lifecycle-archive-canon.md)'s 3-of-5 threshold, three skipped diary writes in the last five sessions fire a persistent-warn at the next session's boot — the mechanical adoption check.
 
 If the MemPalace MCP server is unavailable at shutdown, attempt the write; if it fails, record `diary_skipped: 1` and proceed. The session does not block on the diary.
@@ -249,7 +256,17 @@ The next session picks up cleanly from STATE.md without re-deriving where things
 
 ## Recovery (interrupted shutdown)
 
-A clean close runs steps 1–10 in sequence. If the session crashes or halts mid-shutdown, the observable state determines the recovery path:
+A clean close runs steps 1–10 in sequence. If the session crashes or halts mid-shutdown, the observable state determines the recovery path.
+
+### Pre-recovery sanity check (verify the prior close did not already land)
+
+**Before invoking any recovery scenario below, verify the prior close did not already land upstream.** A fresh worktree opened immediately after a prior session closed cleanly may show post-eager-claim state (current.json present, register status in_progress, STATE.md pre-close) because the worktree's checked-out files reflect a commit that pre-dates the close — not because the close was halted. Running recovery on a stale checkout corrupts state from a phantom problem.
+
+Run `git fetch origin && git log --oneline origin/main -10`. If a `chore(session): close S-NNNN` commit for the slot named in `register_state.json`'s `last_claimed` field is visible upstream, the prior close landed cleanly and the local checkout is stale — not halted. Update the local checkout (`git pull --ff-only` or `git reset --hard origin/main` on a throwaway branch) and proceed with the *next* session's work; do not run recovery.
+
+The asymmetry: a halted shutdown leaves no upstream close commit (the halt prevented the push); a stale checkout always has the upstream close commit. One `git log` check distinguishes them.
+
+### Recovery scenarios
 
 1. **Halted before step 9 (archive).** `current.json` present; `register_state.json` `current_status: in_progress`. Resume from step 1 — running `validate.py`, the spot-check, the cold-review pass, the side-discovery audit, the diary write, and the `outcome_summary` fill in order.
 

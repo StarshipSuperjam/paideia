@@ -1,8 +1,8 @@
 # Paideia — Deliberation Prompt Pack
 
-Each prompt below is designed to paste into a fresh session with MCP filesystem access to the Paideia project files. Sessions should be run roughly in order — earlier sessions may produce file updates that later sessions depend on.
-
-> **Updated 2026-04-29 during S-0001 foundation reorganization:** design documents have moved from the repository root into `docs/`. Where this file says "architecture.md", read "docs/architecture.md", and so on for all design documents. References to `CONTEXT.md` (deleted during S-0002 split) are replaced below with `STATE.md` (current state pointer) + `ROADMAP.md` (phase sequence) + relevant ADRs in `adr/` (S-0003). The historical references to "commitment N added in CONTEXT.md" should be read as "absorbed into ADR 000N during S-0003."
+> **Status (S-0041):** **historical reference + active decide-trigger surface.** Authored at S-0001 as a 14-session deliberation queue for ADR-shaped decisions; the project subsequently shifted from prompt-driven deliberation to ADR-driven design (S-0003 onward), and most prompts were either consumed inline by an ADR or superseded by a later structural decision. All sessions now carry an explicit disposition marker. Two open decide-triggers remain: Session 12 (DeepTutor fork timeline) and Session 14 (media edge quality schema) — both with phase-pinned decide-by triggers below.
+>
+> **Path note:** all references to design documents below name the original `docs/...` paths from before the S-0024 partition (per [ADR 0037](../adr/0037-engine-product-wall-and-changelog-rename.md)). Read `docs/X` as `product/docs/X` for product design docs (architecture.md, learner-model.md, pedagogy.md, etc.). References to `CONTEXT.md` (deleted in S-0002) resolve to `engine/STATE.md` + `ROADMAP.md` + relevant ADRs in `engine/adr/` (engine) or `product/adr/` (product). "Commitment N added in CONTEXT.md" should be read as "absorbed into ADR 000N during S-0003."
 
 **Completed sessions:**
 - ~~Schema Foundations~~ (2026-04-07): Node granularity principle, concrete edge schema, node versioning (graph_version counter), portable mastery. Decisions recorded in architecture.md.
@@ -16,9 +16,11 @@ Each prompt below is designed to paste into a fresh session with MCP filesystem 
 
 ---
 
-## Session 9: Engagement Depth Aggregation
+## ~~Session 9: Engagement Depth Aggregation~~ — Closed at S-0004 (consumed by ADR 0023)
 
 *Topic: Settling the aggregation function for the three engagement depth signals*
+
+> **Closed 2026-04-09 (S-0004).** This session prompt was consumed to produce [ADR 0023 — Engagement Depth Aggregation](../adr/0023-engagement-depth-aggregation.md) which records the settled formula, signal ranges, and fixed-depth values for non-teaching interaction types. The original prompt body is preserved below for historical reference; the live decision lives in ADR 0023 plus learner-model.md's Mastery Computation section.
 
 learner-model.md defines three signals composing engagement depth (generative ratio, scaffolding proximity, novelty) but explicitly defers the aggregation function. This needs settling before the mastery computation function can run — engagement depth is an input to every stage.
 
@@ -44,9 +46,11 @@ I want to leave with a specific function, specific signal ranges, and specific f
 
 ---
 
-## Session 10: Decay Parameter Verification
+## ~~Session 10: Decay Parameter Verification~~ — Retired at S-0041 (superseded by Phase 7+ empirical verification)
 
 *Topic: Verifying that V1 decay parameters produce correct behavior under realistic usage patterns*
+
+> **Retired 2026-05-03 (S-0041).** The verification this prompt requests is pure-arithmetic walkthroughs of synthetic learner scenarios against the V1 parameters (BASE_HALF_LIFE = 60 days, MAX_FLOOR = 0.6). At S-0041 the project recognizes that the verification is **lower-value as a one-shot synthetic exercise than as ongoing empirical calibration once Phase 7 ships the learner model against real usage telemetry.** The V1 parameters remain set in [`learner-model.md`](learner-model.md) as starting points; Phase 7+ sessions verify them against real event streams and propose adjustments via amendment to learner-model.md (or a new ADR if the structural model changes). The prompt body below is preserved as a useful sanity-check template for the first Phase 7 session that wants to bound expectations before observing real telemetry.
 
 The decay model and mastery computation function have concrete parameters (BASE_HALF_LIFE = 60 days, MAX_FLOOR = 0.6) but no one has run the numbers through realistic scenarios to confirm the behavior is right. This session is pure arithmetic.
 
@@ -74,9 +78,11 @@ For any scenario where the behavior is wrong, propose adjusted parameters and re
 
 ---
 
-## Session 11: Historical Maximum Tracking
+## ~~Session 11: Historical Maximum Tracking~~ — Closed at S-0006 (consumed by ADR 0025)
 
 *Topic: Implementation decision for the decay floor's proficiency precondition*
+
+> **Closed 2026-04-09 (S-0006).** This session prompt was consumed to produce [ADR 0025 — Historical Maximum Tracking](../adr/0025-historical-maximum-tracking.md) which records the settled approach (stored high-water mark on the user_concept_cache table; offline-sync interaction documented). The original prompt body is preserved below for historical reference; the live decision lives in ADR 0025 plus learner-model.md's Mastery Computation: Stage 3 (Decay Floor) section.
 
 The decay floor only activates if a concept has ever reached proficiency. This requires tracking the historical maximum aggregate. The spec acknowledges two options (stored high-water mark vs. recomputation) and defers. This interacts with offline/sync because the cached snapshot needs floor state.
 
@@ -98,9 +104,11 @@ I want a concrete decision and, if it's the stored high-water mark, the schema a
 
 ---
 
-## Session 12: Fork Maintenance Timeline
+## Session 12: Fork Maintenance Timeline — Decide at the first DeepTutor-divergence question OR Phase 7 infrastructure decision
 
 *Topic: When to stop tracking DeepTutor upstream and accept full independence*
+
+> **Status (S-0041): open with concrete decide-trigger.** The corresponding "Fork Maintenance" tension in [`tensions.md`](tensions.md) remains open since 2026-04-07. The project has substantively diverged from DeepTutor through ADR-driven design (S-0001 onward) — the engine apparatus, learner model, seed graph, and mempalace integration are all Paideia-original. No upstream tracking is happening in practice. The decision the prompt names is "stop tracking and accept full independence" — which has effectively been the operating posture, but not formally settled. **Decide-by trigger: the first session where a DeepTutor-divergence question arises (e.g., a security patch or provider-update consideration), OR the first Phase 7 infrastructure session that touches the implementation base, whichever comes first.** That session reads this prompt as starting context, runs the deliberation if useful, and writes an ADR closing the tension or marks it Resolved with concrete reasoning.
 
 ```
 You are a design partner for the Paideia project — a knowledge mastery app built on a pedagogical dependency graph.
@@ -130,9 +138,11 @@ I want to resolve this tension and move it out of tensions.md. Give me a concret
 
 ---
 
-## Session 14: Media Edge Quality
+## Session 14: Media Edge Quality — Decide-before Phase 7 media-layer build
 
 *Topic: Whether and how to distinguish types of supplementary media connections*
+
+> **Status (S-0041): open with phase-pinned decide-by trigger.** The corresponding "Media Edge Quality" tension in [`tensions.md`](tensions.md) remains open since 2026-04-07. The schema does not yet carry media edges — Phase 5 builds the concept seed graph; the media layer is Phase 7+ per [`expansion.md`](expansion.md) "Supplementary Media Layer." **Decide-by trigger: the first Phase 7 session that proposes adding media edges to the schema.** That session reads this prompt and the tensions.md entry as starting context, settles the schema question (probably one of: simple `connection_type` enum, confidence-weighted edge mirroring concept edges, or no formal distinction), and writes an ADR or schema migration with the resolution. The tension entry in tensions.md gets marked Resolved with the same-session ADR cross-link.
 
 ```
 You are a design partner for the Paideia project — a knowledge mastery app built on a pedagogical dependency graph.
@@ -158,6 +168,8 @@ If this can be closed with a simple decision, close it. If it's genuinely premat
 
 ## Notes on Session Order
 
-**Session 9 is the highest priority** — engagement depth aggregation is a prerequisite for prototype work. Session 10 (decay verification) depends on Session 9. Session 11 (historical max) is a small schema decision that can run anytime. Sessions 12, 13, and 14 are independent and lower priority — they close open tensions but don't block engineering work.
+**Original ordering (S-0001):** Session 9 was highest priority (engagement depth aggregation prerequisite); Session 10 depended on Session 9; Session 11 was a small schema decision; Sessions 12, 13, 14 were lower-priority tension closures.
 
-Each session should end by identifying what to update in the project files and confirming the changes before writing.
+**S-0041 update.** Sessions 9 and 11 are closed (consumed by ADRs 0023 and 0025 in S-0004 and S-0006 respectively). Session 10 is retired (superseded by Phase 7+ empirical verification once the learner model runs against real telemetry). Session 13 closed at S-0016. Sessions 12 and 14 remain open with phase-pinned decide-by triggers — see per-session status banners above. **No session here is on the active near-term work queue.** This file is now historical reference plus a decide-trigger surface for the two open prompts.
+
+Each session that does run a prompt below ends by identifying what to update in the project files and confirming the changes before writing.

@@ -1,6 +1,8 @@
 # Handoff Log
 
 > Running log of items deferred to a future major-state-transition session. Not a contract; a convenience so transition sessions don't re-solve already-solved problems. Add entries when you encounter something a future session needs to know but that doesn't belong in ENGINE_LOG, an ADR, or `docs/tensions.md`.
+>
+> **Disposition discipline (added at S-0036, retroactively applied to live entries at S-0041).** Every section carries a `**Disposition:**` line in one of four forms: `fixed-in-session @ <SHA>`, `deferred-with-user-confirmation`, `out-of-scope`, `not-actionable`. Or, for resolved entries, a `**Resolved:**` line naming the session and downstream artifact (ADR, ENGINE_LOG entry, ops-doc edit). The `engine/tools/audit_handoff_dispositions.py` script audits new sections at session shutdown.
 
 ---
 
@@ -36,6 +38,8 @@ echo '{"session_id":"abc","stop_hook_active":false,"transcript_path":"..."}' | m
 Halls connect rooms within a wing. Tunnels connect rooms across wings.
 
 **Auto-detection:** `mempalace init <dir>` detects rooms from folder structure. Run AFTER S-0001's `docs/` reorganization so rooms map to subdirectories (e.g., `docs/operations/` → operations room). S-0002 plan: `mempalace init docs/` then `mempalace mine docs/`.
+
+**Resolved: 2026-04-29 (S-0002).** All four S-0002-must items landed: (1) `.claude/settings.json` Stop + PreCompact hooks wired and committed; (2) `.gitignore` updated to except `.claude/settings.json`; (3) hook wiring documented in `engine/operations/mempalace-operations.md`; (4) hook fires verified at S-0002 close. The hook-wrapper PATH-fix that this S-0001 framing did not anticipate was landed at S-0032 (per ENGINE_LOG S-0032 Changed entry — the wrapper had been silently failing since S-0002 due to PATH narrowing in Claude Code subshells; S-0032 added the user-scope fallback). Disposition retroactively applied at S-0041 per the audit cleanup pass.
 
 ---
 
@@ -100,6 +104,8 @@ After choosing, follow with the existing `if [ "$STATUS" -ge 2 ]; then ... exit 
 
 The S-0033 close commit was pushed via `git push . src:main` from the parent (the bare-repo path), since `git -C parent merge --ff-only` no longer works on the bare parent.
 
+**Resolved: 2026-05-03 (S-0035) per [ADR 0045](engine/adr/0045-shared-state-integrity-discipline.md).** The S-0035 engine-hardening pass identified the root cause as subprocess-env-leak: a `GIT_*` environment variable inherited from a parent context was getting written into `.git/config` by a subsequent `git config` invocation. ADR 0045 mechanizes four protections that close this vector: (1) `engine/tools/scrub_env.sh` + `engine/tools/scrub_env.py` strip `GIT_*` from every subprocess invocation across all four hook scripts and `validate.py`'s code-gate subprocess calls; (2) `engine/tools/probe_repo.py` checks both worktree-effective and parent-clone-direct `core.bare` at boot, hard-failing on `core.bare=true` with the exact `git -C <repo> config --unset core.bare` recovery command in the stderr surface; (3) the boot-time `validate.py --health-probe-only` invoked from `session-start.sh` runs `probe_repo.py` so any recurrence surfaces at the next session boot; (4) test fixtures verify the hard-fail path. The 3 open questions in the original entry are answered by ADR 0045's analysis: (Q1) the trigger was env-leak, not a hook or external tool; (Q2) every worktree was structurally at risk; the env-scrub eliminates the leak universally; (Q3) the "permanent fix vs symptom fix" question resolved as: the env-scrub is permanent at the source-of-leak; the worktree-config override was a symptom fix and is no longer needed. Disposition retroactively applied at S-0041 per the audit cleanup pass.
+
 ---
 
 ## Stale-checkout vs halted-shutdown — Recovery section needs a sanity check (logged post-S-0033 close, exploration mode)
@@ -121,5 +127,7 @@ The asymmetry that justifies this: a halted shutdown leaves no upstream close co
 **Out of scope for this entry**: any heuristic for detecting which commit-message conventions count as "close" (the literal string `chore(session): close S-NNNN` is the project convention; sufficient for the check).
 
 This is the kind of finding that would have been mechanically caught if the side-discovery audit ran across cross-session boundaries — but the audit's scope is "this session's commits," not "the boundary between two sessions." That boundary is exactly where this confusion lives.
+
+**Resolved: 2026-05-03 (S-0041).** The proposed pre-recovery sanity check landed in [`engine/operations/session-shutdown-sequence.md`](engine/operations/session-shutdown-sequence.md) Recovery section and the [`session-shutdown-sequence` Skill](.claude/skills/session-shutdown-sequence/SKILL.md) mirror — both gain a "Pre-recovery sanity check" subsection before the four recovery scenarios. The verification command, the asymmetry rationale, and the concrete trigger condition all match the proposal verbatim. Disposition applied during the S-0041 catch-up audit cleanup pass.
 
 ---

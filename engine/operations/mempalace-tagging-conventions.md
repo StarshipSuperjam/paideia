@@ -32,6 +32,8 @@ Added at S-0032 per the audit's Improvement G recommendation. Verbatim moments w
 
 CLAUDE.md's "Posture vs machinery" section explicitly notes the pushback rule has no log and no audit; a session that fails to surface a real risk leaves no trace. The `pushback` tag is the partial mechanization of the missing trace — when pushback works, capture the moment so future sessions can retrieve it via semantic search before re-attempting the same mistake.
 
+**Capture surface (added at S-0041).** The convention's primary capture surface is the explicit yes/no ask in [`session-shutdown-sequence.md`](session-shutdown-sequence.md) step 7 (after the diary write). The S-0041 second project health check measured zero `pushback`-tagged drawers across S-0033 → S-0040 — eight sessions of opportunity, judgment-alone produced zero captures. The convention was too implicit to reach the AI's authoring loop. The shutdown-step explicit ask makes the capture decision a structural surface, not a judgment call. In-session capture is also welcome whenever the moment is visible — the shutdown-step ask is the backstop, not the only opportunity.
+
 Apply when:
 - The AI surfaced an unnamed risk specifically (not generic concern), the user heard it, and the conversation changed direction in response.
 - Self-pushback also qualifies — AI critiquing its own proposal, user accepting the critique.
@@ -62,6 +64,8 @@ The hooks tag autocaptures from build sessions with `work` by default unless the
 Added at S-0032. Procedural failures and their fixes — "we tried X, it failed because non-obvious Y, the fix that worked was Z." The tag means: "future session considering X, look here first."
 
 Currently the project captures procedural failures inconsistently: some show up in `outcome_summary`, some drive ops-doc updates, many vanish. The `lesson` tag standardizes the capture channel so semantic search recovers prior failure context before a session re-attempts the same approach.
+
+**Capture surface (added at S-0041).** The convention's primary capture surface is the explicit yes/no ask in [`session-shutdown-sequence.md`](session-shutdown-sequence.md) step 7 (after the diary write, paired with the `pushback` ask). The S-0041 second project health check measured zero `lesson`-tagged drawers across S-0033 → S-0040 — eight sessions of opportunity, judgment-alone produced zero captures. The convention was too implicit to reach the AI's authoring loop. The shutdown-step explicit ask makes the capture decision a structural surface, not a judgment call. In-session capture is also welcome whenever the moment is visible — the shutdown-step ask is the backstop, not the only opportunity.
 
 Apply when:
 - A session tried an approach, it failed for a reason that was not obvious before the failure, and a working fix was found.
