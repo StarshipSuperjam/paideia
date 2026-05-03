@@ -101,3 +101,25 @@ After choosing, follow with the existing `if [ "$STATUS" -ge 2 ]; then ... exit 
 The S-0033 close commit was pushed via `git push . src:main` from the parent (the bare-repo path), since `git -C parent merge --ff-only` no longer works on the bare parent.
 
 ---
+
+## Stale-checkout vs halted-shutdown — Recovery section needs a sanity check (logged post-S-0033 close, exploration mode)
+
+**Pattern observed at the S-0033 → S-0034 boundary.** A fresh `/start-engine` session opened immediately after S-0033 closed read the state files in its own worktree and concluded that S-0033 had halted mid-shutdown — `register_state.json` still showed `current_status: in_progress`, `current.json` still existed with `status: in_progress`, `STATE.md` still pointed at S-0033 as the next-session work item. The session's narrative began invoking the Recovery procedure (recovery scenario #1: "Halted before step 8 (archive)") and was about to redo the shutdown.
+
+But S-0033 had closed cleanly. The close commit (`dc3e370`) was already on origin/main: archive landed, register flipped to `closed`, STATE.md updated, ENGINE_LOG entries added, HANDOFF marked Resolved. The next session's worktree just didn't have that commit checked out yet — its branch was created from main at a pre-close state, so its working-tree files showed the post-eager-claim configuration. `git log` could see `dc3e370` (the parent has it) but the worktree's checked-out files reflected an earlier commit.
+
+**Why this is dangerous.** Running the recovery procedure on a stale checkout would have re-archived an already-archived `current.json` (path conflict with `archive/S-0033.json`), re-edited `STATE.md` (overwriting the S-0033 close narrative with a fresh "S-0033 closed today" entry on top of one already there), re-flipped register fields, and appended duplicate ENGINE_LOG entries. The session would have looked productive — commits land, validator passes — while creating real corruption from a phantom problem.
+
+**Proposed fix for next substantive session that touches the shutdown procedure.** Add a sanity check to the Recovery section of [`engine/operations/session-shutdown-sequence.md`](engine/operations/session-shutdown-sequence.md) and the [`session-shutdown-sequence` Skill](.claude/skills/session-shutdown-sequence/SKILL.md) mirror, before any of the four recovery scenarios trigger:
+
+> **Before invoking any recovery scenario, verify the prior close did not already land.** Run `git fetch origin && git log --oneline origin/main -10`. If a `chore(session): close S-NNNN` commit for the slot named in `register_state.json`'s `last_claimed` field is visible upstream, the prior session closed cleanly and the local checkout is stale, not halted. Update the local checkout to that commit (`git pull --ff-only` if the branch tracks origin/main, or `git reset --hard origin/main` on a throwaway branch) and proceed with the *next* session's work; do not run recovery.
+
+The asymmetry that justifies this: a halted shutdown leaves no upstream close commit (the halt prevented the push); a stale checkout always has the upstream close commit. One `git log` check distinguishes them.
+
+**Concrete trigger condition for the new ops-doc entry**: `register_state.json`'s `current_status: in_progress` AND `current.json` exists locally AND `git log origin/main` shows a `close S-<that-slot>` commit. That's the stale-checkout shape. The genuine halt shape is the same minus the third clause.
+
+**Out of scope for this entry**: any heuristic for detecting which commit-message conventions count as "close" (the literal string `chore(session): close S-NNNN` is the project convention; sufficient for the check).
+
+This is the kind of finding that would have been mechanically caught if the side-discovery audit ran across cross-session boundaries — but the audit's scope is "this session's commits," not "the boundary between two sessions." That boundary is exactly where this confusion lives.
+
+---
