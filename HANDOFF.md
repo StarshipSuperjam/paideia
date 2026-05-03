@@ -82,4 +82,22 @@ After choosing, follow with the existing `if [ "$STATUS" -ge 2 ]; then ... exit 
 - Add `engine/scheduled_audits.json` (and any other engine-side scheduling/handoff surfaces) to the pre-commit hook's exploration-mode allowed-paths list with rationale comment.
 - Phase 4 build-readiness gate exercise (the originally-planned S-0032 work, deferred at S-0032, deferred again at S-0033 by the user direction at S-0032 close) → moves to S-0034.
 
+**Resolved: 2026-05-02 (S-0033).** All three items landed (commits `2609aaf` and `ca36c17` plus the close commit). Phase 4 build-readiness gate moves to S-0034 as scheduled.
+
+---
+
+## Worktree git operations broke mid-session — `core.bare = true` inheritance from parent (set at S-0033 for next session if it recurs)
+
+**Symptom:** Mid-S-0033, `git status` and `git rev-parse --show-toplevel` from the worktree at `.claude/worktrees/unruffled-ride-236a8d/` started failing with `fatal: this operation must be run in a work tree`. Earlier in the same session, the same commands had worked. `git log` and `git rev-parse HEAD` continued to work; only operations that need a working tree failed.
+
+**Diagnosis:** The parent repo's `.git/config` carries `[core] bare = true`. With `extensions.worktreeConfig = true`, per-worktree config can override the parent's `[core]` section, but the worktree's `.git/worktrees/<name>/config.worktree` did not include `bare = false`. Some operation during S-0033 caused git to start honoring `bare = true` for worktree commands; setting `core.bare = false` in the worktree config resolved it inline.
+
+**Open questions for the next session if it recurs:**
+
+1. **What changed mid-session?** The same git commands worked at the eager-claim and at the Item-1 commit, then stopped working a few commits later. The parent's `.git/config` mtime (20:09 in the session) is suspicious — something modified it. Identify what (a hook, a `git config` invocation, an external tool).
+2. **Are other worktrees at risk?** Other worktrees under `.claude/worktrees/` have the same `config.worktree` shape (no `bare = false` override). If the trigger fires on those too, every worktree should grow the override. If only this worktree was affected, the trigger is scoped narrower.
+3. **Permanent fix vs symptom fix.** Setting `core.bare = false` in this worktree's `config.worktree` works but is a band-aid. The underlying question is why a bare parent's config bleeds into worktree behavior despite `extensions.worktreeConfig = true`. Investigate or document the limit.
+
+The S-0033 close commit was pushed via `git push . src:main` from the parent (the bare-repo path), since `git -C parent merge --ff-only` no longer works on the bare parent.
+
 ---
