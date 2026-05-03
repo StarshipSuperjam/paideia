@@ -91,7 +91,29 @@ Skip these — not material:
 
 For SQL migrations: log the session-level filenames as authored. Supabase migration version tracking is separate and automatic.
 
-### 6. Write session diary entry
+### 6. Side-discovery audit
+
+Run `python3 engine/tools/audit_side_discoveries.py` from the repo root. The script scans this session's commit messages (range `<eager-claim-SHA>..HEAD`) for follow-up markers — `flagged`, `follow-up`, `follow up`, `TODO`, `FIXME`, `deferred`, `noted for`, `future session`, `next session`, `pending`, `out of scope` — and matches each hit against the `side_discoveries` field in `engine/session/current.json`. Markers preceded within ~12 chars by `no` / `not` / `nothing` / `no longer` are filtered as obvious negations.
+
+The pattern this addresses: side-discoveries the AI flags during a session land in commit messages or end-of-session prose ("flagged for follow-up") and vanish without a mechanical surface that triggers future action. Naming an explicit disposition for each match forces the AI to either route the discovery to the right surface (`engine/scheduled_audits.json`, `product/docs/tensions.md`, HANDOFF.md, an inline fix-commit) or explicitly accept it as a no-op with stated reasoning. Authored at S-0033 per [HANDOFF.md](../../../HANDOFF.md) Item 2.
+
+If any marker lacks a disposition, the script exits 2 and prints `commit / marker / surrounding-context` to stderr. Resolve by editing `current.json`'s `side_discoveries` list — append one entry per undispositioned marker:
+
+```json
+{
+  "commit": "<7-char SHA prefix>",
+  "marker": "<phrase that matched, lowercased>",
+  "disposition_type": "scheduled_audit | tension_oq | handoff_section | addressed_inline | acceptable_no_action",
+  "disposition_ref": "<id, OQ name, section heading, fix-commit SHA, or empty>",
+  "reasoning": "<optional; required for acceptable_no_action>"
+}
+```
+
+Re-run the script. Iterate until exit 0. The total count of dispositions (per type) feeds into the diary entry at step 7 and `outcome_summary` at step 8.
+
+If a marker truly is a false positive, use `acceptable_no_action` with a short reasoning. The audit is hard-fail by design: undispositioned markers block the close. The script does not introduce a new soft-warn category.
+
+### 7. Write session diary entry
 
 Per [`mempalace-operations.md`](../../../engine/operations/mempalace-operations.md) "Project usage scope". The MemPalace diary carries the AI's first-person reflection on the session — distinct from `outcome_summary` (outcome-focused) and ENGINE_LOG (third-person artifact narrative). What surprised me, what I noticed but didn't act on, what feels load-bearing for the next session, where my judgment was uncertain.
 
@@ -104,15 +126,15 @@ Call `mempalace_diary_write` with `agent_name: "claude"` (project convention). C
 - **What I noticed but deferred** — observations next-session-relevant. (If actionable enough, also surface in HANDOFF.md or as a follow-up task in `outcome_summary`.)
 - **Where my judgment was uncertain** — places I made a call I'd want a fresh-eyes review on.
 
-If the diary write is skipped (deliberately or by accident), record `diary_skipped: 1` in `outcome_summary_soft_warns` at step 7 below. Per [ADR 0042](../../../engine/adr/0042-soft-warn-lifecycle-archive-canon.md)'s 3-of-5 threshold, three skipped diary writes in the last five sessions fire a persistent-warn at the next session's boot — the mechanical adoption check.
+If the diary write is skipped (deliberately or by accident), record `diary_skipped: 1` in `outcome_summary_soft_warns` at step 8 below. Per [ADR 0042](../../../engine/adr/0042-soft-warn-lifecycle-archive-canon.md)'s 3-of-5 threshold, three skipped diary writes in the last five sessions fire a persistent-warn at the next session's boot — the mechanical adoption check.
 
 If the MemPalace MCP server is unavailable at shutdown, attempt the write; if it fails, record `diary_skipped: 1` and proceed. The session does not block on the diary.
 
-### 7. Fill `outcome_summary` and `outcome_summary_soft_warns`
+### 8. Fill `outcome_summary` and `outcome_summary_soft_warns`
 
 `outcome_summary` is ~50 words of prose. What got done, anything noteworthy for the next session, what tradeoffs surfaced. Honest summaries beat flattering ones — health-check trend analysis and the next session's boot procedure both depend on them.
 
-`outcome_summary_soft_warns` is the structured trend canon per [ADR 0042](../../../engine/adr/0042-soft-warn-lifecycle-archive-canon.md). Computed from `validate.py`'s final-run output (per-category soft-warn counts) plus session-state findings the validator does not see (`diary_skipped` from step 6). Shape:
+`outcome_summary_soft_warns` is the structured trend canon per [ADR 0042](../../../engine/adr/0042-soft-warn-lifecycle-archive-canon.md). Computed from `validate.py`'s final-run output (per-category soft-warn counts) plus session-state findings the validator does not see (`diary_skipped` from step 7). Shape:
 
 ```json
 "outcome_summary_soft_warns": {
@@ -129,9 +151,9 @@ If the MemPalace MCP server is unavailable at shutdown, attempt the write; if it
 }
 ```
 
-All known soft-warn categories appear in the block, even with zero counts; absent keys signal "this category did not exist at this session's close" rather than "this category fired zero times." The boot-time persistent-warn surface (per `soft-warn-lifecycle.md`) reads this field across the last 5 archives. `diary_skipped` is session-state (recorded by step 6), not validator output.
+All known soft-warn categories appear in the block, even with zero counts; absent keys signal "this category did not exist at this session's close" rather than "this category fired zero times." The boot-time persistent-warn surface (per `soft-warn-lifecycle.md`) reads this field across the last 5 archives. `diary_skipped` is session-state (recorded by step 7), not validator output.
 
-### 8. Archive the claim
+### 9. Archive the claim
 
 ```bash
 git mv engine/session/current.json engine/session/archive/S-<NNNN>.json
@@ -160,7 +182,7 @@ Update `engine/session/register_state.json`:
 }
 ```
 
-### 9. Final commit + main FF + push
+### 10. Final commit + main FF + push
 
 Conventional Commits with the session ID:
 
@@ -210,11 +232,11 @@ The next session picks up cleanly from STATE.md without re-deriving where things
 
 ## Recovery (interrupted shutdown)
 
-A clean close runs steps 1–8 in sequence. If the session crashes or halts mid-shutdown, the observable state determines the recovery path:
+A clean close runs steps 1–10 in sequence. If the session crashes or halts mid-shutdown, the observable state determines the recovery path:
 
-1. **Halted before step 7 (archive).** `current.json` present; `register_state.json` `current_status: in_progress`. Resume from step 1.
+1. **Halted before step 9 (archive).** `current.json` present; `register_state.json` `current_status: in_progress`. Resume from step 1 — running `validate.py`, the spot-check, the cold-review pass, the side-discovery audit, the diary write, and the `outcome_summary` fill in order.
 
-2. **Halted between archive (step 7) and final commit (step 8).** `archive/S-<NNNN>.json` present, `current.json` absent, `register_state.json` `current_status: closed`. Stage and commit the planned final commit; FF main; push.
+2. **Halted between archive (step 9) and final commit (step 10).** `archive/S-<NNNN>.json` present, `current.json` absent, `register_state.json` `current_status: closed`. Stage and commit the planned final commit; FF main; push.
 
 3. **Halted after final commit, before FF + push.** Final commit exists locally; `git log origin/main..HEAD` shows it. FF main and push. No state edits required.
 
