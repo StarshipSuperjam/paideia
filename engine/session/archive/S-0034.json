@@ -1,0 +1,32 @@
+{
+  "id": "S-0034",
+  "started_at": "2026-05-03T04:16:27Z",
+  "closed_at": "2026-05-03T04:33:00Z",
+  "status": "closed",
+  "working_on": "Phase 4 build-readiness gate exercise — produces engine/build_readiness/phase_4_graph_validation.md per ADR 0040; addresses S-0028 forward-pointers (sub-signal NULL permissiveness, branch-based rollback verification).",
+  "outcome_summary": "Phase 4 build-readiness gate report landed at engine/build_readiness/phase_4_graph_validation.md per ADR 0040. Triages 3 Tier 1 + 9 Tier 2 + 4 Tier 3 decisions for S-0035 (validate_graph() flesh-out per ADR 0016). T1 commits: bundle all four P_2 sub-deliverables in one S-0035 (T1-A); Phase 4 PREDICATE_MANIFEST authoring (T1-B); psycopg + service_role JWT (T1-C). T2 highlights: Kosaraju SCC on prerequisite subgraph, v1 PREDICATE_MANIFEST = {pedagogical_prerequisite, historical_influence}, ROUTING.md range-collision fix, stale-path corrections in tools-validate-interpretation.md + ADR 0016 See-also. T2-B closes the first S-0028 forward-pointer (sub-signal NULL out of validate_graph scope per ADR 0016 nodes/edges-only contract). T3-A reaffirms the second forward-pointer (branch-based rollback) for the next gate session pending CLI setup or budget approval. Cold-review per ADR 0040 Step 8 (fresh-context Explore sub-agent): 9/9 matches, 0 block-gating findings — citation-first authoring posture held against the gate-on-the-gate discipline. Side-discovery audit at close: 1 marker dispositioned (acceptable_no_action via addressed_inline → gate report's own T3-A). Validator clean: 14 checks, 0 hard-fails, 0 soft-warns. No new ADRs (settled within ADR 0016 contract using ADR 0040 procedure). Phase 4 build session opens at S-0035.",
+  "outcome_summary_soft_warns": {
+    "expected_future_file_missing": 0,
+    "adr_missing_status": 0,
+    "adr_index_inconsistent": 0,
+    "cross_reference_broken": 0,
+    "engine_log_format": 0,
+    "state_format": 0,
+    "superseded_adr_currency": 0,
+    "adr_back_reference_orphan": 0,
+    "adr_consequences_deliverable_audit": 0,
+    "diary_skipped": 0
+  },
+  "approved_plan": "/Users/shanekidd/.claude/plans/silly-soaring-sphinx.md",
+  "branch": "claude/tender-jepsen-80be2e",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/tender-jepsen-80be2e",
+  "side_discoveries": [
+    {
+      "commit": "4d1d1f6",
+      "marker": "pending",
+      "disposition_type": "addressed_inline",
+      "disposition_ref": "engine/build_readiness/phase_4_graph_validation.md T3-A",
+      "reasoning": "Self-referential — the commit body describes the gate report's own T3-A deferral (branch-based rollback verification stays cost-gated to Phase 5+ pending Supabase CLI setup or budget approval). The deferral is the structural surface tracking it; the gate report is read at every Phase 5+ gate session boot."
+    }
+  ]
+}
