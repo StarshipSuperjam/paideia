@@ -15,3 +15,11 @@ pytest>=8.0.0
 # on DB connectivity. Imported lazily inside validate_graph() to keep
 # the engine-tool import surface light when the audit isn't running.
 psycopg[binary]>=3.1.0
+
+# Phase 4.6+ — structural-reference parser (engine/tools/parse_structural_reference.py)
+# per ADR 0047. BeautifulSoup4 is the HTML parser the HTMLInputAdapter uses to
+# normalize SEP- and IEP-shaped HTML into StructuralElement records. Lazy
+# import inside HTMLInputAdapter.extract() — non-parser engine tool runs
+# (validate.py, hooks) do not pay the import cost. Future PDF input adapter
+# will add `pypdf` or `pdfplumber` at the session that lands it.
+beautifulsoup4>=4.12.0

@@ -25,7 +25,7 @@ The `Status:` field is required; `engine/tools/validate.py` soft-warns on ADR fi
 
 ## Index
 
-The engine collection has **11 ADRs total — all Accepted**. Engine ADRs are about how the build apparatus works (graph validation infrastructure, periodic project audits, expression contracts for engine-internal documents and engine-side code, the engine/product partition itself, the universal expression contract spanning all AI authoring patterns, the build-readiness gate before substantive build sessions, cascade-analysis discipline, soft-warn lifecycle, the harness hook architecture, the recipe-vs-reference skill-conversion partition). The full ADR collection across the project is **44** (11 engine + 33 product).
+The engine collection has **13 ADRs total — all Accepted**. Engine ADRs are about how the build apparatus works (graph validation infrastructure, periodic project audits, expression contracts for engine-internal documents and engine-side code, the engine/product partition itself, the universal expression contract spanning all AI authoring patterns, the build-readiness gate before substantive build sessions, cascade-analysis discipline, soft-warn lifecycle, the harness hook architecture, the recipe-vs-reference skill-conversion partition, shared-state integrity discipline, the structural-reference parser tool). The full ADR collection across the project is **47** (13 engine + 34 product).
 
 | ADR | Title | Status |
 |---|---|---|
@@ -41,6 +41,7 @@ The engine collection has **11 ADRs total — all Accepted**. Engine ADRs are ab
 | [0043](0043-hook-architecture.md) | Hook architecture: enforce two-layer recording, surface cadence, verify STATE.md fields | Accepted |
 | [0044](0044-skill-conversion-recipe-vs-reference.md) | Skill conversion: recipe-shaped procedures become Skills; reference docs stay docs | Accepted |
 | [0045](0045-shared-state-integrity-discipline.md) | Shared-state integrity discipline: subprocess env scrubbing, atomic mempalace writes, boot-time health probes | Accepted |
+| [0047](0047-structural-reference-parser-tool-and-adversarial-triage-workflow.md) | Structural-reference parser tool and adversarial-triage workflow | Accepted |
 
 ## Adding a new engine ADR
 
