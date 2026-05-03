@@ -91,6 +91,16 @@ The probe escalates to a **hard-fail** (not a soft-warn) when the palace is defi
 
 Recoverable — `mempalace mine <dir>` to re-populate from source jsonl files; or move the suspect segment dir aside (`palace/<segment-uuid>.broken/`) and re-run the probe so chromadb rebuilds from SQLite-stored embeddings (the S-0034 recovery procedure).
 
+### `health_check_overdue`
+
+The cadence-aligned health-check audit slot has been consumed by other work and the audit slid past one full cadence. Active from S-0041 onward per [ADR 0022](../adr/0022-periodic-project-health-checks.md) Consequences amendment (overdue-catchup logic).
+
+Fires when `(register_state.json.next_id - last_audit_session) > health_check_cadence`. The SessionStart hook (`engine/tools/hooks/session-start.sh`) surfaces both "due" (`slots_since == cadence`) and "overdue" (`slots_since > cadence`) at boot per the same amendment; this validator soft-warn is defense-in-depth so a silently-failing hook (the S-0033 / S-0034 vector pattern) cannot mask the slide. The validator stays silent at the natural-cadence slot — that case is the hook's "due" surface, not an overdue condition.
+
+Skips quietly when `last_audit_session` is absent (legacy `register_state.json`, pre-S-0041); the `checks_run` field still records the attempt so cross-session telemetry distinguishes "field absent" from "check did not run."
+
+Recoverable — run `engine/tools/health_check.py --session S-NNNN` (the report-emit bumps `last_audit_session`, clearing both the hook surface and this soft-warn) or document explicit deferral in `outcome_summary`.
+
 ### `repo_config_health`
 
 The shared-state probe at [`engine/tools/probe_repo.py`](../tools/probe_repo.py) reported a level-1 (suspect) condition. Active from S-0035 onward per [ADR 0045](../adr/0045-shared-state-integrity-discipline.md). Currently no level-1 conditions are emitted (reserved for future calibration like dirty working tree or detached HEAD); all probe findings today reach hard-fail level.

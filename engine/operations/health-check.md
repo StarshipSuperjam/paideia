@@ -1,16 +1,29 @@
 # Project health check
 
-> Periodic audit of the project's own machinery: does our discipline match what we're producing? Per ADR 0022 (lands in S-0003). Cadence trigger fires automatically at session boot when `next_id mod health_check_cadence == 0` (default cadence: 10 as of S-0033, was 30 from S-0001 to S-0032 — tightened by user direction at S-0032 because the audit there surfaced enough silent failures that the 30-session window was too sparse; see ADR 0022 Consequences amendment) — the slot about to be claimed is the cadence-numbered session.
+> Periodic audit of the project's own machinery: does our discipline match what we're producing? Per ADR 0022 (lands in S-0003). Cadence trigger fires automatically at session boot when `(next_id - last_audit_session) >= health_check_cadence` (overdue-catchup logic introduced at S-0041; default cadence: 10 as of S-0033, was 30 from S-0001 to S-0032 — tightened by user direction at S-0032 because the audit there surfaced enough silent failures that the 30-session window was too sparse; see ADR 0022 Consequences amendments). The trigger fires both at the natural-cadence slot and at every later slot until the audit fires (no silent slide).
 
-The first check landed at S-0030 (manual fire at the project-setup-to-project-build phase boundary; see [`docs/health-checks/S-0030.md`](../../docs/health-checks/S-0030.md)). [`engine/tools/health_check.py`](../tools/health_check.py) was authored at S-0029 per [ADR 0022](../adr/0022-periodic-project-health-checks.md). Under the cadence-10 default the next natural fires are S-0040, S-0050, S-0060, etc.
+The first check landed at S-0030 (manual fire at the project-setup-to-project-build phase boundary; see [`docs/health-checks/S-0030.md`](../../docs/health-checks/S-0030.md)). [`engine/tools/health_check.py`](../tools/health_check.py) was authored at S-0029 per [ADR 0022](../adr/0022-periodic-project-health-checks.md). The second check landed at S-0041 ([`docs/health-checks/S-0041.md`](../../docs/health-checks/S-0041.md)) as a catch-up audit after the original cadence-aligned slot (S-0040) was consumed by user-directed work and the strict-modulo trigger silently slid forward to S-0050. Under the cadence-10 default the next natural fires are at every cadence interval beyond `last_audit_session`.
 
 ## When the trigger fires
 
-At session boot, the SessionStart hook (`engine/tools/hooks/session-start.sh` per [ADR 0043](../adr/0043-hook-architecture.md)) parses the trailing 4-digit counter from `next_id` (the slot about to be claimed; e.g., `next_id: "0030"` → `30`) and computes `counter % cadence`. If `0`, surface the proposal:
+At session boot, the SessionStart hook (`engine/tools/hooks/session-start.sh` per [ADR 0043](../adr/0043-hook-architecture.md)) parses the trailing 4-digit counter from `next_id` (the slot about to be claimed; e.g., `next_id: "0040"` → `40`), reads `last_audit_session` from `register_state.json`, and computes `slots_since = next_id - last_audit_session`. The trigger fires when `slots_since >= cadence`:
 
-> "Next slot is S-0030. Cadence trigger fires for a project health check. Run the audit now or defer?"
+- `slots_since == cadence` — "due" surface; the cadence-aligned natural fire:
+  > "Next slot is S-NNNN. Cadence trigger fires for a project health check. Run the audit now or defer?"
+- `slots_since > cadence` — "overdue" surface; the cadence-aligned slot was consumed by other work and the audit slid:
+  > "Cadence trigger fires; audit is OVERDUE by N session(s). Run the audit now or document explicit deferral."
 
-The `/start-engine` slash command's documented procedure mirrors this logic at step 2; the hook surfaces the prompt regardless of how the session is launched. The pre-S-0031 logic used `last_claimed` rather than `next_id` and fired the trigger at the session AFTER the cadence-numbered session, contradicting ROADMAP.md and ADR 0022 prose intent. The S-0030 audit surfaced the off-by-one; S-0031 corrected it across all three carriers (this doc, `start-engine.md`, the SessionStart hook).
+`last_audit_session` is bumped by `engine/tools/health_check.py` at report-emit time (per the same S-0041 amendment); the field is the canonical "audit happened" anchor. If `last_audit_session` is absent (legacy `register_state.json`, pre-S-0041), the hook falls back to the strict-modulo logic with a stderr log line so the regression surfaces at boot.
+
+The `/start-engine` slash command's documented procedure mirrors this logic at step 2; the hook surfaces the prompt regardless of how the session is launched.
+
+The validator's `health_check_overdue` soft-warn ([`tools-validate-interpretation.md`](tools-validate-interpretation.md)) provides defense-in-depth: if the SessionStart hook silently fails (the S-0033/S-0034 vector pattern), the soft-warn fires on every commit until the audit catches up.
+
+### History of the cadence-trigger logic
+
+- **S-0001 → S-0030.** Original logic: `last_claimed mod cadence == 0`. Off-by-one against ADR 0022 prose intent — fired the trigger one slot AFTER the cadence-numbered session.
+- **S-0031 → S-0041.** Corrected to `next_id mod cadence == 0` (strict-modulo) per [ADR 0043](../adr/0043-hook-architecture.md). The fix landed at the right slot but introduced a silent-slide failure mode: when the cadence-aligned slot was consumed by user-directed work, the trigger silently slid forward by a full cadence (S-0040 missed → next fire at S-0050, a 19-session gap).
+- **S-0041 onward.** Replaced strict-modulo with overdue-catchup: `(next_id - last_audit_session) >= cadence`. The trigger now fires at the natural cadence slot AND at every later slot until the audit fires. ADR 0022 Decision + Consequences amended; ADR 0043 Consequences amended; carriers updated across `engine/tools/hooks/session-start.sh`, this doc, `engine/operations/session-build-lifecycle.md`, the corresponding skill, and `.claude/commands/start-engine.md`.
 
 The user's response routes:
 

@@ -1077,6 +1077,14 @@ def emit_report(report: HealthCheckReport, dry_run: bool = False) -> Path | None
     If dry_run is True, write to stdout instead and return None.
 
     Returns the written path on success.
+
+    Side effect (non-dry-run): bumps engine/session/register_state.json's
+    `last_audit_session` field to report.session_id. The bump anchors the
+    overdue-catchup cadence trigger introduced at S-0041 (per ADR 0022
+    Consequences amendment): the SessionStart hook and validate.py's
+    `health_check_overdue` check both read this field. Best-effort —
+    register-state write failures do not poison the audit (the report is
+    the durable artifact; the field bump is advisory tracking).
     """
     rendered = render_report(report)
     if dry_run:
@@ -1085,7 +1093,52 @@ def emit_report(report: HealthCheckReport, dry_run: bool = False) -> Path | None
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     out_path = REPORT_DIR / f"{report.session_id}.md"
     out_path.write_text(rendered)
+    bump_last_audit_session(report.session_id)
     return out_path
+
+
+def bump_last_audit_session(session_id: str) -> None:
+    """Update register_state.json's `last_audit_session` to session_id.
+
+    Per ADR 0022 Consequences amendment at S-0041. The SessionStart hook
+    and validate.py's `health_check_overdue` check both consume this field
+    to compute overdue state; the audit script is the canonical "audit
+    happened" producer and so owns the field bump.
+
+    Best-effort: failures are logged to stderr but do not raise. The audit
+    report is the durable artifact; a missed field bump produces a
+    spurious overdue surface at the next session boot, which is recoverable
+    by manual edit.
+    """
+    register_path = REPO_ROOT / "engine" / "session" / "register_state.json"
+    if not register_path.is_file():
+        sys.stderr.write(
+            f"warning: register_state.json absent; cannot bump "
+            f"last_audit_session to {session_id}\n"
+        )
+        return
+    try:
+        register = json.loads(register_path.read_text())
+    except (OSError, json.JSONDecodeError) as e:
+        sys.stderr.write(
+            f"warning: register_state.json unreadable ({e}); "
+            f"cannot bump last_audit_session to {session_id}\n"
+        )
+        return
+    if not isinstance(register, dict):
+        sys.stderr.write(
+            f"warning: register_state.json not an object; "
+            f"cannot bump last_audit_session to {session_id}\n"
+        )
+        return
+    register["last_audit_session"] = session_id
+    try:
+        register_path.write_text(json.dumps(register, indent=2) + "\n")
+    except OSError as e:
+        sys.stderr.write(
+            f"warning: register_state.json write failed ({e}); "
+            f"last_audit_session not bumped to {session_id}\n"
+        )
 
 
 # ---------------------------------------------------------------------------

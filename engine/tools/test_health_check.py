@@ -479,6 +479,92 @@ def test_emit_report_dry_run(
     assert "dry-run-test" in captured.out
 
 
+def test_emit_report_bumps_last_audit_session(synthetic_repo: Path) -> None:
+    """emit_report (non-dry-run) bumps register_state.json's last_audit_session.
+
+    Per ADR 0022 Consequences amendment at S-0041: the audit script is the
+    canonical "audit happened" producer and so owns the field bump that the
+    SessionStart hook + validate.py overdue check both consume.
+    """
+    register_path = synthetic_repo / "engine" / "session" / "register_state.json"
+    register_path.write_text(
+        json.dumps(
+            {
+                "next_id": "0042",
+                "last_claimed": "S-0041",
+                "current_status": "in_progress",
+                "health_check_cadence": 10,
+                "last_audit_session": "S-0030",
+            }
+        )
+    )
+    report = HealthCheckReport(session_id="S-0041")
+    report.fit.add("catchup")
+    emit_report(report)
+    register = json.loads(register_path.read_text())
+    assert register["last_audit_session"] == "S-0041"
+    # Cadence and other fields preserved.
+    assert register["health_check_cadence"] == 10
+    assert register["next_id"] == "0042"
+
+
+def test_emit_report_bump_creates_field_when_absent(synthetic_repo: Path) -> None:
+    """When last_audit_session is absent, emit_report adds it.
+
+    Covers the legacy → new-schema transition: a register_state.json that
+    predates the field still gets the bump on the first audit emission.
+    """
+    register_path = synthetic_repo / "engine" / "session" / "register_state.json"
+    register_path.write_text(
+        json.dumps(
+            {
+                "next_id": "0050",
+                "last_claimed": "S-0049",
+                "current_status": "in_progress",
+            }
+        )
+    )
+    report = HealthCheckReport(session_id="S-0050")
+    report.fit.add("first-bump")
+    emit_report(report)
+    register = json.loads(register_path.read_text())
+    assert register["last_audit_session"] == "S-0050"
+
+
+def test_emit_report_dry_run_does_not_bump(synthetic_repo: Path) -> None:
+    """Dry-run mode skips the field bump (no report on disk = no audit happened)."""
+    register_path = synthetic_repo / "engine" / "session" / "register_state.json"
+    register_path.write_text(
+        json.dumps(
+            {
+                "next_id": "0042",
+                "last_claimed": "S-0041",
+                "current_status": "in_progress",
+                "last_audit_session": "S-0030",
+            }
+        )
+    )
+    report = HealthCheckReport(session_id="S-0041")
+    report.fit.add("dry")
+    emit_report(report, dry_run=True)
+    register = json.loads(register_path.read_text())
+    assert register["last_audit_session"] == "S-0030"
+
+
+def test_emit_report_bump_handles_absent_register(
+    synthetic_repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """When register_state.json is absent, emit_report still writes the report
+    and surfaces a stderr warning about the failed bump."""
+    report = HealthCheckReport(session_id="S-0041")
+    report.fit.add("orphan")
+    out_path = emit_report(report)
+    assert out_path is not None and out_path.is_file()
+    captured = capsys.readouterr()
+    assert "register_state.json absent" in captured.err
+    assert "S-0041" in captured.err
+
+
 # ---------------------------------------------------------------------------
 # Cadence detection
 # ---------------------------------------------------------------------------

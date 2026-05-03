@@ -395,6 +395,48 @@ def validate_repo_structure() -> ValidationResult:
                 "engine/STATE.md missing 'Current phase' field",
             )
 
+    # health_check_overdue (per ADR 0022 Consequences amendment at S-0041).
+    # The SessionStart hook surfaces "due" and "overdue" at boot; this
+    # validator check is defense-in-depth so a silently-failing hook (the
+    # S-0033 / S-0034 vector pattern) cannot mask a slid cadence trigger.
+    # Fires when (next_id - last_audit_session) > cadence — strictly past
+    # the natural firing slot, which the hook surface already covered.
+    # Skips quietly when the optional fields are absent (legacy
+    # register_state.json pre-S-0041); the legacy state cannot violate the
+    # contract because the field that anchors the contract isn't present.
+    r.add_check("health_check_overdue")
+    if register_path.is_file():
+        try:
+            register = json.loads(register_path.read_text())
+        except (OSError, json.JSONDecodeError):
+            register = None
+        if isinstance(register, dict):
+            next_id_raw = register.get("next_id")
+            last_audit_raw = register.get("last_audit_session")
+            cadence_raw = register.get("health_check_cadence", 10)
+            if (
+                isinstance(next_id_raw, str)
+                and isinstance(last_audit_raw, str)
+                and isinstance(cadence_raw, int)
+                and cadence_raw > 0
+                and re.match(r"^\d+$", next_id_raw)
+                and re.match(r"^S-\d{4}$", last_audit_raw)
+            ):
+                next_int = int(next_id_raw)
+                audit_int = int(last_audit_raw[2:])
+                slots_since = next_int - audit_int
+                if slots_since > cadence_raw:
+                    overdue_by = slots_since - cadence_raw
+                    r.soft_warn(
+                        "health_check_overdue",
+                        f"next session S-{next_int:04d} is {slots_since} slots "
+                        f"since last audit {last_audit_raw}; cadence is "
+                        f"{cadence_raw} (overdue by {overdue_by}). Run "
+                        f"engine/tools/health_check.py --session "
+                        f"S-{next_int:04d} or document explicit deferral in "
+                        "outcome_summary.",
+                    )
+
     # ADR Status fields. Iterates both engine/adr/ and product/adr/ post the
     # S-0024 partition. Accepts the Nygard template's bold form (`- **Status:**
     # Accepted`), plain form (`Status: Accepted`), and the bold-around-label

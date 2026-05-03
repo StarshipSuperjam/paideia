@@ -20,13 +20,19 @@ Get current phase, last build session, prior build session, next session work it
 
 ### 2. Cadence trigger check
 
-Read `engine/session/register_state.json`. Parse the trailing 4-digit counter from `next_id` (the slot about to be claimed). Compute `next_id mod health_check_cadence`. If `0` (default cadence: 10 as of S-0033, was 30 pre-S-0033 — see ADR 0022 Consequences amendment), propose:
+Read `engine/session/register_state.json`. Parse the trailing 4-digit counter from `next_id` (the slot about to be claimed) and `last_audit_session` (the most recent completed audit). Compute `slots_since = next_id - last_audit_session`. The trigger fires when `slots_since >= health_check_cadence` (default cadence: 10 as of S-0033, was 30 pre-S-0033; overdue-catchup logic introduced at S-0041 — see ADR 0022 Consequences amendments). Two surfaces:
 
-> "Next slot is S-NNNN. Cadence trigger fires for a project health check (see `engine/operations/health-check.md`). Run the audit now or defer?"
+- When `slots_since == cadence` ("due"):
 
-User accepts → the session's work becomes the audit. User defers → proceed with planned work; record the deferral in `outcome_summary` at close.
+  > "Next slot is S-NNNN. Cadence trigger fires for a project health check (see `engine/operations/health-check.md`). Run the audit now or defer?"
 
-The `next_id`-based logic was corrected at S-0031 per [ADR 0043](../../../engine/adr/0043-hook-architecture.md). The SessionStart hook (`engine/tools/hooks/session-start.sh`) emits the same surface from the harness side regardless of how the session is launched.
+- When `slots_since > cadence` ("overdue"):
+
+  > "Cadence trigger fires; audit is OVERDUE by N session(s). The cadence-aligned slot was consumed by user-directed work without the audit firing. Run the audit now or document explicit deferral in outcome_summary."
+
+User accepts → the session's work becomes the audit (which bumps `last_audit_session` at report-emit time, clearing the trigger). User defers → proceed with planned work; record the deferral in `outcome_summary` at close; the trigger fires again next session.
+
+The overdue-catchup logic replaces the prior `next_id % cadence == 0` strict-modulo at S-0041 ([ADR 0022](../../../engine/adr/0022-periodic-project-health-checks.md) + [ADR 0043](../../../engine/adr/0043-hook-architecture.md) Consequences amendments) — strict-modulo silently slid the trigger by a full cadence whenever the aligned slot was consumed by other work. The SessionStart hook (`engine/tools/hooks/session-start.sh`) emits the same surface from the harness side regardless of how the session is launched. If `last_audit_session` is absent (legacy `register_state.json`, pre-S-0041), the hook falls back to strict-modulo with a stderr log line so the regression surfaces.
 
 ### 2b. Persistent-warn surface
 

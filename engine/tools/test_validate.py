@@ -331,6 +331,86 @@ class TestValidateRepoStructure:
         r = validate_repo_structure()
         assert "expected_future_file_missing" in r.soft_warns
 
+    def test_health_check_overdue_soft_warns_when_past_cadence(
+        self, synthetic_repo: Path
+    ) -> None:
+        """Overdue audit soft-warns when next_id - last_audit_session > cadence.
+
+        Per ADR 0022 Consequences amendment at S-0041: the SessionStart hook
+        surfaces overdue at boot; this validator check is defense-in-depth
+        in case the hook silently fails.
+        """
+        (synthetic_repo / "engine" / "session" / "register_state.json").write_text(
+            json.dumps(
+                {
+                    "next_id": "0042",
+                    "last_claimed": "S-0041",
+                    "current_status": "in_progress",
+                    "health_check_cadence": 10,
+                    "last_audit_session": "S-0030",
+                }
+            )
+        )
+        r = validate_repo_structure()
+        assert "health_check_overdue" in r.soft_warns
+        msg = r.soft_warns["health_check_overdue"][0]
+        assert "S-0042" in msg
+        assert "S-0030" in msg
+        assert "overdue by 2" in msg
+
+    def test_health_check_overdue_silent_at_natural_cadence_slot(
+        self, synthetic_repo: Path
+    ) -> None:
+        """No soft-warn at the natural cadence slot (slots_since == cadence).
+
+        The hook surfaces "due"; the validator stays silent because nothing
+        is overdue yet — the audit can fire in this very session.
+        """
+        (synthetic_repo / "engine" / "session" / "register_state.json").write_text(
+            json.dumps(
+                {
+                    "next_id": "0040",
+                    "last_claimed": "S-0039",
+                    "current_status": "in_progress",
+                    "health_check_cadence": 10,
+                    "last_audit_session": "S-0030",
+                }
+            )
+        )
+        r = validate_repo_structure()
+        assert "health_check_overdue" not in r.soft_warns
+
+    def test_health_check_overdue_silent_when_field_absent(
+        self, synthetic_repo: Path
+    ) -> None:
+        """Legacy register_state.json without last_audit_session triggers no soft-warn.
+
+        The hook's strict-modulo fallback covers the legacy case at the
+        surface; the validator skips because the contract anchor is absent.
+        """
+        # synthetic_repo's default register has no last_audit_session field.
+        r = validate_repo_structure()
+        assert "health_check_overdue" not in r.soft_warns
+        assert "health_check_overdue" in r.checks_run
+
+    def test_health_check_overdue_silent_when_under_cadence(
+        self, synthetic_repo: Path
+    ) -> None:
+        """No soft-warn when slots_since is below the cadence."""
+        (synthetic_repo / "engine" / "session" / "register_state.json").write_text(
+            json.dumps(
+                {
+                    "next_id": "0035",
+                    "last_claimed": "S-0034",
+                    "current_status": "in_progress",
+                    "health_check_cadence": 10,
+                    "last_audit_session": "S-0030",
+                }
+            )
+        )
+        r = validate_repo_structure()
+        assert "health_check_overdue" not in r.soft_warns
+
 
 # ---------------------------------------------------------------------------
 # validate_code_gates

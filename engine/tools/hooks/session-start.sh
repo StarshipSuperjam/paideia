@@ -10,11 +10,22 @@
 #
 # Three posture rules this mechanizes:
 #
-#   1. Health-check cadence trigger — per ADR 0022. The strict logic
-#      `last_claimed mod cadence == 0` was off-by-one against ROADMAP/ADR 0022
-#      prose intent (the trigger should fire AT the cadence-numbered session,
-#      not the session AFTER). The corrected logic is `next_id mod cadence == 0`
-#      — fires when the slot ABOUT TO BE CLAIMED matches the cadence number.
+#   1. Health-check cadence trigger — per ADR 0022. Two prior bugs are
+#      relevant context. First, the original logic `last_claimed mod cadence
+#      == 0` fired the trigger one session AFTER the cadence-numbered slot
+#      (off-by-one against ROADMAP/ADR 0022 prose), corrected at S-0031 to
+#      `next_id mod cadence == 0`. Second, the corrected strict-modulo logic
+#      silently slid the trigger forward by a full cadence whenever the
+#      cadence-aligned slot was consumed by user-directed work — S-0040's
+#      slot was taken by the deferred MemPalace wing-filter fix, leaving
+#      the next firing at S-0050 (a 19-session gap, nearly 2x the configured
+#      cadence). At S-0041, the logic was replaced with overdue-catchup:
+#      `(next_id - last_audit_session) >= cadence`, where last_audit_session
+#      is tracked in register_state.json and bumped by health_check.py after
+#      writing the report. The hook surfaces "due" at the natural-cadence
+#      slot and "overdue" at every slot beyond. If `last_audit_session` is
+#      absent (legacy register_state.json, pre-S-0041), the hook falls back
+#      to strict-modulo with a log line so the regression is visible.
 #
 #   2. Persistent-warn surface — per ADR 0042. Reads the last 5
 #      engine/session/archive/S-NNNN.json files, parses the
@@ -114,19 +125,68 @@ if ! echo "$CADENCE" | grep -qE '^[0-9]+$' || [ "$CADENCE" -lt 1 ]; then
     CADENCE=10
 fi
 
-CADENCE_REMAINDER=$((NEXT_INT % CADENCE))
+# Overdue-catchup logic (per ADR 0022 Consequences amendment at S-0041):
+# the trigger fires when the slot about to be claimed is at-or-past one
+# cadence beyond the most recent completed audit. last_audit_session is the
+# canonical "audit happened" pointer; health_check.py bumps it after writing
+# the report. A "due" surface fires when slots_since == cadence (the natural
+# fire); an "overdue" surface fires when slots_since > cadence (the audit
+# was due in a prior slot that got consumed by other work).
+#
+# Fallback: if last_audit_session is absent (legacy register_state.json
+# pre-S-0041), the hook reverts to strict-modulo (next_id mod cadence == 0)
+# with a log line so the regression to the silent-slide failure mode is
+# visible. After S-0041 this fallback path should not trigger in practice.
 
-echo "[session-start] register: next_id=$NEXT_ID last_claimed=$LAST_CLAIMED cadence=$CADENCE"
+LAST_AUDIT="$(jq -r '.last_audit_session // empty' "$REGISTER_FILE" 2>/dev/null)"
 
-if [ "$CADENCE_REMAINDER" -eq 0 ]; then
-    {
-        echo "[session-start] Cadence: trigger fires for the session about to be claimed (S-$NEXT_ID)."
-        echo "  Per ADR 0022 + engine/operations/health-check.md, propose a project health check."
-        echo "  Run engine/tools/health_check.py --session S-$NEXT_ID to produce the audit report,"
-        echo "  or defer with the reason captured in outcome_summary."
-    } >&2
+CADENCE_TRIGGER_REASON="strict-modulo-fallback"  # for log_ok telemetry
+CADENCE_FIRES=0
+SLOTS_SINCE=""
+
+echo "[session-start] register: next_id=$NEXT_ID last_claimed=$LAST_CLAIMED cadence=$CADENCE last_audit=${LAST_AUDIT:-<absent>}"
+
+if [ -n "$LAST_AUDIT" ] && echo "$LAST_AUDIT" | grep -qE '^S-[0-9]{4}$'; then
+    LAST_AUDIT_INT=$((10#${LAST_AUDIT#S-}))
+    SLOTS_SINCE=$((NEXT_INT - LAST_AUDIT_INT))
+    CADENCE_TRIGGER_REASON="overdue-catchup"
+    if [ "$SLOTS_SINCE" -ge "$CADENCE" ]; then
+        CADENCE_FIRES=1
+        if [ "$SLOTS_SINCE" -eq "$CADENCE" ]; then
+            {
+                echo "[session-start] Cadence: trigger fires for the cadence-aligned session about to be claimed (S-$NEXT_ID; $SLOTS_SINCE slots since last audit $LAST_AUDIT, cadence $CADENCE)."
+                echo "  Per ADR 0022 + engine/operations/health-check.md, propose a project health check."
+                echo "  Run engine/tools/health_check.py --session S-$NEXT_ID to produce the audit report,"
+                echo "  or defer with the reason captured in outcome_summary."
+            } >&2
+        else
+            OVERDUE=$((SLOTS_SINCE - CADENCE))
+            {
+                echo "[session-start] Cadence: trigger fires; audit is OVERDUE by $OVERDUE session(s) (S-$NEXT_ID is $SLOTS_SINCE slots since last audit $LAST_AUDIT; cadence $CADENCE)."
+                echo "  The cadence-aligned slot was consumed by user-directed work without the audit firing."
+                echo "  Per ADR 0022 + engine/operations/health-check.md, run the audit now or document explicit deferral."
+                echo "  Run engine/tools/health_check.py --session S-$NEXT_ID to produce the catch-up report."
+            } >&2
+        fi
+    else
+        SLOTS_REMAINING=$((CADENCE - SLOTS_SINCE))
+        echo "[session-start] Cadence: no trigger this session ($SLOTS_SINCE/$CADENCE slots since last audit $LAST_AUDIT; $SLOTS_REMAINING slot(s) until next due)."
+    fi
 else
-    echo "[session-start] Cadence: no trigger this session (next_id $NEXT_ID mod $CADENCE = $CADENCE_REMAINDER)."
+    # Legacy fallback. Should not trigger in practice after S-0041.
+    log_fail "last-audit-absent-falling-back-to-strict-modulo"
+    CADENCE_REMAINDER=$((NEXT_INT % CADENCE))
+    if [ "$CADENCE_REMAINDER" -eq 0 ]; then
+        CADENCE_FIRES=1
+        {
+            echo "[session-start] Cadence: trigger fires (strict-modulo fallback; last_audit_session absent from register_state.json)."
+            echo "  Per ADR 0022 + engine/operations/health-check.md, propose a project health check."
+            echo "  Run engine/tools/health_check.py --session S-$NEXT_ID to produce the audit report."
+            echo "  Restore last_audit_session in register_state.json to re-enable overdue-catchup logic."
+        } >&2
+    else
+        echo "[session-start] Cadence: no trigger this session (strict-modulo fallback; next_id $NEXT_ID mod $CADENCE = $CADENCE_REMAINDER)."
+    fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -208,7 +268,7 @@ fi
 
 if [ ! -d "$ARCHIVE_DIR" ]; then
     echo "[session-start] Persistent warns: archive directory absent."
-    log_ok "cadence=$CADENCE_REMAINDER persistent-warns=no-archive"
+    log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=no-archive"
     exit 0
 fi
 
@@ -225,7 +285,7 @@ ARCHIVE_COUNT=${#RECENT_ARCHIVES[@]}
 
 if [ "$ARCHIVE_COUNT" -eq 0 ]; then
     echo "[session-start] Persistent warns: no archive files yet."
-    log_ok "cadence=$CADENCE_REMAINDER persistent-warns=no-archives"
+    log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=no-archives"
     exit 0
 fi
 
@@ -241,7 +301,7 @@ done
 # structured-field archives accumulate.
 if [ "$STRUCTURED_COUNT" -lt 5 ]; then
     echo "[session-start] Persistent warns: calibration window in effect ($STRUCTURED_COUNT/5 structured archives; surface defers until 5)."
-    log_ok "cadence=$CADENCE_REMAINDER persistent-warns=calibration-window structured=$STRUCTURED_COUNT"
+    log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=calibration-window structured=$STRUCTURED_COUNT"
     exit 0
 fi
 
@@ -347,5 +407,5 @@ if [ -f "$SCHEDULED_AUDITS_FILE" ]; then
     fi
 fi
 
-log_ok "cadence=$CADENCE_REMAINDER persistent-warns=$PERSISTENT_FOUND scheduled=$SCHEDULED_FOUND probe=$PROBE_STATUS"
+log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=$PERSISTENT_FOUND scheduled=$SCHEDULED_FOUND probe=$PROBE_STATUS"
 exit 0
