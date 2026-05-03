@@ -28,6 +28,8 @@ Non-responsibilities:
 from __future__ import annotations
 
 import json
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -578,15 +580,15 @@ def test_resolve_mempalace_binary_returns_none_when_absent(
 ) -> None:
     # Force shutil.which to miss and the home-fallback path to point at
     # nothing executable.
-    monkeypatch.setattr(health_check.shutil, "which", lambda _: None)
-    monkeypatch.setattr(health_check.Path, "home", lambda: tmp_path)
+    monkeypatch.setattr(shutil, "which", lambda _: None)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
     assert _resolve_mempalace_binary() is None
 
 
 def test_resolve_mempalace_binary_prefers_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(health_check.shutil, "which", lambda _: "/usr/bin/mempalace")
+    monkeypatch.setattr(shutil, "which", lambda _: "/usr/bin/mempalace")
     assert _resolve_mempalace_binary() == "/usr/bin/mempalace"
 
 
@@ -599,8 +601,8 @@ def test_resolve_mempalace_binary_falls_back_to_user_scope(
     fallback_file = fallback_dir / "mempalace"
     fallback_file.write_text("#!/bin/sh\necho test")
     fallback_file.chmod(0o755)
-    monkeypatch.setattr(health_check.shutil, "which", lambda _: None)
-    monkeypatch.setattr(health_check.Path, "home", lambda: tmp_path)
+    monkeypatch.setattr(shutil, "which", lambda _: None)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
     assert _resolve_mempalace_binary() == str(fallback_file)
 
 
@@ -611,7 +613,7 @@ def test_run_mempalace_returns_stdout_on_success(
         returncode = 0
         stdout = "drawer count: 42"
 
-    monkeypatch.setattr(health_check.subprocess, "run", lambda *a, **kw: FakeResult())
+    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: FakeResult())
     assert _run_mempalace("/fake/mempalace", "status") == "drawer count: 42"
 
 
@@ -622,7 +624,7 @@ def test_run_mempalace_returns_none_on_nonzero_exit(
         returncode = 1
         stdout = ""
 
-    monkeypatch.setattr(health_check.subprocess, "run", lambda *a, **kw: FakeResult())
+    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: FakeResult())
     assert _run_mempalace("/fake/mempalace", "status") is None
 
 
@@ -632,7 +634,7 @@ def test_run_mempalace_returns_none_on_subprocess_error(
     def raise_error(*args: Any, **kwargs: Any) -> None:
         raise OSError("simulated")
 
-    monkeypatch.setattr(health_check.subprocess, "run", raise_error)
+    monkeypatch.setattr(subprocess, "run", raise_error)
     assert _run_mempalace("/fake/mempalace", "status") is None
 
 
