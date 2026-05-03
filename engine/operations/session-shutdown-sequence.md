@@ -138,7 +138,13 @@ If the MemPalace MCP server is unavailable at shutdown, attempt the write; if it
 
 Honest summaries beat flattering ones — health-check trend analysis and the next session's boot procedure both depend on them.
 
-`outcome_summary_soft_warns` is the structured trend canon per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md). Computed from `validate.py`'s final-run output of this session (per-category soft-warn counts) plus session-state findings the validator does not see (`diary_skipped` from step 7). Shape:
+`outcome_summary_soft_warns` is the structured trend canon per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md). **Per [ADR 0045](../adr/0045-shared-state-integrity-discipline.md) (S-0035 onward), the field is computed by aggregating across every `validate.py` invocation recorded in this session's `engine/tools/validate-history.jsonl` entries — per-category max-count.** This closes a gap in the prior "final validator run only" rule: a soft-warn that fires at boot (e.g., `chromadb_palace_health` under suspicion-level corruption) but resolves before shutdown would otherwise be dropped from the archive, defeating the cross-session 3-of-5 surface. Aggregating across all session invocations means boot-only firings still accumulate.
+
+The boot-only firing case isn't theoretical: the SessionStart hook runs `validate.py --health-probe-only` per ADR 0045, which writes its own validate-history.jsonl entry independent of the final pre-commit run. Without the aggregation change, that entry's findings would never reach the archive.
+
+Plus session-state findings the validator does not see (`diary_skipped` from step 7).
+
+Shape:
 
 ```json
 "outcome_summary_soft_warns": {
@@ -151,11 +157,21 @@ Honest summaries beat flattering ones — health-check trend analysis and the ne
   "superseded_adr_currency": 0,
   "adr_back_reference_orphan": 2,
   "adr_consequences_deliverable_audit": 0,
+  "chromadb_palace_health": 0,
+  "repo_config_health": 0,
   "diary_skipped": 0
 }
 ```
 
-All known soft-warn categories appear in the block, even with zero counts; absent keys signal "this category did not exist at this session's close" rather than "this category fired zero times." The boot-time persistent-warn surface (per [`soft-warn-lifecycle.md`](soft-warn-lifecycle.md)) reads this field across the last 5 archives and surfaces categories appearing in 3-or-more. `diary_skipped` is session-state (recorded by step 7 of this procedure), not validator output.
+All known soft-warn categories appear in the block, even with zero counts; absent keys signal "this category did not exist at this session's close" rather than "this category fired zero times." The boot-time persistent-warn surface (per [`soft-warn-lifecycle.md`](soft-warn-lifecycle.md)) reads this field across the last 5 archives and surfaces categories appearing in 3-or-more. `diary_skipped` is session-state (recorded by step 7 of this procedure), not validator output. `chromadb_palace_health` and `repo_config_health` are the shared-state probe categories per ADR 0045 — they fire on either suspicion (palace empty, etc.) or hard-broken (segfault, parent core.bare=true) state at any validator invocation during the session.
+
+**Aggregation procedure (per ADR 0045):**
+
+1. Determine session-base SHA: `git merge-base origin/main HEAD` (the commit immediately before the eager-claim).
+2. Read `engine/tools/validate-history.jsonl`. Filter entries whose `session_id` matches this session's S-NNNN (or whose timestamp falls between session-base time and now if `session_id` is "outside-session").
+3. For each soft-warn category appearing in any filtered entry's `soft_warns` dict, take the max count across all entries.
+4. Add `diary_skipped: 0` (or 1 if step 7 was skipped).
+5. Ensure every known category from the catalog appears with at least 0; absent keys carry the documented "category didn't exist" semantic.
 
 ### 9. Archive the claim
 

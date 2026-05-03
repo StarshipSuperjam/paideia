@@ -83,6 +83,22 @@ An ADR's Consequences section anticipated a deliverable "around S-NNNN," that se
 
 Recoverable — either land the deliverable (with closing-commit handshake per [`cascade-discipline.md`](cascade-discipline.md): cite the ADR id in the commit message), or amend the ADR's Consequences section to remove the now-obsolete promise, or document the deferral with a new expected session.
 
+### `chromadb_palace_health`
+
+The shared-state probe at [`engine/tools/probe_palace.py`](../tools/probe_palace.py) reported a level-1 (suspect) condition — palace path missing, no collections, or another anomaly that doesn't constitute outright corruption. Active from S-0035 onward per [ADR 0045](../adr/0045-shared-state-integrity-discipline.md). Probe runs at every `validate.py` invocation in the default check set and in the `--health-probe-only` mode used by the SessionStart hook.
+
+The probe escalates to a **hard-fail** (not a soft-warn) when the palace is definitely broken — chromadb refuses to import, `PersistentClient` raises on open, `get_collection() / count()` raises, or the probe segfaults at SIGSEGV (the S-0034 chromadb_rust_bindings signature on a corrupt HNSW segment). Definite corruption blocks the commit so the build session must address it before proceeding; the soft-warn level is reserved for ambiguous states that don't yet warrant blocking.
+
+Recoverable — `mempalace mine <dir>` to re-populate from source jsonl files; or move the suspect segment dir aside (`palace/<segment-uuid>.broken/`) and re-run the probe so chromadb rebuilds from SQLite-stored embeddings (the S-0034 recovery procedure).
+
+### `repo_config_health`
+
+The shared-state probe at [`engine/tools/probe_repo.py`](../tools/probe_repo.py) reported a level-1 (suspect) condition. Active from S-0035 onward per [ADR 0045](../adr/0045-shared-state-integrity-discipline.md). Currently no level-1 conditions are emitted (reserved for future calibration like dirty working tree or detached HEAD); all probe findings today reach hard-fail level.
+
+The probe escalates to a **hard-fail** when `core.bare=true` is set on either the worktree's effective config or the parent clone's standalone `.git/config` (the S-0033 vector — masked by a worktree override but breaks parent-side boot operations like `merge --ff-only` and `push origin main`), or when HEAD does not resolve, or when basic `git rev-parse` queries fail.
+
+Recoverable — the probe's stderr names the exact `git -C <repo> config --unset core.bare` command needed for the bare-misconfig case; HEAD-resolution failures are typically detached-HEAD or partial-checkout artifacts and are addressed by the appropriate `git checkout` or `git switch` operation.
+
 ### Phase-4-specific (stubbed today)
 
 When Phase 4 fleshes out the graph audit, additional categories appear:

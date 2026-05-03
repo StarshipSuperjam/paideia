@@ -27,6 +27,12 @@ demand from the CLI. Three responsibility families live here:
 A fourth responsibility (graph audit per ADR 0016) sits as a stub today;
 Phase 4 fleshes it out. See validate_graph().
 
+A fifth responsibility (shared-state health probes per ADR 0045) runs
+the chromadb palace and git repo probes — added at S-0035 to catch
+silent corruption of cross-session shared state at the moment a
+session boots or a commit is attempted, rather than letting it persist
+until the next session reads. See validate_shared_state_health().
+
 Invariants this module preserves:
 
 - Read-only with respect to the repo. The validator never modifies tracked
@@ -87,6 +93,12 @@ CLI invocation:
         RLS-enable, CHECK constraint shape on enum-modeled columns)
         against the named SQL files. Mutually exclusive with --code-gates.
 
+    python3 engine/tools/validate.py --health-probe-only
+        Run only the shared-state health probes (chromadb palace +
+        repo config) without the structure or graph checks. Used by
+        the SessionStart hook for sub-second boot-time verification.
+        Mutually exclusive with the gate flags.
+
 Module contracts referenced:
 
 - ADR 0016 — graph-construction live-validation contract; see validate_graph().
@@ -95,6 +107,11 @@ Module contracts referenced:
 - ADR 0038 — code-discipline contract; see validate_code_gates().
 - ADR 0039 — universal expression contract; the SQL/migrations row's Layer 2
   is implemented by validate_sql_gates().
+- ADR 0045 — shared-state integrity discipline; subprocess env scrubbing
+  via :mod:`scrub_env`, chromadb palace and git repo probes are wired
+  through validate_shared_state_health(); pre-commit subprocesses (ruff,
+  mypy, pytest) pass scrubbed envs to prevent the S-0033 GIT_DIR-leak
+  vector.
 """
 
 from __future__ import annotations
@@ -109,6 +126,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+# Local helper at engine/tools/scrub_env.py — see ADR 0045.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from scrub_env import scrubbed_env  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -147,6 +168,14 @@ EXPECTED_FROM_S0002 = [
 # per ADR 0037's partition.
 ENGINE_ADR_DIR = REPO_ROOT / "engine" / "adr"
 PRODUCT_ADR_DIR = REPO_ROOT / "product" / "adr"
+
+# Shared-state probe scripts (per ADR 0045). Run as subprocesses so a
+# native segfault (e.g., chromadb_rust_bindings on a corrupt HNSW
+# segment — the S-0034 vector) terminates the probe process at exit
+# code 139 rather than crashing the validator. The wrapper treats 139
+# as hard-broken.
+PROBE_PALACE = REPO_ROOT / "engine" / "tools" / "probe_palace.py"
+PROBE_REPO = REPO_ROOT / "engine" / "tools" / "probe_repo.py"
 
 
 # ---------------------------------------------------------------------------
@@ -477,6 +506,102 @@ def validate_repo_structure() -> ValidationResult:
     r.merge(validate_superseded_adr_currency())
     r.merge(validate_adr_back_reference_orphan())
     r.merge(validate_adr_consequences_deliverable_audit())
+
+    return r
+
+
+# ---------------------------------------------------------------------------
+# Shared-state health probes (post-S-0035 per ADR 0045)
+# ---------------------------------------------------------------------------
+
+
+def validate_shared_state_health() -> ValidationResult:
+    """Run the shared-state health probes; return the result.
+
+    Two probes wrap external scripts so a native segfault (from
+    ``chromadb_rust_bindings`` on a corrupt HNSW segment — the S-0034
+    vector) terminates the probe process at exit code 139 instead of
+    crashing the validator itself. Exit-code interpretation:
+
+    - 0: probe healthy. No record beyond ``add_check``.
+    - 1: probe suspect. Recorded as soft-warn under the probe's
+      category (``chromadb_palace_health`` or ``repo_config_health``).
+      The probe's stderr is the soft-warn body.
+    - 2: probe hard-broken. Recorded as hard-fail; validator exits 2.
+    - 139 (SIGSEGV): treated as hard-broken. The wrapper records the
+      segfault and triggers the same exit-2 path. For chromadb this is
+      the S-0034 vector — the rust binding faults on a corrupt segment
+      before any Python exception can be raised.
+
+    Probe scripts:
+
+    - ``engine/tools/probe_palace.py`` — opens chromadb
+      ``PersistentClient`` at ``~/.mempalace/palace``, lists
+      collections, calls ``get_collection() + count()`` on each.
+      Sub-second on a 130 MB palace per the S-0034 measurement.
+    - ``engine/tools/probe_repo.py`` — checks effective ``core.bare``,
+      parent-clone direct ``core.bare``, and HEAD resolution.
+
+    The check categories are stable across boot-time and pre-commit
+    invocations so the soft-warn lifecycle (per ADR 0042) treats
+    findings from both contexts as the same category. A boot-probe
+    finding accumulates in the same archive bucket as a pre-commit
+    finding, supporting cross-session persistence detection.
+
+    Returns:
+        ValidationResult with ``checks_run`` populated for both probes
+        and ``hard_fails`` / ``soft_warns`` populated as the probes run.
+
+    Non-responsibilities:
+        - Does not perform rollback or repair. The probes report
+          state; remediation is the caller's responsibility.
+        - Does not retry on transient failure. A single subprocess
+          run per probe; flakes show up as hard-fails on that run.
+        - Does not handle network-side state (Supabase, GitHub).
+          Those have their own health surfaces.
+    """
+    r = ValidationResult()
+
+    probes = (
+        (PROBE_PALACE, "chromadb_palace_health", "palace"),
+        (PROBE_REPO, "repo_config_health", "repo"),
+    )
+
+    for probe_path, category, probe_name in probes:
+        check_name = f"shared_state_{probe_name}"
+        r.add_check(check_name)
+        if not probe_path.is_file():
+            r.soft_warn(
+                category,
+                f"probe script missing: {probe_path.relative_to(REPO_ROOT)}",
+            )
+            continue
+        proc = subprocess.run(
+            ["python3", str(probe_path)],
+            capture_output=True,
+            text=True,
+            env=scrubbed_env(),
+        )
+        # Probes emit findings on stderr by convention; fall back to
+        # stdout if stderr is empty (covers an unexpected exit-code
+        # path where the probe reported on stdout).
+        body = (proc.stderr.strip() or proc.stdout.strip()) or "(no output)"
+        if proc.returncode == 0:
+            continue
+        if proc.returncode == 1:
+            r.soft_warn(category, body)
+        elif proc.returncode == 2:
+            r.hard_fail(f"{probe_name} probe hard-broken:\n{body}")
+        elif proc.returncode == 139:
+            r.hard_fail(
+                f"{probe_name} probe segfaulted (SIGSEGV); treating as "
+                f"hard-broken. For the palace probe this is the S-0034 "
+                f"corruption signature.\n{body}"
+            )
+        else:
+            r.hard_fail(
+                f"{probe_name} probe exited {proc.returncode} (unexpected):\n{body}"
+            )
 
     return r
 
@@ -816,11 +941,17 @@ def validate_code_gates(files: list[Path]) -> ValidationResult:
     file_args = [str(f) for f in files]
 
     # Layer 2 gate 1: ruff check (lint)
+    # All four code-gate subprocesses pass env=scrubbed_env() per ADR 0045
+    # to prevent GIT_DIR / GIT_WORK_TREE leakage from a parent context
+    # (e.g., the pre-commit hook's own git invocations) into pytest tests
+    # that subprocess git — the S-0033 vector that wrote core.bare=true
+    # to the parent's .git/config.
     r.add_check("code_gates_ruff_check")
     proc = subprocess.run(
         ["python3", "-m", "ruff", "check", *file_args],
         capture_output=True,
         text=True,
+        env=scrubbed_env(),
     )
     if proc.returncode != 0:
         r.hard_fail(f"ruff check failed:\n{proc.stdout}{proc.stderr}".rstrip())
@@ -831,6 +962,7 @@ def validate_code_gates(files: list[Path]) -> ValidationResult:
         ["python3", "-m", "ruff", "format", "--check", *file_args],
         capture_output=True,
         text=True,
+        env=scrubbed_env(),
     )
     if proc.returncode != 0:
         r.hard_fail(f"ruff format check failed:\n{proc.stdout}{proc.stderr}".rstrip())
@@ -841,17 +973,21 @@ def validate_code_gates(files: list[Path]) -> ValidationResult:
         ["python3", "-m", "mypy", "--strict", *file_args],
         capture_output=True,
         text=True,
+        env=scrubbed_env(),
     )
     if proc.returncode != 0:
         r.hard_fail(f"mypy --strict failed:\n{proc.stdout}{proc.stderr}".rstrip())
 
     # Layer 2 gate 4: test presence — each non-test source file has a
     # corresponding test_<name>.py (sibling or in tests/ subdirectory).
+    # conftest.py is exempted because pytest treats it as a fixture-sharing
+    # module that's exercised transitively by every test in its directory;
+    # writing test_conftest.py would be circular.
     r.add_check("code_gates_test_presence")
     test_files: list[Path] = []
     for f in files:
-        if f.name.startswith("test_") or "tests" in f.parts:
-            # Test files themselves don't need their own tests
+        if f.name.startswith("test_") or f.name == "conftest.py" or "tests" in f.parts:
+            # Test files and conftest fixtures don't need their own tests.
             continue
         sibling_test = f.parent / f"test_{f.name}"
         nested_test = f.parent / "tests" / f"test_{f.name}"
@@ -874,6 +1010,7 @@ def validate_code_gates(files: list[Path]) -> ValidationResult:
             ["python3", "-m", "pytest", "-q", *test_args],
             capture_output=True,
             text=True,
+            env=scrubbed_env(),
         )
         if proc.returncode != 0:
             r.hard_fail(f"pytest failed:\n{proc.stdout}{proc.stderr}".rstrip())
@@ -1359,19 +1496,25 @@ def append_history(record: dict[str, Any]) -> None:
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point. Returns the process exit code (0/1/2).
 
-    Three invocation modes are mutually exclusive:
+    Four invocation modes are mutually exclusive:
 
-    - **Default (no flags)**: run validate_repo_structure + validate_graph.
-      Aggregates results, prints summary to stdout, details to stderr,
-      appends telemetry to the JSONL log.
-    - **--code-gates --files <path>...**: run validate_code_gates against
-      the named files. Useful for pre-commit hook integration where the
-      hook passes the staged Python files. Skips repo-structure and graph
-      checks; the structure run is invoked separately by the hook.
-    - **--sql-gates --files <path>...**: run validate_sql_gates against
-      the named SQL files. Useful for pre-commit hook integration where
-      the hook passes staged migration files under
-      product/seed-graph/migrations/. Mutually exclusive with --code-gates.
+    - **Default (no flags)**: run validate_repo_structure +
+      validate_shared_state_health + validate_graph. Aggregates
+      results, prints summary to stdout, details to stderr, appends
+      telemetry to the JSONL log.
+    - **--code-gates --files <path>...**: run validate_code_gates
+      against the named files. Useful for pre-commit hook integration
+      where the hook passes the staged Python files. Skips
+      repo-structure, shared-state-health, and graph checks; the
+      structure run is invoked separately by the hook.
+    - **--sql-gates --files <path>...**: run validate_sql_gates
+      against the named SQL files. Useful for pre-commit hook
+      integration where the hook passes staged migration files under
+      product/seed-graph/migrations/. Mutually exclusive with
+      --code-gates.
+    - **--health-probe-only**: run only validate_shared_state_health.
+      Used by the SessionStart hook for sub-second boot-time
+      verification. Mutually exclusive with the gate flags.
 
     Inputs:
         argv: optional argument list (for testability). When None, falls
@@ -1384,7 +1527,9 @@ def main(argv: list[str] | None = None) -> int:
         - Does not enforce mutual exclusion between --code-gates and
           --sql-gates beyond the dispatch precedence (--code-gates wins
           if both are set; the pre-commit hook invokes them in
-          separate calls and never sets both).
+          separate calls and never sets both). --health-probe-only
+          overrides both gate flags when present (the probe is fast
+          enough that any concurrent invocation is the caller's bug).
     """
     parser = argparse.ArgumentParser(
         description="Paideia repo-structure validator and code/SQL gate runner",
@@ -1403,6 +1548,13 @@ def main(argv: list[str] | None = None) -> int:
         "--code-gates.",
     )
     parser.add_argument(
+        "--health-probe-only",
+        action="store_true",
+        help="Run only the shared-state health probes (chromadb palace + "
+        "repo config). Used by the SessionStart hook for sub-second "
+        "boot-time verification. Mutually exclusive with gate flags.",
+    )
+    parser.add_argument(
         "--files",
         nargs="*",
         type=Path,
@@ -1415,12 +1567,15 @@ def main(argv: list[str] | None = None) -> int:
     start = time.monotonic()
     overall = ValidationResult()
 
-    if args.code_gates:
+    if args.health_probe_only:
+        overall.merge(validate_shared_state_health())
+    elif args.code_gates:
         overall.merge(validate_code_gates(args.files))
     elif args.sql_gates:
         overall.merge(validate_sql_gates(args.files))
     else:
         overall.merge(validate_repo_structure())
+        overall.merge(validate_shared_state_health())
         overall.merge(validate_graph())
 
     duration_ms = (time.monotonic() - start) * 1000

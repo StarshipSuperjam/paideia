@@ -1,12 +1,14 @@
 #!/bin/bash
 #
-# Paideia SessionStart hook — cadence trigger + persistent-warn surface.
+# Paideia SessionStart hook — cadence trigger + persistent-warn surface
+# + shared-state health probe.
 #
-# Per ADR 0043 (engine). Wired in .claude/settings.json as a SessionStart
-# hook. Fires once at every session boot regardless of whether /start-engine
-# or `Start Engine` is invoked.
+# Per ADR 0043 (engine; cadence + persistent-warn) and ADR 0045 (engine;
+# shared-state health probes). Wired in .claude/settings.json as a
+# SessionStart hook. Fires once at every session boot regardless of
+# whether /start-engine or `Start Engine` is invoked.
 #
-# Two posture rules this mechanizes:
+# Three posture rules this mechanizes:
 #
 #   1. Health-check cadence trigger — per ADR 0022. The strict logic
 #      `last_claimed mod cadence == 0` was off-by-one against ROADMAP/ADR 0022
@@ -22,6 +24,16 @@
 #      5 structured-field archives accumulate (≈ S-0033); during the window,
 #      the surface emits "calibration window in effect" instead.
 #
+#   3. Shared-state health probe — per ADR 0045. Runs
+#      `validate.py --health-probe-only` (sub-second on a 130 MB
+#      palace) which executes probe_palace.py and probe_repo.py to
+#      catch corruption (chromadb HNSW segment, parent .git/config
+#      misset to bare) before the AI tries to query mempalace or
+#      run parent-side git operations. Hard-broken findings emit a
+#      LOUD stderr surface so the AI sees them at boot and addresses
+#      them before substantive work; the hook still exits 0 so the
+#      session can start (otherwise the AI cannot even diagnose).
+#
 # Behavior: emits informational stdout/stderr; never blocks. Always exits 0.
 #
 # Failure modes:
@@ -36,6 +48,16 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
 if [ -z "$REPO_ROOT" ]; then
     SCRIPT_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
     REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." 2>/dev/null && pwd)"
+fi
+
+# Source the env scrubber. Must precede any subprocess that hits git or
+# git-aware tools so a leaked GIT_DIR / GIT_WORK_TREE from the parent
+# context (the S-0033 vector) is dropped before we shell out.
+SCRUB_HELPER="$REPO_ROOT/engine/tools/scrub_env.sh"
+if [ -f "$SCRUB_HELPER" ]; then
+    # shellcheck source=../scrub_env.sh
+    source "$SCRUB_HELPER"
+    scrub_git_env
 fi
 
 LOG_DIR="$REPO_ROOT/.claude/logs"
@@ -105,6 +127,79 @@ if [ "$CADENCE_REMAINDER" -eq 0 ]; then
     } >&2
 else
     echo "[session-start] Cadence: no trigger this session (next_id $NEXT_ID mod $CADENCE = $CADENCE_REMAINDER)."
+fi
+
+# ---------------------------------------------------------------------------
+# Shared-state health probe (per ADR 0045)
+# ---------------------------------------------------------------------------
+#
+# Runs `validate.py --health-probe-only` which wraps probe_palace.py
+# and probe_repo.py. Sub-second on a healthy state. Output is captured
+# and surfaced based on the validator's exit code:
+#
+#   0 — healthy, single OK line.
+#   1 — soft-warn (palace empty, etc.); pass-through stderr.
+#   2 — hard-broken (chromadb segfault, parent core.bare=true);
+#       emit a LOUD attention surface so the AI sees it at boot and
+#       fixes before substantive work. Hook still exits 0 so the
+#       session can start to receive the fix.
+#
+# Best-effort: if python3 or validate.py is missing, log fail and
+# continue. The probe is informational at boot — never blocking.
+
+PROBE_FOUND=0
+PROBE_STATUS=""
+VALIDATE_PY="$REPO_ROOT/engine/tools/validate.py"
+if [ -x "$(command -v python3)" ] && [ -f "$VALIDATE_PY" ]; then
+    PROBE_TMP="$(mktemp 2>/dev/null || echo "/tmp/session-start-probe.$$")"
+    PROBE_TMP_ERR="$(mktemp 2>/dev/null || echo "/tmp/session-start-probe-err.$$")"
+    python3 "$VALIDATE_PY" --health-probe-only \
+        >"$PROBE_TMP" 2>"$PROBE_TMP_ERR"
+    PROBE_EXIT=$?
+    PROBE_FOUND=1
+    case "$PROBE_EXIT" in
+        0)
+            echo "[session-start] Shared-state health: probes clean."
+            PROBE_STATUS="clean"
+            ;;
+        1)
+            {
+                echo "[session-start] Shared-state health: SOFT-WARN findings:"
+                cat "$PROBE_TMP_ERR" 2>/dev/null | sed 's/^/  /'
+                echo "  See engine/operations/tools-validate-interpretation.md"
+                echo "  for chromadb_palace_health / repo_config_health categories."
+            } >&2
+            PROBE_STATUS="soft-warn"
+            ;;
+        2)
+            {
+                echo ""
+                echo "============================================================"
+                echo "[session-start] Shared-state health: HARD-BROKEN — boot proceeds"
+                echo "  but mempalace queries and parent-side git operations may"
+                echo "  fail. Diagnose and fix BEFORE substantive work."
+                echo "============================================================"
+                cat "$PROBE_TMP_ERR" 2>/dev/null | sed 's/^/  /'
+                echo "------------------------------------------------------------"
+                echo "  See ADR 0045 (engine/adr/0045-shared-state-integrity-discipline.md)"
+                echo "  for diagnostic commands and recovery procedures."
+                echo "============================================================"
+                echo ""
+            } >&2
+            PROBE_STATUS="hard-broken"
+            ;;
+        *)
+            {
+                echo "[session-start] Shared-state health: probe exited $PROBE_EXIT (unexpected)" >&2
+                cat "$PROBE_TMP_ERR" 2>/dev/null | sed 's/^/  /' >&2
+            }
+            PROBE_STATUS="exit-$PROBE_EXIT"
+            ;;
+    esac
+    rm -f "$PROBE_TMP" "$PROBE_TMP_ERR" 2>/dev/null
+else
+    log_fail "probe-prereq-missing"
+    PROBE_STATUS="prereq-missing"
 fi
 
 # ---------------------------------------------------------------------------
@@ -222,5 +317,5 @@ if [ -f "$SCHEDULED_AUDITS_FILE" ]; then
     fi
 fi
 
-log_ok "cadence=$CADENCE_REMAINDER persistent-warns=$PERSISTENT_FOUND scheduled=$SCHEDULED_FOUND"
+log_ok "cadence=$CADENCE_REMAINDER persistent-warns=$PERSISTENT_FOUND scheduled=$SCHEDULED_FOUND probe=$PROBE_STATUS"
 exit 0

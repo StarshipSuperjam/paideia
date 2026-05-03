@@ -50,9 +50,11 @@ The cadence-trigger health check at `S-mod-N` (where N is `health_check_cadence`
 
 ## Closing discipline
 
-At session shutdown step 6 (per [`session-shutdown-sequence.md`](session-shutdown-sequence.md)), the structured `outcome_summary_soft_warns` block is computed from validate.py's final-run output and written to `engine/session/current.json` alongside the prose `outcome_summary`. The archive step (step 7) preserves the structured field as committed data.
+At session shutdown step 8 (per [`session-shutdown-sequence.md`](session-shutdown-sequence.md)), the structured `outcome_summary_soft_warns` block is computed from `validate.py`'s `validate-history.jsonl` entries and written to `engine/session/current.json` alongside the prose `outcome_summary`. The archive step preserves the structured field as committed data.
 
-Sessions that hit `closed_partial` write the structured block from whatever final validator run produced — incomplete sessions still contribute trend data.
+**Aggregation surface (per [ADR 0045](../adr/0045-shared-state-integrity-discipline.md), S-0035 onward):** the block aggregates across every `validate.py` invocation in this session, not just the final pre-commit run. Per-category max-count across all entries with this session's `session_id` (or the timestamp window for entries tagged "outside-session"). This catches boot-time probe firings that resolve before shutdown — the `--health-probe-only` mode invoked by `session-start.sh` writes its own validate-history.jsonl entries which would otherwise be lost. Without aggregation, a `chromadb_palace_health` finding at boot that's been repaired mid-session would not contribute to the cross-session 3-of-5 surface.
+
+Sessions that hit `closed_partial` write the structured block from whatever validator runs were captured up to the partial-close — incomplete sessions still contribute trend data.
 
 ## Escalation criterion
 

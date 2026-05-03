@@ -40,6 +40,7 @@ The engine collection has **11 ADRs total — all Accepted**. Engine ADRs are ab
 | [0042](0042-soft-warn-lifecycle-archive-canon.md) | Soft-warn lifecycle: persistent warns surface at boot; archive is canon | Accepted |
 | [0043](0043-hook-architecture.md) | Hook architecture: enforce two-layer recording, surface cadence, verify STATE.md fields | Accepted |
 | [0044](0044-skill-conversion-recipe-vs-reference.md) | Skill conversion: recipe-shaped procedures become Skills; reference docs stay docs | Accepted |
+| [0045](0045-shared-state-integrity-discipline.md) | Shared-state integrity discipline: subprocess env scrubbing, atomic mempalace writes, boot-time health probes | Accepted |
 
 ## Adding a new engine ADR
 

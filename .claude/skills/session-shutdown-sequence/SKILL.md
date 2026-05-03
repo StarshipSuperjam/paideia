@@ -134,7 +134,7 @@ If the MemPalace MCP server is unavailable at shutdown, attempt the write; if it
 
 `outcome_summary` is ~50 words of prose. What got done, anything noteworthy for the next session, what tradeoffs surfaced. Honest summaries beat flattering ones — health-check trend analysis and the next session's boot procedure both depend on them.
 
-`outcome_summary_soft_warns` is the structured trend canon per [ADR 0042](../../../engine/adr/0042-soft-warn-lifecycle-archive-canon.md). Computed from `validate.py`'s final-run output (per-category soft-warn counts) plus session-state findings the validator does not see (`diary_skipped` from step 7). Shape:
+`outcome_summary_soft_warns` is the structured trend canon per [ADR 0042](../../../engine/adr/0042-soft-warn-lifecycle-archive-canon.md). **Per [ADR 0045](../../../engine/adr/0045-shared-state-integrity-discipline.md) (S-0035 onward), aggregate across every `validate.py` invocation in this session's `engine/tools/validate-history.jsonl` entries (per-category max-count) — not just the final pre-commit run.** This catches boot-time probe firings (e.g., `chromadb_palace_health` under suspicion) that resolve before shutdown but should still register for cross-session 3-of-5 detection. Plus `diary_skipped` from step 7. Shape:
 
 ```json
 "outcome_summary_soft_warns": {
@@ -147,11 +147,15 @@ If the MemPalace MCP server is unavailable at shutdown, attempt the write; if it
   "superseded_adr_currency": 0,
   "adr_back_reference_orphan": 2,
   "adr_consequences_deliverable_audit": 0,
+  "chromadb_palace_health": 0,
+  "repo_config_health": 0,
   "diary_skipped": 0
 }
 ```
 
-All known soft-warn categories appear in the block, even with zero counts; absent keys signal "this category did not exist at this session's close" rather than "this category fired zero times." The boot-time persistent-warn surface (per `soft-warn-lifecycle.md`) reads this field across the last 5 archives. `diary_skipped` is session-state (recorded by step 7), not validator output.
+All known soft-warn categories appear in the block, even with zero counts; absent keys signal "this category did not exist at this session's close" rather than "this category fired zero times." The boot-time persistent-warn surface (per `soft-warn-lifecycle.md`) reads this field across the last 5 archives. `diary_skipped` is session-state (recorded by step 7), not validator output. `chromadb_palace_health` and `repo_config_health` are the shared-state probe categories per ADR 0045.
+
+**Aggregation procedure:** filter `validate-history.jsonl` to entries with this session's `session_id` (or by timestamp window if any are tagged "outside-session"); for each category appearing in any entry, take the max count.
 
 ### 9. Archive the claim
 

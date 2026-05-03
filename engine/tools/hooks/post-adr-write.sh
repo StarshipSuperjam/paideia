@@ -26,10 +26,20 @@
 #
 # Log path: .claude/logs/post-adr-write.log (gitignored under .claude/*).
 
-# Resolve repo root — prefer git's view; fall back to script location.
+# Resolve repo root. Scrub GIT_* env first per ADR 0045 — defense-in-depth
+# against a leaked GIT_DIR from any future Skill or sub-agent context that
+# could redirect this hook's git rev-parse to a foreign repo. Source-only
+# helper at engine/tools/scrub_env.sh; gracefully degrades if absent.
+SCRIPT_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
+SCRUB_HELPER="$SCRIPT_DIR/../scrub_env.sh"
+if [ -f "$SCRUB_HELPER" ]; then
+    # shellcheck source=../scrub_env.sh
+    source "$SCRUB_HELPER"
+    scrub_git_env
+fi
+
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
 if [ -z "$REPO_ROOT" ]; then
-    SCRIPT_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
     REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." 2>/dev/null && pwd)"
 fi
 
