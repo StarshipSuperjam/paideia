@@ -1,0 +1,48 @@
+{
+  "id": "S-0040",
+  "started_at": "2026-05-03T22:09:45Z",
+  "closed_at": "2026-05-03T22:21:27Z",
+  "status": "closed",
+  "working_on": "MemPalace wing-filter fix — investigate why mempalace_search wing='paideia' throws 'Internal error: Error finding id' (deferred from S-0038 in violation of CLAUDE.md fix-in-context posture); identify root cause; apply fix; surface historical-drawer disposition decision to user.",
+  "outcome_summary": "Two upstream mempalace 3.3.3 bugs diagnosed: (1) wing-filtered search throws 'Internal error: Error finding id' reproducibly across MCP and CLI for every wing tested; (2) hook auto-capture wing-naming derives from full encoded transcript-path directory, not the documented 'paideia' wing. Both upstream; not in-project remediable. Fix: documentation alignment in engine/operations/mempalace-operations.md (two new 'Known issues' entries plus 'Wing-name reality vs. documented intent' paragraph). No code changes. Closes the S-0038 deferral that violated CLAUDE.md 'Default to fix-in-context' posture. Concurrent with S-0039 (parser ADR + scaffold session, worktree amazing-shaw-809d26). Side-discovery noted in STATE.md S-0041 boot-time check section: SessionStart hook does not re-fire on mid-conversation eager-claim, so the cadence trigger that should have caught next_id='0040' (40 mod 10 = 0) was silently missed. ADR count unchanged. Validator clean.",
+  "outcome_summary_soft_warns": {
+    "expected_future_file_missing": 0,
+    "adr_missing_status": 0,
+    "adr_index_inconsistent": 0,
+    "cross_reference_broken": 0,
+    "engine_log_format": 0,
+    "state_format": 0,
+    "superseded_adr_currency": 0,
+    "adr_back_reference_orphan": 0,
+    "adr_consequences_deliverable_audit": 0,
+    "chromadb_palace_health": 0,
+    "repo_config_health": 0,
+    "undeclared_predicate": 0,
+    "attribute_shape_inconsistency": 0,
+    "missing_rigor_score": 0,
+    "render_readiness_violation": 0,
+    "synthetic_review_queue": 0,
+    "orphan_leaf": 0,
+    "suspicious_cross_domain_ratio": 0,
+    "diary_skipped": 0
+  },
+  "approved_plan": "/Users/shanekidd/.claude/plans/plan-for-next-session-tender-pudding.md",
+  "branch": "claude/eloquent-knuth-423df2",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/eloquent-knuth-423df2",
+  "side_discoveries": [
+    {
+      "commit": "session-prose",
+      "marker": "deferred",
+      "disposition_type": "addressed_inline",
+      "disposition_ref": "09b4a09",
+      "reasoning": "S-0040's whole purpose was closing the S-0038 deferral; the word 'deferred' appears repeatedly in commit messages and STATE.md prose to name what was being closed. Audit pattern matched zero markers because all instances are descriptive of the historical deferral being addressed, not new deferrals."
+    },
+    {
+      "commit": "session-prose",
+      "marker": "future",
+      "disposition_type": "acceptable_no_action",
+      "disposition_ref": "",
+      "reasoning": "S-0040 surfaces a SessionStart hook re-fire side-discovery (cadence trigger missed when slot claimed mid-conversation rather than at fresh /start-engine). Documented in STATE.md S-0041 boot-time check section for next-session attention. Out of scope for the wing-fix plan; intentional acceptance pending separate hook-architecture session."
+    }
+  ]
+}
