@@ -25,7 +25,7 @@ The `Status:` field is required; `engine/tools/validate.py` soft-warns on ADR fi
 
 ## Index
 
-The product collection has **33 ADRs total — 31 Accepted plus 2 Superseded** ([ADR 0002](0002-commercial-sustainability-without-pedagogical-compromise.md) by [ADR 0032](0032-personal-project-disposition.md); [ADR 0032](0032-personal-project-disposition.md) by [ADR 0035](0035-multi-platform-apple-expansion.md)). The canonical project-wide ADR count lives in [`engine/STATE.md`](../../engine/STATE.md); the engine subtree carries the engine-side ADRs in [`engine/adr/`](../../engine/adr/). ADR numbers are drawn from a single shared sequence and do not duplicate across the partition. ADRs are grouped below by the structural role they play in the project.
+The product collection has **34 ADRs total — 32 Accepted plus 2 Superseded** ([ADR 0002](0002-commercial-sustainability-without-pedagogical-compromise.md) by [ADR 0032](0032-personal-project-disposition.md); [ADR 0032](0032-personal-project-disposition.md) by [ADR 0035](0035-multi-platform-apple-expansion.md)). The canonical project-wide ADR count lives in [`engine/STATE.md`](../../engine/STATE.md); the engine subtree carries the engine-side ADRs in [`engine/adr/`](../../engine/adr/). ADR numbers are drawn from a single shared sequence and do not duplicate across the partition. ADRs are grouped below by the structural role they play in the project.
 
 ### Strong working commitments (ADRs 0001–0012)
 
@@ -83,6 +83,14 @@ The product collection has **33 ADRs total — 31 Accepted plus 2 Superseded** (
 | [0035](0035-multi-platform-apple-expansion.md) | Multi-platform Apple expansion; iPhone + iPad first-class via SwiftUI, Mac via Designed-for-iPad (supersedes ADR 0032) | Accepted |
 
 > [ADR 0036](../../engine/adr/0036-expression-contract-for-inward-documents.md) (expression contract for inward-facing documentation) and [ADR 0037](../../engine/adr/0037-engine-product-wall-and-changelog-rename.md) (engine/product wall) sit in this numerical range but file under `engine/adr/` because they govern engine-internal practice.
+
+### Phase 4.5 — Input Dataset Survey (ADR 0046, product-side)
+
+| ADR | Title | Status |
+|---|---|---|
+| [0046](0046-structural-reference-posture-extends-to-philosophy-reference-works.md) | Structural-reference posture extends to philosophy reference works as a class | Accepted |
+
+> ADRs 0038–0045 sit in the numerical range between Phase 1.5 and Phase 4.5 but file under `engine/adr/` (engine-internal expression contracts, build-readiness gate, cascade discipline, soft-warn lifecycle, hook architecture, skill conversion, shared-state integrity); see [`engine/adr/README.md`](../../engine/adr/README.md) for the engine collection.
 
 ## Adding a new product ADR
 
