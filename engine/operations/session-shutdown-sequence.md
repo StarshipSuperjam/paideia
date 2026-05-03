@@ -111,6 +111,23 @@ If a marker truly is a false positive (e.g., literal text inside a code-discipli
 
 The audit is hard-fail by design: undispositioned markers block the close, mirroring the mechanical-surface discipline the audit itself instantiates. The script does not introduce a new soft-warn category.
 
+#### 6a. HANDOFF-disposition audit
+
+Run `python3 engine/tools/audit_handoff_dispositions.py` from the repo root. The script diffs `HANDOFF.md` across this session's range (`<eager-claim-SHA>^..HEAD`) and finds every newly-added section header (`+## ...` in the unified diff). For each, it requires a `**Disposition:**` line in the section body matching one of four accepted forms:
+
+- `fixed-in-session @ <SHA>` — the bug or finding the section names was fixed in this session; the SHA points at the resolving commit.
+- `deferred-with-user-confirmation` — the user explicitly confirmed deferral via a prior chat turn (the diary or `working_on` field ideally name when).
+- `out-of-scope` — the entry documents a pattern, anti-pattern, or recovery procedure that's structurally not a fix-now item.
+- `not-actionable` — informational only; no fix exists or none warranted given current state.
+
+The pattern this addresses: the AI finds a bug whose fix is in context, writes a HANDOFF.md prose entry naming the bug + the proposed fix for a future session, and never applies the fix in the current session — the deferral pattern. Authored at S-0036 per CLAUDE.md "Default to fix-in-context."
+
+If any new section is missing or has an unrecognized disposition, the script exits 2 and the per-section detail goes to stderr. Resolve by **applying the fix in this session and updating the disposition to `fixed-in-session @ <commit-SHA>`**, OR — if deferral is genuinely warranted (substantial scope, contract change, budget cap reached) — flag the user, get confirmation, and use `deferred-with-user-confirmation`.
+
+The audit also runs from the pre-commit hook in `closing` mode (the close commit cannot land if any new HANDOFF section is undispositioned), so this manual invocation is a way to catch the issue before staging. Hard-fail by design.
+
+The audit ignores edits to existing sections — only newly-added section headers are scanned. The retrofit cost on pre-S-0036 entries would be prohibitive; the discipline applies forward only.
+
 ### 7. Write session diary entry
 
 Per [`mempalace-operations.md`](mempalace-operations.md) "Project usage scope". The MemPalace diary carries the AI's first-person reflection on the session — distinct from `outcome_summary` (outcome-focused) and ENGINE_LOG (third-person artifact narrative). What surprised me, what I noticed but didn't act on, what feels load-bearing for the next session, where my judgment was uncertain.

@@ -155,5 +155,22 @@ if [ -n "$STAGED_SQL" ] && [ -f engine/tools/validate.py ]; then
     fi
 fi
 
+# ---------------------------------------------------------------------------
+# Run HANDOFF-disposition audit on closing commits
+# (per CLAUDE.md "Default to fix-in-context", added at S-0036).
+# Every new HANDOFF.md section authored during the session must carry an
+# explicit **Disposition:** line; the audit hard-fails the close otherwise.
+# ---------------------------------------------------------------------------
+
+if [ "$MODE" = "closing" ] && [ -f engine/tools/audit_handoff_dispositions.py ]; then
+    STATUS=0
+    python3 engine/tools/audit_handoff_dispositions.py || STATUS=$?
+    if [ "$STATUS" -ge 2 ]; then
+        echo "[pre-commit] HANDOFF.md disposition audit hard-failed. Close blocked." >&2
+        echo "  See CLAUDE.md 'Default to fix-in-context' for the contract." >&2
+        exit 1
+    fi
+fi
+
 echo "[pre-commit] Mode: $MODE — OK"
 exit 0

@@ -247,18 +247,48 @@ fi
 
 # Aggregate per-category counts across the 5 most-recent archives. A category
 # "fires in" an archive iff its count is >0.
-declare -A CATEGORY_FIRINGS
+#
+# Bash 3.2 compatibility (per HANDOFF.md S-0035 entry, fixed at S-0036):
+# associative arrays (declare -A) and ${!arr[@]} key iteration are bash 4+
+# only. macOS ships /bin/bash 3.2; the shebang resolves to that. To stay
+# portable, use parallel indexed arrays — CATEGORY_NAMES[i] holds the
+# category name and CATEGORY_FIRINGS[i] holds the count of archives in
+# which that category fires.
+CATEGORY_NAMES=()
+CATEGORY_FIRINGS=()
+
+# Find the index of $1 in CATEGORY_NAMES; print -1 if absent. Local function
+# scope in bash 3.2 is `local`-keyword; we explicitly mark loop vars local.
+_find_category_index() {
+    local target="$1"
+    local i
+    for ((i=0; i<${#CATEGORY_NAMES[@]}; i++)); do
+        if [ "${CATEGORY_NAMES[$i]}" = "$target" ]; then
+            echo "$i"
+            return
+        fi
+    done
+    echo "-1"
+}
+
 for archive in "${RECENT_ARCHIVES[@]}"; do
     while IFS=$'\t' read -r cat count; do
         if [ -n "$cat" ] && [ -n "$count" ] && [ "$count" -gt 0 ] 2>/dev/null; then
-            CATEGORY_FIRINGS[$cat]=$((${CATEGORY_FIRINGS[$cat]:-0} + 1))
+            idx="$(_find_category_index "$cat")"
+            if [ "$idx" = "-1" ]; then
+                CATEGORY_NAMES+=("$cat")
+                CATEGORY_FIRINGS+=(1)
+            else
+                CATEGORY_FIRINGS[$idx]=$((${CATEGORY_FIRINGS[$idx]} + 1))
+            fi
         fi
     done < <(jq -r '.outcome_summary_soft_warns // {} | to_entries[] | "\(.key)\t\(.value)"' "$archive" 2>/dev/null)
 done
 
 PERSISTENT_FOUND=0
-for cat in "${!CATEGORY_FIRINGS[@]}"; do
-    firings=${CATEGORY_FIRINGS[$cat]}
+for ((i=0; i<${#CATEGORY_NAMES[@]}; i++)); do
+    cat="${CATEGORY_NAMES[$i]}"
+    firings=${CATEGORY_FIRINGS[$i]}
     if [ "$firings" -ge 3 ]; then
         if [ "$PERSISTENT_FOUND" -eq 0 ]; then
             echo "[session-start] Persistent warns:" >&2

@@ -113,6 +113,19 @@ Re-run the script. Iterate until exit 0. The total count of dispositions (per ty
 
 If a marker truly is a false positive, use `acceptable_no_action` with a short reasoning. The audit is hard-fail by design: undispositioned markers block the close. The script does not introduce a new soft-warn category.
 
+#### 6a. HANDOFF-disposition audit
+
+Run `python3 engine/tools/audit_handoff_dispositions.py`. Diffs `HANDOFF.md` across this session's range and finds every newly-added section header. Each must carry a `**Disposition:**` line in one of four forms:
+
+- `fixed-in-session @ <SHA>`
+- `deferred-with-user-confirmation`
+- `out-of-scope`
+- `not-actionable`
+
+The pattern this addresses: writing a HANDOFF.md prose entry for a bug whose fix is in context, instead of fixing inline. Per CLAUDE.md "Default to fix-in-context" — adding a HANDOFF entry that names a bug + names a fix without applying the fix is the deferral signal.
+
+Hard-fail at exit 2 if any new section is missing or has an unrecognized disposition. Resolve by **applying the fix in this session** and using `fixed-in-session @ <SHA>`, or — if deferral is warranted — flag the user, get confirmation, and use `deferred-with-user-confirmation`. Also runs in pre-commit at `closing` mode so the close commit cannot land if dispositions are missing.
+
 ### 7. Write session diary entry
 
 Per [`mempalace-operations.md`](../../../engine/operations/mempalace-operations.md) "Project usage scope". The MemPalace diary carries the AI's first-person reflection on the session — distinct from `outcome_summary` (outcome-focused) and ENGINE_LOG (third-person artifact narrative). What surprised me, what I noticed but didn't act on, what feels load-bearing for the next session, where my judgment was uncertain.

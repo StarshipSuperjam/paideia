@@ -76,6 +76,20 @@ Author at production quality the first time. Don't write a draft and polish; don
 
 Applies to newly-authored content. Cleanup sweeps that retrofit existing content to a newly-imposed contract — applying [ADR 0036](engine/adr/0036-expression-contract-for-inward-documents.md) to documents authored before the contract existed, for example — are exempt and belong in the new contract's own Consequences section.
 
+### Default to fix-in-context
+
+A bug found mid-session whose fix you understand defaults to **inline fix in this session**, not a HANDOFF.md entry. The deferral overhead — writing prose that names the bug, names the fix, names the proposed verification, plus the future session re-deriving the same details from cold — exceeds the inline-fix cost in nearly every case. Even when the bug is preexisting (not introduced by this session) and even when it's tangential to the session's named scope, the calculus holds: if you have the fix in context, apply it.
+
+Three named exceptions admit deferral:
+
+- **Substantial scope.** The fix touches load-bearing contracts (multiple ADRs, a posture rule, a cross-cutting refactor). Estimate honestly — most "feels substantial" reads are wrong.
+- **Contract change required.** The fix mutates a public surface another file or session depends on; that mutation needs its own ADR-tracked deliberation.
+- **Budget cap reached.** Per the budget-guidance percentages above, the session genuinely cannot fit the additional work without spilling.
+
+If one of those three applies, **flag the user before adding a HANDOFF.md entry**: name the bug, name the fix, name which exception applies, ask whether to fix in context now or defer. Do not write the HANDOFF entry first.
+
+Mechanically backstopped by [`engine/tools/audit_handoff_dispositions.py`](engine/tools/audit_handoff_dispositions.py): every new section added to HANDOFF.md during a session must carry a `**Disposition:**` line in one of the accepted forms (`fixed-in-session @ <SHA>`, `deferred-with-user-confirmation`, `out-of-scope`, `not-actionable`). The audit hard-fails at session shutdown if any new section is missing or has an unrecognized disposition. The intent is to make the deferral choice explicit at authoring time; the audit catches lapses.
+
 ### Two-layer decision recording
 
 Every settled decision lands in two places, serving different consumers:
