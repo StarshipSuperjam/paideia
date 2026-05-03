@@ -40,10 +40,14 @@ import health_check  # noqa: E402
 from health_check import (  # noqa: E402
     CategoryFindings,
     HealthCheckReport,
+    _count_adrs,
+    _resolve_mempalace_binary,
+    _run_mempalace,
     audit_bloat,
     audit_dead_weight,
     audit_fit,
     audit_gaps,
+    audit_mempalace,
     detect_cadence,
     detect_last_check,
     emit_report,
@@ -551,3 +555,239 @@ def test_main_dry_run(synthetic_repo: Path, capsys: pytest.CaptureFixture[str]) 
     assert "S-0030" in captured.out
     # Dry-run should not have written a file.
     assert not (synthetic_repo / "docs" / "health-checks" / "S-0030.md").is_file()
+
+
+# ---------------------------------------------------------------------------
+# MemPalace audit (added at S-0033 per the S-0032 MemPalace audit plan)
+# ---------------------------------------------------------------------------
+
+
+def test_count_adrs_counts_engine_and_product(synthetic_repo: Path) -> None:
+    write_adr(synthetic_repo, engine=True, num="0001", status="Accepted")
+    write_adr(synthetic_repo, engine=True, num="0002", status="Accepted")
+    write_adr(synthetic_repo, engine=False, num="0001", status="Accepted")
+    assert _count_adrs() == 3
+
+
+def test_count_adrs_zero_when_dirs_empty(synthetic_repo: Path) -> None:
+    assert _count_adrs() == 0
+
+
+def test_resolve_mempalace_binary_returns_none_when_absent(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Force shutil.which to miss and the home-fallback path to point at
+    # nothing executable.
+    monkeypatch.setattr(health_check.shutil, "which", lambda _: None)
+    monkeypatch.setattr(health_check.Path, "home", lambda: tmp_path)
+    assert _resolve_mempalace_binary() is None
+
+
+def test_resolve_mempalace_binary_prefers_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(health_check.shutil, "which", lambda _: "/usr/bin/mempalace")
+    assert _resolve_mempalace_binary() == "/usr/bin/mempalace"
+
+
+def test_resolve_mempalace_binary_falls_back_to_user_scope(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Build an executable file at the user-scope fallback path.
+    fallback_dir = tmp_path / "Library" / "Python" / "3.9" / "bin"
+    fallback_dir.mkdir(parents=True)
+    fallback_file = fallback_dir / "mempalace"
+    fallback_file.write_text("#!/bin/sh\necho test")
+    fallback_file.chmod(0o755)
+    monkeypatch.setattr(health_check.shutil, "which", lambda _: None)
+    monkeypatch.setattr(health_check.Path, "home", lambda: tmp_path)
+    assert _resolve_mempalace_binary() == str(fallback_file)
+
+
+def test_run_mempalace_returns_stdout_on_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeResult:
+        returncode = 0
+        stdout = "drawer count: 42"
+
+    monkeypatch.setattr(health_check.subprocess, "run", lambda *a, **kw: FakeResult())
+    assert _run_mempalace("/fake/mempalace", "status") == "drawer count: 42"
+
+
+def test_run_mempalace_returns_none_on_nonzero_exit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeResult:
+        returncode = 1
+        stdout = ""
+
+    monkeypatch.setattr(health_check.subprocess, "run", lambda *a, **kw: FakeResult())
+    assert _run_mempalace("/fake/mempalace", "status") is None
+
+
+def test_run_mempalace_returns_none_on_subprocess_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def raise_error(*args: Any, **kwargs: Any) -> None:
+        raise OSError("simulated")
+
+    monkeypatch.setattr(health_check.subprocess, "run", raise_error)
+    assert _run_mempalace("/fake/mempalace", "status") is None
+
+
+def test_audit_mempalace_when_binary_absent(
+    synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(health_check, "_resolve_mempalace_binary", lambda: None)
+    findings = audit_mempalace([])
+    # One observation naming the missing-CLI condition.
+    assert len(findings.observations) == 1
+    obs, _action = findings.observations[0]
+    assert "MemPalace CLI not on PATH" in obs
+
+
+def test_audit_mempalace_status_failure(
+    synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        health_check, "_resolve_mempalace_binary", lambda: "/fake/mempalace"
+    )
+    monkeypatch.setattr(health_check, "_run_mempalace", lambda *a, **kw: None)
+    findings = audit_mempalace([])
+    # Status-failure finding plus per-tag failures plus diary-calibration finding.
+    obs_texts = [obs for obs, _ in findings.observations]
+    assert any("mempalace status returned no output" in obs for obs in obs_texts)
+
+
+def test_audit_mempalace_decisions_room_healthy_ratio(
+    synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Two ADRs, three decisions-room drawers → ratio 1.5 (healthy).
+    write_adr(synthetic_repo, engine=True, num="0001", status="Accepted")
+    write_adr(synthetic_repo, engine=False, num="0001", status="Accepted")
+    status_output = (
+        "MemPalace Status\n"
+        "  WING: paideia\n"
+        "    ROOM: decisions    3 drawers\n"
+        "    ROOM: general    100 drawers\n"
+    )
+
+    def fake_run(binary: str, *args: str) -> str | None:
+        if args == ("status",):
+            return status_output
+        # Empty body for tag searches → no `Tags:` lines, so 0 tagged drawers.
+        return ""
+
+    monkeypatch.setattr(
+        health_check, "_resolve_mempalace_binary", lambda: "/fake/mempalace"
+    )
+    monkeypatch.setattr(health_check, "_run_mempalace", fake_run)
+    findings = audit_mempalace([])
+    obs_texts = [obs for obs, _ in findings.observations]
+    assert any(
+        "ratio 1.50" in obs and "two-layer recording is healthy" in obs
+        for obs in obs_texts
+    )
+
+
+def test_audit_mempalace_decisions_room_low_ratio_flags_gap(
+    synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Ten ADRs, one decisions-room drawer → ratio 0.1 (gap).
+    for n in range(1, 11):
+        write_adr(synthetic_repo, engine=True, num=f"{n:04d}", status="Accepted")
+    status_output = "  WING: paideia\n    ROOM: decisions    1 drawers\n"
+    monkeypatch.setattr(
+        health_check, "_resolve_mempalace_binary", lambda: "/fake/mempalace"
+    )
+    monkeypatch.setattr(
+        health_check,
+        "_run_mempalace",
+        lambda binary, *args: status_output if args == ("status",) else "",
+    )
+    findings = audit_mempalace([])
+    obs_texts = [obs for obs, _ in findings.observations]
+    assert any(
+        "significantly below" in obs and "ratio 0.10" in obs for obs in obs_texts
+    )
+
+
+def test_audit_mempalace_tag_filter_excludes_false_positives(
+    synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Search returns two results. One is a real pushback drawer with a
+    # `Tags: pushback, decision` line. The other mentions "pushback" in
+    # the body but has no Tags line — operations doc that *describes*
+    # the convention. Only the first should count.
+    search_output = (
+        "  [1] paideia / decisions\n"
+        "    # Decision: real pushback moment\n"
+        "    Tags: pushback, decision\n"
+        "    Body content here\n"
+        "\n"
+        "  [2] paideia / operations\n"
+        "    # Operations doc mentioning pushback\n"
+        "    The pushback convention says ...\n"
+        "    Body content here\n"
+    )
+
+    def fake_run(binary: str, *args: str) -> str | None:
+        if args == ("status",):
+            return "  WING: paideia\n    ROOM: decisions    1 drawers\n"
+        if "pushback" in args:
+            return search_output
+        return ""
+
+    write_adr(synthetic_repo, engine=True, num="0001", status="Accepted")
+    monkeypatch.setattr(
+        health_check, "_resolve_mempalace_binary", lambda: "/fake/mempalace"
+    )
+    monkeypatch.setattr(health_check, "_run_mempalace", fake_run)
+    findings = audit_mempalace([])
+    obs_texts = [obs for obs, _ in findings.observations]
+    # Should report exactly 1 pushback drawer (not 2 from raw search count).
+    assert any("`pushback`-tagged drawers in MemPalace: 1" in obs for obs in obs_texts)
+
+
+def test_audit_mempalace_diary_calibration_when_no_field_present(
+    synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Archives without diary_skipped key → calibration window message.
+    write_archive(synthetic_repo, "S-0030", soft_warns={"adr_back_reference_orphan": 0})
+    write_archive(synthetic_repo, "S-0031", soft_warns={"adr_back_reference_orphan": 1})
+    monkeypatch.setattr(
+        health_check, "_resolve_mempalace_binary", lambda: "/fake/mempalace"
+    )
+    monkeypatch.setattr(health_check, "_run_mempalace", lambda *a, **kw: None)
+    findings = audit_mempalace(list_archives())
+    obs_texts = [obs for obs, _ in findings.observations]
+    assert any("calibration window" in obs for obs in obs_texts)
+
+
+def test_audit_mempalace_diary_high_skip_rate(
+    synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Three of four archives have diary_skipped=1 → 75% skip rate.
+    for sid, skipped in (("S-0033", 1), ("S-0034", 1), ("S-0035", 0), ("S-0036", 1)):
+        write_archive(synthetic_repo, sid, soft_warns={"diary_skipped": skipped})
+    monkeypatch.setattr(
+        health_check, "_resolve_mempalace_binary", lambda: "/fake/mempalace"
+    )
+    monkeypatch.setattr(health_check, "_run_mempalace", lambda *a, **kw: None)
+    findings = audit_mempalace(list_archives())
+    obs_texts = [obs for obs, _ in findings.observations]
+    # Skip rate: 3/4 = 75%
+    assert any("Diary skip rate: 3/4" in obs and "75%" in obs for obs in obs_texts)
+
+
+def test_render_report_includes_mempalace_section(
+    synthetic_repo: Path,
+) -> None:
+    report = HealthCheckReport(session_id="S-0033")
+    report.mempalace.add("MemPalace stub finding", "test action")
+    rendered = render_report(report)
+    assert "## MemPalace" in rendered
+    assert "MemPalace stub finding" in rendered
+    # Section intro from render_report.
+    assert "Is the project's semantic-memory layer in healthy use?" in rendered

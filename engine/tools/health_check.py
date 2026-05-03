@@ -3,11 +3,12 @@
 
 Module contract — what this file is and is not.
 
-This module aggregates audit data per the four categories named in
-engine/operations/health-check.md (Fit, Gaps, Dead weight, Bloat) and
-emits a populated markdown report at docs/health-checks/S-NNNN.md.
-Per ADR 0022 (periodic project health checks) and ADR 0042 (soft-warn
-lifecycle: archive is canon).
+This module aggregates audit data across five categories — the four
+named in engine/operations/health-check.md (Fit, Gaps, Dead weight,
+Bloat) plus MemPalace (added at S-0033 per the S-0032 MemPalace audit
+plan, Improvement D) — and emits a populated markdown report at
+docs/health-checks/S-NNNN.md. Per ADR 0022 (periodic project health
+checks) and ADR 0042 (soft-warn lifecycle: archive is canon).
 
 The script is invoked when the cadence trigger fires at session boot
 (default cadence: 10 sessions as of S-0033, was 30 from S-0001 to S-0032
@@ -38,8 +39,8 @@ Inputs (read):
 Outputs (written):
 
 - docs/health-checks/S-NNNN.md — populated report following the shape
-  in docs/health-checks/TEMPLATE.md. Each of the four sections is
-  non-empty.
+  in docs/health-checks/TEMPLATE.md, extended with the MemPalace
+  section. Each of the five sections is non-empty.
 - Stdout: progress messages and final report path.
 - Exit code: 0 (report written), 2 (missing required input).
 
