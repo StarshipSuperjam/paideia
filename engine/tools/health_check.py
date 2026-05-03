@@ -904,7 +904,9 @@ def audit_mempalace(archives: list[Path]) -> CategoryFindings:
         # Each result is bracketed by a "[N] paideia / <room>" header.
         # Split on those headers and inspect each block's body for a
         # `Tags:` line containing the tag.
-        blocks = re.split(r"^\s*\[\d+\]\s+paideia\s*/\s*\w+", search_text, flags=re.MULTILINE)
+        blocks = re.split(
+            r"^\s*\[\d+\]\s+paideia\s*/\s*\w+", search_text, flags=re.MULTILINE
+        )
         tag_pattern = re.compile(rf"\*?\*?Tags:\*?\*?[^\n]*\b{re.escape(tag)}\b")
         tagged_blocks = [b for b in blocks if tag_pattern.search(b)]
         tagged_count = len(tagged_blocks)
