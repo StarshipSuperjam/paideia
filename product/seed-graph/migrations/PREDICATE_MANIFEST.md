@@ -1,35 +1,46 @@
-# supabase/migrations/PREDICATE_MANIFEST.md — Canonical edge-type registry
+# product/seed-graph/migrations/PREDICATE_MANIFEST.md — Canonical edge-type registry
 
-> **Placeholder created S-0001. Fleshed out in Phase 4** when graph construction begins. Adding a new predicate is an ENGINE_LOG-tracked material change; the same session that introduces the predicate must update this file.
+> Canonical registry of edge predicates used in `public.edges`. The v1 registry was authored at S-0037 per the [Phase 4 build-readiness gate](../../../engine/build_readiness/phase_4_graph_validation.md) (T2-G); subsequent additions land in the same session that introduces a new predicate, paired with an ENGINE_LOG entry under `Added`.
 
 ## Why this file exists
 
-Every edge in the Paideia graph carries a `type` field naming its predicate (e.g., `prerequisite`, `enables`). Free-form predicates accumulate schema drift silently across sessions — different sessions inventing equivalent-but-not-identical names (`is_prerequisite_for` vs `prerequisite`) until the audit at session N discovers 50+ undeclared variants.
+Every edge in the Paideia graph carries an `edge_type` field naming its predicate. The schema layer leaves `edge_type` unconstrained (per [`product/docs/architecture.md`](../../docs/architecture.md) "Edge Schema"); validation lives here and at [`engine/tools/validate.py`](../../../engine/tools/validate.py)'s graph audit per [ADR 0016](../../../engine/adr/0016-graph-construction-needs-live-validation.md). The audit reads the registry and soft-warns on any edge whose `edge_type` is absent — `undeclared_predicate` per [`engine/operations/tools-validate-interpretation.md`](../../../engine/operations/tools-validate-interpretation.md).
 
-This file is the canonical registry. `tools/validate.py`'s graph-audit extension point (per [`adr/0016-graph-construction-needs-live-validation.md`](../../adr/0016-graph-construction-needs-live-validation.md)) reads this file and **soft-warns on any edge whose type is not listed here**. New predicates are introduced by:
+A free-form `edge_type` accumulates schema drift silently across sessions: different sessions inventing equivalent-but-not-identical names (`is_prerequisite_for` vs `prerequisite` vs `pedagogical_prerequisite`) until an audit discovers a long tail of variants. The registry closes that loop — adding a predicate is an explicit act, recorded in the same commit that uses it.
 
-1. Adding an entry to this file in the same session that uses the new predicate.
-2. Recording the addition under "Added" in ENGINE_LOG.md `[Unreleased]`.
-3. Naming the predicate's domain (what kinds of nodes it connects) and range (what relationship it asserts).
+## Adding a new predicate
+
+1. Add a row to the **Predicate registry** table below in the same session that uses the new predicate.
+2. Record the addition under `Added` in [`engine/ENGINE_LOG.md`](../../../engine/ENGINE_LOG.md) `[Unreleased]`.
+3. Name the predicate's domain (the column type or table the source side draws from), range (the same for the target side), cardinality, and a short description.
 
 The audit catches drift; this manifest closes the loop by making the catch's resolution unambiguous.
 
 ## Predicate registry
 
-(Empty until Phase 4. The first entries land when Phase 5's epistemology session ships the first seed migration.)
+The v1 registry contains the two predicates current design documents commit to:
 
 | Predicate | Domain | Range | Cardinality | Description |
 |---|---|---|---|---|
-| *(none yet)* | | | | |
+| `pedagogical_prerequisite` | `nodes` | `nodes` | many-to-many | Source node is a prerequisite for understanding target node. The structural edge type used in graph traversal, syllabus generation, and mastery computation per [`product/docs/architecture.md`](../../docs/architecture.md) "Edge Schema". Default value for `public.edges.edge_type` per [`0003_edges.sql`](0003_edges.sql) and the only edge type the Phase 4 audit's three hard-fail checks (duplicate IDs, dangling references, cycle detection via Kosaraju SCC) restrict to. |
+| `historical_influence` | `nodes` | `nodes` | many-to-many | Source concept historically influenced target concept's development. Display-only (Discovery surface annotation) per [`product/docs/architecture.md`](../../docs/architecture.md) "Edge Schema"; not consumed by traversal, syllabus generation, or mastery computation. May legitimately form cycles (mutual influence between two thinkers' concepts is not a structural error), so the audit's cycle detection ignores this type. |
 
 ## Reserved-but-unused predicates
 
-(Predicates considered during design but not yet used in any seed migration. If never used, they should be removed from this list at the next health check.)
+Predicates considered during prior design or named in build-plan illustrative lists but not yet committed to in v1. Listed here so future sessions don't reinvent them under different names; **using one of these in an INSERT requires moving the row to the registry above first** (in the same session, paired with an ENGINE_LOG entry).
 
-| Predicate | Source ADR | Status |
+| Predicate | Source | Status |
 |---|---|---|
-| *(none yet)* | | |
+| `enables` | [`build_plan/P_2_graph_validation.md`](../../../build_plan/P_2_graph_validation.md) illustrative list | Reserved; no current design document commits to it. |
+| `informed_by` | [`build_plan/P_2_graph_validation.md`](../../../build_plan/P_2_graph_validation.md) illustrative list | Reserved; no current design document commits to it. |
+| `cross_domain_dependency` | [`build_plan/P_2_graph_validation.md`](../../../build_plan/P_2_graph_validation.md) illustrative list | Reserved; cross-domain edges in v1 use `pedagogical_prerequisite` with the source and target carrying disjoint `domain[]` arrays — the audit's `suspicious_cross_domain_ratio` soft-warn aggregates that shape. A separate `cross_domain_dependency` predicate is not currently needed; promote if Phase 5 cross-domain authoring surfaces a structural distinction. |
 
----
+If a reserved entry never gets used by the time the next periodic project health check fires, it should be removed from this list (per [ADR 0022](../../../engine/adr/0022-periodic-project-health-checks.md) audit categories). Reserved is a forward-pointer, not permanent.
 
-*Last updated: 2026-04-29 (S-0001 placeholder created)*
+## See also
+
+- [ADR 0016](../../../engine/adr/0016-graph-construction-needs-live-validation.md) — graph construction needs live validation; the registry's audit consumer.
+- [`engine/build_readiness/phase_4_graph_validation.md`](../../../engine/build_readiness/phase_4_graph_validation.md) — Phase 4 build-readiness gate; v1 registry contents authored per T2-G.
+- [`engine/operations/tools-validate-interpretation.md`](../../../engine/operations/tools-validate-interpretation.md) — `undeclared_predicate` soft-warn meaning and response posture.
+- [`product/docs/architecture.md`](../../docs/architecture.md) — graph schema; the source-of-truth for predicate domain/range expectations.
+- [`0003_edges.sql`](0003_edges.sql) — `public.edges.edge_type` column declaration; default `pedagogical_prerequisite`.

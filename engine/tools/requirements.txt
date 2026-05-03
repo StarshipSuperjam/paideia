@@ -7,3 +7,11 @@
 ruff>=0.4.0
 mypy>=1.10.0
 pytest>=8.0.0
+
+# Phase 4+ — live-graph audit against the Supabase DB per ADR 0016.
+# psycopg v3 (binary build, zero-toolchain install). Activated only when
+# SUPABASE_DB_URL is set in the environment; absence is a soft skip
+# rather than a hard-fail, so non-seed-authoring sessions are not gated
+# on DB connectivity. Imported lazily inside validate_graph() to keep
+# the engine-tool import surface light when the audit isn't running.
+psycopg[binary]>=3.1.0

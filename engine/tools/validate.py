@@ -24,8 +24,11 @@ demand from the CLI. Three responsibility families live here:
    enum-modeled TEXT columns against staged SQL files under
    product/seed-graph/migrations/. See validate_sql_gates().
 
-A fourth responsibility (graph audit per ADR 0016) sits as a stub today;
-Phase 4 fleshes it out. See validate_graph().
+A fourth responsibility (graph audit per ADR 0016) runs against the
+live Supabase DB when ``SUPABASE_DB_URL`` is set in the environment;
+absence of the env var skips the audit (records ``graph_audit_skipped``)
+so non-seed-authoring sessions are not gated on DB connectivity. See
+validate_graph().
 
 A fifth responsibility (shared-state health probes per ADR 0045) runs
 the chromadb palace and git repo probes — added at S-0035 to catch
@@ -50,7 +53,8 @@ Invariants this module preserves:
 Non-responsibilities:
 
 - No auto-fix. The validator reports; it does not modify state.
-- No DB connectivity until Phase 4. validate_graph() is a stub.
+- No DB writes. The graph audit reads via psycopg with the service-role
+  connection string; writes happen via Supabase migrations only.
 - No git or worktree management. The pre-commit hook handles git; this
   module receives staged-file paths and runs gates against them.
 
@@ -99,6 +103,11 @@ CLI invocation:
         the SessionStart hook for sub-second boot-time verification.
         Mutually exclusive with the gate flags.
 
+    python3 engine/tools/validate.py --export-snapshot path/to/file.json
+        Write a JSON snapshot of the live graph (nodes + edges) to
+        the given path and exit. Per ADR 0016 + gate T2-F. Requires
+        SUPABASE_DB_URL set; mutually exclusive with the other modes.
+
 Module contracts referenced:
 
 - ADR 0016 — graph-construction live-validation contract; see validate_graph().
@@ -118,6 +127,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -1383,50 +1393,649 @@ def validate_sql_gates(files: list[Path]) -> ValidationResult:
 # ---------------------------------------------------------------------------
 
 
-def validate_graph(connection_string: str | None = None) -> ValidationResult:
+# ---------------------------------------------------------------------------
+# Graph audit (Phase 4+, per ADR 0016 + build_readiness/phase_4_graph_validation.md)
+# ---------------------------------------------------------------------------
+
+# Env var consumed by validate_graph(); see .env.example for format.
+# When unset, the audit skips with a graph_audit_skipped check rather
+# than hard-failing — non-seed-authoring sessions are not gated on
+# DB connectivity. Set to the service-role pooler URL (gate T1-C);
+# service-role bypasses RLS so the audit observes ground truth.
+SUPABASE_DB_URL_ENV = "SUPABASE_DB_URL"
+
+# Canonical edge-type registry, parsed at audit time per ADR 0016 +
+# gate T2-G. Path is post-S-0024 partition (was supabase/migrations/).
+PREDICATE_MANIFEST_PATH = (
+    REPO_ROOT / "product" / "seed-graph" / "migrations" / "PREDICATE_MANIFEST.md"
+)
+
+# The seven soft-warn categories enumerated by ADR 0016 + gate T2-D.
+# Registered in checks_run up-front so cross-session telemetry sees
+# "category ran and was clean" distinct from "category did not run."
+GRAPH_SOFT_WARN_CATEGORIES = (
+    "undeclared_predicate",
+    "attribute_shape_inconsistency",
+    "missing_rigor_score",
+    "render_readiness_violation",
+    "synthetic_review_queue",
+    "orphan_leaf",
+    "suspicious_cross_domain_ratio",
+)
+
+# Forbidden tokens for the render_readiness check (gate T2-D, applying
+# the ADR 0027 enumeration to node-label authoring).
+SCAFFOLDING_TOKENS = ("service_node", "synthetic", "stub")
+
+# Thresholds (gate T2-D). Conservative defaults; T3-C marks the
+# attribute-shape threshold for Phase 5 calibration once seed-graph
+# distribution becomes observable.
+CROSS_DOMAIN_RATIO_THRESHOLD = 0.40
+ATTRIBUTE_SHAPE_MINORITY_THRESHOLD = 0.30
+
+# Schema-default rigor_score_computed value (per 0002_nodes.sql:67).
+# A node carrying inbound prerequisite edges with rigor still at the
+# default is the missing_rigor_score signal.
+RIGOR_SCORE_DEFAULT = 0.5
+
+# The structural prerequisite predicate (gate T2-G; per
+# 0003_edges.sql:54 column default and architecture.md:182).
+PREREQUISITE_EDGE_TYPE = "pedagogical_prerequisite"
+
+
+def _read_predicate_manifest(
+    manifest_path: Path = PREDICATE_MANIFEST_PATH,
+) -> set[str]:
+    """Parse declared predicates from the PREDICATE_MANIFEST.md registry.
+
+    Reads the ``## Predicate registry`` markdown table and returns the
+    set of names from its first column. Backticks and surrounding
+    whitespace are stripped; the header row, the dash separator, and
+    any placeholder rows (e.g. ``*(none yet)*``) are skipped.
+
+    Inputs:
+        manifest_path: absolute path to PREDICATE_MANIFEST.md. Defaults
+            to the repo's canonical location.
+
+    Returns:
+        Set of declared predicate names. Empty when the file is absent
+        or the registry section contains only placeholder rows.
+
+    Non-responsibilities:
+        - Does not validate the table's other columns. Schema drift in
+          the registry's domain/range/cardinality columns is a docs
+          concern caught by manual review, not by this parser.
+        - Does not parse the ``## Reserved-but-unused predicates``
+          section. Reserved entries are not declared for usage; an
+          edge using one would still fire ``undeclared_predicate``.
+    """
+    if not manifest_path.is_file():
+        return set()
+    declared: set[str] = set()
+    in_registry = False
+    for raw in manifest_path.read_text().splitlines():
+        if raw.startswith("## Predicate registry"):
+            in_registry = True
+            continue
+        if in_registry and raw.startswith("## "):
+            break
+        if not in_registry:
+            continue
+        line = raw.strip()
+        if not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if not cells:
+            continue
+        first = cells[0].strip().strip("`")
+        if not first or first.startswith("---"):
+            continue
+        if first.lower() == "predicate":
+            continue
+        if first.startswith("*("):
+            continue
+        declared.add(first)
+    return declared
+
+
+def _read_graph_from_db(
+    connection_string: str,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Read nodes and edges from the live Supabase DB via psycopg.
+
+    Pure I/O — returns row dicts in encounter order. Tests monkey-patch
+    this function with fixture data; callers should not rely on column
+    ordering or NULL handling beyond what each row's mapping carries.
+
+    psycopg is imported lazily so the module loads even when the
+    dependency is absent (the audit-skip path covers the unset-env
+    case without requiring psycopg installation).
+
+    Inputs:
+        connection_string: Postgres URL with credentials. Use the
+            service-role pooler URL — the audit bypasses RLS to
+            observe ground truth (gate T1-C).
+
+    Returns:
+        ``(nodes, edges)``. ``nodes`` carry id, label, domain,
+        summary, teaching_notes, rigor_score_computed,
+        confidence_level, status. ``edges`` carry source_id,
+        target_id, edge_type.
+
+    Non-responsibilities:
+        - Does not catch psycopg or import errors. The orchestrator
+          (validate_graph) wraps this call so failures land as
+          hard-fails on the ValidationResult.
+        - Does not select archived columns (created_at, updated_at,
+          provenance, weight, confidence, evidence). The audit's
+          checks consume only the columns above.
+    """
+    # Lazy imports per module contract — psycopg is optional and absent
+    # when SUPABASE_DB_URL is unset (the audit-skip path covers that).
+    # The per-line type-ignore guards each statement because mypy may
+    # not see the dependency in the current environment; the
+    # ImportError branch in validate_graph() handles the actual
+    # missing-package case at runtime.
+    import psycopg  # type: ignore[import-not-found]
+    from psycopg.rows import dict_row  # type: ignore[import-not-found]
+
+    with psycopg.connect(connection_string) as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                "SELECT id, label, domain, summary, teaching_notes, "
+                "rigor_score_computed, confidence_level, status "
+                "FROM public.nodes"
+            )
+            nodes = [dict(r) for r in cur.fetchall()]
+            cur.execute("SELECT source_id, target_id, edge_type FROM public.edges")
+            edges = [dict(r) for r in cur.fetchall()]
+    return nodes, edges
+
+
+def _detect_duplicate_node_ids(nodes: list[dict[str, Any]]) -> list[str]:
+    """Return ids that appear in ``nodes`` more than once, sorted."""
+    seen: dict[str, int] = {}
+    for n in nodes:
+        nid = n.get("id")
+        if nid is None:
+            continue
+        seen[nid] = seen.get(nid, 0) + 1
+    return sorted(nid for nid, count in seen.items() if count > 1)
+
+
+def _detect_dangling_edges(
+    nodes: list[dict[str, Any]], edges: list[dict[str, Any]]
+) -> list[tuple[str, str, str]]:
+    """Return ``(source_id, target_id, missing_endpoint)`` for each
+    edge whose source or target id is not present in ``nodes``.
+
+    ``missing_endpoint`` is ``"source"`` or ``"target"``. When both
+    endpoints are absent only the source is reported (the order
+    matters less than reporting the existence of the dangling edge).
+    """
+    node_ids = {n["id"] for n in nodes if n.get("id") is not None}
+    dangling: list[tuple[str, str, str]] = []
+    for e in edges:
+        s = e.get("source_id")
+        t = e.get("target_id")
+        if s is None or t is None:
+            continue
+        if s not in node_ids:
+            dangling.append((s, t, "source"))
+        elif t not in node_ids:
+            dangling.append((s, t, "target"))
+    return dangling
+
+
+def _detect_prerequisite_cycles(
+    edges: list[dict[str, Any]],
+) -> list[list[str]]:
+    """Return cycles in the pedagogical_prerequisite-edge subgraph.
+
+    Restricts to edges with ``edge_type == 'pedagogical_prerequisite'``
+    (gate T2-A). Other edge types may legitimately cycle (mutual
+    historical influence is not a structural error). Implementation
+    is iterative Kosaraju SCC plus a self-loop pass; an SCC of size
+    > 1 or a singleton with a self-edge constitutes a cycle.
+
+    Each returned cycle is the SCC's node ids in sorted order, for
+    deterministic reporting.
+
+    Non-responsibilities:
+        - Does not return the cycle's specific edge sequence. The
+          ``A -> B -> C -> A`` traversal is recoverable from the SCC
+          plus the original edge list; the validator's job is to flag
+          the existence of a cycle, not narrate it.
+    """
+    adj: dict[str, list[str]] = {}
+    rev: dict[str, list[str]] = {}
+    self_loops: set[str] = set()
+    nodes_in_subgraph: set[str] = set()
+    for e in edges:
+        if e.get("edge_type") != PREREQUISITE_EDGE_TYPE:
+            continue
+        s = e.get("source_id")
+        t = e.get("target_id")
+        if s is None or t is None:
+            continue
+        nodes_in_subgraph.add(s)
+        nodes_in_subgraph.add(t)
+        adj.setdefault(s, []).append(t)
+        adj.setdefault(t, [])
+        rev.setdefault(t, []).append(s)
+        rev.setdefault(s, [])
+        if s == t:
+            self_loops.add(s)
+
+    visited: set[str] = set()
+    order: list[str] = []
+    for start in sorted(nodes_in_subgraph):
+        if start in visited:
+            continue
+        visited.add(start)
+        stack: list[tuple[str, Any]] = [(start, iter(adj.get(start, [])))]
+        while stack:
+            u, it = stack[-1]
+            for v in it:
+                if v not in visited:
+                    visited.add(v)
+                    stack.append((v, iter(adj.get(v, []))))
+                    break
+            else:
+                order.append(u)
+                stack.pop()
+
+    assigned: set[str] = set()
+    components: list[list[str]] = []
+    for u in reversed(order):
+        if u in assigned:
+            continue
+        comp: list[str] = []
+        comp_stack: list[str] = [u]
+        assigned.add(u)
+        while comp_stack:
+            x = comp_stack.pop()
+            comp.append(x)
+            for y in rev.get(x, []):
+                if y not in assigned:
+                    assigned.add(y)
+                    comp_stack.append(y)
+        components.append(comp)
+
+    cycles: list[list[str]] = []
+    for comp in components:
+        if len(comp) > 1:
+            cycles.append(sorted(comp))
+        elif len(comp) == 1 and comp[0] in self_loops:
+            cycles.append(list(comp))
+    # Stable order on the outer list so disjoint cycles report
+    # deterministically across runs and across the two-pass DFS's
+    # arbitrary component-emission order.
+    cycles.sort()
+    return cycles
+
+
+def _detect_undeclared_predicates(
+    edges: list[dict[str, Any]], declared: set[str]
+) -> dict[str, int]:
+    """Return ``edge_type -> count`` for types not in ``declared``."""
+    undeclared: dict[str, int] = {}
+    for e in edges:
+        et = e.get("edge_type")
+        if et is None or et in declared:
+            continue
+        undeclared[et] = undeclared.get(et, 0) + 1
+    return undeclared
+
+
+def _detect_attribute_shape_inconsistency(
+    nodes: list[dict[str, Any]],
+    minority_threshold: float = ATTRIBUTE_SHAPE_MINORITY_THRESHOLD,
+) -> list[tuple[str, int, int]]:
+    """Return ``(domain_tag, populated, null)`` for tags whose
+    ``teaching_notes`` mix is more even than ``minority_threshold``.
+
+    A domain tag fires when the smaller of the two classes (populated,
+    NULL/empty) exceeds ``minority_threshold`` share of the tag's node
+    population — i.e., a real split exists rather than an
+    all-or-nothing distribution. Threshold default ``0.30`` (gate T2-D);
+    Phase 5 calibration is a T3-C deferral.
+
+    Non-responsibilities:
+        - Does not check other attributes. The v1 metric is
+          teaching_notes population; future categories (summary
+          length variance, aliases coverage) are extensions, not
+          this category's scope.
+    """
+    by_domain: dict[str, list[bool]] = {}
+    for n in nodes:
+        domain = n.get("domain") or []
+        populated = bool(n.get("teaching_notes"))
+        for d in domain:
+            by_domain.setdefault(d, []).append(populated)
+
+    findings: list[tuple[str, int, int]] = []
+    for d, flags in sorted(by_domain.items()):
+        total = len(flags)
+        if total == 0:
+            continue
+        populated_count = sum(1 for f in flags if f)
+        null_count = total - populated_count
+        minority = min(populated_count, null_count)
+        if minority / total > minority_threshold:
+            findings.append((d, populated_count, null_count))
+    return findings
+
+
+def _detect_missing_rigor_score(
+    nodes: list[dict[str, Any]], edges: list[dict[str, Any]]
+) -> list[str]:
+    """Return ids of nodes with inbound prereq edges and default rigor.
+
+    "Default rigor" means ``rigor_score_computed`` equals
+    ``RIGOR_SCORE_DEFAULT`` (0.5, the schema column default per
+    0002_nodes.sql:67) or is None. The presence of inbound prereq
+    edges is the topology condition under which the architecture.md
+    formula at lines 69-77 produces a non-default value.
+
+    Non-responsibilities:
+        - Does not compute the actual rigor score. The check fires on
+          "could be computed but wasn't"; computing the value is the
+          author's job (or a future automation), not the validator's.
+    """
+    inbound_prereq: set[str] = set()
+    for e in edges:
+        if e.get("edge_type") != PREREQUISITE_EDGE_TYPE:
+            continue
+        t = e.get("target_id")
+        if t is not None:
+            inbound_prereq.add(t)
+    findings: list[str] = []
+    for n in nodes:
+        nid = n.get("id")
+        if nid is None or nid not in inbound_prereq:
+            continue
+        rigor = n.get("rigor_score_computed")
+        if rigor is None or rigor == RIGOR_SCORE_DEFAULT:
+            findings.append(nid)
+    return sorted(findings)
+
+
+def _detect_render_readiness_violations(
+    nodes: list[dict[str, Any]],
+) -> list[tuple[str, str, str]]:
+    """Return ``(id, label, token)`` for nodes whose label contains a
+    forbidden scaffolding token (per ADR 0027 + gate T2-D)."""
+    findings: list[tuple[str, str, str]] = []
+    for n in nodes:
+        nid = n.get("id")
+        label = n.get("label")
+        if nid is None or label is None:
+            continue
+        lower = label.lower()
+        for token in SCAFFOLDING_TOKENS:
+            if token in lower:
+                findings.append((nid, label, token))
+                break
+    return findings
+
+
+def _detect_synthetic_review_queue(nodes: list[dict[str, Any]]) -> list[str]:
+    """Return ids of nodes with ``confidence_level == 'SYNTHETIC'``.
+
+    Per ADR 0030 + self-correction.md, synthetic-confidence nodes
+    populate the Opus batch review queue. The category is a counter,
+    not a defect — every such node fires.
+    """
+    return sorted(
+        n["id"]
+        for n in nodes
+        if n.get("confidence_level") == "SYNTHETIC" and n.get("id") is not None
+    )
+
+
+def _detect_orphan_leaves(
+    nodes: list[dict[str, Any]], edges: list[dict[str, Any]]
+) -> list[str]:
+    """Return ids of nodes with zero inbound and zero outbound prereq edges.
+
+    Non-prerequisite edge types (historical_influence, etc.) do not
+    count toward in/out degree for this category — gate T2-D is
+    explicit on the prerequisite-only restriction.
+    """
+    has_inbound: set[str] = set()
+    has_outbound: set[str] = set()
+    for e in edges:
+        if e.get("edge_type") != PREREQUISITE_EDGE_TYPE:
+            continue
+        s = e.get("source_id")
+        t = e.get("target_id")
+        if s is not None:
+            has_outbound.add(s)
+        if t is not None:
+            has_inbound.add(t)
+    findings: list[str] = []
+    for n in nodes:
+        nid = n.get("id")
+        if nid is None:
+            continue
+        if nid not in has_inbound and nid not in has_outbound:
+            findings.append(nid)
+    return sorted(findings)
+
+
+def _detect_suspicious_cross_domain_ratio(
+    nodes: list[dict[str, Any]],
+    edges: list[dict[str, Any]],
+    threshold: float = CROSS_DOMAIN_RATIO_THRESHOLD,
+) -> list[tuple[str, int, int]]:
+    """Return ``(domain_tag, total_inbound, cross_domain)`` for tags
+    whose share of cross-domain inbound prerequisite edges exceeds
+    ``threshold``.
+
+    A "cross-domain" inbound edge is one whose source node's
+    ``domain[]`` array shares no element with the target tag. The
+    aggregation is per target tag — a node carrying multiple domain
+    tags contributes its inbound edges to each tag's bucket
+    independently.
+
+    Threshold default ``0.40`` (gate T2-D). The signal is "this tag's
+    interior is sustained from outside it" — likely a missing service
+    node on the inside that those external prerequisites should
+    reach instead.
+    """
+    by_id: dict[str, list[str]] = {
+        n["id"]: list(n.get("domain") or []) for n in nodes if n.get("id") is not None
+    }
+
+    counts: dict[str, dict[str, int]] = {}
+    for e in edges:
+        if e.get("edge_type") != PREREQUISITE_EDGE_TYPE:
+            continue
+        s = e.get("source_id")
+        t = e.get("target_id")
+        if s is None or t is None or t not in by_id:
+            continue
+        target_domains = by_id.get(t) or []
+        source_domains = by_id.get(s) or []
+        for d in target_domains:
+            bucket = counts.setdefault(d, {"total": 0, "cross": 0})
+            bucket["total"] += 1
+            if d not in source_domains:
+                bucket["cross"] += 1
+
+    findings: list[tuple[str, int, int]] = []
+    for d, c in sorted(counts.items()):
+        total = c["total"]
+        cross = c["cross"]
+        if total > 0 and cross / total > threshold:
+            findings.append((d, total, cross))
+    return findings
+
+
+def _write_snapshot(
+    snapshot_path: Path,
+    nodes: list[dict[str, Any]],
+    edges: list[dict[str, Any]],
+) -> None:
+    """Write nodes and edges to a JSON snapshot for offline review.
+
+    Per gate T2-F. No row filtering — full dump. ``default=str``
+    coerces non-JSON-native types (datetime, UUID) to strings so the
+    output is portable to any JSON consumer without a custom decoder.
+    Parent directory is created if absent.
+    """
+    snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"nodes": nodes, "edges": edges}
+    snapshot_path.write_text(
+        json.dumps(payload, default=str, indent=2, sort_keys=True) + "\n"
+    )
+
+
+def validate_graph(
+    connection_string: str | None = None,
+    export_snapshot: Path | None = None,
+) -> ValidationResult:
     """Validate the live Supabase graph against ADR 0016's contract.
 
-    **STUB — Phase 4 implementation pending.**
+    Connects to the live Supabase DB via psycopg, runs three hard-fail
+    checks (duplicate node IDs, dangling edge references, prerequisite
+    cycles via Kosaraju SCC) plus seven soft-warn categories
+    (undeclared_predicate, attribute_shape_inconsistency,
+    missing_rigor_score, render_readiness_violation,
+    synthetic_review_queue, orphan_leaf,
+    suspicious_cross_domain_ratio), and returns a categorized result.
 
-    See [adr/0016-graph-construction-needs-live-validation.md]. When fleshed,
-    this function MUST connect to the live Supabase DB via psycopg, run the
-    following checks against the post-`db push` state, and return a
-    ValidationResult with categorized soft-warns and hard-fails.
+    Connection string resolution: the explicit ``connection_string``
+    argument wins; otherwise the ``SUPABASE_DB_URL`` environment
+    variable is consulted. When neither is set, the audit skips
+    cleanly with a ``graph_audit_skipped`` check — non-seed-authoring
+    sessions are not gated on DB connectivity. Use the service-role
+    pooler URL (gate T1-C); service-role bypasses RLS so the audit
+    observes ground truth distinct from anon-filtered views.
 
-    Hard-fails (exit 2):
-      * Duplicate node IDs.
-      * Dangling edge references (source_id or target_id not in nodes).
-      * Cycles in the prerequisite-edge subgraph (detect via SCC/Kosaraju).
+    Inputs:
+        connection_string: Postgres URL. None falls back to the env
+            var; if both are absent the audit is skipped.
+        export_snapshot: when set, writes a full nodes-and-edges JSON
+            dump to this path and skips the validation checks
+            (the ``--export-snapshot`` mode per gate T2-F).
 
-    Soft-warns by category (printed to stderr, counted, logged to JSONL):
-      * undeclared_predicate          — edge.type not in PREDICATE_MANIFEST.md
-      * attribute_shape_inconsistency — same-domain nodes with materially
-                                        different attribute coverage
-      * missing_rigor_score           — rigor_score_computed null when
-                                        topology data is sufficient
-      * render_readiness_violation    — labels containing scaffolding tokens
-                                        ("service_node", "synthetic", "stub")
-      * synthetic_review_queue        — confidence_level=SYNTHETIC nodes
-                                        flagged for review
-      * orphan_leaf                   — zero inbound + zero outbound
-                                        prerequisite edges
-      * suspicious_cross_domain_ratio — subdomain with > 40% cross-domain
-                                        inbound edges (likely missing service
-                                        node)
+    Returns:
+        ValidationResult. Hard-fails populate when structural integrity
+        breaks (the three categories above). Soft-warns populate by
+        category; every category is registered in ``checks_run`` even
+        when it fires zero findings, so cross-session telemetry can
+        distinguish "category clean" from "category did not run."
+        The ``graph_audit_skipped`` and ``graph_export_snapshot``
+        check categories are mutually exclusive paths through this
+        function.
 
-    Runtime budget: <3s on 100-node test seed.
+    Runtime budget: <3s on the schema-only state per
+    [`build_plan/P_2_graph_validation.md:54`]. Phase 5 seed content
+    will grow the budget; the per-check structure (set membership,
+    single-pass aggregation, iterative Kosaraju) keeps the validator
+    linear in nodes + edges.
 
-    Modes (added when fleshed):
-      * `--validate-only` (default): read-only; categorical counts; exit 0/1/2
-      * `--export-snapshot path/to/snapshot.json`: dump current state for
-        offline review
-
-    No write-back path. DB writes happen via Supabase migrations only.
+    Non-responsibilities:
+        - Does not write back to the DB. DB writes happen via Supabase
+          migrations only; the audit is read-only.
+        - Does not enforce sub-signal NULL discipline on
+          ``learner_events``. That contract lives at the SQL CHECK
+          layer per gate T2-B; ``validate_graph()`` operates on
+          nodes and edges only.
+        - Does not validate enum values on node columns
+          (confidence_level, status). The CHECK constraints at the
+          SQL layer cannot be violated post-insert without bypassing
+          the schema; this validator does not duplicate that work.
+        - Does not run any check against ``edges`` that the schema's
+          FK constraint already prevents at insert time (the dangling
+          check runs anyway as defense-in-depth, covering any
+          post-restore window before constraints are validated; gate
+          T2-C).
     """
     r = ValidationResult()
-    r.add_check("graph_audit_stub")
-    # Stub: nothing to do until Phase 4. Existence of this function and
-    # docstring is the load-bearing anchor that ADR 0016's lesson lands.
+
+    conn_str = connection_string or os.environ.get(SUPABASE_DB_URL_ENV)
+    if not conn_str:
+        r.add_check("graph_audit_skipped")
+        return r
+
+    try:
+        nodes, edges = _read_graph_from_db(conn_str)
+    except ImportError as exc:
+        r.add_check("graph_audit")
+        r.hard_fail(
+            f"graph_audit: psycopg import failed ({exc!s}); "
+            f"run `pip install -r engine/tools/requirements.txt`"
+        )
+        return r
+    except Exception as exc:  # noqa: BLE001  (psycopg connect/query errors)
+        r.add_check("graph_audit")
+        r.hard_fail(
+            f"graph_audit: DB connection or query failed "
+            f"({type(exc).__name__}: {exc!s})"
+        )
+        return r
+
+    if export_snapshot is not None:
+        _write_snapshot(export_snapshot, nodes, edges)
+        r.add_check("graph_export_snapshot")
+        return r
+
+    r.add_check("graph_audit")
+
+    for nid in _detect_duplicate_node_ids(nodes):
+        r.hard_fail(f"duplicate_node_id: {nid}")
+
+    for s, t, missing in _detect_dangling_edges(nodes, edges):
+        r.hard_fail(f"dangling_edge: source={s!r} target={t!r} (missing {missing})")
+
+    for cycle in _detect_prerequisite_cycles(edges):
+        r.hard_fail(f"prerequisite_cycle: [{', '.join(cycle)}]")
+
+    # Register every soft-warn category in checks_run up-front. A
+    # category that fires zero findings should still appear in the
+    # check log so cross-session telemetry distinguishes "ran clean"
+    # from "did not run" (the schema convention at
+    # session-shutdown-sequence.md "outcome_summary_soft_warns").
+    for cat in GRAPH_SOFT_WARN_CATEGORIES:
+        r.add_check(cat)
+
+    declared = _read_predicate_manifest()
+    for et, count in sorted(_detect_undeclared_predicates(edges, declared).items()):
+        r.soft_warn(
+            "undeclared_predicate",
+            f"edge_type={et!r} (count={count})",
+        )
+
+    for d, pop, null in _detect_attribute_shape_inconsistency(nodes):
+        r.soft_warn(
+            "attribute_shape_inconsistency",
+            f"domain={d!r} teaching_notes_populated={pop} null={null}",
+        )
+
+    for nid in _detect_missing_rigor_score(nodes, edges):
+        r.soft_warn("missing_rigor_score", f"node_id={nid!r}")
+
+    for nid, label, token in _detect_render_readiness_violations(nodes):
+        r.soft_warn(
+            "render_readiness_violation",
+            f"node_id={nid!r} label={label!r} token={token!r}",
+        )
+
+    for nid in _detect_synthetic_review_queue(nodes):
+        r.soft_warn("synthetic_review_queue", f"node_id={nid!r}")
+
+    for nid in _detect_orphan_leaves(nodes, edges):
+        r.soft_warn("orphan_leaf", f"node_id={nid!r}")
+
+    for d, total, cross in _detect_suspicious_cross_domain_ratio(nodes, edges):
+        r.soft_warn(
+            "suspicious_cross_domain_ratio",
+            f"domain={d!r} total_inbound={total} cross_domain={cross}",
+        )
+
     return r
 
 
@@ -1555,6 +2164,15 @@ def main(argv: list[str] | None = None) -> int:
         "boot-time verification. Mutually exclusive with gate flags.",
     )
     parser.add_argument(
+        "--export-snapshot",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help="Write a JSON snapshot of the live graph (nodes + edges) to "
+        "PATH and exit. Per gate T2-F. Mutually exclusive with gate "
+        "and probe flags; requires SUPABASE_DB_URL set in the env.",
+    )
+    parser.add_argument(
         "--files",
         nargs="*",
         type=Path,
@@ -1573,6 +2191,8 @@ def main(argv: list[str] | None = None) -> int:
         overall.merge(validate_code_gates(args.files))
     elif args.sql_gates:
         overall.merge(validate_sql_gates(args.files))
+    elif args.export_snapshot is not None:
+        overall.merge(validate_graph(export_snapshot=args.export_snapshot))
     else:
         overall.merge(validate_repo_structure())
         overall.merge(validate_shared_state_health())

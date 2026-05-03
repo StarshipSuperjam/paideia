@@ -176,11 +176,18 @@ Shape:
   "adr_consequences_deliverable_audit": 0,
   "chromadb_palace_health": 0,
   "repo_config_health": 0,
+  "undeclared_predicate": 0,
+  "attribute_shape_inconsistency": 0,
+  "missing_rigor_score": 0,
+  "render_readiness_violation": 0,
+  "synthetic_review_queue": 0,
+  "orphan_leaf": 0,
+  "suspicious_cross_domain_ratio": 0,
   "diary_skipped": 0
 }
 ```
 
-All known soft-warn categories appear in the block, even with zero counts; absent keys signal "this category did not exist at this session's close" rather than "this category fired zero times." The boot-time persistent-warn surface (per [`soft-warn-lifecycle.md`](soft-warn-lifecycle.md)) reads this field across the last 5 archives and surfaces categories appearing in 3-or-more. `diary_skipped` is session-state (recorded by step 7 of this procedure), not validator output. `chromadb_palace_health` and `repo_config_health` are the shared-state probe categories per ADR 0045 — they fire on either suspicion (palace empty, etc.) or hard-broken (segfault, parent core.bare=true) state at any validator invocation during the session.
+All known soft-warn categories appear in the block, even with zero counts; absent keys signal "this category did not exist at this session's close" rather than "this category fired zero times." The boot-time persistent-warn surface (per [`soft-warn-lifecycle.md`](soft-warn-lifecycle.md)) reads this field across the last 5 archives and surfaces categories appearing in 3-or-more. `diary_skipped` is session-state (recorded by step 7 of this procedure), not validator output. `chromadb_palace_health` and `repo_config_health` are the shared-state probe categories per ADR 0045 — they fire on either suspicion (palace empty, etc.) or hard-broken (segfault, parent core.bare=true) state at any validator invocation during the session. The seven graph-audit categories (`undeclared_predicate` through `suspicious_cross_domain_ratio`) added at S-0037 per [ADR 0016](../adr/0016-graph-construction-needs-live-validation.md) and the [Phase 4 build-readiness gate](../build_readiness/phase_4_graph_validation.md) — they fire when `SUPABASE_DB_URL` is set and the audit runs against the live DB; sessions without DB connectivity record zeros (the audit skips entirely, recording `graph_audit_skipped` in `checks_run` rather than firing any category).
 
 **Aggregation procedure (per ADR 0045):**
 

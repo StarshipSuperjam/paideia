@@ -747,16 +747,473 @@ class TestMainSqlGatesMode:
 
 
 # ---------------------------------------------------------------------------
-# validate_graph (Phase 4 stub)
+# validate_graph (Phase 4 implementation per ADR 0016 + gate phase_4_graph_validation.md)
 # ---------------------------------------------------------------------------
 
 
-def test_validate_graph_returns_stub_result() -> None:
-    """validate_graph is a Phase 4 stub: empty result with the stub check name."""
+def _node(
+    nid: str,
+    *,
+    label: str | None = None,
+    domain: list[str] | None = None,
+    teaching_notes: str | None = None,
+    rigor_score_computed: float = 0.5,
+    confidence_level: str = "INTERPRETED",
+    status: str = "active",
+) -> dict[str, Any]:
+    """Build a node row dict with the columns validate_graph reads."""
+    return {
+        "id": nid,
+        "label": label if label is not None else nid.replace("_", " ").title(),
+        "domain": domain or ["epistemology"],
+        "summary": "Summary text.",
+        "teaching_notes": teaching_notes,
+        "rigor_score_computed": rigor_score_computed,
+        "confidence_level": confidence_level,
+        "status": status,
+    }
+
+
+def _edge(
+    source: str, target: str, *, edge_type: str = "pedagogical_prerequisite"
+) -> dict[str, Any]:
+    """Build an edge row dict with the columns validate_graph reads."""
+    return {"source_id": source, "target_id": target, "edge_type": edge_type}
+
+
+def test_validate_graph_env_unset_returns_skipped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When neither argument nor env var is set, the audit skips clean."""
+    monkeypatch.delenv("SUPABASE_DB_URL", raising=False)
     r = validate_graph()
     assert r.hard_fails == []
     assert r.soft_warns == {}
-    assert "graph_audit_stub" in r.checks_run
+    assert "graph_audit_skipped" in r.checks_run
+
+
+class TestDetectDuplicateNodeIds:
+    """_detect_duplicate_node_ids: structural duplicate-id check."""
+
+    def test_no_duplicates_returns_empty(self) -> None:
+        nodes = [_node("a"), _node("b"), _node("c")]
+        assert validate._detect_duplicate_node_ids(nodes) == []
+
+    def test_single_duplicate_pair_returns_id(self) -> None:
+        nodes = [_node("a"), _node("b"), _node("a")]
+        assert validate._detect_duplicate_node_ids(nodes) == ["a"]
+
+    def test_multiple_duplicates_returns_sorted(self) -> None:
+        nodes = [_node("z"), _node("a"), _node("z"), _node("a"), _node("m")]
+        assert validate._detect_duplicate_node_ids(nodes) == ["a", "z"]
+
+    def test_none_id_skipped(self) -> None:
+        nodes = [{"id": None}, _node("a"), {"id": None}]
+        assert validate._detect_duplicate_node_ids(nodes) == []
+
+
+class TestDetectDanglingEdges:
+    """_detect_dangling_edges: source-or-target-not-in-nodes detection."""
+
+    def test_clean_graph_returns_empty(self) -> None:
+        nodes = [_node("a"), _node("b")]
+        edges = [_edge("a", "b")]
+        assert validate._detect_dangling_edges(nodes, edges) == []
+
+    def test_missing_source_returns_source_marker(self) -> None:
+        nodes = [_node("b")]
+        edges = [_edge("ghost", "b")]
+        result = validate._detect_dangling_edges(nodes, edges)
+        assert result == [("ghost", "b", "source")]
+
+    def test_missing_target_returns_target_marker(self) -> None:
+        nodes = [_node("a")]
+        edges = [_edge("a", "ghost")]
+        result = validate._detect_dangling_edges(nodes, edges)
+        assert result == [("a", "ghost", "target")]
+
+
+class TestDetectPrerequisiteCycles:
+    """_detect_prerequisite_cycles: Kosaraju SCC on the prereq subgraph."""
+
+    def test_empty_returns_empty(self) -> None:
+        assert validate._detect_prerequisite_cycles([]) == []
+
+    def test_acyclic_chain_returns_empty(self) -> None:
+        edges = [_edge("a", "b"), _edge("b", "c"), _edge("c", "d")]
+        assert validate._detect_prerequisite_cycles(edges) == []
+
+    def test_simple_two_node_cycle_detected(self) -> None:
+        edges = [_edge("a", "b"), _edge("b", "a")]
+        cycles = validate._detect_prerequisite_cycles(edges)
+        assert cycles == [["a", "b"]]
+
+    def test_three_node_cycle_detected(self) -> None:
+        edges = [_edge("a", "b"), _edge("b", "c"), _edge("c", "a")]
+        cycles = validate._detect_prerequisite_cycles(edges)
+        assert cycles == [["a", "b", "c"]]
+
+    def test_self_loop_detected(self) -> None:
+        edges = [_edge("a", "a")]
+        assert validate._detect_prerequisite_cycles(edges) == [["a"]]
+
+    def test_non_prereq_cycle_ignored(self) -> None:
+        """historical_influence cycles are legitimate and must not fire."""
+        edges = [
+            _edge("a", "b", edge_type="historical_influence"),
+            _edge("b", "a", edge_type="historical_influence"),
+        ]
+        assert validate._detect_prerequisite_cycles(edges) == []
+
+    def test_mixed_cycle_only_prereq_counts(self) -> None:
+        """An a→b→a cycle that uses one prereq and one non-prereq edge does
+        not constitute a prerequisite-subgraph cycle."""
+        edges = [
+            _edge("a", "b"),
+            _edge("b", "a", edge_type="historical_influence"),
+        ]
+        assert validate._detect_prerequisite_cycles(edges) == []
+
+    def test_disjoint_cycles_both_detected(self) -> None:
+        edges = [
+            _edge("a", "b"),
+            _edge("b", "a"),
+            _edge("c", "d"),
+            _edge("d", "c"),
+        ]
+        cycles = validate._detect_prerequisite_cycles(edges)
+        assert cycles == [["a", "b"], ["c", "d"]]
+
+
+class TestDetectUndeclaredPredicates:
+    """_detect_undeclared_predicates: edge_type not in manifest."""
+
+    def test_all_declared_returns_empty(self) -> None:
+        edges = [_edge("a", "b"), _edge("a", "c")]
+        declared = {"pedagogical_prerequisite"}
+        assert validate._detect_undeclared_predicates(edges, declared) == {}
+
+    def test_undeclared_counted(self) -> None:
+        edges = [
+            _edge("a", "b", edge_type="enables"),
+            _edge("c", "d", edge_type="enables"),
+            _edge("e", "f", edge_type="informed_by"),
+        ]
+        declared = {"pedagogical_prerequisite"}
+        result = validate._detect_undeclared_predicates(edges, declared)
+        assert result == {"enables": 2, "informed_by": 1}
+
+
+class TestDetectAttributeShapeInconsistency:
+    """_detect_attribute_shape_inconsistency: teaching_notes mix per domain."""
+
+    def test_all_populated_does_not_fire(self) -> None:
+        nodes = [
+            _node("a", domain=["ethics"], teaching_notes="x"),
+            _node("b", domain=["ethics"], teaching_notes="y"),
+        ]
+        assert validate._detect_attribute_shape_inconsistency(nodes) == []
+
+    def test_all_null_does_not_fire(self) -> None:
+        nodes = [
+            _node("a", domain=["ethics"], teaching_notes=None),
+            _node("b", domain=["ethics"], teaching_notes=None),
+        ]
+        assert validate._detect_attribute_shape_inconsistency(nodes) == []
+
+    def test_even_mix_fires(self) -> None:
+        nodes = [
+            _node("a", domain=["ethics"], teaching_notes="x"),
+            _node("b", domain=["ethics"], teaching_notes=None),
+            _node("c", domain=["ethics"], teaching_notes="y"),
+            _node("d", domain=["ethics"], teaching_notes=None),
+        ]
+        result = validate._detect_attribute_shape_inconsistency(nodes)
+        assert ("ethics", 2, 2) in result
+
+    def test_lopsided_does_not_fire(self) -> None:
+        """9-of-10 populated is a 90/10 split — below the 30% minority floor."""
+        nodes = [
+            _node(f"n{i}", domain=["ethics"], teaching_notes=("x" if i < 9 else None))
+            for i in range(10)
+        ]
+        assert validate._detect_attribute_shape_inconsistency(nodes) == []
+
+
+class TestDetectMissingRigorScore:
+    """_detect_missing_rigor_score: prereq inbound + default rigor."""
+
+    def test_default_with_inbound_prereq_fires(self) -> None:
+        nodes = [_node("a"), _node("b", rigor_score_computed=0.5)]
+        edges = [_edge("a", "b")]
+        assert validate._detect_missing_rigor_score(nodes, edges) == ["b"]
+
+    def test_non_default_does_not_fire(self) -> None:
+        nodes = [_node("a"), _node("b", rigor_score_computed=0.7)]
+        edges = [_edge("a", "b")]
+        assert validate._detect_missing_rigor_score(nodes, edges) == []
+
+    def test_no_inbound_prereq_does_not_fire(self) -> None:
+        """A node with no inbound prereq is excluded — formula has no inputs."""
+        nodes = [_node("a", rigor_score_computed=0.5)]
+        assert validate._detect_missing_rigor_score(nodes, []) == []
+
+
+class TestDetectRenderReadinessViolations:
+    """_detect_render_readiness_violations: scaffolding tokens in label."""
+
+    def test_clean_label_does_not_fire(self) -> None:
+        nodes = [_node("a", label="Transcendental Idealism")]
+        assert validate._detect_render_readiness_violations(nodes) == []
+
+    def test_scaffolding_token_fires(self) -> None:
+        nodes = [_node("svc_logic", label="logic primitive [service_node]")]
+        result = validate._detect_render_readiness_violations(nodes)
+        assert result == [
+            ("svc_logic", "logic primitive [service_node]", "service_node")
+        ]
+
+    def test_case_insensitive(self) -> None:
+        nodes = [_node("a", label="STUB concept")]
+        result = validate._detect_render_readiness_violations(nodes)
+        assert result and result[0][2] == "stub"
+
+
+class TestDetectSyntheticReviewQueue:
+    """_detect_synthetic_review_queue: confidence_level filter."""
+
+    def test_no_synthetic_returns_empty(self) -> None:
+        nodes = [_node("a"), _node("b", confidence_level="EXTRACTED")]
+        assert validate._detect_synthetic_review_queue(nodes) == []
+
+    def test_synthetic_returned_sorted(self) -> None:
+        nodes = [
+            _node("z", confidence_level="SYNTHETIC"),
+            _node("a", confidence_level="SYNTHETIC"),
+            _node("b"),
+        ]
+        assert validate._detect_synthetic_review_queue(nodes) == ["a", "z"]
+
+
+class TestDetectOrphanLeaves:
+    """_detect_orphan_leaves: zero in/out prereq edges."""
+
+    def test_connected_node_does_not_fire(self) -> None:
+        nodes = [_node("a"), _node("b")]
+        edges = [_edge("a", "b")]
+        assert validate._detect_orphan_leaves(nodes, edges) == []
+
+    def test_isolated_node_fires(self) -> None:
+        nodes = [_node("a"), _node("b"), _node("alone")]
+        edges = [_edge("a", "b")]
+        assert validate._detect_orphan_leaves(nodes, edges) == ["alone"]
+
+    def test_only_non_prereq_edge_still_orphan(self) -> None:
+        """A node connected only by historical_influence is orphan-leaf."""
+        nodes = [_node("a"), _node("b")]
+        edges = [_edge("a", "b", edge_type="historical_influence")]
+        assert validate._detect_orphan_leaves(nodes, edges) == ["a", "b"]
+
+
+class TestDetectSuspiciousCrossDomainRatio:
+    """_detect_suspicious_cross_domain_ratio: per-domain inbound mix."""
+
+    def test_within_domain_only_does_not_fire(self) -> None:
+        nodes = [
+            _node("a", domain=["ethics"]),
+            _node("b", domain=["ethics"]),
+        ]
+        edges = [_edge("a", "b")]
+        assert validate._detect_suspicious_cross_domain_ratio(nodes, edges) == []
+
+    def test_majority_cross_domain_fires(self) -> None:
+        nodes = [
+            _node("p1", domain=["epistemology"]),
+            _node("p2", domain=["epistemology"]),
+            _node("p3", domain=["epistemology"]),
+            _node("e1", domain=["ethics"]),
+            _node("target", domain=["ethics"]),
+        ]
+        edges = [
+            _edge("p1", "target"),
+            _edge("p2", "target"),
+            _edge("p3", "target"),
+            _edge("e1", "target"),
+        ]
+        result = validate._detect_suspicious_cross_domain_ratio(nodes, edges)
+        assert ("ethics", 4, 3) in result
+
+    def test_below_threshold_does_not_fire(self) -> None:
+        """40% threshold is exclusive (>40%); equal does not fire."""
+        nodes = [
+            _node("p1", domain=["epistemology"]),
+            _node("p2", domain=["epistemology"]),
+            _node("e1", domain=["ethics"]),
+            _node("e2", domain=["ethics"]),
+            _node("e3", domain=["ethics"]),
+            _node("target", domain=["ethics"]),
+        ]
+        # 2 cross-domain (p1, p2) + 3 within-domain (e1, e2, e3) = 2/5 = 40%
+        edges = [_edge(s, "target") for s in ("p1", "p2", "e1", "e2", "e3")]
+        result = validate._detect_suspicious_cross_domain_ratio(nodes, edges)
+        assert result == []
+
+
+class TestReadPredicateManifest:
+    """_read_predicate_manifest: markdown registry parser."""
+
+    def test_absent_file_returns_empty(self, tmp_path: Path) -> None:
+        assert validate._read_predicate_manifest(tmp_path / "missing.md") == set()
+
+    def test_placeholder_returns_empty(self, tmp_path: Path) -> None:
+        path = tmp_path / "manifest.md"
+        path.write_text(
+            "## Predicate registry\n\n"
+            "| Predicate | Domain | Range |\n"
+            "|---|---|---|\n"
+            "| *(none yet)* | | |\n"
+        )
+        assert validate._read_predicate_manifest(path) == set()
+
+    def test_populated_registry_parsed(self, tmp_path: Path) -> None:
+        path = tmp_path / "manifest.md"
+        path.write_text(
+            "# Title\n\n"
+            "## Predicate registry\n\n"
+            "| Predicate | Domain | Range | Cardinality | Description |\n"
+            "|---|---|---|---|---|\n"
+            "| `pedagogical_prerequisite` | `nodes` | `nodes` | many-to-many | A. |\n"
+            "| `historical_influence` | `nodes` | `nodes` | many-to-many | B. |\n\n"
+            "## Reserved-but-unused\n\n"
+            "| Predicate | Source ADR | Status |\n"
+            "|---|---|---|\n"
+            "| `enables` | ADR 0016 | reserved |\n"
+        )
+        result = validate._read_predicate_manifest(path)
+        assert result == {"pedagogical_prerequisite", "historical_influence"}
+
+
+class TestValidateGraphIntegration:
+    """validate_graph end-to-end with a monkey-patched DB reader."""
+
+    def _patch_db(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        nodes: list[dict[str, Any]],
+        edges: list[dict[str, Any]],
+    ) -> None:
+        monkeypatch.setenv("SUPABASE_DB_URL", "postgresql://stub")
+        monkeypatch.setattr(validate, "_read_graph_from_db", lambda _: (nodes, edges))
+
+    def test_clean_graph_runs_all_categories(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """All seven soft-warn categories register in checks_run, even clean."""
+        self._patch_db(monkeypatch, [], [])
+        r = validate_graph()
+        assert r.hard_fails == []
+        for cat in validate.GRAPH_SOFT_WARN_CATEGORIES:
+            assert cat in r.checks_run, cat
+        assert "graph_audit" in r.checks_run
+
+    def test_duplicate_node_id_hard_fails(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._patch_db(monkeypatch, [_node("a"), _node("a")], [])
+        r = validate_graph()
+        assert any("duplicate_node_id" in m for m in r.hard_fails)
+
+    def test_dangling_edge_hard_fails(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self._patch_db(monkeypatch, [_node("a")], [_edge("a", "ghost")])
+        r = validate_graph()
+        assert any("dangling_edge" in m for m in r.hard_fails)
+
+    def test_prereq_cycle_hard_fails(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self._patch_db(
+            monkeypatch,
+            [_node("a"), _node("b")],
+            [_edge("a", "b"), _edge("b", "a")],
+        )
+        r = validate_graph()
+        assert any("prerequisite_cycle" in m for m in r.hard_fails)
+
+    def test_undeclared_predicate_soft_warns(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        manifest = tmp_path / "PREDICATE_MANIFEST.md"
+        manifest.write_text(
+            "## Predicate registry\n\n"
+            "| Predicate |\n|---|\n| `pedagogical_prerequisite` |\n"
+        )
+        monkeypatch.setattr(validate, "PREDICATE_MANIFEST_PATH", manifest)
+        self._patch_db(
+            monkeypatch,
+            [_node("a"), _node("b")],
+            [_edge("a", "b", edge_type="not_declared")],
+        )
+        r = validate_graph()
+        assert "undeclared_predicate" in r.soft_warns
+
+    def test_synthetic_node_soft_warns(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self._patch_db(
+            monkeypatch,
+            [_node("a", confidence_level="SYNTHETIC")],
+            [],
+        )
+        r = validate_graph()
+        assert "synthetic_review_queue" in r.soft_warns
+
+    def test_orphan_leaf_soft_warns(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self._patch_db(monkeypatch, [_node("alone")], [])
+        r = validate_graph()
+        assert "orphan_leaf" in r.soft_warns
+
+    def test_db_failure_hard_fails(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("SUPABASE_DB_URL", "postgresql://stub")
+
+        def boom(_: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+            raise RuntimeError("connection refused")
+
+        monkeypatch.setattr(validate, "_read_graph_from_db", boom)
+        r = validate_graph()
+        assert any("DB connection or query failed" in m for m in r.hard_fails)
+
+
+class TestValidateGraphSnapshot:
+    """validate_graph --export-snapshot mode."""
+
+    def test_snapshot_writes_json(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        nodes = [_node("a")]
+        edges = [_edge("a", "a")]  # self-cycle would fail in audit mode
+        monkeypatch.setenv("SUPABASE_DB_URL", "postgresql://stub")
+        monkeypatch.setattr(validate, "_read_graph_from_db", lambda _: (nodes, edges))
+        snapshot = tmp_path / "snapshot.json"
+        r = validate_graph(export_snapshot=snapshot)
+        assert "graph_export_snapshot" in r.checks_run
+        assert r.hard_fails == []  # snapshot mode skips checks
+        payload = json.loads(snapshot.read_text())
+        assert payload["nodes"][0]["id"] == "a"
+        assert payload["edges"][0]["edge_type"] == "pedagogical_prerequisite"
+
+
+class TestMainExportSnapshotMode:
+    """main(): --export-snapshot dispatch."""
+
+    def test_export_snapshot_writes_and_exits_clean(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setenv("SUPABASE_DB_URL", "postgresql://stub")
+        monkeypatch.setattr(
+            validate,
+            "_read_graph_from_db",
+            lambda _: ([_node("a")], []),
+        )
+        path = tmp_path / "snap.json"
+        rc = main(["--export-snapshot", str(path)])
+        assert rc == 0
+        assert path.is_file()
 
 
 # ---------------------------------------------------------------------------

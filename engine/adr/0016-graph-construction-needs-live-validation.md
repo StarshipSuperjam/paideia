@@ -20,8 +20,8 @@ Graph construction is **gated by a live validation utility** (`tools/validate.py
 
 ## Consequences
 
-- `tools/validate.py` carries the `validate_graph()` stub today (Phase 0); the stub is the load-bearing anchor for the Phase 4 implementation. The function is documented with the full contract this ADR specifies.
-- Phase 4 (Graph Validation Utility) fleshes the stub: connects to the live Supabase DB via `psycopg`, runs the listed checks, returns a `ValidationResult` with categorized soft-warns and hard-fails. Runtime budget: <3s on a 100-node test seed.
+- [`engine/tools/validate.py`](../tools/validate.py) carries the live `validate_graph()` implementation. The function connects to the live Supabase DB via `psycopg` (lazy import; service-role connection string consumed from `SUPABASE_DB_URL`), runs the listed hard-fail and soft-warn checks, and returns a `ValidationResult` with categorized findings. Runtime budget: <3s on the schema-only state.
+- When `SUPABASE_DB_URL` is unset in the environment, the audit records `graph_audit_skipped` and runs no DB query — non-seed-authoring sessions are not gated on connectivity. Phase 5+ seed-authoring sessions set the env var; the audit-skip path is an escape hatch for engine-only sessions.
 - Modes: `--validate-only` (default; read-only DB queries; categorical counts; exit 0/1/2) and `--export-snapshot path/to/snapshot.json` (write current-state snapshot for offline review). No write-back path — DB writes happen via Supabase migrations only.
 - Soft-warn categories feed health-check trend analysis (per ADR 0022). The `tools/validate-history.jsonl` telemetry log captures per-category counts per invocation; recurring health checks consume the trend data.
 - The seed-chunked-authoring workflow (per `docs/operations/seed-chunked-authoring.md`) includes the validate step explicitly: read SEP article → identify concepts at the granularity principle → write migration → `supabase db push` → `tools/validate.py` → fix in-session → commit.
@@ -35,4 +35,4 @@ Graph construction is **gated by a live validation utility** (`tools/validate.py
 - [`docs/operations/seed-chunked-authoring.md`](../operations/seed-chunked-authoring.md) — per-session authoring workflow (Phase 4 placeholder, fleshed at Phase 4).
 - [`ROADMAP.md`](../../ROADMAP.md) — Phase 4 success criteria.
 - ADR 0022 — Periodic project health checks (consumes validate-history telemetry).
-- `supabase/migrations/PREDICATE_MANIFEST.md` (Phase 4) — canonical edge-type registry.
+- `product/seed-graph/migrations/PREDICATE_MANIFEST.md` — canonical edge-type registry; v1 authored at S-0037 per [`engine/build_readiness/phase_4_graph_validation.md`](../build_readiness/phase_4_graph_validation.md) T2-G.
