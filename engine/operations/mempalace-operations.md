@@ -70,16 +70,17 @@ Restart Claude Code after editing `.mcp.json` for the server to load.
 
 ## Initialize against this repo
 
-Run from the repo root, against the relocated `docs/` directory (post-S-0001 reorganization):
+Run from the repo root. Initialize the wing only — do **not** mine the operations docs (per S-0032 audit Improvement E):
 
 ```bash
-mempalace init docs/
-mempalace mine docs/
+mempalace init .
 ```
 
-`init` auto-detects rooms from folder structure — `docs/operations/` becomes the `operations` room, top-level `.md` files become drawers in a `general` or wing-default room. `mine` does first-pass content extraction: every `.md` file becomes one or more drawers tagged with its filename.
+Per the S-0032 audit, the original install at S-0002 ran `mempalace mine docs/` (pre-S-0024 partition) which produced 88 drawers in the `operations` room — chunks of `engine/operations/*.md`. Those chunks compete with conversational drawers in semantic search and crowd retrieval (the same operations doc returns five times against unrelated queries because `mempalace mine` chunks each file into multiple drawers). The operations docs already live in git, queryable via grep + Read; reindexing them as drawers duplicates the content and dilutes search.
 
-Verify with `mempalace status` and `mempalace_list_rooms` (MCP tool). Expect at least: `operations`, plus a room per top-level docs subdirectory if any (none currently — all design docs are flat under `docs/`).
+Going forward: do not mine `engine/operations/` or `product/docs/` (or any other directory whose content is already in version control and consumed via Read). MemPalace's role here is the conversational substrate that ADRs and ENGINE_LOG can't hold — captured drawers from Stop/PreCompact hooks and manual `mempalace_add_drawer` calls. The 88 existing operations-doc drawers can be cleaned up in a future cleanup session; the install procedure no longer recreates them.
+
+Verify with `mempalace status` and `mempalace_list_rooms` (MCP tool). Expect: at least `general` (auto-capture default per the room-targeting conventions in [`mempalace-tagging-conventions.md`](mempalace-tagging-conventions.md)).
 
 ## Capture on session events (Claude Code hooks)
 
@@ -159,7 +160,11 @@ mempalace status
 
 If drawers aren't appearing: check `~/.mempalace/hook_state/` for stale lock files; check `mempalace --version` (must be 3.3.3+); check that Claude Code restarted after the `.mcp.json` and `.claude/settings.json` edits.
 
+## Known issues
+
+- **`mempalace_graph_stats.total_rooms` undercount.** The MCP tool `mempalace_graph_stats` reports `total_rooms: 4` against `mempalace_get_taxonomy`'s 5 (verified at S-0032 — `general`, `operations`, `decisions`, `foundation-planning-s0001`, `s0003-adr-collection` all exist via taxonomy and CLI `mempalace status`, but graph_stats's room index drops one). Cosmetic — drawer queries and search are unaffected. Likely cause: the graph index was built when the legacy `decisions` row had only one drawer with a `general`-prefixed ID (`drawer_paideia_general_1d310bc491affc6ec6274280`), and the indexer didn't re-register the room when the prefix later normalized. CLI `mempalace repair --help` covers vector-index rebuild (segfault recovery), not graph-index reindex; no upstream-side fix attempted in S-0032. Workaround: trust `mempalace_get_taxonomy` for room counts; treat `mempalace_graph_stats` as approximate.
+
 ## See also
 
-- [`mempalace-tagging-conventions.md`](mempalace-tagging-conventions.md) — when to apply which tag.
+- [`mempalace-tagging-conventions.md`](mempalace-tagging-conventions.md) — when to apply which tag, and where each tag's drawers go (room-targeting conventions added at S-0032).
 - `HANDOFF.md` (top-level) — historical record of the MemPalace setup decisions made in S-0001.
