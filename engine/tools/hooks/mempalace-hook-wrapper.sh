@@ -34,6 +34,20 @@ mkdir -p "$LOG_DIR" 2>/dev/null
 # Capture stderr to a temp file so the failure log line can include a snippet.
 STDERR_FILE="$(mktemp 2>/dev/null || echo "/tmp/mempalace-hook-stderr.$$")"
 
+# Resolve mempalace binary. STATE.md notes the user-scope install at
+# ~/Library/Python/3.9/bin/. The harness's PATH may not include it; fall
+# back to the literal user-scope path before giving up. Mirrors the
+# resolution pattern in post-adr-write.sh per ADR 0043. Without this
+# fallback the wrapper writes FAIL exit=127 on every Stop / PreCompact
+# event when invoked from a Claude Code subshell — the actual cause of
+# the silent auto-capture breakage diagnosed at S-0032.
+MEMPALACE_BIN=""
+if command -v mempalace >/dev/null 2>&1; then
+    MEMPALACE_BIN="mempalace"
+elif [ -x "$HOME/Library/Python/3.9/bin/mempalace" ]; then
+    MEMPALACE_BIN="$HOME/Library/Python/3.9/bin/mempalace"
+fi
+
 # Invoke the real hook. Pass through stdin and all args. Manual sentinel for
 # the manual-failure test: if PAIDEIA_MEMPALACE_HOOK_FORCE_FAIL=1, skip the
 # real binary and synthesize a failure — used during S-0020 verification per
@@ -41,8 +55,11 @@ STDERR_FILE="$(mktemp 2>/dev/null || echo "/tmp/mempalace-hook-stderr.$$")"
 if [ "$PAIDEIA_MEMPALACE_HOOK_FORCE_FAIL" = "1" ]; then
     echo "forced failure (PAIDEIA_MEMPALACE_HOOK_FORCE_FAIL=1)" >"$STDERR_FILE"
     EXIT_CODE=99
+elif [ -z "$MEMPALACE_BIN" ]; then
+    echo "mempalace binary not found in PATH or at ~/Library/Python/3.9/bin/mempalace" >"$STDERR_FILE"
+    EXIT_CODE=127
 else
-    mempalace hook run "$@" 2>"$STDERR_FILE"
+    "$MEMPALACE_BIN" hook run "$@" 2>"$STDERR_FILE"
     EXIT_CODE=$?
 fi
 
