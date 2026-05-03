@@ -1,0 +1,52 @@
+{
+  "id": "S-0039",
+  "started_at": "2026-05-03T21:59:08Z",
+  "closed_at": "2026-05-03T22:23:56Z",
+  "status": "closed",
+  "working_on": "ADR 0047 — structural-reference parser tool + adversarial-triage workflow + ephemeral-output decisions; engine/tools/parse_structural_reference.py scaffold with HTML input adapter for SEP; SEP test fixtures cached locally; pytest suite mirroring test_validate.py shape. Phase 5 epistemology build-readiness gate slips to S-0041 (S-0040 took the wing-filter fix).",
+  "outcome_summary": "S-0039 landed engine ADR 0047 + structural-reference parser tool. ADR 0047 settles four operational decisions for consuming the ADR 0046 reference class: standing engine tool decoupled from phases; document-agnostic with per-document-type configs (one parser, multiple input adapters sharing structural-detector layer); ephemeral signal-not-truth output (no engine/parser_findings/, no cross-source corroboration, reversibility named); adversarial triage defaulting to rejection (parametric-knowledge boundary, duplicate-node, out-of-scope per ADR 0001). Implementation: engine/tools/parse_structural_reference.py (~600 lines mirroring validate.py's contract-block + pure-detector + argparse-dispatch shape) with InputAdapter interface, HTMLInputAdapter for SEP/IEP-shaped HTML (entry boundary via title+H1; cross-references via SEP sibling-relative ../<slug>/, SEP absolute, IEP absolute patterns; section path from first H2; per-config SEP/IEP title-suffix stripping), pure-function detectors (detect_title, detect_entry_id, detect_cross_references, detect_section_path, detect_word_count, compute_extraction_confidence), FocusingBriefEmitter producing per-entry JSON, CLI via argparse. engine/tools/test_parse_structural_reference.py adds 81 tests covering every detector branch, HTMLInputAdapter happy/edge paths, FocusingBrief schema, integration against six cached SEP fixtures (epistemology, consciousness, ethics-virtue, scientific-method, kant, qualia-knowledge), and CLI via subprocess. beautifulsoup4>=4.12.0 added to engine/tools/requirements.txt. Test fixtures acquired under SEP's crawl-for-indexing permission per content-strategy.md Tier 4; parser-internal; ADR 0011 unchanged. engine/adr/README.md index updated; header count corrected from stale '11 ADRs total' (table already had 12) to '13 ADRs total — all Accepted'. ADR count: 46 → 47 (12 → 13 engine + 34 product). Validator clean (16 checks, 0 hard-fails, 0 soft-warns). 331 tests pass (was 250 at S-0037 close; +81 new). Cold-context review pass per ADR 0038: clean — both new Python files match contract; no premise drift detected. Concurrent-session note: S-0040 (MemPalace wing-filter fix) was eager-claimed concurrently in worktree eloquent-knuth-423df2 and committed 1a41277 to main during S-0039; rebased cleanly (only my feat commit needed rebasing; eager-claim commit was already on the shared lineage). S-0040 owns the live current.json and register_state.json; S-0039 archive written directly rather than via the customary `mv current.json` to avoid stomping S-0040's in-flight slot. Phase 5 epistemology gate slips to S-0041.",
+  "outcome_summary_soft_warns": {
+    "expected_future_file_missing": 0,
+    "adr_missing_status": 0,
+    "adr_index_inconsistent": 0,
+    "cross_reference_broken": 0,
+    "engine_log_format": 0,
+    "state_format": 0,
+    "superseded_adr_currency": 0,
+    "adr_back_reference_orphan": 0,
+    "adr_consequences_deliverable_audit": 0,
+    "chromadb_palace_health": 0,
+    "repo_config_health": 0,
+    "undeclared_predicate": 0,
+    "attribute_shape_inconsistency": 0,
+    "missing_rigor_score": 0,
+    "render_readiness_violation": 0,
+    "synthetic_review_queue": 0,
+    "orphan_leaf": 0,
+    "suspicious_cross_domain_ratio": 0,
+    "diary_skipped": 0
+  },
+  "approved_plan": "/Users/shanekidd/.claude/plans/plan-saved-at-plan-for-s-0039-parser-adr-golden-lake.md",
+  "branch": "claude/amazing-shaw-809d26",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/amazing-shaw-809d26",
+  "side_discoveries": [
+    {
+      "commit": "13b8cf5",
+      "marker": "deferred",
+      "disposition_type": "acceptable_no_action",
+      "disposition_ref": "ADR 0047",
+      "reasoning": "The 'deferred' marker appears in the S-0039 feat commit message context 'Triage prompt template and PDF input adapter deferred per ADR 0047.' Both deferrals are named and justified inside ADR 0047 itself with explicit lands-at-first-real-use criteria (the triage prompt template needs real focusing-brief output to author against; the PDF input adapter needs an acquired PDF source). They are deliberate ADR-tracked deferrals, not unaddressed loose ends; no follow-up disposition is required."
+    }
+  ],
+  "concurrent_sessions": [
+    {
+      "id": "S-0040",
+      "branch": "claude/eloquent-knuth-423df2",
+      "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/eloquent-knuth-423df2",
+      "working_on_at_S-0039_close": "MemPalace wing-filter fix (deferred from S-0038 in violation of CLAUDE.md fix-in-context posture)",
+      "status_at_S-0039_close": "in_progress",
+      "claimed_at": "2026-05-03T22:09:45Z",
+      "note": "S-0040 owns the live engine/session/current.json and engine/session/register_state.json at S-0039 close. S-0039's session-state files live only in the eager-claim commit 542a171 in git history; the archive at this path is the canonical S-0039 record."
+    }
+  ]
+}
