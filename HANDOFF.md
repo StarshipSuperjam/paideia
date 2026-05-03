@@ -123,3 +123,26 @@ The asymmetry that justifies this: a halted shutdown leaves no upstream close co
 This is the kind of finding that would have been mechanically caught if the side-discovery audit ran across cross-session boundaries — but the audit's scope is "this session's commits," not "the boundary between two sessions." That boundary is exactly where this confusion lives.
 
 ---
+
+## Bash 3.2 incompatibility in `session-start.sh` persistent-warn loop (logged at S-0035, not introduced by this session)
+
+**Surfaced during S-0035** while end-to-end testing `engine/tools/hooks/session-start.sh` after the new shared-state probe step landed. Running the hook produced this stderr:
+
+```
+engine/tools/hooks/session-start.sh: line 250: declare: -A: invalid option
+declare: usage: declare [-afFirtx] [-p] [name[=value] ...]
+```
+
+**Root cause.** Lines around the persistent-warn surface use `declare -A CATEGORY_FIRINGS` (associative array) and `${!CATEGORY_FIRINGS[@]}` (associative-array key iteration). Both are bash 4+ features. macOS ships `/bin/bash` 3.2 (Apple's GPLv3 hold). The script's shebang is `#!/bin/bash`, so it picks up the system bash even when bash 4+ is installed via Homebrew at `/usr/local/bin/bash` or `/opt/homebrew/bin/bash`.
+
+**Impact.** On bash 3.2: `declare -A` errors, `CATEGORY_FIRINGS[$cat]=…` writes to a regular indexed array, `${!CATEGORY_FIRINGS[@]}` returns indexed-array indices (numeric, not category names), so the inner `for cat in …` loop never iterates with a real category name. The persistent-warn surface silently emits "none above the 3-of-5 threshold" regardless of actual archive contents. Today this is invisible because S-0030–S-0034 archives all have zero-count soft-warns; if a real persistent warn ever fires, the surface would suppress it on bash 3.2 systems.
+
+**Not introduced by S-0035.** The associative-array idioms predate this session — the hook was authored at S-0031 per ADR 0043 and tightened at S-0032 with the scheduled-audit surface. S-0035's only change to the file was sourcing `scrub_env.sh` and adding a probe block before the persistent-warn surface; the buggy lines are downstream and untouched.
+
+**Proposed fix for the next session that touches `session-start.sh`** (or a future health-check session): convert the persistent-warn aggregation to use parallel indexed arrays (a list of category names + a list of counts at the same index) instead of an associative array. Bash 3.2-portable. Or: switch the shebang to `#!/usr/bin/env bash` AND require a minimum bash version via documentation, recognizing that this changes the run-environment contract. The first option is preferable — it stays compatible with the system shell.
+
+**Verification after fix.** Run `bash --version` to confirm 3.2 (or older); run `bash engine/tools/hooks/session-start.sh` against an archive set carrying a soft-warn that should fire 3-of-5; confirm the persistent-warn surface emits the category, not "none above threshold."
+
+---
+
+---
