@@ -1,13 +1,16 @@
 {
-  "description": "Scheduled near-term audits surfaced by the SessionStart hook (engine/tools/hooks/session-start.sh) when next_id matches an entry's trigger_session. Distinct from the cadence health check (ADR 0022; cadence 10 as of S-0033 per register_state.json health_check_cadence) — the cadence trigger fires for broad project audits at next_id mod cadence == 0; entries here fire for one-time adoption-checks tied to specific session-numbered triggers added by prior decisions.",
+  "description": "Scheduled near-term audits surfaced by the SessionStart hook (engine/tools/hooks/session-start.sh) when next_id matches an entry's trigger_session. Distinct from the cadence health check (ADR 0022; cadence 10 as of S-0033 per register_state.json health_check_cadence) — the cadence trigger fires for broad project audits per the overdue-catchup logic introduced at S-0041; entries here fire for one-time adoption-checks tied to specific session-numbered triggers added by prior decisions.",
   "format": "Each entry: trigger_session (S-NNNN), description (what to audit and how), added_at (S-NNNN that scheduled it), added_per (the doc or ADR that motivated the entry).",
   "lifecycle": "Entries persist until the trigger session boots, surfaces the audit at boot, and the audit lands. The session that runs the audit removes the entry as part of close (or, if the audit is deferred, leaves the entry in place — re-fires next session). No automatic expiry; an entry whose trigger_session is in the past keeps firing until the audit lands or the entry is removed.",
-  "audits": [
+  "audits": [],
+  "consumed_log": [
     {
       "trigger_session": "S-0042",
       "description": "First near-term audit of pushback/lesson tag adoption (per S-0032 audit Improvement G). Count drawers tagged `pushback` and `lesson` filed since S-0032; flag if either count is zero or near-zero (adoption failure). The first cadence-10 health check at S-0040 also covers this, but the explicit near-term entry remains so the audit fires even if the S-0040 cadence trigger is deferred.",
       "added_at": "S-0032",
-      "added_per": "engine/operations/mempalace-tagging-conventions.md `pushback` + `lesson` tag definitions; mempalace audit plan Improvement G"
+      "added_per": "engine/operations/mempalace-tagging-conventions.md `pushback` + `lesson` tag definitions; mempalace audit plan Improvement G",
+      "consumed_at": "S-0041",
+      "consumed_per": "Catch-up health-check audit absorbed the pushback/lesson adoption check (see docs/health-checks/S-0041.md Gaps section). Adoption finding: zero drawers carrying `Tags: pushback` or `Tags: lesson` across S-0033 → S-0040. Follow-up queued in STATE.md \"After S-0041\" — amend mempalace-tagging-conventions.md with explicit per-shutdown-step prompts."
     }
   ]
 }
