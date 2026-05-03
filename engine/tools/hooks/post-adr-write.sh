@@ -130,19 +130,58 @@ fi
 # whose body carries both a `**Tags:**` line containing `decision` AND a
 # mention of the ADR id (e.g., "ADR 0043"). The CLI output prints the full
 # drawer body so both checks can run via grep.
+HAS_TAG_AND_ID=0
 if echo "$SEARCH_OUTPUT" | grep -qE '^\s*\*\*Tags:\*\*[^$]*decision' \
    && echo "$SEARCH_OUTPUT" | grep -q "ADR $ADR_ID"; then
-    log_ok "drawer-present adr=$ADR_ID"
+    HAS_TAG_AND_ID=1
+fi
+
+# Room-targeting check (added at S-0032 per the MemPalace audit plan,
+# Improvement B + Cleanup 3). Per engine/operations/mempalace-tagging-conventions.md
+# "Room-targeting conventions", ADR companion drawers belong in the
+# `decisions` room. Pre-S-0032, the legacy filing pattern placed them in
+# `general`. The hook now distinguishes the two cases:
+#   - Tag+id match AND a result line names "paideia / decisions": correct, log OK.
+#   - Tag+id match AND only "paideia / general" lines present: legacy pattern,
+#     emit migration reminder (drawer exists but should move to decisions).
+#   - No tag+id match at all: drawer absent, emit existing two-layer reminder.
+HAS_DECISIONS_ROOM=0
+HAS_GENERAL_ROOM=0
+if echo "$SEARCH_OUTPUT" | grep -qE '^\s*\[[0-9]+\][[:space:]]+paideia[[:space:]]*/[[:space:]]*decisions'; then
+    HAS_DECISIONS_ROOM=1
+fi
+if echo "$SEARCH_OUTPUT" | grep -qE '^\s*\[[0-9]+\][[:space:]]+paideia[[:space:]]*/[[:space:]]*general'; then
+    HAS_GENERAL_ROOM=1
+fi
+
+if [ "$HAS_TAG_AND_ID" = "1" ] && [ "$HAS_DECISIONS_ROOM" = "1" ]; then
+    log_ok "drawer-present adr=$ADR_ID room=decisions"
     exit 0
 fi
 
-# No matching drawer — emit reminder to stderr.
+if [ "$HAS_TAG_AND_ID" = "1" ] && [ "$HAS_GENERAL_ROOM" = "1" ]; then
+    # Legacy filing pattern: drawer exists but in the wrong room.
+    {
+        echo "[two-layer-recording / room-targeting] ADR $ADR_ID '$ADR_TITLE' written;"
+        echo "  matching \`decision\`-tagged drawer found in MemPalace, but appears"
+        echo "  to be filed in the legacy \`general\` room (no result in \`decisions\` room)."
+        echo "  Per engine/operations/mempalace-tagging-conventions.md \"Room-targeting"
+        echo "  conventions\" (added at S-0032), ADR companions belong in the \`decisions\`"
+        echo "  room. Migrate via mempalace_get_drawer (read content) + mempalace_add_drawer"
+        echo "  (refile to room=decisions) — and remove or supersede the legacy drawer."
+    } >&2
+    log_ok "drawer-wrong-room adr=$ADR_ID"
+    exit 0
+fi
+
+# No matching drawer — emit existing two-layer reminder.
 {
     echo "[two-layer-recording] ADR $ADR_ID '$ADR_TITLE' written;"
     echo "  no matching \`decision\`-tagged MemPalace drawer found in wing 'paideia'."
     echo "  Per CLAUDE.md two-layer recording, the conversation that produced this"
     echo "  decision should be filed to MemPalace alongside the ADR."
-    echo "  See engine/operations/mempalace-tagging-conventions.md for tag conventions."
+    echo "  See engine/operations/mempalace-tagging-conventions.md for tag conventions"
+    echo "  and the \"Room-targeting conventions\" section for room placement."
 } >&2
 
 log_ok "reminder-emitted adr=$ADR_ID"
