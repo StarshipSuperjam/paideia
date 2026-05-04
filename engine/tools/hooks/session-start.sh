@@ -190,6 +190,54 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Concurrent-session collision check (per Issue #3 / S-0048)
+# ---------------------------------------------------------------------------
+#
+# Surfaces when register_state.json says current_status: in_progress at boot.
+# Hook is informational and never blocks; the slash command's boot procedure
+# (`.claude/commands/start-engine.md` step 4b) is what actually refuses to
+# claim. Three exit codes:
+#
+#   0 — no conflict (current_status closed/absent or current.json absent)
+#   1 — recent collision (<1h) or ambiguous mid-window
+#   2 — stale (>24h) — likely dead session, recovery candidate
+#
+# The hook surfaces all three to stderr (so the AI sees them at boot) and
+# logs the disposition. The session can still start; the AI is responsible
+# for honoring the surface before claiming.
+
+CONFLICT_TOOL="$REPO_ROOT/engine/tools/check_session_conflict.py"
+CONFLICT_STATUS="not-run"
+if [ -x "$(command -v python3)" ] && [ -f "$CONFLICT_TOOL" ]; then
+    CONFLICT_TMP_OUT="$(mktemp 2>/dev/null || echo "/tmp/session-start-conflict.$$")"
+    CONFLICT_TMP_ERR="$(mktemp 2>/dev/null || echo "/tmp/session-start-conflict-err.$$")"
+    python3 "$CONFLICT_TOOL" --repo-root "$REPO_ROOT" \
+        >"$CONFLICT_TMP_OUT" 2>"$CONFLICT_TMP_ERR"
+    CONFLICT_EXIT=$?
+    case "$CONFLICT_EXIT" in
+        0)
+            CONFLICT_STATUS="no-conflict"
+            ;;
+        1)
+            cat "$CONFLICT_TMP_ERR" >&2 2>/dev/null
+            CONFLICT_STATUS="recent-or-ambiguous"
+            ;;
+        2)
+            cat "$CONFLICT_TMP_ERR" >&2 2>/dev/null
+            CONFLICT_STATUS="stale"
+            ;;
+        *)
+            CONFLICT_STATUS="exit-$CONFLICT_EXIT"
+            log_fail "session-conflict-exit-$CONFLICT_EXIT"
+            ;;
+    esac
+    rm -f "$CONFLICT_TMP_OUT" "$CONFLICT_TMP_ERR" 2>/dev/null
+else
+    log_fail "session-conflict-prereq-missing"
+    CONFLICT_STATUS="prereq-missing"
+fi
+
+# ---------------------------------------------------------------------------
 # Shared-state health probe (per ADR 0045)
 # ---------------------------------------------------------------------------
 #
@@ -463,5 +511,5 @@ if [ -f "$SCHEDULED_AUDITS_FILE" ]; then
     fi
 fi
 
-log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=$PERSISTENT_FOUND scheduled=$SCHEDULED_FOUND probe=$PROBE_STATUS backlog=$BACKLOG_STATUS scope_non_yes=$SCOPE_NON_YES"
+log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=$PERSISTENT_FOUND scheduled=$SCHEDULED_FOUND probe=$PROBE_STATUS backlog=$BACKLOG_STATUS scope_non_yes=$SCOPE_NON_YES conflict=$CONFLICT_STATUS"
 exit 0

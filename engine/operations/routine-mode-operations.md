@@ -159,9 +159,14 @@ If you've already started interactive while routine is `in_progress` and notice 
 - **Inspect `engine/session/current.json`** — if it carries the *interactive's* claimed id (rather than the routine's), the routine has been clobbered.
 - **Escalate to recovery.** The routine session's worktree still holds its in-flight work locally; the user can decide whether to manually preserve it (via `git stash` or branch save) before reconciling state. Preferred path: let the interactive session run, document the collision in `outcome_summary`, and re-run the routine task at the next routine fire (it will re-pick the now-orphaned `in_progress` task and either resume or mark `blocked`).
 
-### Mechanical safeguard (planned, not yet landed)
+### Mechanical safeguard (landed at S-0048 per Issue #3)
 
-Tracked as [Issue #3](https://github.com/StarshipSuperjam/paideia/issues/3): `/start-engine` boot procedure should detect `current_status: in_progress` with a recent `started_at` (<1 hour) and refuse with an override prompt rather than blindly claiming the next slot. Same check belongs in `session-start.sh` for harness-side parity. Surfaced during S-0044 in response to "What if I start a manual interactive session while routine mode sessions are running?" — out of S-0044's scope so routed to Issue per ADR 0048 discovered-issues discipline. Until it lands, the procedural rule above is the safety belt.
+[`engine/tools/check_session_conflict.py`](../tools/check_session_conflict.py) inspects `engine/session/register_state.json` + `engine/session/current.json` and emits one of three dispositions: exit 0 (no conflict), exit 1 (recent collision <1h or mid-window ambiguity 1h–24h), exit 2 (stale >24h, likely dead session — offer auto-recovery).
+
+Wired in two places:
+
+- **[`engine/tools/hooks/session-start.sh`](../tools/hooks/session-start.sh)** runs the check after the cadence-trigger surface and before the shared-state probe. The hook surfaces stderr from the tool but always exits 0 (per its "never blocks" design); the AI sees the surface at boot.
+- **[`.claude/commands/start-engine.md`](../../.claude/commands/start-engine.md) step 4b** + **[`engine/operations/session-build-lifecycle.md`](session-build-lifecycle.md) step 5b** both run the tool *before* the eager-claim ritual and refuse the claim on exit 1; offer auto-recovery on exit 2. The procedural cooperation rule above remains the human-mediated safety belt for the cases the mechanical safeguard cannot handle (e.g., user explicitly overriding to claim despite a recent rival).
 
 ## Harness permission allowlist
 

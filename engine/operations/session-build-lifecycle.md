@@ -47,6 +47,14 @@ A build session is any conversation that types `Start Engine` or invokes `/start
 
    Operational sessions (health checks, ENGINE_LOG-only edits, retrievability cleanups, gate sessions themselves) skip this step — they do not require build-readiness reports per [ADR 0040](../adr/0040-build-readiness-gate-before-substantive-build-sessions.md)'s scope.
 
+5b. **Concurrent-session collision check** (per [Issue #3](https://github.com/StarshipSuperjam/paideia/issues/3) / S-0048). Run [`engine/tools/check_session_conflict.py`](../tools/check_session_conflict.py). The tool inspects `engine/session/register_state.json` and `engine/session/current.json` and disposes:
+
+   - **Exit 0** (no conflict): `current_status` is `closed` (or absent), or `current.json` is absent. Proceed to step 6.
+   - **Exit 1** (recent collision or ambiguous mid-window): a routine-mode or interactive session is in flight (`current_status: in_progress`, `started_at` < 24h). The session must NOT claim a new slot — the eager-claim would overwrite the rival's `current.json` and corrupt its archive. Surface the tool's stderr to the user and refuse: name the rival session ID, name the cooperation procedure (pause the routine via `auto_target.json` `paused: true`, or wait for the rival to close), and exit the boot procedure cleanly.
+   - **Exit 2** (stale): an `in_progress` session has been open for >24h with no close. Almost certainly a dead session (force-killed harness, machine reboot, etc.). Offer auto-recovery to the user: edit `register_state.json` to set `current_status: 'closed'`, archive the stale `current.json` to `engine/session/archive/<rival_id>.json` with `status: closed_partial` and a note in `outcome_summary`, then re-run the boot procedure.
+
+   The same surface fires in [`engine/tools/hooks/session-start.sh`](../tools/hooks/session-start.sh) at every boot regardless of how the session is launched, but the hook itself never blocks (per its "always exits 0" design). The slash command's boot procedure is the actual refusal point.
+
 6. **Claim the slot via the eager-claim ritual** (see below).
 
 7. **Begin substantive work.** The slot is held atomically; concurrent sessions cannot collide. Make file edits, run tools, commit incrementally as work progresses. Each commit must pass `tools/validate.py` (enforced by the pre-commit hook in `tools/hooks/pre-commit`). For substantive build sessions, the build-readiness report is the canonical decision-of-record — when implementation choices arise that the report did not anticipate, they fall into one of three buckets: (a) routine in-session judgment, recorded in `outcome_summary`; (b) escalation candidates per [`escalation-criteria.md`](escalation-criteria.md); (c) signals that the gate session under-specified — surface in `outcome_summary` so the next gate exercise refines.

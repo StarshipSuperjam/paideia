@@ -18,6 +18,12 @@ Convert the current Claude Code conversation from default exploration mode (no c
 
 4. **Read referenced ADRs and docs.** `engine/STATE.md` and `ROADMAP.md` will name specific files relevant to the work item. Read them.
 
+4b. **Concurrent-session collision check** (per Issue #3 / S-0048). Run `python3 engine/tools/check_session_conflict.py`. Three dispositions:
+
+   - **Exit 0** (no conflict): `register_state.json` shows `current_status: closed` (or absent) — proceed to step 5.
+   - **Exit 1** (recent collision or ambiguous mid-window): another session is in flight with `started_at` < 24h. Do NOT claim. The tool's stderr names the rival session ID and the cooperation procedure (pause the routine via `auto_target.json` `paused: true` and wait, OR wait for the rival to close). Surface to the user, refuse the eager-claim, and exit the boot procedure cleanly.
+   - **Exit 2** (stale): an `in_progress` session has been open for >24h. Likely a dead session. Offer auto-recovery to the user: edit `register_state.json` to `current_status: 'closed'`, archive the stale `current.json` to `engine/session/archive/<rival_id>.json` with `status: closed_partial`, then re-run the boot procedure.
+
 5. **Claim the next slot via the eager-claim ritual:**
 
    a. Read `engine/session/register_state.json`. Note `next_id` (e.g., `0007`).
