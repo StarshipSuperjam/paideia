@@ -701,10 +701,13 @@ def validate_issue_collisions() -> ValidationResult:
     r.add_check("issue_collision")
 
     if not SCAN_ISSUE_COLLISIONS.is_file():
+        try:
+            display_path = str(SCAN_ISSUE_COLLISIONS.relative_to(REPO_ROOT))
+        except ValueError:
+            display_path = str(SCAN_ISSUE_COLLISIONS)
         r.soft_warn(
             "issue_collision",
-            f"scan_issue_collisions.py missing at "
-            f"{SCAN_ISSUE_COLLISIONS.relative_to(REPO_ROOT)}",
+            f"scan_issue_collisions.py missing at {display_path}",
         )
         return r
 
