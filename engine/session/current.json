@@ -1,0 +1,12 @@
+{
+  "id": "S-0051",
+  "started_at": "2026-05-04T20:00:00Z",
+  "status": "in_progress",
+  "working_on": "Fix Issue #9 (one-line column swap in check_target.py:114, version → name) to unblock P5-01a; mark P5-01a complete; fix Issue #10 (boot-time worktree-staleness check) found in-band per no-cascade direction; complete label-taxonomy work (procedures for documentation/question, drop community labels, fix scan_issue_backlog.py boot surface).",
+  "declared_scope": "Three coupled work units. (A) Issue #9 fix: change engine/tools/check_target.py:114 from 'WHERE version = %s' to 'WHERE name = %s'; add regression test in engine/tools/test_check_target.py asserting SQL uses name column; run check_target.py --task-id P5-01a to verify both criteria PASS; mark P5-01a complete in engine/session/auto_target.json (status field only); close Issue #9. (B) Issue #10 fix (in-session per no-cascade direction): add worktree-staleness check to engine/tools/hooks/session-start.sh that runs git fetch + compares HEAD to origin/main and surfaces a LOUD attention block when behind; close Issue #10. (C) Label optimization: add documentation and question labels to issue-discipline.md taxonomy + reactive-only labels section + CLAUDE.md fix-in-context list; drop 'good first issue' and 'help wanted' via gh label delete; rewrite engine/tools/scan_issue_backlog.py format_fyi_line to emit 7 type categories (subtracting upstream-bugs from bug count and surfacing upstream separately) with regression tests in test_scan_issue_backlog.py; append ADR 0048 Consequences amendment; update issue-discipline.md FYI line example. End state: P5-01a complete, Issues #9 and #10 closed, label taxonomy reflects intended use, boot surface counts accurately.",
+  "outcome_summary": null,
+  "scope_delivery": null,
+  "approved_plan": "/Users/shanekidd/.claude/plans/1-routine-session-velvet-harp.md",
+  "branch": "claude/great-wright-9dd19b",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/great-wright-9dd19b"
+}
