@@ -1,0 +1,21 @@
+{
+  "id": "S-0055",
+  "started_at": "2026-05-04T22:35:21Z",
+  "closed_at": "2026-05-04T23:04:37Z",
+  "status": "closed",
+  "working_on": "Routine-mode hardening — close Issues #12, #13, #14, #15 (3-layer routine boot fix + venv reexec + archive-fields audit + mechanism-first-exercise gate ADR).",
+  "declared_scope": "Land four Issue closures: #14 venv auto-reexec stub for psycopg-importing tools; #13 audit_archive_structured_fields.py + shutdown wiring; #15 routine-boot freshness gate + lockfile + loser-recovery (3-layer routine-boot hardening per corrected diagnosis: staleness primary, concurrency defense-in-depth); #12 ADR adopting mechanism-first-exercise gate + ops-doc procedure. Includes ADRs 0052 + 0053 and CLAUDE.md posture carve-out for the recovery script. phase: NA-engine",
+  "outcome_summary": "Closed Issues #12/#13/#14/#15 in one session. Issue #15 diagnosis corrected mid-session by user: failure was boot-time staleness (loser routine read pre-update register_state.json after winner closed), not concurrency — fix is 3-layer per ADR 0052 (mechanical freshness gate primary; lockfile+recovery as belt-and-suspenders per user direction). Issue #14 venv auto-reexec works via importlib.find_spec + os.execv to symlink path (not resolved path — Python uses argv[0] for venv bootstrap). Issue #13 archive structured-fields audit symmetric to audit_handoff_dispositions.py. Issue #12 adopts mechanism-first-exercise gate (ADR 0053) — analogous to build-readiness gate but mechanism-triggered. 39 new tests, 5 new tools, 2 new ADRs, 1 new ops doc, 13 modified files. Local main recovery from loser commit `2f4b088` performed at session start (user-confirmed bounded reset).",
+  "outcome_summary_soft_warns": {
+    "issue_collision": 2,
+    "missing_rigor_score": 76
+  },
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": true,
+    "explanation": "All four declared Issue closures landed. Mid-session scope adjustments: (a) user corrected Issue #15 diagnosis from concurrency to staleness; the fix scope shrank (no lockfile) then re-expanded per explicit user direction to add concurrency defense-in-depth (lockfile + recovery). (b) Local-main recovery added as Step 0 after explicit user confirmation. (c) Build-readiness-gate.md added to ops/README.md index alongside the new mechanism-first-exercise-gate.md (small adjacent fix — pre-existing index gap)."
+  },
+  "approved_plan": "/Users/shanekidd/.claude/plans/another-session-crash-with-calm-yeti.md",
+  "branch": "claude/modest-swartz-087ae8",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/modest-swartz-087ae8"
+}
