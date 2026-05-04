@@ -12,7 +12,14 @@ Two surfaces:
 
 - Default FYI line, always shown:
   ``[session-start] Issues backlog: N bugs, N tech-debt, N cleanup,
-  N enhancement (M urgent).``
+  N enhancement, N health-check, N docs, N question
+  (M urgent; K upstream-blocked).`` Updated at S-0051: emits 7 type
+  categories instead of the original 4 (`health-check-finding`,
+  `documentation`, `question` added). Bugs that are also tagged
+  `upstream` are subtracted from the bug count and surfaced
+  separately as `upstream-blocked` in the parenthetical, so the
+  reader sees in-project actionable bugs rather than a noise-padded
+  total. See ADR 0048 Consequences amendment at S-0051.
 - Urgent LOUD block, only when ``priority:urgent`` count > 0:
   multi-line attention block listing each urgent issue's number,
   title, and non-priority labels. Same surface treatment as ADR 0045's
