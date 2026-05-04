@@ -76,6 +76,8 @@ When 5+ sessions have accumulated `transcript_token_pct` in their archives:
 
 The audit produces a recommendation on bundling for the next N sessions. Telemetry is grounded; the recommendation is not vibes.
 
+**The field is upper-bound and routinely exceeds 1.0 in long sessions** (per [Issue #11](https://github.com/StarshipSuperjam/paideia/issues/11) closed at S-0052; the S-0052 audit window had 3 of 10 archives carrying `pct > 1.0`). It is cross-session telemetry only — the audit may use it to compare session-shape across the window but should not interpret a >1.0 reading as "this session blew its budget" (the metric is cumulative content over session lifetime, not live prompt pressure). When 3+ of last 5 are above 1.0, the right reading is "these sessions ran long and/or had heavy tool-output content" — the Session-load trend's directional signals (too long / too short / high variance) still apply.
+
 ### Validator telemetry
 
 `tools/validate-history.jsonl` (gitignored, per-clone) — soft-warn category trends, validator runtime drift, hard-fail incidence.

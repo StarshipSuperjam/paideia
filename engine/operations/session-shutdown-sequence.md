@@ -184,6 +184,8 @@ Run `python3 engine/tools/scan_context_telemetry.py`. The tool reads the session
 
 The estimate is upper-bound (the harness manages context via compaction and caching; on-disk transcript represents the full conversation, not the actual prompt size at any moment). Sufficient for the cross-session "running too long / too short / high variance" judgment in the [`health-check.md`](health-check.md) Session-load trend section.
 
+**Do not read `transcript_token_pct` as live in-session pressure** (per [Issue #11](https://github.com/StarshipSuperjam/paideia/issues/11) closed at S-0052). The metric is cumulative and routinely exceeds 1.0 in long sessions because cached+compacted content compounds the count past the live window size. The S-0051 incident (AI nearly skipped MemPalace diary, pushback/lesson capture, and cold-context review on a misread of `pct=0.9639` as 96% of context window) is documented in [Issue #11](https://github.com/StarshipSuperjam/paideia/issues/11) and the structural framing is in CLAUDE.md "Posture vs machinery". The output line was reframed at S-0052 to make the cumulative semantics explicit at the read site.
+
 If the transcript can't be located or `current.json` is missing, the tool emits a stderr note and exits 0 — telemetry is best-effort, not blocking.
 
 The fields travel with the archive in step 9; the health-check session-load trend reads them across the last N archives.

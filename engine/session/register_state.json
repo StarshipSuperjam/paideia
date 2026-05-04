@@ -19,11 +19,11 @@
       "reason": "S-0032 user direction: tighten to 10 because the S-0032 audit surfaced enough silent failures (broken auto-capture hook, inflated 1/42 metric, ADR-companion room-split) that 30-session intervals are too sparse. Raise back later when the project performs more consistently."
     }
   ],
-  "last_audit_session": "S-0041",
+  "last_audit_session": "S-0052",
   "last_audit_session_field_history": [
     {
       "field_added_at": "S-0041",
-      "reason": "Replaces strict-modulo cadence-trigger logic (next_id mod cadence == 0) with overdue-catchup tracking ((next_id - last_audit_session) >= cadence). The strict-modulo logic silently slid the trigger forward by a full cadence whenever a cadence-aligned slot was consumed by user-directed work — S-0040's slot was taken by the deferred MemPalace wing-filter fix, and the trigger sat dormant until S-0050 (a 19-session gap, nearly 2x the configured cadence). Bootstrap value 'S-0030' is the most recent completed audit at the time of authoring (see docs/health-checks/S-0030.md and docs/health-checks/S-0041.md). The session that runs an audit bumps this field at health_check.py emit time."
+      "reason": "Replaces strict-modulo cadence-trigger logic (next_id mod cadence == 0) with overdue-catchup tracking ((next_id - last_audit_session) >= cadence). The strict-modulo logic silently slid the trigger forward by a full cadence whenever a cadence-aligned slot was consumed by user-directed work \u2014 S-0040's slot was taken by the deferred MemPalace wing-filter fix, and the trigger sat dormant until S-0050 (a 19-session gap, nearly 2x the configured cadence). Bootstrap value 'S-0030' is the most recent completed audit at the time of authoring (see docs/health-checks/S-0030.md and docs/health-checks/S-0041.md). The session that runs an audit bumps this field at health_check.py emit time."
     }
   ]
 }

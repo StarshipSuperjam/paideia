@@ -23,6 +23,14 @@ conversation, not the actual prompt size at any moment). Sufficient
 for the cross-session "running too long / too short / high variance"
 judgment in the health-check session-load trend section.
 
+The fields are NOT suitable for in-session "do I have budget"
+decisions. ``transcript_token_pct`` can exceed 1.0 in long sessions
+because cached+compacted content compounds the cumulative count past
+the 1M live-window size — a value above 1.0 is a tell that the
+metric is cumulative, not live. See Issue #11 (closed at S-0052) for
+the false-pressure-misread incident the audit's window-wide telemetry
+turned into a structural finding.
+
 Run from session-shutdown-sequence step 7b (after scope-delivery
 audit, before outcome_summary fill, before archive).
 
@@ -121,7 +129,7 @@ def tokenize(text: str) -> tuple[int, str]:
     char-count / 4 estimate when tiktoken is not importable.
     """
     try:
-        import tiktoken  # type: ignore[import-not-found]
+        import tiktoken
 
         encoding = tiktoken.get_encoding("o200k_base")
         return len(encoding.encode(text)), "tiktoken-o200k_base"
@@ -196,11 +204,12 @@ def main(argv: list[str] | None = None) -> int:
 
     text = read_transcript_text(transcript)
     token_estimate, tokenizer_label = tokenize(text)
-    pct = round(token_estimate / CONTEXT_WINDOW_TOKENS, 4)
 
     print(
         f"[scan-context-telemetry] transcript={transcript.name} "
-        f"tokens~{token_estimate:,} pct={pct:.4f} via {tokenizer_label}",
+        f"session_total_tokens~{token_estimate:,} "
+        f"(upper-bound; cached+compacted included; not live prompt pressure) "
+        f"via {tokenizer_label}",
         flush=True,
     )
 
