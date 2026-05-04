@@ -28,7 +28,7 @@ The cold-review pass (step 8) is run after this report is complete, against the 
 
 ## Tier 2 decisions
 
-- **T2-A — disposition form regex.** New disposition: `tracked-as-issue #<num>` where `<num>` is one or more digits. Audit accepts via regex `^\*\*Disposition:\*\* tracked-as-issue #(\d+)$` alongside the existing four forms.
+- **T2-A — disposition form pattern.** New fifth entry appended to `_VALID_DISPOSITION_PATTERNS` in [`engine/tools/audit_handoff_dispositions.py`](../tools/audit_handoff_dispositions.py): `re.compile(r"^tracked-as-issue\s+#(\d+)$")`. Style mirrors the existing four patterns (which match against the *value* extracted by `DISPOSITION_RE`, not the full markdown line — see lines 97–108 of the script). The author-facing form in HANDOFF.md is `**Disposition:** tracked-as-issue #<num>` with one or more digits. Audit hint message at lines 332–343 grows a fifth bullet.
 
 - **T2-B — Issue body shape.** Each Issue body must include a `### Affected files` section listing tracked file paths the issue touches (one per line, repo-relative). The collision-detection scanner uses these for path-overlap matching against the session's first commits.
 
@@ -46,9 +46,9 @@ The cold-review pass (step 8) is run after this report is complete, against the 
   ```
   The audit walks the file top-to-bottom and judges each candidate against the operative question.
 
-- **T2-F — `declared_scope` schema in `current.json`.** New field, string, 1–3 sentences plus optional `phase: <id>` line at end. Example: `"Engine apparatus improvements... phase: NA-engine-mechanism"`. The `phase:` suffix is optional for non-build-plan work; the validator only requires the prose if the work is operational.
+- **T2-F — `declared_scope` schema in `current.json`.** New string field, 1–3 sentences of prose. For build-plan-tracked work, the prose must contain a `phase:` token whose value matches a phase identifier in [`build_plan/MANIFEST.md`](../../build_plan/MANIFEST.md) (e.g., `phase: P_3` or `phase: 4.5`). For operational/engine-apparatus work that doesn't map to a build-plan phase, the prose has no `phase:` token and is unrestricted. The validator's matching is substring (case-insensitive, whitespace-tolerant): if `phase:` appears, the validator scans the build-plan MANIFEST for the named identifier and soft-warns on no match. If `phase:` does not appear, the validator only checks the field is non-empty.
 
-- **T2-G — Scope-delivery audit prompt at shutdown.** Exact text the AI is prompted with: `"Did you deliver the declared scope? If no, why not? Did anything get descoped, reordered, or deferred mid-session?"` AI's free-text answer is appended to `outcome_summary` under a `scope_delivery_answer` key. The validator parses the first word of the answer; anything other than "Yes" or "yes" → `scope_delivery_non_yes` soft-warn.
+- **T2-G — Scope-delivery audit prompt at shutdown.** Exact text the AI is prompted with: `"Did you deliver the declared scope? If no, why not? Did anything get descoped, reordered, or deferred mid-session — even with user confirmation?"` AI's free-text answer is recorded in `current.json` under a structured field: `{"delivered": <bool>, "user_confirmed_changes": <bool>, "explanation": "<free text>"}`. The audit takes the AI's literal `delivered` boolean. `delivered: false` → `scope_delivery_non_yes` soft-warn regardless of `user_confirmed_changes` value (the warn is *signal* for cross-session aggregation, not punishment — even justified scope changes leave a trace so the trend is visible). `user_confirmed_changes` is captured for future audit but does not affect the soft-warn.
 
 - **T2-H — Multi-session scope-erosion threshold.** 3 of last 5 sessions with non-yes scope-delivery → SessionStart hook surfaces `[session-start] Scope-delivery non-yes in 3 of last 5 sessions; review scope-discipline.` Same surface treatment as the existing 3-of-5 persistent-warn.
 
@@ -81,13 +81,24 @@ Inherits from the approved plan's verification section, surfaced here for boot-t
 - `scan_context_telemetry.py` writes `transcript_token_estimate` and `transcript_token_pct` to `engine/session/archive/S-0042.json` at shutdown. Spot-check value against word-count / 0.75 sanity.
 - All Skills (`session-build-lifecycle`, `session-shutdown-sequence`, `build-readiness-gate`) mirror their Layer 1 doc updates.
 - Validator end-of-session: 0 hard-fails. Soft-warns are the new ones intentionally exercised during verification.
-- Tests added for new tools and new validator rules; existing 196 tests still pass.
+- Tests added for new tools and new validator rules; the full existing test suite still passes (run `pytest` to verify; do not hard-code a baseline count — use the actual current pass count at run time).
 
 ## Authored resolution artifacts (in S-0042)
 
 - **New ADR** documenting the HANDOFF/Issues split (engine ADR; next number is 0048 — the index post-S-0041 stands at 47 ADRs total: ADRs 0001–0047).
 - **17 file touches** per the plan's "Files to modify" table.
 - **This report itself** at `engine/build_readiness/engine_apparatus_improvements_s0042.md`.
+
+## Cold-review findings (per ADR 0040 step 8)
+
+A fresh-context Explore agent reviewed this report against its citations. Findings:
+
+- **Discrepancy — test count.** Original report claimed "196 tests still pass." Cold reviewer counted 177 test functions via grep; mismatch with the S-0041 outcome record. **Resolution:** removed the hard-coded count from the success criteria; test pass-count is verified at run time, not asserted in advance.
+- **Spec-sharpening — T2-A regex.** Original specification mixed the disposition-extraction regex (which matches the markdown `**Disposition:**` line) with the pattern-validation regex (which matches the *value* extracted by the first regex). **Resolution:** T2-A now names the new fifth pattern as `re.compile(r"^tracked-as-issue\s+#(\d+)$")` to be appended to `_VALID_DISPOSITION_PATTERNS`, with explicit reference to the existing script's lines 97–108 to show the integration point.
+- **Spec-sharpening — T2-F phase example.** Original used `phase: NA-engine-mechanism` as an example, which doesn't match any build-plan phase identifier. **Resolution:** clarified that the `phase:` token is required ONLY for build-plan-tracked work; for operational/engine-apparatus work the field is unrestricted prose with no `phase:` token. Validator's matching logic explicitly described.
+- **Spec-sharpening — T2-G ambiguity.** Original parsed first-word-of-answer for yes/no, leaving "user-confirmed descoping" semantics ambiguous. **Resolution:** structured the field as `{delivered: bool, user_confirmed_changes: bool, explanation: str}`. The soft-warn fires on `delivered: false` regardless of user-confirmation status — the warn is signal for cross-session aggregation, not punishment.
+
+All four resolutions land in this report; no changes to the plan's intent. The cold-review caught spec fragility that would have surfaced as build-time confusion if left unaddressed.
 
 ## See also
 
