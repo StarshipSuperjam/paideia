@@ -1,0 +1,12 @@
+{
+  "id": "S-0055",
+  "started_at": "2026-05-04T22:35:21Z",
+  "status": "in_progress",
+  "working_on": "Routine-mode hardening — close Issues #12, #13, #14, #15 (3-layer routine boot fix + venv reexec + archive-fields audit + mechanism-first-exercise gate ADR).",
+  "declared_scope": "Land four Issue closures: #14 venv auto-reexec stub for psycopg-importing tools; #13 audit_archive_structured_fields.py + shutdown wiring; #15 routine-boot freshness gate + lockfile + loser-recovery (3-layer routine-boot hardening per corrected diagnosis: staleness primary, concurrency defense-in-depth); #12 ADR adopting mechanism-first-exercise gate + ops-doc procedure. Includes ADRs 0052 + 0053 and CLAUDE.md posture carve-out for the recovery script. phase: NA-engine",
+  "outcome_summary": null,
+  "scope_delivery": null,
+  "approved_plan": "/Users/shanekidd/.claude/plans/another-session-crash-with-calm-yeti.md",
+  "branch": "claude/modest-swartz-087ae8",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/modest-swartz-087ae8"
+}
