@@ -26,6 +26,8 @@ Procedural documentation. One file per topic. AI sessions discover topics by rea
 
 ### Decisions and review
 
+- [`build-readiness-gate.md`](build-readiness-gate.md) — pre-flight gate before substantive build sessions (per ADR 0040): adversarial reconnaissance, Tier 1/2/3 triage, gate report at `engine/build_readiness/<phase>_<chunk>.md`.
+- [`mechanism-first-exercise-gate.md`](mechanism-first-exercise-gate.md) — pre-flight before unattended use of a novel cross-cutting mechanism (per ADR 0053): mechanism-triggered (vs build-readiness-gate's phase-trigger); one report per qualifying mechanism.
 - [`adr-authoring.md`](adr-authoring.md) — Nygard template, status conventions, when an ADR is warranted.
 - [`document-voice.md`](document-voice.md) — expression contract for inward-facing project documentation; governs voice in the `docs/` tree, ADRs, root-level project files. Sibling tool to [`AGENT_INSTRUCTIONS.md`](../../product/AGENT_INSTRUCTIONS.md), separately scoped.
 - [`code-discipline.md`](code-discipline.md) — expression contract for AI-authored code under engine/; three-layer discipline (contract-first prose, mechanical gates, cold-context review pass). Sibling tool to [`document-voice.md`](document-voice.md), separately scoped to code.

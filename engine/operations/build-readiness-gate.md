@@ -249,6 +249,15 @@ The contract's load-bearing surface is the halting commitment — no substantive
 
 The asymmetry holds because what the contract protects is the halting discipline. Refinements preserve halting; posture changes alter what halting is calibrated to.
 
+## Related — mechanism-first-exercise gate
+
+[`mechanism-first-exercise-gate.md`](mechanism-first-exercise-gate.md) (per [ADR 0053](../adr/0053-mechanism-first-exercise-gate.md)) is the sibling pre-flight gate, structurally similar but with a different trigger:
+
+- **Build-readiness gate (this doc):** *phase-triggered.* Fires before each substantive build session; one report per build_plan/ chunk.
+- **Mechanism-first-exercise gate:** *mechanism-triggered.* Fires once per novel cross-cutting mechanism (per ADR 0053's trigger criterion), before that mechanism is used unattended for the first time.
+
+Both gates use the same Tier 1 / Tier 2 / Tier 3 triage rubric, both produce reports under `engine/build_readiness/`, both run in conversational-with-the-user mode rather than auto-mode. They can both apply to a single phase if a new mechanism lands as part of that phase's work.
+
 ## See also
 
 - [ADR 0040](../adr/0040-build-readiness-gate-before-substantive-build-sessions.md) — the citable contract this document operationalizes.
