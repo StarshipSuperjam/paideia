@@ -1,0 +1,382 @@
+{
+  "target_id": "T-PHASE-5",
+  "goal": "Phase 5 seed graph build — 9 philosophy subdomains + service nodes + cross-bridges + closeout (16 explicit tasks per ADR 0052; gate report at engine/build_readiness/phase_5.md)",
+  "paused": false,
+  "max_sessions": 18,
+  "max_wall_clock_hours": 96,
+  "tasks": [
+    {
+      "id": "P5-01a",
+      "name": "Epistemology core seed",
+      "depends_on": [],
+      "criteria": [
+        {"type": "migration_applied", "id": "0011_seed_epistemology_part1"},
+        {"type": "validate_passes"}
+      ],
+      "scope_lock": {
+        "allowed_paths": [
+          "product/seed-graph/migrations/0011_*.sql",
+          "product/seed-graph/migrations/0012_*.sql",
+          "product/seed-graph/migrations/0013_*.sql",
+          "product/seed-graph/migrations/0014_*.sql",
+          "product/seed-graph/migrations/0015_*.sql",
+          "product/seed-graph/migrations/PREDICATE_MANIFEST.md",
+          "product/seed-graph/migrations/ROUTING.md"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "P5-01b",
+      "name": "Epistemology specialized seed",
+      "depends_on": ["P5-01a"],
+      "criteria": [
+        {"type": "migration_applied", "id": "0016_seed_epistemology_part1"},
+        {"type": "validate_passes"}
+      ],
+      "scope_lock": {
+        "allowed_paths": [
+          "product/seed-graph/migrations/0016_*.sql",
+          "product/seed-graph/migrations/0017_*.sql",
+          "product/seed-graph/migrations/0018_*.sql",
+          "product/seed-graph/migrations/0019_*.sql",
+          "product/seed-graph/migrations/PREDICATE_MANIFEST.md",
+          "product/seed-graph/migrations/ROUTING.md"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "P5-02a",
+      "name": "Metaphysics core seed",
+      "depends_on": ["P5-01a"],
+      "criteria": [
+        {"type": "migration_applied", "id": "0030_seed_metaphysics_part1"},
+        {"type": "validate_passes"}
+      ],
+      "scope_lock": {
+        "allowed_paths": [
+          "product/seed-graph/migrations/0030_*.sql",
+          "product/seed-graph/migrations/0031_*.sql",
+          "product/seed-graph/migrations/0032_*.sql",
+          "product/seed-graph/migrations/0033_*.sql",
+          "product/seed-graph/migrations/0034_*.sql",
+          "product/seed-graph/migrations/0035_*.sql",
+          "product/seed-graph/migrations/PREDICATE_MANIFEST.md",
+          "product/seed-graph/migrations/ROUTING.md"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "P5-02b",
+      "name": "Metaphysics specialized seed",
+      "depends_on": ["P5-01a", "P5-02a"],
+      "criteria": [
+        {"type": "migration_applied", "id": "0036_seed_metaphysics_part1"},
+        {"type": "validate_passes"}
+      ],
+      "scope_lock": {
+        "allowed_paths": [
+          "product/seed-graph/migrations/0036_*.sql",
+          "product/seed-graph/migrations/0037_*.sql",
+          "product/seed-graph/migrations/0038_*.sql",
+          "product/seed-graph/migrations/0039_*.sql",
+          "product/seed-graph/migrations/PREDICATE_MANIFEST.md",
+          "product/seed-graph/migrations/ROUTING.md"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "P5-03",
+      "name": "Logic seed (philosophical logic — modality, conditionals, paradox, vagueness, paraconsistent, deontic)",
+      "depends_on": ["P5-01a"],
+      "criteria": [
+        {"type": "migration_applied", "id": "0090_seed_logic_part1"},
+        {"type": "validate_passes"}
+      ],
+      "scope_lock": {
+        "allowed_paths": [
+          "product/seed-graph/migrations/0090_*.sql",
+          "product/seed-graph/migrations/0091_*.sql",
+          "product/seed-graph/migrations/0092_*.sql",
+          "product/seed-graph/migrations/0093_*.sql",
+          "product/seed-graph/migrations/0094_*.sql",
+          "product/seed-graph/migrations/0095_*.sql",
+          "product/seed-graph/migrations/0096_*.sql",
+          "product/seed-graph/migrations/0097_*.sql",
+          "product/seed-graph/migrations/0098_*.sql",
+          "product/seed-graph/migrations/0099_*.sql",
+          "product/seed-graph/migrations/PREDICATE_MANIFEST.md",
+          "product/seed-graph/migrations/ROUTING.md"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "P5-04a",
+      "name": "Ethics metaethics + normative seed",
+      "depends_on": ["P5-01a"],
+      "criteria": [
+        {"type": "migration_applied", "id": "0020_seed_ethics_part1"},
+        {"type": "validate_passes"}
+      ],
+      "scope_lock": {
+        "allowed_paths": [
+          "product/seed-graph/migrations/0020_*.sql",
+          "product/seed-graph/migrations/0021_*.sql",
+          "product/seed-graph/migrations/0022_*.sql",
+          "product/seed-graph/migrations/0023_*.sql",
+          "product/seed-graph/migrations/0024_*.sql",
+          "product/seed-graph/migrations/0025_*.sql",
+          "product/seed-graph/migrations/PREDICATE_MANIFEST.md",
+          "product/seed-graph/migrations/ROUTING.md"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "P5-04b",
+      "name": "Ethics applied seed",
+      "depends_on": ["P5-01a", "P5-04a"],
+      "criteria": [
+        {"type": "migration_applied", "id": "0026_seed_ethics_part1"},
+        {"type": "validate_passes"}
+      ],
+      "scope_lock": {
+        "allowed_paths": [
+          "product/seed-graph/migrations/0026_*.sql",
+          "product/seed-graph/migrations/0027_*.sql",
+          "product/seed-graph/migrations/0028_*.sql",
+          "product/seed-graph/migrations/0029_*.sql",
+          "product/seed-graph/migrations/PREDICATE_MANIFEST.md",
+          "product/seed-graph/migrations/ROUTING.md"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "P5-05",
+      "name": "Political philosophy seed",
+      "depends_on": ["P5-01a"],
+      "criteria": [
+        {"type": "migration_applied", "id": "0100_seed_political_philosophy_part1"},
+        {"type": "validate_passes"}
+      ],
+      "scope_lock": {
+        "allowed_paths": [
+          "product/seed-graph/migrations/0100_*.sql",
+          "product/seed-graph/migrations/0101_*.sql",
+          "product/seed-graph/migrations/0102_*.sql",
+          "product/seed-graph/migrations/0103_*.sql",
+          "product/seed-graph/migrations/0104_*.sql",
+          "product/seed-graph/migrations/0105_*.sql",
+          "product/seed-graph/migrations/0106_*.sql",
+          "product/seed-graph/migrations/0107_*.sql",
+          "product/seed-graph/migrations/0108_*.sql",
+          "product/seed-graph/migrations/0109_*.sql",
+          "product/seed-graph/migrations/PREDICATE_MANIFEST.md",
+          "product/seed-graph/migrations/ROUTING.md"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "P5-06",
+      "name": "Aesthetics seed",
+      "depends_on": ["P5-01a"],
+      "criteria": [
+        {"type": "migration_applied", "id": "0110_seed_aesthetics_part1"},
+        {"type": "validate_passes"}
+      ],
+      "scope_lock": {
+        "allowed_paths": [
+          "product/seed-graph/migrations/0110_*.sql",
+          "product/seed-graph/migrations/0111_*.sql",
+          "product/seed-graph/migrations/0112_*.sql",
+          "product/seed-graph/migrations/0113_*.sql",
+          "product/seed-graph/migrations/0114_*.sql",
+          "product/seed-graph/migrations/0115_*.sql",
+          "product/seed-graph/migrations/0116_*.sql",
+          "product/seed-graph/migrations/0117_*.sql",
+          "product/seed-graph/migrations/0118_*.sql",
+          "product/seed-graph/migrations/0119_*.sql",
+          "product/seed-graph/migrations/PREDICATE_MANIFEST.md",
+          "product/seed-graph/migrations/ROUTING.md"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "P5-07a",
+      "name": "Philosophy of mind core seed",
+      "depends_on": ["P5-01a"],
+      "criteria": [
+        {"type": "migration_applied", "id": "0040_seed_mind_part1"},
+        {"type": "validate_passes"}
+      ],
+      "scope_lock": {
+        "allowed_paths": [
+          "product/seed-graph/migrations/0040_*.sql",
+          "product/seed-graph/migrations/0041_*.sql",
+          "product/seed-graph/migrations/0042_*.sql",
+          "product/seed-graph/migrations/0043_*.sql",
+          "product/seed-graph/migrations/0044_*.sql",
+          "product/seed-graph/migrations/0045_*.sql",
+          "product/seed-graph/migrations/PREDICATE_MANIFEST.md",
+          "product/seed-graph/migrations/ROUTING.md"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "P5-07b",
+      "name": "Philosophy of mind consciousness/specialized seed",
+      "depends_on": ["P5-01a", "P5-07a"],
+      "criteria": [
+        {"type": "migration_applied", "id": "0046_seed_mind_part1"},
+        {"type": "validate_passes"}
+      ],
+      "scope_lock": {
+        "allowed_paths": [
+          "product/seed-graph/migrations/0046_*.sql",
+          "product/seed-graph/migrations/0047_*.sql",
+          "product/seed-graph/migrations/0048_*.sql",
+          "product/seed-graph/migrations/0049_*.sql",
+          "product/seed-graph/migrations/PREDICATE_MANIFEST.md",
+          "product/seed-graph/migrations/ROUTING.md"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "P5-08",
+      "name": "Philosophy of language seed",
+      "depends_on": ["P5-01a"],
+      "criteria": [
+        {"type": "migration_applied", "id": "0070_seed_language_part1"},
+        {"type": "validate_passes"}
+      ],
+      "scope_lock": {
+        "allowed_paths": [
+          "product/seed-graph/migrations/0070_*.sql",
+          "product/seed-graph/migrations/0071_*.sql",
+          "product/seed-graph/migrations/0072_*.sql",
+          "product/seed-graph/migrations/0073_*.sql",
+          "product/seed-graph/migrations/0074_*.sql",
+          "product/seed-graph/migrations/0075_*.sql",
+          "product/seed-graph/migrations/0076_*.sql",
+          "product/seed-graph/migrations/0077_*.sql",
+          "product/seed-graph/migrations/0078_*.sql",
+          "product/seed-graph/migrations/0079_*.sql",
+          "product/seed-graph/migrations/PREDICATE_MANIFEST.md",
+          "product/seed-graph/migrations/ROUTING.md"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "P5-09",
+      "name": "Philosophy of science seed",
+      "depends_on": ["P5-01a"],
+      "criteria": [
+        {"type": "migration_applied", "id": "0080_seed_science_part1"},
+        {"type": "validate_passes"}
+      ],
+      "scope_lock": {
+        "allowed_paths": [
+          "product/seed-graph/migrations/0080_*.sql",
+          "product/seed-graph/migrations/0081_*.sql",
+          "product/seed-graph/migrations/0082_*.sql",
+          "product/seed-graph/migrations/0083_*.sql",
+          "product/seed-graph/migrations/0084_*.sql",
+          "product/seed-graph/migrations/0085_*.sql",
+          "product/seed-graph/migrations/0086_*.sql",
+          "product/seed-graph/migrations/0087_*.sql",
+          "product/seed-graph/migrations/0088_*.sql",
+          "product/seed-graph/migrations/0089_*.sql",
+          "product/seed-graph/migrations/PREDICATE_MANIFEST.md",
+          "product/seed-graph/migrations/ROUTING.md"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "P5-10",
+      "name": "Service nodes seed (formal-logic primitives, math prerequisites, history terminators)",
+      "depends_on": ["P5-01a"],
+      "criteria": [
+        {"type": "migration_applied", "id": "0050_seed_services_part1"},
+        {"type": "validate_passes"}
+      ],
+      "scope_lock": {
+        "allowed_paths": [
+          "product/seed-graph/migrations/0050_*.sql",
+          "product/seed-graph/migrations/0051_*.sql",
+          "product/seed-graph/migrations/0052_*.sql",
+          "product/seed-graph/migrations/0053_*.sql",
+          "product/seed-graph/migrations/0054_*.sql",
+          "product/seed-graph/migrations/0055_*.sql",
+          "product/seed-graph/migrations/0056_*.sql",
+          "product/seed-graph/migrations/0057_*.sql",
+          "product/seed-graph/migrations/0058_*.sql",
+          "product/seed-graph/migrations/0059_*.sql",
+          "product/seed-graph/migrations/PREDICATE_MANIFEST.md",
+          "product/seed-graph/migrations/ROUTING.md"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "P5-11",
+      "name": "Cross-bridges (cross-domain edges pass)",
+      "depends_on": [
+        "P5-01a", "P5-01b", "P5-02a", "P5-02b", "P5-03",
+        "P5-04a", "P5-04b", "P5-05", "P5-06", "P5-07a", "P5-07b",
+        "P5-08", "P5-09", "P5-10"
+      ],
+      "criteria": [
+        {"type": "migration_applied", "id": "0060_seed_crossbridges_part1"},
+        {"type": "validate_passes"}
+      ],
+      "scope_lock": {
+        "allowed_paths": [
+          "product/seed-graph/migrations/0060_*.sql",
+          "product/seed-graph/migrations/0061_*.sql",
+          "product/seed-graph/migrations/0062_*.sql",
+          "product/seed-graph/migrations/0063_*.sql",
+          "product/seed-graph/migrations/0064_*.sql",
+          "product/seed-graph/migrations/0065_*.sql",
+          "product/seed-graph/migrations/0066_*.sql",
+          "product/seed-graph/migrations/0067_*.sql",
+          "product/seed-graph/migrations/0068_*.sql",
+          "product/seed-graph/migrations/0069_*.sql",
+          "product/seed-graph/migrations/PREDICATE_MANIFEST.md",
+          "product/seed-graph/migrations/ROUTING.md"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "P5-12",
+      "name": "Phase 5 closeout (engine/build_readiness/phase_5_closeout.md + ENGINE_LOG + STATE.md + optional close ADR)",
+      "depends_on": ["P5-11"],
+      "criteria": [
+        {"type": "adr_status", "id": "0052", "status": "Accepted"},
+        {"type": "file_exists", "path": "engine/build_readiness/phase_5_closeout.md"},
+        {"type": "validate_passes"}
+      ],
+      "scope_lock": {
+        "allowed_paths": [
+          "engine/build_readiness/phase_5_closeout.md",
+          "engine/adr/*.md",
+          "product/adr/*.md",
+          "engine/adr/README.md",
+          "product/adr/README.md"
+        ]
+      },
+      "status": "pending"
+    }
+  ]
+}

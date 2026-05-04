@@ -262,14 +262,32 @@ Per the chunked-authoring + eager-claim discipline, multiple subdomain sessions 
 
 ### 5.1 Subdomain sessions
 
-- **P_3 Epistemology** — start here; the deprecated v0.2 prototype was epistemology-focused so judgment is calibrated
-- **P_4 Ethics**
-- **P_5 Metaphysics**
-- **P_6 Philosophy of Mind**
-- **P_7 Philosophy of Language**
-- **P_8 Philosophy of Science**
-- **P_8.5 Service Nodes** — logic primitives, mathematical prerequisites, history nodes that terminate where they stop affecting comprehension
-- **P_9 Cross-domain edges pass** — after subdomain interiors are stable, generate edges spanning subdomain boundaries
+The subdomain decomposition is settled by [ADR 0052](product/adr/0052-phase-5-philosophy-subdomain-decomposition.md): **9 subject subdomains plus service nodes plus cross-bridges plus closeout**. Per [ADR 0051](engine/adr/0051-routine-mode-and-engine-loop.md)'s routine-mode architecture, sub-sessions execute against [`engine/session/auto_target.json`](engine/session/auto_target.json) authored by the S-0045 master plan session.
+
+**Subject subdomains:**
+
+- **Epistemology** — start here; the deprecated v0.2 prototype was epistemology-focused so judgment is calibrated. Pre-split at master-plan time into core (P5-01a) and specialized (P5-01b) per [`auto_target.schema.md:149`](engine/session/auto_target.schema.md) session-sized-task discipline.
+- **Metaphysics** — pre-split into core (P5-02a) and specialized (P5-02b)
+- **Logic** — *philosophical logic* (modality, conditionals, paradox, vagueness, paraconsistent, deontic). Formal-logic primitives belong to service nodes.
+- **Ethics** — pre-split into metaethics+normative (P5-04a) and applied (P5-04b)
+- **Political philosophy**
+- **Aesthetics**
+- **Philosophy of mind** — pre-split into core (P5-07a) and consciousness/specialized (P5-07b)
+- **Philosophy of language**
+- **Philosophy of science**
+
+**Operational tasks:**
+
+- **Service nodes** (P5-10) — formal-logic primitives, mathematical prerequisites, history terminators
+- **Cross-bridges** (P5-11) — cross-domain edges pass; depends on all 9 subject subdomain tasks plus service nodes; runs after subdomain interiors stabilize
+- **Closeout** (P5-12) — Phase 5 close: ENGINE_LOG entry + STATE.md update + `engine/build_readiness/phase_5_closeout.md` + optional close ADR
+
+**Out of scope, deferred** (per [ADR 0052](product/adr/0052-phase-5-philosophy-subdomain-decomposition.md)):
+
+- **Philosophy of religion** — historically a philosophy subdomain; cosmological-argument-shaped concepts fold into metaphysics for this MVP. Class-boundary admit-criterion in ADR 0052 governs future readmission.
+- **History of philosophy as a separate subdomain** — per [ADR 0008](product/adr/0008-concept-nodes-not-thinkers.md), thinkers are not nodes; historical concepts surface across the 9 subdomains via the cross-bridges pass.
+
+**16 explicit tasks total.** [`engine/session/auto_target.json`](engine/session/auto_target.json) carries the canonical task list with per-task `scope_lock`, `criteria`, and `depends_on`. `max_sessions: 18` (count + 2 for HANDOFF retries; tasks pre-sized to fit one routine session each since routine-mode has no live context-pressure signal — the discipline is task-sizing at master-plan time, not runtime adaptation).
 
 ### 5.2 Source approach
 
@@ -289,16 +307,18 @@ Per `docs/operations/seed-chunked-authoring.md`:
 5. Hard-fails fix in-session; soft-warns recorded in session outcome_summary per category
 6. Session closes, commits the migration file (ENGINE_LOG entry tracked)
 
-### 5.4 Paperclip trial
+### 5.4 Routine-mode dispatch
 
-When two or more subdomain sessions queue up to run in parallel (Epistemology + Ethics), trial Paperclip orchestration: tickets per subdomain, scheduled heartbeats, atomic dispatch. Decision to commit (Phase 7) hinges on this trial's results.
+Phase 5 sub-sessions run unattended via routine-mode per [ADR 0051](engine/adr/0051-routine-mode-and-engine-loop.md). The S-0045 master plan session authored [`engine/session/auto_target.json`](engine/session/auto_target.json); subsequent routine-mode sessions read it at boot, pick the next eligible task per `depends_on` ordering, run plan-then-scope-check, execute, and close. Paperclip orchestration was rejected at S-0044 (ADR 0051 Alternatives Considered); routine-mode replaces it.
 
 ### Phase 5 success criteria
 
-- Each subdomain session closes with zero hard-fails from `validate.py`
-- Soft-warn counts recorded per category in session outcome_summary
-- Migration files atomically attributable to the session that wrote them via the session's ENGINE_LOG entry
+- Each subdomain task closes with zero hard-fails from `engine/tools/validate.py`
+- Soft-warn counts recorded per category in routine-session `outcome_summary`
+- Migration files atomically attributable to the routine session that wrote them via the session's ENGINE_LOG entry
 - Cross-session schema drift detected by the predicate-manifest audit
+- All 16 tasks in [`engine/session/auto_target.json`](engine/session/auto_target.json) reach `complete` status (or HANDOFF entries adjudicate the remainder if `max_sessions: 18` is reached)
+- Phase 5 closeout task (P5-12) lands `engine/build_readiness/phase_5_closeout.md` summarizing per-subdomain coverage, soft-warn telemetry, and the predicate registry's final state
 
 ---
 

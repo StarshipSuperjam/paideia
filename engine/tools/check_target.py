@@ -122,7 +122,13 @@ def _check_migration_applied(*, id: str, **_: Any) -> tuple[bool, str]:
 
 
 def _check_validate_passes(**_: Any) -> tuple[bool, str]:
-    """Run validate.py; pass iff zero hard-fails (exit 0)."""
+    """Run validate.py; pass iff zero hard-fails.
+
+    validate.py uses three exit codes: 0 (clean), 1 (soft-warns only), 2 (hard
+    fails). Per auto_target.schema.md (`validate_passes` section), soft-warns
+    are advisory and do not fail the criterion. So this criterion treats exit
+    0 and exit 1 as pass; exit 2 (or any other failure) is fail.
+    """
     cmd = [sys.executable, str(REPO_ROOT / "engine/tools/validate.py")]
     try:
         result = subprocess.run(
@@ -132,8 +138,8 @@ def _check_validate_passes(**_: Any) -> tuple[bool, str]:
         return False, "validate.py timeout"
     except FileNotFoundError as exc:
         return False, f"validate.py not runnable: {exc!s}"
-    if result.returncode == 0:
-        return True, "validate.py exit 0"
+    if result.returncode in (0, 1):
+        return True, f"validate.py exit {result.returncode} (no hard-fails)"
     snippet = (result.stderr or result.stdout).strip().splitlines()[-1:]
     return (
         False,

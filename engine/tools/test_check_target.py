@@ -145,6 +145,65 @@ def test_migration_applied_no_db_url(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 # ---------------------------------------------------------------------------
+# validate_passes (subprocess-stubbed)
+# ---------------------------------------------------------------------------
+
+
+def _stub_subprocess_run(returncode: int, stderr: str = "") -> Any:
+    class _Result:
+        def __init__(self) -> None:
+            self.returncode = returncode
+            self.stdout = ""
+            self.stderr = stderr
+
+    def _run(*_args: Any, **_kwargs: Any) -> _Result:
+        return _Result()
+
+    return _run
+
+
+def test_validate_passes_exit_zero_passes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """validate.py exit 0 (clean, no warns) → criterion passes."""
+    from check_target import _check_validate_passes
+
+    monkeypatch.setattr("check_target.subprocess.run", _stub_subprocess_run(0))
+    passed, detail = _check_validate_passes()
+    assert passed is True
+    assert "exit 0" in detail
+
+
+def test_validate_passes_exit_one_passes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """validate.py exit 1 (soft-warns only, no hard-fails) → criterion passes.
+
+    Per auto_target.schema.md, soft-warns are advisory and do not fail the
+    criterion. validate.py main() returns 1 whenever any soft-warn fires; the
+    persistent issue_collision soft-warns from open Issues will keep firing
+    on every routine session, so treating exit 1 as fail would block all
+    routine-mode validate_passes criteria.
+    """
+    from check_target import _check_validate_passes
+
+    monkeypatch.setattr("check_target.subprocess.run", _stub_subprocess_run(1))
+    passed, detail = _check_validate_passes()
+    assert passed is True
+    assert "exit 1" in detail
+    assert "no hard-fails" in detail
+
+
+def test_validate_passes_exit_two_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    """validate.py exit 2 (hard-fails) → criterion fails."""
+    from check_target import _check_validate_passes
+
+    monkeypatch.setattr(
+        "check_target.subprocess.run",
+        _stub_subprocess_run(2, stderr="[hard-fail] schema mismatch on table x"),
+    )
+    passed, detail = _check_validate_passes()
+    assert passed is False
+    assert "exit 2" in detail
+
+
+# ---------------------------------------------------------------------------
 # predicate
 # ---------------------------------------------------------------------------
 

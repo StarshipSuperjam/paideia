@@ -4,7 +4,7 @@
 
 ## Numeric prefix scheme
 
-Migration files follow `00NN_<purpose>_<scope>.sql` so their natural sort order matches the build order. Ranges:
+Migration files follow `NNNN_<purpose>_<scope>.sql` so their natural sort order matches the build order. Ranges:
 
 | Range | Purpose |
 |---|---|
@@ -14,12 +14,19 @@ Migration files follow `00NN_<purpose>_<scope>.sql` so their natural sort order 
 | `0020` – `0029` | Seed: ethics — Phase 5 |
 | `0030` – `0039` | Seed: metaphysics — Phase 5 |
 | `0040` – `0049` | Seed: philosophy of mind — Phase 5 |
-| `0050` – `0059` | Service nodes (logic primitives, mathematical prerequisites, history nodes) — Phase 5 |
-| `0060` – `0069` | Cross-domain edges pass — Phase 5 |
-| `0070` – `0079` | Phase 6 self-correction schema additions |
-| `0080+`         | Reserved for later phases |
+| `0050` – `0059` | Service nodes (formal-logic primitives, mathematical prerequisites, history terminators) — Phase 5 |
+| `0060` – `0069` | Cross-bridges (cross-domain edges pass) — Phase 5 |
+| `0070` – `0079` | Seed: philosophy of language — Phase 5 |
+| `0080` – `0089` | Seed: philosophy of science — Phase 5 |
+| `0090` – `0099` | Seed: logic (philosophical logic — modality, conditionals, paradox, vagueness, paraconsistent, deontic) — Phase 5 |
+| `0100` – `0109` | Seed: political philosophy — Phase 5 |
+| `0110` – `0119` | Seed: aesthetics — Phase 5 |
+| `0120` – `0129` | Phase 6 self-correction schema additions |
+| `0130+`         | Reserved for later phases |
 
-**Gaps are acceptable.** A new subdomain claims the next available `00N0` slot rather than re-numbering. Files within a range are committed in numeric order so `supabase db push` applies them deterministically.
+**Gaps are acceptable.** A new subdomain claims the next available range slot rather than re-numbering. Files within a range are committed in numeric order so `supabase db push` applies them deterministically.
+
+**Phase 6 prefix relocation (S-0045).** Phase 6 self-correction was originally reserved at `0070-0079` per the S-0027 gate exercise. The Phase 5 decomposition expansion at S-0045 (per [ADR 0052](../adr/0052-phase-5-philosophy-subdomain-decomposition.md)) added five subject subdomains (philosophy of language, philosophy of science, logic, political philosophy, aesthetics) that needed prefix ranges. Phase 6 relocated to `0120-0129` to preserve the existing ranges and 10-slot-per-subdomain convention. The relocation is operationally costless because Phase 6 has not yet authored any migrations.
 
 **Compound-domain handling.** A concept that spans two subdomains (e.g., a philosophy-of-science concept that's also epistemology) is written into the migration file of the higher-precedence subdomain (per `docs/architecture.md` precedence rules) with `domain[]` carrying both tags. It is NOT split across two migrations.
 

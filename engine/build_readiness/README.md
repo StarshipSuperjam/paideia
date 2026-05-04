@@ -15,7 +15,8 @@ See [`../operations/build-readiness-gate.md`](../operations/build-readiness-gate
 | Report | Gate session | Build session | Status |
 |---|---|---|---|
 | [`phase_3_sql.md`](phase_3_sql.md) | S-0027 | S-0028 | Build session closed |
-| [`phase_4_graph_validation.md`](phase_4_graph_validation.md) | S-0034 | S-0035 | Authored, awaiting build session |
+| [`phase_4_graph_validation.md`](phase_4_graph_validation.md) | S-0034 | S-0037 | Build session closed |
+| [`phase_5.md`](phase_5.md) | S-0045 (master plan) | Routine-mode (per [ADR 0051](../adr/0051-routine-mode-and-engine-loop.md)) — 16 explicit tasks per [`engine/session/auto_target.json`](../session/auto_target.json) | Authored, awaiting routine activation |
 
 ## Lifecycle
 
