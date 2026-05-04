@@ -174,6 +174,20 @@ The `user_confirmed_changes` flag is captured for future audit but does not affe
 
 The prompt is asked at every shutdown — not a heuristic for the AI to apply by judgment alone. Same discipline as the `pushback`/`lesson` capture check above (S-0041 audit measured judgment-alone produced zero captures across eight sessions; explicit prompt is the load-bearing surface).
 
+### 7b. Capture context telemetry (per ADR 0049 cross-cutting addition)
+
+Run `python3 engine/tools/scan_context_telemetry.py`. The tool reads the session's transcript JSONL at `~/.claude/projects/<encoded-project-path>/<session-id>.jsonl` (auto-detected as the most-recently-modified .jsonl in that directory; explicit path via `--transcript`), tokenizes the content (tiktoken o200k_base when installed; char-count/4 fallback otherwise), and writes three fields into `engine/session/current.json`:
+
+- `transcript_token_estimate` (int) — total tokens in the transcript content.
+- `transcript_token_pct` (float) — `transcript_token_estimate / 1_000_000` (the 1M Opus 4.7 window).
+- `tokenizer_used` (string) — `"tiktoken-o200k_base"` or `"chars-div-4-fallback"`.
+
+The estimate is upper-bound (the harness manages context via compaction and caching; on-disk transcript represents the full conversation, not the actual prompt size at any moment). Sufficient for the cross-session "running too long / too short / high variance" judgment in the [`health-check.md`](health-check.md) Session-load trend section.
+
+If the transcript can't be located or `current.json` is missing, the tool emits a stderr note and exits 0 — telemetry is best-effort, not blocking.
+
+The fields travel with the archive in step 9; the health-check session-load trend reads them across the last N archives.
+
 ### 8. Fill `session/current.json` `outcome_summary` and `outcome_summary_soft_warns`
 
 `outcome_summary` is ~50 words of prose. What got done, anything noteworthy for the next session, what tradeoffs surfaced. Example shape:
