@@ -67,6 +67,14 @@ The gate session does not push past unresolved Tier 1. If a Tier 1 finding requi
 
 The user-directed posture is what distinguishes gate sessions from build sessions. Build sessions running in auto-mode push through routine judgment calls; gate sessions surface them. The mode-switch is structural: a gate session that finds itself wanting to push through a Tier 1 has misidentified its mode.
 
+### 4a. No descoping or reordering at gate time (per ADR 0049)
+
+The gate session itself is a descoping vector. A gate that quietly trims the chunk's deliverables vs. the original build-plan scope, or that proposes reordering ("let's do Phase 5 before Phase 4.5") under the guise of triage, becomes the failure mode the scope-discipline machinery exists to catch.
+
+Any reduction OR reordering of declared deliverables vs. the build-plan chunk's stated scope must be flagged to the user explicitly, not silently absorbed into the gate report. The flag carries: what the chunk said it would deliver; what the gate is now proposing; why the change is warranted (a Tier 1 finding, a downstream phase that subsumes the work, a superseding ADR, etc.).
+
+User accepts (build-plan chunk amended in same gate session) or rejects (preserve original scope; gate triages around the proposed change). Silent absorption is not an option.
+
 ### 5. Author resolution artifacts
 
 Tier 1 resolutions produce concrete artifacts the build session will reference:

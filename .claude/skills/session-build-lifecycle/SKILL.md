@@ -87,12 +87,16 @@ c. Write `engine/session/current.json`:
   "started_at": "<ISO-8601 UTC>",
   "status": "in_progress",
   "working_on": "<one-sentence summary>",
+  "declared_scope": "<1-3 sentences naming what this session commits to deliver. Optionally end with `phase: <id>` matching a build_plan/MANIFEST.md identifier (e.g., `phase: P_3` or `phase: 4.5`); use `phase: NA-...` for operational/engine-apparatus work.>",
   "outcome_summary": null,
+  "scope_delivery": null,
   "approved_plan": "<path or null>",
   "branch": "<current git branch>",
   "worktree": "<absolute path>"
 }
 ```
+
+The `declared_scope` field is required from S-0042 onward per [ADR 0049](../../../engine/adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md). The validator's `empty_declared_scope` soft-warn fires every commit until the field is populated; `phase_mismatch_declared_scope` fires when a `phase:` token doesn't match the build-plan manifest. The `scope_delivery` field starts `null` (in-flight) and is filled at shutdown.
 
 d. Stage both files. Commit:
 

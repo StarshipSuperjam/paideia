@@ -150,6 +150,36 @@ If the diary write is skipped (deliberately or by accident), record `diary_skipp
 
 If the MemPalace MCP server is unavailable at shutdown, attempt the write; if it fails, record `diary_skipped: 1` and proceed. The session does not block on the diary.
 
+### 7a. Scope-delivery audit (per ADR 0049)
+
+Before outcome_summary, the AI is prompted explicitly with the literal text:
+
+> *Did you deliver the declared scope? If no, why not? Did anything get descoped, reordered, or deferred mid-session — even with user confirmation?*
+
+Write a structured answer to `engine/session/current.json`:
+
+```json
+"scope_delivery": {
+  "delivered": true,
+  "user_confirmed_changes": false,
+  "explanation": "Yes — all four interventions plus telemetry landed cleanly."
+}
+```
+
+`delivered: false` triggers the `scope_delivery_non_yes` soft-warn at the close-commit's validate.py run, regardless of `user_confirmed_changes`. The warn is signal for cross-session aggregation, not punishment. The persistent-warn surface escalates 3-of-5 firings into the boot-time multi-session erosion signal in `session-start.sh`.
+
+### 7b. Capture context telemetry (per ADR 0049 cross-cutting addition)
+
+Run `python3 engine/tools/scan_context_telemetry.py`. The tool reads the session's transcript JSONL at `~/.claude/projects/<encoded-project-path>/<session-id>.jsonl` (auto-detected as the most-recently-modified .jsonl in that directory; explicit path via `--transcript`), tokenizes the content (tiktoken o200k_base when installed; char-count/4 fallback otherwise), and writes three fields into `engine/session/current.json`:
+
+- `transcript_token_estimate` (int)
+- `transcript_token_pct` (float, estimate / 1M Opus 4.7 window)
+- `tokenizer_used` (string)
+
+The estimate is upper-bound (the harness manages context via compaction and caching). Sufficient for the cross-session "running too long / too short / high variance" judgment in the [`health-check.md`](../../../engine/operations/health-check.md) Session-load trend section.
+
+If the transcript can't be located or `current.json` is missing, the tool emits a stderr note and exits 0 — telemetry is best-effort, never blocking. Fields travel with the archive in step 9.
+
 ### 8. Fill `outcome_summary` and `outcome_summary_soft_warns`
 
 `outcome_summary` is ~50 words of prose. What got done, anything noteworthy for the next session, what tradeoffs surfaced. Honest summaries beat flattering ones — health-check trend analysis and the next session's boot procedure both depend on them.
