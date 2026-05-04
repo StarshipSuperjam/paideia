@@ -128,6 +128,18 @@ The audit also runs from the pre-commit hook in `closing` mode (the close commit
 
 The audit ignores edits to existing sections — only newly-added section headers are scanned. The retrofit cost on pre-S-0036 entries would be prohibitive; the discipline applies forward only.
 
+#### 6b. Archive structured-fields audit
+
+Run `python3 engine/tools/audit_archive_structured_fields.py` from the repo root. The script reads `engine/session/current.json` and validates that the `outcome_summary_soft_warns` key is present and non-null. Empty dict (`{}`) is permitted — it's the legitimate shape for a session whose `validate.py` emitted no warnings.
+
+Authored at S-0055 per [Issue #13](https://github.com/StarshipSuperjam/paideia/issues/13). The S-0052 health-check audit found that S-0043 through S-0047 (five consecutive archives) lacked the field entirely — not empty, the JSON key was absent. [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md)'s persistent-warn surface counts categories *inside* the field; it cannot detect a missing field, only count occurrences within it. So a session that forgets to write the field is invisible to the surface for the next 5 sessions. This audit fires at session-shutdown after the structured field is written and before the archive lands.
+
+If the field is missing or null, the script exits 2 and the close is blocked. Resolve by populating `outcome_summary_soft_warns` from the current session's validate.py output (the field shape is `{category_name: count}`); if the session genuinely had zero warnings, write `{}` rather than `null` or omitting the key.
+
+The audit also runs from the pre-commit hook in `closing` mode against the staged archive content (`git show :engine/session/archive/S-NNNN.json | python3 ... --from-stdin`), so this manual invocation is a way to catch the issue before staging. Hard-fail by design.
+
+Optional secondary check: if the field is present but empty (`{}`) AND the session had ≥3 commits, the audit emits a stderr advisory pointing at the likely "wrote empty by default" pattern. The advisory is informational; the field is technically valid so the audit still exits 0.
+
 ### 7. Write session diary entry
 
 Per [`mempalace-operations.md`](mempalace-operations.md) "Project usage scope". The MemPalace diary carries the AI's first-person reflection on the session — distinct from `outcome_summary` (outcome-focused) and ENGINE_LOG (third-person artifact narrative). What surprised me, what I noticed but didn't act on, what feels load-bearing for the next session, where my judgment was uncertain.

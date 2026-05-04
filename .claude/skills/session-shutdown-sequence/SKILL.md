@@ -126,6 +126,14 @@ The pattern this addresses: writing a HANDOFF.md prose entry for a bug whose fix
 
 Hard-fail at exit 2 if any new section is missing or has an unrecognized disposition. Resolve by **applying the fix in this session** and using `fixed-in-session @ <SHA>`, or — if deferral is warranted — flag the user, get confirmation, and use `deferred-with-user-confirmation`. Also runs in pre-commit at `closing` mode so the close commit cannot land if dispositions are missing.
 
+#### 6b. Archive structured-fields audit
+
+Run `python3 engine/tools/audit_archive_structured_fields.py`. Validates that `engine/session/current.json` has `outcome_summary_soft_warns` present and non-null. Empty dict (`{}`) is permitted (clean session, no warnings).
+
+Per [Issue #13](https://github.com/StarshipSuperjam/paideia/issues/13) (S-0055): defends [ADR 0042](../../../engine/adr/0042-soft-warn-lifecycle-archive-canon.md)'s persistent-warn surface against silent field-absence lapses. The S-0052 audit found S-0043–S-0047 each lacked the field; the surface counts categories *inside* the field and cannot detect a missing key.
+
+Hard-fail at exit 2 if absent or null. Resolve by populating from validate.py output (or `{}` if genuinely zero warnings). Also runs in pre-commit at `closing` mode against the staged archive content.
+
 ### 7. Write session diary entry
 
 Per [`mempalace-operations.md`](../../../engine/operations/mempalace-operations.md) "Project usage scope". The MemPalace diary carries the AI's first-person reflection on the session — distinct from `outcome_summary` (outcome-focused) and ENGINE_LOG (third-person artifact narrative). What surprised me, what I noticed but didn't act on, what feels load-bearing for the next session, where my judgment was uncertain.

@@ -173,6 +173,15 @@ Trend canon: committed `engine/session/archive/S-NNNN.json` field `outcome_summa
 
 Per-invocation forensics: `engine/tools/validate-history.jsonl` (gitignored, per-clone). Useful for "when did this warn first appear" / "which commit introduced it" / "validator runtime drift."
 
+## Closing-commit audits (hard-fail outside validate.py)
+
+Two audits fire from the pre-commit hook only on `closing` commits (per `engine/tools/hooks/pre-commit`). They are structurally separate from validate.py but use the same exit-2-blocks-the-commit semantics.
+
+- **`audit_handoff_dispositions.py`** (added at S-0036) — every new HANDOFF.md section in the session's range must carry a `**Disposition:**` line in one of five accepted forms. Per CLAUDE.md "Default to fix-in-context."
+- **`audit_archive_structured_fields.py`** (added at S-0055 per [Issue #13](https://github.com/StarshipSuperjam/paideia/issues/13)) — the staged archive file (`engine/session/archive/S-NNNN.json`) must have `outcome_summary_soft_warns` present and non-null. Empty dict (`{}`) is permitted. Defends [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md)'s persistent-warn surface against silent field-absence lapses (S-0043–S-0047 lapse pattern).
+
+Both audits also have manual invocation forms documented in [`session-shutdown-sequence.md`](session-shutdown-sequence.md) steps 6a and 6b — running them by hand before staging the close commit catches issues earlier than the hook.
+
 ## Tool invocation under venv
 
 Tools that import `psycopg` (currently [`check_target.py`](../tools/check_target.py), [`validate.py`](../tools/validate.py), [`setup_env.py`](../tools/setup_env.py)) self-reexec under the project venv via [`engine/tools/_venv_reexec.py`](../tools/_venv_reexec.py) when invoked under a Python that lacks `psycopg`. Bare `python3 engine/tools/<x>.py` invocations work the same as if [`scrub_env.sh`](../tools/scrub_env.sh) had been sourced first. Per Issue #14 (S-0055): routine fires were resolving to system Python and emitting misleading `[FAIL] migration_applied — psycopg not available; cannot verify` output even though the migrations were genuinely applied.

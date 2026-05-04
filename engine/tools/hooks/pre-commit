@@ -220,5 +220,30 @@ if [ "$MODE" = "closing" ] && [ -f engine/tools/audit_handoff_dispositions.py ];
     fi
 fi
 
+# ---------------------------------------------------------------------------
+# Run archive-structured-fields audit on closing commits
+# (per ADR 0042 + Issue #13, added at S-0055).
+# Defends the persistent-warn surface against silent field-absence lapses.
+# ---------------------------------------------------------------------------
+
+if [ "$MODE" = "closing" ] && [ -f engine/tools/audit_archive_structured_fields.py ]; then
+    # The closing commit deletes current.json and adds the archive file.
+    # Find the staged archive path and pipe its content through the audit.
+    ARCHIVE_PATH=$(git diff --cached --name-only --diff-filter=A \
+        | grep -E '^engine/session/archive/S-[0-9]{4}\.json$' \
+        | head -1)
+    if [ -n "$ARCHIVE_PATH" ]; then
+        STATUS=0
+        git show ":$ARCHIVE_PATH" \
+            | python3 engine/tools/audit_archive_structured_fields.py --from-stdin \
+            || STATUS=$?
+        if [ "$STATUS" -ge 2 ]; then
+            echo "[pre-commit] archive structured-fields audit hard-failed. Close blocked." >&2
+            echo "  See ADR 0042 + engine/operations/session-shutdown-sequence.md." >&2
+            exit 1
+        fi
+    fi
+fi
+
 echo "[pre-commit] Mode: $MODE — OK"
 exit 0
