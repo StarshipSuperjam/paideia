@@ -25,7 +25,7 @@ The `Status:` field is required; `engine/tools/validate.py` soft-warns on ADR fi
 
 ## Index
 
-The engine collection has **13 ADRs total — all Accepted**. Engine ADRs are about how the build apparatus works (graph validation infrastructure, periodic project audits, expression contracts for engine-internal documents and engine-side code, the engine/product partition itself, the universal expression contract spanning all AI authoring patterns, the build-readiness gate before substantive build sessions, cascade-analysis discipline, soft-warn lifecycle, the harness hook architecture, the recipe-vs-reference skill-conversion partition, shared-state integrity discipline, the structural-reference parser tool). The full ADR collection across the project is **47** (13 engine + 34 product).
+The engine collection has **15 ADRs total — all Accepted**. Engine ADRs are about how the build apparatus works (graph validation infrastructure, periodic project audits, expression contracts for engine-internal documents and engine-side code, the engine/product partition itself, the universal expression contract spanning all AI authoring patterns, the build-readiness gate before substantive build sessions, cascade-analysis discipline, soft-warn lifecycle, the harness hook architecture, the recipe-vs-reference skill-conversion partition, shared-state integrity discipline, the structural-reference parser tool, HANDOFF/Issues split for cross-session deferrals, scope-lock at boot + descope/reorder audit). The full ADR collection across the project is **49** (15 engine + 34 product).
 
 | ADR | Title | Status |
 |---|---|---|
@@ -42,6 +42,8 @@ The engine collection has **13 ADRs total — all Accepted**. Engine ADRs are ab
 | [0044](0044-skill-conversion-recipe-vs-reference.md) | Skill conversion: recipe-shaped procedures become Skills; reference docs stay docs | Accepted |
 | [0045](0045-shared-state-integrity-discipline.md) | Shared-state integrity discipline: subprocess env scrubbing, atomic mempalace writes, boot-time health probes | Accepted |
 | [0047](0047-structural-reference-parser-tool-and-adversarial-triage-workflow.md) | Structural-reference parser tool and adversarial-triage workflow | Accepted |
+| [0048](0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md) | HANDOFF.md narrowed to session-internal handoffs; GitHub Issues absorb cross-session deferrals | Accepted |
+| [0049](0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md) | Scope-lock at boot, descope/reorder audit at shutdown, session-end context telemetry | Accepted |
 
 ## Adding a new engine ADR
 
