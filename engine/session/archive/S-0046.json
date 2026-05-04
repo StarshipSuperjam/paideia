@@ -1,0 +1,27 @@
+{
+  "id": "S-0046",
+  "started_at": "2026-05-04T16:10:32Z",
+  "status": "closed",
+  "working_on": "Patch the routine-mode harness permission allowlist gap surfaced when the first manual routine fire (post-S-0045 master plan) deadlocked at the very first Bash invocation (python3 engine/tools/check_target.py) waiting for a permission approval that never came.",
+  "declared_scope": "S-0046 — routine-mode harness permission allowlist patch. Tactical engine-apparatus session. Scope: (1) extend .claude/settings.json permissions.allow with patterns for python3 engine/tools/*.py:*, worktree-side git add/commit/rm/mv/status/diff/log/rev-parse/fetch/show/pull, gh issue create/list/view, date, supabase db push:*, hook scripts, shell utilities, MemPalace CLI, and source engine/tools/scrub_env.sh; (2) add 'Harness permission allowlist' subsection to engine/operations/routine-mode-operations.md after the existing 'Mixing interactive and routine sessions' section, documenting the every-new-Bash-needs-allowlist rule; (3) delete the stale untracked engine/session/current.json (S-0044 close debris). Out of scope: Phase 5 substantive work (executes via routine after this patch lands), settings.local.json edits (user-scope, not project-scope), update-config skill flow (direct edit is simpler). phase: NA-engine-apparatus.",
+  "outcome_summary": "Routine-mode harness permission allowlist patched end-to-end. .claude/settings.json permissions.allow extended from 7 main-repo lifecycle entries to 60+ entries covering the routine procedure's complete Bash surface (engine python tools, worktree git lifecycle, test/lint stack, GitHub Issues, Supabase migrations, hook scripts, shell utilities, MemPalace CLI, scrub_env source). New 'Harness permission allowlist' subsection in routine-mode-operations.md documents the executability vs. correctness layer distinction (harness allowlist vs. ADR 0051 scope-lock), the S-0044 lesson (foundation shipped a load-bearing 'we'll lean on the allowlist' assumption without authoring it), the same-commit pairing rule (every new Bash in the routine procedure REQUIRES a paired allowlist entry), the verification path, and the recovery path. Routine UI configuration table updated: 'Ask permissions: Default' Notes column references .claude/settings.json (project-scope, tracked) instead of .claude/settings.local.json (gitignored). CLAUDE.md mechanization-list bullet added for the harness allowlist as the executability layer. Stale untracked engine/session/current.json (S-0044 close debris) implicitly resolved by S-0046's eager-claim writing fresh content. Validator clean (23 checks, 0 hard-fails, 4 expected issue_collision soft-warns from Issues #1/#2/#3/#4 keyword-matching). pytest 519/519 passing. No new HANDOFF entries; no new Issues filed. Verification path: user fires the routine manually after this commit; observed end-to-end without any permission prompt = allowlist complete and Hourly schedule is safe.",
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": true,
+    "explanation": "All declared deliverables landed. (1) settings.json allowlist extension landed with the named tool surface plus reasonable adjacents (e.g., gh issue close/comment beyond the create/list/view named in declared_scope; mempalace CLI not in declared_scope but obviously needed for the routine's MemPalace operations; bash hooks not in declared_scope but needed for manual hook invocation during debugging). (2) New 'Harness permission allowlist' subsection in routine-mode-operations.md, placed after 'Mixing interactive and routine sessions' as planned. (3) Stale current.json debris implicitly resolved by eager-claim's overwrite (declared_scope said 'delete'; the actual mechanic was 'overwrite via eager-claim ritual' which is functionally equivalent — the working tree is clean post-claim). One sub-deliverable not in declared_scope but landed: CLAUDE.md mechanization-list bullet for the harness allowlist as the executability layer complementing ADR 0051's scope-lock — a posture-level pointer that helps cold-context readers find the rule. No descope or reorder. No HANDOFF entries; no Issues filed.",
+    "additions_beyond_declared_scope": [
+      "gh issue close/comment patterns (declared_scope named only create/list/view)",
+      "MemPalace CLI patterns (mempalace search/status/list-drawers/add-drawer/diary)",
+      "Hook script invocation patterns (bash engine/tools/hooks/*.sh)",
+      "Shell utility patterns (head/tail/wc/grep/rg/find . -name)",
+      "CLAUDE.md mechanization-list bullet"
+    ],
+    "issues_filed": []
+  },
+  "approved_plan": null,
+  "branch": "claude/naughty-cray-fa368d",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/naughty-cray-fa368d",
+  "transcript_token_estimate": 1624741,
+  "transcript_token_pct": 1.6247,
+  "tokenizer_used": "tiktoken-o200k_base"
+}
