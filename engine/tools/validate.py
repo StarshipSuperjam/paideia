@@ -2330,11 +2330,23 @@ def validate_graph(
     try:
         nodes, edges = _read_graph_from_db(conn_str)
     except ImportError as exc:
-        r.add_check("graph_audit")
-        r.hard_fail(
-            f"graph_audit: psycopg import failed ({exc!s}); "
-            f"run `pip install -r engine/tools/requirements.txt`"
+        # psycopg unavailable. Pre-S-0049 this was a hard-fail because
+        # SUPABASE_DB_URL was never set automatically — being set meant
+        # the user committed to having psycopg. Post-S-0049, the walk-up
+        # loader (engine/tools/load_env.py) auto-loads SUPABASE_DB_URL in
+        # any context that has a reachable .env, including the pre-commit
+        # hook running under system Python (which doesn't have psycopg).
+        # The audit-skip path is the right disposition: non-seed-authoring
+        # sessions (every commit besides Phase 5 task work) are not gated
+        # on DB connectivity, and a missing psycopg is just one form of
+        # "DB audit not applicable here". Print a stderr note so the user
+        # still sees the gap if they intended to run the audit.
+        print(
+            f"[validate] graph_audit_skipped: psycopg unavailable "
+            f"({exc!s}); install via venv per ADR 0050 to engage the audit",
+            file=sys.stderr,
         )
+        r.add_check("graph_audit_skipped")
         return r
     except Exception as exc:  # noqa: BLE001  (psycopg connect/query errors)
         r.add_check("graph_audit")
@@ -2506,6 +2518,16 @@ def main(argv: list[str] | None = None) -> int:
           overrides both gate flags when present (the probe is fast
           enough that any concurrent invocation is the caller's bug).
     """
+    # Walk-up .env loader (per Issue #8 / S-0049). Routine sessions and
+    # any worktree-launched invocation do not have a local .env; this
+    # walks up to the main repo's .env so SUPABASE_DB_URL et al. become
+    # visible without requiring the parent shell to source .env. Does
+    # NOT override pre-set values, so explicit `KEY=value python3 ...`
+    # invocations still win.
+    from load_env import load_dotenv_walk_up
+
+    load_dotenv_walk_up()
+
     parser = argparse.ArgumentParser(
         description="Paideia repo-structure validator and code/SQL gate runner",
     )

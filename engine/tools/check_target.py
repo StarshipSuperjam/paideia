@@ -271,6 +271,15 @@ def check_task(task: dict[str, Any]) -> TaskResult:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Walk-up .env loader (per Issue #8 / S-0049). Routine sessions
+    # launch in worktrees that do not have a local .env; this walks up
+    # to the main repo's .env so SUPABASE_DB_URL becomes visible to
+    # `_check_migration_applied`. Does NOT override pre-set values, so
+    # explicit `SUPABASE_DB_URL=... python3 ...` invocations still win.
+    from load_env import load_dotenv_walk_up
+
+    load_dotenv_walk_up()
+
     ap = argparse.ArgumentParser(description="Check auto_target.json criteria")
     ap.add_argument(
         "--target",
