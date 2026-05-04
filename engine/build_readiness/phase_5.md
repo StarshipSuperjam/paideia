@@ -145,11 +145,11 @@ The validator code is unchanged; the recalibration is interpretive and lives in 
 
 ### T2-D — Per-task `scope_lock.allowed_paths` shape
 
-**Decision.** Per-task `scope_lock.allowed_paths` are tight, anchored to the task's migration range plus any task-specific working notes. Examples:
+**Decision.** Per-task `scope_lock.allowed_paths` are tight, anchored to the task's migration range. Every subject subdomain task and the service-nodes/cross-bridges tasks (P5-01a through P5-11) **also include `PREDICATE_MANIFEST.md` and `ROUTING.md`** in their scope_lock — any task may discover a new edge type that warrants registry entry, and ROUTING.md gets a per-session-narrative entry per session per the per-session-narrative discipline at [`product/seed-graph/migrations/ROUTING.md`](../../product/seed-graph/migrations/ROUTING.md). The closeout task (P5-12) instead has scope_lock over the build-readiness summary file plus the ADR directories. Examples:
 
-- **P5-01a Epistemology core:** `["product/seed-graph/migrations/0011_*.sql", "product/seed-graph/migrations/0012_*.sql", "product/seed-graph/migrations/0013_*.sql", "product/seed-graph/migrations/0014_*.sql", "product/seed-graph/migrations/0015_*.sql"]`
-- **P5-11 Cross-bridges:** `["product/seed-graph/migrations/0060_*.sql", ..., "product/seed-graph/migrations/0069_*.sql", "product/seed-graph/migrations/PREDICATE_MANIFEST.md"]` (PREDICATE_MANIFEST.md included so the cross-bridges task can amend the registry per T1-E)
-- **P5-12 Closeout:** `["engine/build_readiness/phase_5_closeout.md", "engine/adr/*.md", "product/adr/*.md"]` (ADR scope_lock is broad because closeout may author a Phase-5-wide ADR)
+- **P5-01a Epistemology core:** `["product/seed-graph/migrations/0011_*.sql", ..., "product/seed-graph/migrations/0015_*.sql", "product/seed-graph/migrations/PREDICATE_MANIFEST.md", "product/seed-graph/migrations/ROUTING.md"]`
+- **P5-11 Cross-bridges:** same shape, range `0060_*.sql` through `0069_*.sql` plus `PREDICATE_MANIFEST.md` and `ROUTING.md`. The formal `cross_domain_dependency` predicate decision lives in this task per T1-E; the broader ability to register predicates exists for every task because cross-domain edges may be authored mid-subdomain (rare but legitimate when a concept is structurally cross-domain at first authoring).
+- **P5-12 Closeout:** `["engine/build_readiness/phase_5_closeout.md", "engine/adr/*.md", "product/adr/*.md", "engine/adr/README.md", "product/adr/README.md"]` (ADR scope_lock is broad because closeout may author a Phase-5-wide ADR; the README index entry update accompanies it).
 
 The operational allowlist (current.json, current_plan.md, auto_target.json (status fields only), archive/S-*.json, register_state.json, ENGINE_LOG.md, HANDOFF.md, STATE.md) is unioned automatically per [ADR 0051](../adr/0051-routine-mode-and-engine-loop.md) and is not listed in scope_lock.
 
