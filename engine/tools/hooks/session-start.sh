@@ -398,6 +398,32 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Multi-session scope-erosion signal (per ADR 0049)
+# ---------------------------------------------------------------------------
+#
+# Walks the same RECENT_ARCHIVES window. Counts how many archives carry
+# scope_delivery.delivered = false. Surface fires at >= 3 of 5.
+#
+# Same surface treatment as the persistent-warn pattern. Best-effort:
+# archives that pre-date the field don't count toward the threshold.
+
+SCOPE_NON_YES=0
+for archive in "${RECENT_ARCHIVES[@]}"; do
+    if jq -e '.scope_delivery.delivered == false' "$archive" >/dev/null 2>&1; then
+        SCOPE_NON_YES=$((SCOPE_NON_YES + 1))
+    fi
+done
+
+if [ "$SCOPE_NON_YES" -ge 3 ]; then
+    {
+        echo "[session-start] Scope-delivery non-yes in $SCOPE_NON_YES of last ${#RECENT_ARCHIVES[@]} sessions."
+        echo "  Per ADR 0049, this signals scope-discipline drift across sessions."
+        echo "  Review the recent scope_delivery answers in engine/session/archive/*.json"
+        echo "  and consider tighter declared_scope at boot or smaller chunks."
+    } >&2
+fi
+
+# ---------------------------------------------------------------------------
 # Scheduled-audit surface (engine/scheduled_audits.json)
 # ---------------------------------------------------------------------------
 #
@@ -437,5 +463,5 @@ if [ -f "$SCHEDULED_AUDITS_FILE" ]; then
     fi
 fi
 
-log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=$PERSISTENT_FOUND scheduled=$SCHEDULED_FOUND probe=$PROBE_STATUS"
+log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=$PERSISTENT_FOUND scheduled=$SCHEDULED_FOUND probe=$PROBE_STATUS backlog=$BACKLOG_STATUS scope_non_yes=$SCOPE_NON_YES"
 exit 0

@@ -740,6 +740,117 @@ def validate_issue_collisions() -> ValidationResult:
 
 
 # ---------------------------------------------------------------------------
+# Scope-discipline checks (post-S-0042 per ADR 0049)
+# ---------------------------------------------------------------------------
+
+
+_PHASE_TOKEN_RE = re.compile(r"phase:\s*([A-Za-z0-9_.\-]+)", re.IGNORECASE)
+
+
+def _build_plan_phase_identifiers() -> set[str]:
+    """Return phase identifier tokens from build_plan/MANIFEST.md.
+
+    Lower-cased; tolerant of formatting variations (P_3 vs Phase 3
+    vs 3) by treating the manifest as a corpus the declared phase
+    must appear inside.
+    """
+    manifest = REPO_ROOT / "build_plan" / "MANIFEST.md"
+    if not manifest.is_file():
+        return set()
+    text = manifest.read_text().lower()
+    tokens: set[str] = set()
+    for match in re.findall(r"\bp_\d+(?:\.\d+)?\b", text):
+        tokens.add(match.lower())
+    for match in re.findall(r"phase\s*\d+(?:\.\d+)?", text):
+        tokens.add(match.lower())
+    for match in re.findall(r"\b\d+\.\d+\b", text):
+        tokens.add(match.lower())
+    return tokens
+
+
+def validate_scope_discipline() -> ValidationResult:
+    """Soft-warn on missing/mismatched declared_scope and on
+    delivered=false at shutdown.
+
+    Three categories per ADR 0049:
+
+    - ``empty_declared_scope`` — current.json missing the field or
+      holding an empty string. Skipped silently when current.json
+      itself is absent (exploration mode).
+    - ``phase_mismatch_declared_scope`` — declared_scope contains a
+      ``phase:`` token whose identifier doesn't appear in
+      ``build_plan/MANIFEST.md``. The literal string starting with
+      ``NA`` (any case, with or without suffix like
+      ``NA-engine-apparatus``) is treated as the explicit "no
+      build-plan phase" marker for operational sessions and skips
+      the manifest match.
+    - ``scope_delivery_non_yes`` — current.json has ``scope_delivery``
+      with ``delivered: false``, regardless of
+      ``user_confirmed_changes``. The warn is signal for cross-session
+      aggregation, not punishment.
+
+    Returns:
+        ValidationResult with the three checks always registered.
+    """
+    r = ValidationResult()
+    r.add_check("empty_declared_scope")
+    r.add_check("phase_mismatch_declared_scope")
+    r.add_check("scope_delivery_non_yes")
+
+    current = REPO_ROOT / "engine" / "session" / "current.json"
+    if not current.is_file():
+        return r
+
+    try:
+        data = json.loads(current.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        r.soft_warn("empty_declared_scope", f"current.json unreadable: {exc}")
+        return r
+
+    scope = data.get("declared_scope")
+    if not isinstance(scope, str) or not scope.strip():
+        r.soft_warn(
+            "empty_declared_scope",
+            "current.json has no declared_scope field; per ADR 0049 the "
+            "eager-claim ritual must write this field as a 1-3 sentence "
+            "statement of what the session commits to deliver.",
+        )
+    else:
+        phase_match = _PHASE_TOKEN_RE.search(scope)
+        if phase_match:
+            value = phase_match.group(1).lower()
+            if not value.startswith("na"):
+                manifest = REPO_ROOT / "build_plan" / "MANIFEST.md"
+                manifest_text = (
+                    manifest.read_text().lower() if manifest.is_file() else ""
+                )
+                manifest_tokens = _build_plan_phase_identifiers()
+                if value not in manifest_text and not any(
+                    value in tok or tok in value for tok in manifest_tokens
+                ):
+                    r.soft_warn(
+                        "phase_mismatch_declared_scope",
+                        f"declared_scope phase token '{value}' does not "
+                        f"appear in build_plan/MANIFEST.md. Either correct "
+                        f"the identifier or, if this is operational work "
+                        f"with no build-plan phase, use 'phase: NA-...'.",
+                    )
+
+    delivery = data.get("scope_delivery")
+    if isinstance(delivery, dict) and delivery.get("delivered") is False:
+        user_confirmed = delivery.get("user_confirmed_changes", False)
+        explanation = delivery.get("explanation") or "(no explanation)"
+        r.soft_warn(
+            "scope_delivery_non_yes",
+            f"scope_delivery.delivered=false "
+            f"(user_confirmed_changes={user_confirmed}); "
+            f"explanation: {str(explanation)[:200]}",
+        )
+
+    return r
+
+
+# ---------------------------------------------------------------------------
 # Cascade-analysis checks (post-S-0029 per ADR 0041)
 # ---------------------------------------------------------------------------
 
@@ -2320,6 +2431,7 @@ def main(argv: list[str] | None = None) -> int:
         overall.merge(validate_repo_structure())
         overall.merge(validate_shared_state_health())
         overall.merge(validate_issue_collisions())
+        overall.merge(validate_scope_discipline())
         overall.merge(validate_graph())
 
     duration_ms = (time.monotonic() - start) * 1000

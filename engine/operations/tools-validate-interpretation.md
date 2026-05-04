@@ -119,6 +119,30 @@ A `gh` failure (no auth, no network, repo not on GitHub) silently skips the chec
 
 Recoverable per the choice the AI makes; the warn does not require resolution to commit.
 
+### `empty_declared_scope`
+
+A build session's `engine/session/current.json` is missing the `declared_scope` field or holds an empty string. Active from S-0042 onward per [ADR 0049](../adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md). The field is the boot-time scope declaration: a 1-3 sentence statement of what the session commits to deliver, optionally including a `phase: <id>` token tying the work to a `build_plan/MANIFEST.md` identifier (or `phase: NA-...` for operational sessions).
+
+The eager-claim ritual in [`session-build-lifecycle.md`](session-build-lifecycle.md) writes this field at slot-claim time. The soft-warn fires every commit until the field is populated.
+
+Recoverable — open `engine/session/current.json`, add the `declared_scope` field with prose naming the session's deliverable. Skipped silently when `current.json` is absent (exploration mode).
+
+### `phase_mismatch_declared_scope`
+
+The `declared_scope` field contains a `phase:` token whose identifier doesn't appear in `build_plan/MANIFEST.md`. Active from S-0042 onward per [ADR 0049](../adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md). Catches the S-0037 reordering vector: a session declaring it's working on Phase 5 while the build-plan's next-due item is Phase 4.5 surfaces the mismatch at first-commit, before the session has authored anything substantive.
+
+Matching is case-insensitive substring against the manifest text plus a heuristic token extraction (P_3, Phase 3, 3.0, 4.5, etc.). The literal prefix `NA` (e.g., `phase: NA-engine-apparatus`) is the explicit operational opt-out marker and skips the manifest match.
+
+Recoverable — either correct the identifier to match the manifest, or replace it with `phase: NA-...` for operational/engine-apparatus work that doesn't map to a build-plan phase. If the session intends to reorder, update the build plan with explicit user-confirmed reorder before declaring scope on the new phase.
+
+### `scope_delivery_non_yes`
+
+A session's `engine/session/current.json` has `scope_delivery.delivered: false` at validator-run time. Active from S-0042 onward per [ADR 0049](../adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md). The field is structured: `{delivered: bool, user_confirmed_changes: bool, explanation: str}`; the warn fires on `delivered: false` regardless of `user_confirmed_changes` because the warn is signal for cross-session aggregation, not punishment.
+
+The shutdown audit step (added in [`session-shutdown-sequence.md`](session-shutdown-sequence.md) per ADR 0049) prompts the AI with: *"Did you deliver the declared scope? If no, why not? Did anything get descoped, reordered, or deferred mid-session — even with user confirmation?"* The structured answer goes into the field. The persistent-warn surface (per ADR 0042) escalates a 3-of-5 firing into the boot-time multi-session erosion signal in `session-start.sh`.
+
+Recoverable — the warn is informational at the artifact level. The recoverable action is at the *next* session's planning: tighten scope, split the work, or address the systemic descoping-pressure pattern.
+
 ### Graph-audit soft-warns (S-0037 onward, active when SUPABASE_DB_URL is set)
 
 The seven categories ADR 0016 contracts. All seven register in `checks_run` even when zero findings fire, so cross-session telemetry distinguishes "category clean" from "category did not run" (the schema convention at [`session-shutdown-sequence.md`](session-shutdown-sequence.md)).

@@ -152,6 +152,28 @@ If the diary write is skipped (deliberately or by accident), record `diary_skipp
 
 If the MemPalace MCP server is unavailable at shutdown, attempt the write; if it fails, record `diary_skipped: 1` and proceed. The session does not block on the diary.
 
+### 7a. Scope-delivery audit (per ADR 0049)
+
+Before the outcome_summary is written, the AI is prompted explicitly with the literal text:
+
+> *Did you deliver the declared scope? If no, why not? Did anything get descoped, reordered, or deferred mid-session — even with user confirmation?*
+
+The AI's structured answer is written to `engine/session/current.json` as the `scope_delivery` field:
+
+```json
+"scope_delivery": {
+  "delivered": true,
+  "user_confirmed_changes": false,
+  "explanation": "Yes — all four interventions plus telemetry landed cleanly."
+}
+```
+
+`delivered: false` triggers the `scope_delivery_non_yes` soft-warn at the close-commit's validate.py run, regardless of `user_confirmed_changes`. The warn is signal for cross-session aggregation (the persistent-warn surface escalates 3-of-5 firings into the boot-time multi-session erosion signal in `session-start.sh`), not punishment. Even justified scope changes leave a trace so the trend is visible.
+
+The `user_confirmed_changes` flag is captured for future audit but does not affect the soft-warn. When `delivered: false` and `user_confirmed_changes: true`, the entry passes the audit but the warn still fires. When `delivered: false` and `user_confirmed_changes: false`, the same warn fires; the user's review of the archive will surface the unjustified deviation.
+
+The prompt is asked at every shutdown — not a heuristic for the AI to apply by judgment alone. Same discipline as the `pushback`/`lesson` capture check above (S-0041 audit measured judgment-alone produced zero captures across eight sessions; explicit prompt is the load-bearing surface).
+
 ### 8. Fill `session/current.json` `outcome_summary` and `outcome_summary_soft_warns`
 
 `outcome_summary` is ~50 words of prose. What got done, anything noteworthy for the next session, what tradeoffs surfaced. Example shape:

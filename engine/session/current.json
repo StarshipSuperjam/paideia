@@ -3,7 +3,9 @@
   "started_at": "2026-05-04T00:29:51Z",
   "status": "in_progress",
   "working_on": "Engine apparatus improvements per approved plan: (1) GitHub Issues as cross-session deferral destination + boot-time backlog visibility + scope-collision detection, (2) rewrite health-check around 'is it doing work?' with multi-axis orphan scanner, (3) scope-lock at boot + descope/reorder audit at shutdown, (4) session-end context telemetry feeding cross-session bundling judgment. User-directed displacement of the planned Phase 5 epistemology build-readiness gate (slips to S-0043+ per STATE.md's documented displacement clause).",
+  "declared_scope": "Land Interventions 1-3 + cross-cutting telemetry per ADR 0048 + ADR 0049 + the approved plan: HANDOFF/Issues split with boot backlog visibility and scope-collision check; multi-axis dead-weight scanner and rewritten health-check; declared_scope at boot + scope-delivery audit at shutdown + multi-session erosion signal + gate clause; session-end context telemetry feeding the health-check session-load trend. phase: NA-engine-apparatus (operational session; no build-plan phase identifier).",
   "outcome_summary": null,
+  "scope_delivery": null,
   "approved_plan": "/Users/shanekidd/.claude/plans/i-m-seeing-some-recurring-clever-axolotl.md",
   "branch": "claude/admiring-heisenberg-c97499",
   "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/admiring-heisenberg-c97499"
