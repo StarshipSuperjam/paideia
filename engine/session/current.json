@@ -3,6 +3,7 @@
   "started_at": "2026-05-04T17:30:03Z",
   "status": "in_progress",
   "working_on": "Clear in-project GitHub Issues backlog: rewrite misleading allowlist doc (#6), build settings.json sync guard (#5), build concurrent-session boot guard (#3), close mid-session context-pressure as intractable with policy (#4), build setup_env.py + populate .env + validate Phase 5 (#7).",
+  "declared_scope": "Resolve five GitHub Issues in one build session: (1) rewrite engine/operations/routine-mode-operations.md 'Harness permission allowlist' subsection per Issue #6 (Auto mode supersedes); (2) land engine/tools/check_settings_sync.py + pre-commit wire-in + ops-doc subsubsection per Issue #5; (3) land engine/tools/check_session_conflict.py + session-start.sh hook + boot-procedure docs per Issue #3; (4) close Issue #4 as intractable with policy bullet in CLAUDE.md 'Posture vs machinery'; (5) build engine/tools/setup_env.py + boot pointer in session-start.sh + README/seed-chunked-authoring/STATE.md updates, then live-prompt user for SUPABASE_DB_URL, populate .env, validate first Phase 5 task (P5-01a) end-to-end per Issue #7. End state: backlog 7 -> 2 (the two upstream mempalace issues #1, #2 remain).",
   "outcome_summary": null,
   "approved_plan": "/Users/shanekidd/.claude/plans/i-have-hit-a-abstract-scone.md",
   "branch": "claude/hungry-tereshkova-bfd37d",
