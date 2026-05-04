@@ -156,3 +156,31 @@ Net effect: every Phase 5 routine fire fails the `migration_applied` criterion f
 **Resolved: 2026-05-04 (S-0049, commit 21285f8).** Issue #8 fixed via Option A (walk-up `.env` loader). New [`engine/tools/load_env.py`](engine/tools/load_env.py) provides `find_dotenv` / `load_dotenv` / `load_dotenv_walk_up` (reusing `parse_env` from `engine/tools/setup_env.py`); wired into [`engine/tools/check_target.py`](engine/tools/check_target.py) `main()` and [`engine/tools/validate.py`](engine/tools/validate.py) `main()` before argparse. 14 new tests cover walk-up traversal, override semantics, idempotency, and the worktree-shaped tree case. Verified end-to-end from this worktree (no local `.env`, `SUPABASE_DB_URL` unset in shell): `check_target.py --task-id P5-01a` correctly queries the DB and reports `migration_applied` FAIL with "migration 0011_seed_epistemology_part1 not in schema_migrations" (URL loaded; DB queried; migration is genuinely not yet applied — Phase 5 hasn't started). `validate.py` runs 30 checks (was 23) — graph audit engaged. validate.py psycopg ImportError flipped from hard-fail to soft-skip (records `graph_audit_skipped` + stderr note), which is the right disposition now that the walk-up auto-loads `SUPABASE_DB_URL` in any reachable-`.env` context including pre-commit's system-Python invocation (no psycopg there). User can now toggle `paideia-engine-loop` back to Hourly.
 
 ---
+
+## P5-01a Epistemology core — work landed; verifier bug blocks criterion-pass bookkeeping (set at S-0050)
+
+**Discovered.** S-0050 is the first routine-mode session against `T-PHASE-5` and the first task to exercise the `migration_applied` criterion. The work product landed cleanly:
+
+- `product/seed-graph/migrations/0011_seed_epistemology_part1.sql` authored with 28 nodes + 34 edges (the analysis-of-knowledge tradition core); `graph_version` 1 → 2; ROUTING.md per-session narrative entry appended. Committed at `d8c4056` (`feat(seed): seed epistemology part 1 — 28 nodes, 34 edges`), pushed to main.
+- Migration applied via Supabase MCP `apply_migration`; `supabase_migrations.schema_migrations` records `version=20260504192422`, `name=0011_seed_epistemology_part1`.
+- `python3 engine/tools/validate.py` (with venv Python so `psycopg` is available and the live graph audit engages) reports 30 checks, 0 hard-fails, 27 soft-warns (25 `missing_rigor_score` expected for partial seed per phase_5.md T2-C; 2 `issue_collision` carryover from upstream MemPalace #1 / #2).
+
+**Then the verifier missed it.** `python3 engine/tools/check_target.py --task-id P5-01a` reports `[FAIL] migration_applied — migration 0011_seed_epistemology_part1 not in schema_migrations`. Root cause: [`engine/tools/check_target.py:114`](engine/tools/check_target.py) queries `WHERE version = %s` against `supabase_migrations.schema_migrations`, but `version` is the timestamp (`20260504192422`); the auto_target.json `id` field is the migration name (`0011_seed_epistemology_part1`). The schema doc at [`engine/session/auto_target.schema.md`](engine/session/auto_target.schema.md) explicitly shows the `id` field as the descriptive migration name, so this is a one-line column swap (`version` → `name`). S-0049's e2e verification ran the predicate before any Phase 5 migration existed, so the false-FAIL response looked correct (URL loaded, DB queried, migration genuinely absent); the bug only surfaces post-apply.
+
+**Action taken at S-0050 close.** Filed [Issue #9](https://github.com/StarshipSuperjam/paideia/issues/9) (`bug`, `priority:urgent`) with the diagnosis, reproduction, fix, and blast-radius analysis. Marked P5-01a `blocked: scope-expansion-needed: check_target_migration_applied_uses_version_column` in [`engine/session/auto_target.json`](engine/session/auto_target.json) (status field only — operational allowlist). Did NOT attempt to fix `engine/tools/check_target.py` inline because the file is outside P5-01a's `scope_lock.allowed_paths` and routine-mode posture treats scope_lock as invariant — the pre-commit hook would hard-fail any out-of-scope commit.
+
+**Routine-mode protection.** The next routine fire walks the boot procedure, finds P5-01a `blocked` (not `complete`), and `_select_task` will not pick any sibling task because every other Phase 5 subject task (P5-02a, P5-03, P5-04a, P5-05, P5-06, P5-07a, P5-08, P5-09, P5-10) has `P5-01a` in its `depends_on` list — and the eligibility check requires every `depends_on` entry to have `status == complete`. So no sibling task is eligible until P5-01a flips to `complete`. The routine will exit via the "no eligible task" path: HANDOFF written, no slot churn, no work attempted. Pausing the routine is still cleaner (avoid HANDOFF spam from repeated fires); recommend toggling `paideia-engine-loop` to Manual until the fix lands.
+
+**What the next interactive `/start-engine` session should do.**
+
+1. Land the one-line column-swap fix in [`engine/tools/check_target.py:114`](engine/tools/check_target.py): change `WHERE version = %s` to `WHERE name = %s`.
+2. Add a regression test in `engine/tools/test_check_target.py` (create the file if missing) that mocks `psycopg.connect` and asserts the SQL uses the `name` column with the descriptive id.
+3. Run `python3 engine/tools/check_target.py --task-id P5-01a` and confirm both criteria PASS.
+4. Mark P5-01a `complete` in [`engine/session/auto_target.json`](engine/session/auto_target.json) (status field only — operational allowlist; remove the `blocked_reason` field at the same time). Close [Issue #9](https://github.com/StarshipSuperjam/paideia/issues/9) with a reference to the fix commit.
+5. Resume the routine by toggling the `paideia-engine-loop` Routine back to Hourly.
+
+After this fix lands, P5-01b (Epistemology specialized; depends only on P5-01a) becomes eligible and the routine resumes Phase 5 dispatch.
+
+**Disposition:** tracked-as-issue #9
+
+---

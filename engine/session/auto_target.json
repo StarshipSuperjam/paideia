@@ -24,7 +24,8 @@
           "product/seed-graph/migrations/ROUTING.md"
         ]
       },
-      "status": "in_progress"
+      "status": "blocked",
+      "blocked_reason": "scope-expansion-needed: check_target.py:_check_migration_applied queries WHERE version = %s but supabase_migrations.schema_migrations.version is the timestamp; auto_target.json id is the migration name. Fix is one-line column swap (version -> name) in engine/tools/check_target.py:114, outside P5-01a's scope_lock. Tracked at Issue #9. Work product (migration applied + validate.py clean: 30 checks, 0 hard-fails) is complete; only the criterion-pass bookkeeping is broken. After Issue #9 fix, re-run check_target.py --task-id P5-01a and mark P5-01a complete (status field only)."
     },
     {
       "id": "P5-01b",
