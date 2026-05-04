@@ -140,6 +140,30 @@ if [ -f engine/session/auto_target.json ] && [ -f engine/tools/check_routine_sco
 fi
 
 # ---------------------------------------------------------------------------
+# Worktree settings.json sync check (per Issue #5 / S-0048)
+# When a Claude Code session runs inside a git worktree, harness Writes to
+# .claude/settings.json land in the *main* repo's copy, not the worktree's
+# tracked copy. This guard hard-fails any commit from a worktree where
+# main's and the worktree's settings.json differ AND the worktree's copy
+# is not staged for the current commit (which would mean the user has
+# already cp'd the divergence into the worktree's copy).
+# Silent no-op when not in a worktree or when files are in sync.
+# ---------------------------------------------------------------------------
+
+if [ -f engine/tools/check_settings_sync.py ]; then
+    STATUS=0
+    python3 engine/tools/check_settings_sync.py || STATUS=$?
+    if [ "$STATUS" -eq 1 ]; then
+        echo "[pre-commit] worktree settings.json desync detected. Commit blocked." >&2
+        exit 1
+    fi
+    if [ "$STATUS" -ge 2 ]; then
+        echo "[pre-commit] settings.json sync check tool error (exit $STATUS). Commit blocked." >&2
+        exit 1
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 # Run code-discipline gates against staged Python files under engine/
 # (Layer 2 of ADR 0038 — ruff, mypy --strict, pytest, test_presence)
 # ---------------------------------------------------------------------------

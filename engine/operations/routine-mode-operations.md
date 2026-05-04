@@ -202,6 +202,25 @@ Auto mode eliminates the brittle compound-form mismatch; project safeguards stil
 
 For interactive `/start-engine` sessions, **Default** permission mode + the existing `.claude/settings.json` allowlist remains the right posture. A human can answer permission prompts in real time; granular gating with the human-in-the-loop catches anomalies the project safeguards don't surface (typo'd commands, unexpected tool invocations). The S-0046 allowlist additions remain in `.claude/settings.json` for that purpose. They cover engine python tools, worktree-side git lifecycle, the test/lint stack, the GitHub Issues path, Supabase migration tooling, hook scripts, shell utilities, the MemPalace CLI, and `source engine/tools/scrub_env.sh`. The compound-form mismatch is less load-bearing under Default mode because the human-in-the-loop can approve a one-off compound that no pattern covers.
 
+### Editing `.claude/settings.json` from a worktree
+
+When a Claude Code session running in a git worktree edits `.claude/settings.json` via the Write tool, the harness redirects the write to the **main repo's** `.claude/settings.json` (where the harness reads from), not the worktree's local `.claude/settings.json` (where git tracks for the worktree's branch). Result: the worktree's tracked copy stays stale, `git status` from the worktree sees no change, `git add -A` captures nothing, and the close commit silently ships without the deliverable looking complete.
+
+S-0046 hit this exactly — the 60+ pattern allowlist extension landed in main's copy but never made it into git; S-0047 manually patched. S-0048 mechanizes the catch with [`engine/tools/check_settings_sync.py`](../tools/check_settings_sync.py), invoked from the pre-commit hook: hard-fails any commit from a worktree where `<main>/.claude/settings.json` differs from the worktree's tracked copy AND the worktree's copy is not staged for the current commit.
+
+**Procedure when editing `.claude/settings.json` from a worktree:**
+
+1. Edit normally via the Write tool — the harness redirects to main's copy (this is fine).
+2. Before staging the commit, sync main's copy into the worktree's tracked copy:
+   ```bash
+   cp <main_repo>/.claude/settings.json .claude/settings.json
+   git add .claude/settings.json
+   ```
+   Replace `<main_repo>` with the absolute path of the main repo (e.g., `/Users/<you>/<project>`).
+3. Commit. The pre-commit guard verifies the sync and passes.
+
+If you forget the cp step, the pre-commit guard hard-fails with the exact procedure printed to stderr — no silent ship-as-no-op anymore. The guard is also a backstop for non-routine commits and applies to any session running from a worktree.
+
 ### Procedural rule (replaces the S-0046 same-commit pairing rule)
 
 Adding a new Bash invocation to the routine procedure (Skill body, slash command body, criterion predicate that shells out, per-task `scope_lock` workflow) does **not** require an allowlist entry under the Auto-mode stance — the routine runs unprompted regardless. The addition *should* still ship a paired allowlist entry for the interactive-session ergonomics, but the absence does not deadlock the routine. The S-0046 same-commit pairing rule is hereby retired.
