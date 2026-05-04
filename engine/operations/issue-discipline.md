@@ -47,7 +47,7 @@ The default for cross-session deferrals is `gh issue create`. HANDOFF is the exc
 
 ## Label taxonomy
 
-Six type labels and one priority label:
+Eight type labels and one priority label (extended at S-0051):
 
 | Label | Meaning |
 |---|---|
@@ -57,11 +57,25 @@ Six type labels and one priority label:
 | `cleanup` | Small, well-scoped maintenance items that batch naturally. |
 | `health-check-finding` | Surfaced by a health-check audit; downstream of a cadence-fired audit session. |
 | `upstream` | The bug is real and affects the project but is not in-project actionable. Pairs with `bug` typically; signals "do not pick this up in a cleanup batch." |
+| `documentation` | Doc improvements, doc bugs, doc cleanup. Use when the work is doc-specific and batches naturally with other doc work (ADR refresh sweeps, ops-doc restructures, cross-references audits). Compatible with `cleanup` for small batchy items. |
+| `question` | A genuine open question that needs deliberation before action takes shape. Pairs with another type label when the type is known but the shape isn't. Resolves by becoming an ADR (decision settled), being relabeled to a typed action issue, or being closed `wontfix` (decision made: no action). |
 | `priority:urgent` | Used sparingly. Triggers the LOUD boot surface. Reserved for items that block other work or where silent persistence has a real cost. |
 
 Labels are mutually compatible. An issue may carry multiple type labels (e.g., `bug` + `tech-debt` for a bug that won't get fixed soon and now counts as debt). The taxonomy is open to refinement; adding a label is a workflow change, not a contract change (no ADR needed).
 
 `priority:urgent` is the only priority label. Resist creating a multi-tier priority scheme — every label that exists must be used consistently or the noise eats the signal. The two-tier "urgent or not" matches the boot surface's two-tier "FYI or LOUD."
+
+### Reactive-only labels
+
+Three GitHub stock labels are retained as reactive-only — applied at triage time, not authored:
+
+- `duplicate` — applied when reading an existing issue and recognizing it duplicates another.
+- `invalid` — applied when reading an issue and concluding it doesn't describe a real problem.
+- `wontfix` — applied when deciding (often at issue close) that the work won't be done.
+
+These do not have authoring procedures because the trigger is reading an existing issue, not surfacing a new one. They appear in `gh label list` for triage convenience and are not surfaced in the boot backlog count.
+
+The S-0051 audit dropped two community labels that had no project-applicable trigger: `good first issue` and `help wanted`. The project is solo-developer + AI; these are recreated via `gh label create` if collaboration scope changes.
 
 ## Issue body shape
 
@@ -137,7 +151,7 @@ Cleanup-batch sessions are user-initiated, not auto-triggered. The boot surface'
 
 Per ADR 0048, the `SessionStart` hook emits the backlog count at every boot:
 
-- **Default FYI line, always shown:** `[session-start] Issues backlog: N bugs, N tech-debt, N cleanup, N enhancement (M urgent).` Single line, low ceremony.
+- **Default FYI line, always shown:** `[session-start] Issues backlog: N bugs, N tech-debt, N cleanup, N enhancement, N health-check, N docs, N question (M urgent; K upstream-blocked).` Single line, low ceremony. Bugs that are also `upstream`-tagged are subtracted from the bug count and surfaced separately as `upstream-blocked` — a reader scanning the surface sees the actionable bug count, not a noise-padded total. Updated at S-0051 from the original 4-category form.
 - **Urgent LOUD block, only when `priority:urgent` count > 0:** the same surface treatment as ADR 0045's hard-broken probe findings — multi-line attention block listing each urgent issue's `#<num>: <title>` plus its non-priority labels.
 
 A `gh` CLI failure (no auth, no network, repo not on GitHub) emits a stderr note; the boot proceeds. The visibility surface is best-effort.

@@ -58,7 +58,8 @@ from scrub_env import scrubbed_env  # noqa: E402
 
 # Label taxonomy per ADR 0048 + issue-discipline.md. Keys are the
 # canonical label names; values are the human-readable forms used in
-# the FYI line.
+# the FYI line. Extended at S-0051 (issue-discipline.md taxonomy
+# additions): documentation, question.
 TYPE_LABELS: dict[str, str] = {
     "bug": "bugs",
     "tech-debt": "tech-debt",
@@ -66,8 +67,11 @@ TYPE_LABELS: dict[str, str] = {
     "enhancement": "enhancement",
     "health-check-finding": "health-check",
     "upstream": "upstream",
+    "documentation": "docs",
+    "question": "question",
 }
 PRIORITY_LABEL = "priority:urgent"
+UPSTREAM_LABEL = "upstream"
 
 
 def fetch_open_issues(repo: str | None = None) -> list[dict[str, Any]] | None:
@@ -121,21 +125,54 @@ def count_by_label(issues: list[dict[str, Any]]) -> dict[str, int]:
     return counts
 
 
+def count_upstream_bugs(issues: list[dict[str, Any]]) -> int:
+    """Return count of issues tagged BOTH ``bug`` AND ``upstream``.
+
+    Used to subtract upstream-blocked bugs from the actionable bug
+    count in the FYI line, so a reader sees the in-project bug
+    backlog rather than a noise-padded total. Pure on the input
+    issue list.
+    """
+    return sum(
+        1
+        for issue in issues
+        if "bug" in label_names(issue) and UPSTREAM_LABEL in label_names(issue)
+    )
+
+
 def collect_urgent(issues: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Return issues carrying the ``priority:urgent`` label."""
     return [issue for issue in issues if PRIORITY_LABEL in label_names(issue)]
 
 
-def format_fyi_line(counts: dict[str, int], urgent_count: int) -> str:
-    """Build the single-line FYI surface."""
+def format_fyi_line(
+    counts: dict[str, int], urgent_count: int, upstream_bug_count: int = 0
+) -> str:
+    """Build the single-line FYI surface.
+
+    Updated at S-0051: emits 7 type categories instead of 4. ``upstream``
+    is no longer in the type list (it's a modifier, not a type) and
+    instead surfaces in the parenthetical alongside ``urgent``. Bugs
+    that are also tagged ``upstream`` are subtracted from the bug
+    count via ``upstream_bug_count`` so the surface shows in-project
+    actionable bugs, not the noise-padded total.
+    """
+    in_project_bugs = max(0, counts.get("bug", 0) - upstream_bug_count)
     parts = [
-        f"{counts['bug']} bugs",
+        f"{in_project_bugs} bugs",
         f"{counts['tech-debt']} tech-debt",
         f"{counts['cleanup']} cleanup",
         f"{counts['enhancement']} enhancement",
+        f"{counts['health-check-finding']} health-check",
+        f"{counts['documentation']} docs",
+        f"{counts['question']} question",
     ]
     base = ", ".join(parts)
-    return f"[session-start] Issues backlog: {base} ({urgent_count} urgent)."
+    upstream_total = counts.get("upstream", 0)
+    return (
+        f"[session-start] Issues backlog: {base} "
+        f"({urgent_count} urgent; {upstream_total} upstream-blocked)."
+    )
 
 
 def format_loud_block(urgent_issues: list[dict[str, Any]]) -> list[str]:
@@ -189,12 +226,14 @@ def main(argv: list[str] | None = None) -> int:
 
     counts = count_by_label(issues)
     urgent = collect_urgent(issues)
+    upstream_bug_count = count_upstream_bugs(issues)
 
     if args.json:
         json.dump(
             {
                 "counts": counts,
                 "urgent_count": len(urgent),
+                "upstream_bug_count": upstream_bug_count,
                 "urgent": [
                     {
                         "number": i.get("number"),
@@ -209,7 +248,7 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.write("\n")
         return 0
 
-    print(format_fyi_line(counts, len(urgent)), flush=True)
+    print(format_fyi_line(counts, len(urgent), upstream_bug_count), flush=True)
     if urgent:
         for line in format_loud_block(urgent):
             print(line, flush=True)

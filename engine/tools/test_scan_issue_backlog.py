@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from scan_issue_backlog import (  # noqa: E402
     collect_urgent,
     count_by_label,
+    count_upstream_bugs,
     fetch_open_issues,
     format_fyi_line,
     format_loud_block,
@@ -63,6 +64,8 @@ def test_count_by_label_zero_when_empty() -> None:
         "enhancement": 0,
         "health-check-finding": 0,
         "upstream": 0,
+        "documentation": 0,
+        "question": 0,
     }
 
 
@@ -125,11 +128,14 @@ def test_format_fyi_line_zero_counts() -> None:
         "enhancement": 0,
         "health-check-finding": 0,
         "upstream": 0,
+        "documentation": 0,
+        "question": 0,
     }
-    line = format_fyi_line(counts, urgent_count=0)
+    line = format_fyi_line(counts, urgent_count=0, upstream_bug_count=0)
     assert line == (
         "[session-start] Issues backlog: 0 bugs, 0 tech-debt, 0 cleanup, "
-        "0 enhancement (0 urgent)."
+        "0 enhancement, 0 health-check, 0 docs, 0 question "
+        "(0 urgent; 0 upstream-blocked)."
     )
 
 
@@ -141,13 +147,61 @@ def test_format_fyi_line_with_counts_and_urgent() -> None:
         "enhancement": 2,
         "health-check-finding": 0,
         "upstream": 1,
+        "documentation": 0,
+        "question": 0,
     }
-    line = format_fyi_line(counts, urgent_count=1)
-    assert "3 bugs" in line
+    line = format_fyi_line(counts, urgent_count=1, upstream_bug_count=1)
+    # bug count of 3 minus 1 upstream-bug = 2 in-project bugs surfaced.
+    assert "2 bugs" in line
+    assert "3 bugs" not in line
     assert "7 tech-debt" in line
     assert "12 cleanup" in line
     assert "2 enhancement" in line
-    assert "(1 urgent)" in line
+    assert "0 health-check" in line
+    assert "0 docs" in line
+    assert "0 question" in line
+    assert "(1 urgent; 1 upstream-blocked)" in line
+
+
+def test_format_fyi_line_upstream_bug_subtraction_floors_at_zero() -> None:
+    """If upstream_bug_count > bug count somehow, FYI line shows 0, not negative."""
+    counts = {
+        "bug": 1,
+        "tech-debt": 0,
+        "cleanup": 0,
+        "enhancement": 0,
+        "health-check-finding": 0,
+        "upstream": 2,
+        "documentation": 0,
+        "question": 0,
+    }
+    line = format_fyi_line(counts, urgent_count=0, upstream_bug_count=2)
+    assert "0 bugs" in line
+    assert "-1 bugs" not in line
+
+
+# ---------------------------------------------------------------------------
+# count_upstream_bugs
+# ---------------------------------------------------------------------------
+
+
+def test_count_upstream_bugs_only_counts_both_labels() -> None:
+    issues = [
+        {"labels": [{"name": "bug"}]},
+        {"labels": [{"name": "bug"}, {"name": "upstream"}]},
+        {"labels": [{"name": "bug"}, {"name": "upstream"}]},
+        {"labels": [{"name": "upstream"}]},
+        {"labels": [{"name": "tech-debt"}, {"name": "upstream"}]},
+    ]
+    assert count_upstream_bugs(issues) == 2
+
+
+def test_count_upstream_bugs_zero_when_no_overlap() -> None:
+    issues = [
+        {"labels": [{"name": "bug"}]},
+        {"labels": [{"name": "upstream"}]},
+    ]
+    assert count_upstream_bugs(issues) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -269,7 +323,10 @@ def test_main_emits_fyi_line(
     assert "Issues backlog:" in out
     assert "1 bugs" in out
     assert "1 cleanup" in out
-    assert "(0 urgent)" in out
+    assert "0 health-check" in out
+    assert "0 docs" in out
+    assert "0 question" in out
+    assert "(0 urgent; 0 upstream-blocked)" in out
 
 
 def test_main_emits_loud_block_when_urgent(
@@ -291,7 +348,7 @@ def test_main_emits_loud_block_when_urgent(
     assert rc == 0
 
     out = capsys.readouterr().out
-    assert "(1 urgent)" in out
+    assert "(1 urgent; 0 upstream-blocked)" in out
     assert "URGENT: 1 open issue(s)" in out
     assert "#5: On fire" in out
 
@@ -313,6 +370,7 @@ def test_main_json_mode_emits_machine_readable(
     payload = json.loads(out)
     assert payload["counts"]["bug"] == 1
     assert payload["urgent_count"] == 0
+    assert payload["upstream_bug_count"] == 0
 
 
 def test_main_handles_gh_failure_gracefully(
