@@ -25,7 +25,7 @@ The `Status:` field is required; `engine/tools/validate.py` soft-warns on ADR fi
 
 ## Index
 
-The engine collection has **15 ADRs total — all Accepted**. Engine ADRs are about how the build apparatus works (graph validation infrastructure, periodic project audits, expression contracts for engine-internal documents and engine-side code, the engine/product partition itself, the universal expression contract spanning all AI authoring patterns, the build-readiness gate before substantive build sessions, cascade-analysis discipline, soft-warn lifecycle, the harness hook architecture, the recipe-vs-reference skill-conversion partition, shared-state integrity discipline, the structural-reference parser tool, HANDOFF/Issues split for cross-session deferrals, scope-lock at boot + descope/reorder audit). The full ADR collection across the project is **49** (15 engine + 34 product).
+The engine collection has **17 ADRs total — all Accepted**. Engine ADRs are about how the build apparatus works (graph validation infrastructure, periodic project audits, expression contracts for engine-internal documents and engine-side code, the engine/product partition itself, the universal expression contract spanning all AI authoring patterns, the build-readiness gate before substantive build sessions, cascade-analysis discipline, soft-warn lifecycle, the harness hook architecture, the recipe-vs-reference skill-conversion partition, shared-state integrity discipline, the structural-reference parser tool, HANDOFF/Issues split for cross-session deferrals, scope-lock at boot + descope/reorder audit, project venv with hook PATH wiring, routine-mode session pattern). The full ADR collection across the project is **51** (17 engine + 34 product).
 
 | ADR | Title | Status |
 |---|---|---|
@@ -45,6 +45,7 @@ The engine collection has **15 ADRs total — all Accepted**. Engine ADRs are ab
 | [0048](0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md) | HANDOFF.md narrowed to session-internal handoffs; GitHub Issues absorb cross-session deferrals | Accepted |
 | [0049](0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md) | Scope-lock at boot, descope/reorder audit at shutdown, session-end context telemetry | Accepted |
 | [0050](0050-project-venv-and-hook-path-wiring.md) | Project venv (uv-managed) at main repo root with hook PATH wiring | Accepted |
+| [0051](0051-routine-mode-and-engine-loop.md) | Routine-mode session pattern and engine-loop foundation | Accepted |
 
 ## Adding a new engine ADR
 

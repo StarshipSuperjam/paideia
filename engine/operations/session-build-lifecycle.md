@@ -10,6 +10,8 @@ A build session is any conversation that types `Start Engine` or invokes `/start
 
 ## Boot procedure (run in order)
 
+> **If `engine/session/auto_target.json` exists**, you may have reached this lifecycle via `/start-engine` when you intended `/start-routine` (per [ADR 0051](../adr/0051-routine-mode-and-engine-loop.md)). Routine-mode sessions use a separate entry point — see [`routine-mode-operations.md`](routine-mode-operations.md). This lifecycle is for interactive build sessions; if you continue, the slot will be claimed for interactive work and the routine state may need attention. Surface this to the user before proceeding.
+
 1. **Read `STATE.md`.** Get current phase, last build session, next-session work item, GitHub URL, Supabase project ref, infrastructure pointers.
 
 2. **Health-check cadence trigger.** Read `session/register_state.json`. Parse the trailing 4-digit counter from `next_id` (the slot about to be claimed) and `last_audit_session` (the most recent completed audit). The trigger fires when `(next_id - last_audit_session) >= health_check_cadence` (default cadence: 10 as of S-0033, was 30 pre-S-0033; overdue-catchup logic introduced at S-0041 — see ADR 0022 Consequences amendments). Two surfaces:
@@ -99,6 +101,12 @@ Atomic slot reservation. Run before any substantive work edits.
    No per-push confirmation. Invoking `/start-engine` (or typing `Start Engine`) is the authorization for the lifecycle's pushes — eager-claim, in-session checkpoints, and shutdown. Destructive operations (force-push, `git reset --hard`, branch deletion) still require explicit confirmation per the auto-mode interrupt criteria in `escalation-criteria.md`.
 
 The slot is now reserved. Concurrent sessions reading `register_state.json` will see `next_id` already bumped and pick the following slot.
+
+## Routine-mode is a separate lifecycle
+
+Per [ADR 0051](../adr/0051-routine-mode-and-engine-loop.md), routine-mode sessions are architecturally distinct from interactive build sessions. They have their own slash command (`/start-routine`), their own Skill ([`routine-mode-lifecycle`](../../.claude/skills/routine-mode-lifecycle/SKILL.md)), and their own Layer 1 ops doc ([`routine-mode-operations.md`](routine-mode-operations.md)). They share only the eager-claim ritual (below) — every other concern (target detection, plan-then-scope-check, scope-lock enforcement, master-plan integrity, completion verification) is routine-specific.
+
+This separation was a S-0044 user-directed clarification: bolting routine-mode into `/start-engine` conflated two concerns with five differences (boot procedure, scope rules, commit posture, permission model, shutdown logic). Two entry points keeps the mental model clean.
 
 ## Worktrees
 

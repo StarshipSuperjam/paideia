@@ -94,7 +94,7 @@ See [`product/docs/tensions.md`](../product/docs/tensions.md). As of S-0026 clos
 
 ## Paperclip integration
 
-**Deferred.** Phase 5 trial / Phase 7 commit per ROADMAP.md. Not installed in Foundation.
+**Rejected at S-0044, superseded by [ADR 0051](adr/0051-routine-mode-and-engine-loop.md).** Investigation surfaced that Paperclip-dispatched Claude work runs under `ANTHROPIC_API_KEY` per Anthropic's April-2026 third-party-orchestration policy (subscription does not cover it; Paperclip GitHub issues #1163, #3270). For a solo project on subscription with no real parallelism need, the recurring per-token API spend doesn't justify Paperclip's value-add. The replacement architecture — Claude Code Routines + `engine/session/auto_target.json` + `engine/tools/check_routine_scope.py` — accomplishes dispatch + termination + anti-rogue at zero recurring spend, on existing apparatus. Paperclip rejection reasoning preserved in ADR 0051 "Alternatives Considered." If the project ever expands beyond Claude (multi-runtime), or hires collaborators (multi-user governance), or accepts API spend on principle (e.g., for unattended Phase 8 evaluation runs), Paperclip becomes a reasonable revisit.
 
 ## Strong working commitments
 

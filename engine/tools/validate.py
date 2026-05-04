@@ -854,6 +854,135 @@ def validate_scope_discipline() -> ValidationResult:
 
 
 # ---------------------------------------------------------------------------
+# Routine-mode soft-warns (post-S-0044 per ADR 0051)
+# ---------------------------------------------------------------------------
+
+
+def validate_routine_mode() -> ValidationResult:
+    """Soft-warns specific to routine-mode sessions per ADR 0051.
+
+    Two checks, both no-op when not in routine mode:
+
+    - ``routine_no_target_reference`` — current_plan.md exists but
+      doesn't mention the active task's id or name. Suggests the
+      routine session's plan drifted from the target.
+    - ``routine_issue_spam`` — more than 3 GitHub issues were created
+      since the session's started_at. Confused-session containment;
+      legitimate fix-this-many findings ride through (the warn is
+      advisory, not blocking).
+
+    Detection: routine mode = auto_target.json AND current_plan.md
+    both exist AND a task has status ``in_progress``. Any of the three
+    missing → both checks are no-ops.
+
+    Issue counting: ``gh issue list --state all --search
+    "created:>=YYYY-MM-DD"`` with a 10-second timeout. Failure modes
+    (gh unavailable, unauthenticated, network error, timeout) are
+    silent — the project is offline-tolerant.
+    """
+    r = ValidationResult()
+    r.add_check("routine_no_target_reference")
+    r.add_check("routine_issue_spam")
+
+    target_path = REPO_ROOT / "engine" / "session" / "auto_target.json"
+    plan_path = REPO_ROOT / "engine" / "session" / "current_plan.md"
+    current_path = REPO_ROOT / "engine" / "session" / "current.json"
+
+    if not target_path.exists() or not plan_path.exists():
+        return r  # not in routine mode
+
+    try:
+        target = json.loads(target_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return r
+
+    active = next(
+        (t for t in target.get("tasks", []) if t.get("status") == "in_progress"),
+        None,
+    )
+    if active is None:
+        return r  # not in routine mode
+
+    # Check 1: plan references active task
+    try:
+        plan_text = plan_path.read_text()
+    except OSError:
+        plan_text = ""
+    task_id = str(active.get("id", ""))
+    task_name = str(active.get("name", ""))
+    has_id_ref = bool(task_id) and task_id in plan_text
+    has_name_ref = bool(task_name) and task_name in plan_text
+    if not (has_id_ref or has_name_ref):
+        r.soft_warn(
+            "routine_no_target_reference",
+            f"current_plan.md does not reference active task '{task_id}' "
+            f"or its name; routine session may have drifted from target.",
+        )
+
+    # Check 2: issue spam (best-effort; silent on tool unavailability)
+    if not current_path.exists():
+        return r
+    try:
+        current = json.loads(current_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return r
+    started_at = current.get("started_at")
+    if not isinstance(started_at, str) or len(started_at) < 10:
+        return r
+
+    date_prefix = started_at[:10]  # YYYY-MM-DD
+    try:
+        proc = subprocess.run(
+            [
+                "gh",
+                "issue",
+                "list",
+                "--state",
+                "all",
+                "--limit",
+                "30",
+                "--json",
+                "number,createdAt",
+                "--search",
+                f"created:>={date_prefix}",
+            ],
+            capture_output=True,
+            text=True,
+            env=scrubbed_env(),
+            timeout=10,
+            check=True,
+        )
+    except (
+        subprocess.TimeoutExpired,
+        subprocess.CalledProcessError,
+        FileNotFoundError,
+    ):
+        return r
+
+    try:
+        issues = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return r
+
+    count = sum(
+        1
+        for i in issues
+        if isinstance(i, dict)
+        and isinstance(i.get("createdAt"), str)
+        and i["createdAt"] >= started_at
+    )
+    if count > 3:
+        r.soft_warn(
+            "routine_issue_spam",
+            f"routine session has created {count} issues since {started_at}; "
+            f"review for legitimacy or session-confusion (defense-in-depth, "
+            f"per ADR 0051).",
+        )
+
+    return r
+
+
+# ---------------------------------------------------------------------------
 # Cascade-analysis checks (post-S-0029 per ADR 0041)
 # ---------------------------------------------------------------------------
 
@@ -1773,8 +1902,8 @@ def _read_graph_from_db(
     # not see the dependency in the current environment; the
     # ImportError branch in validate_graph() handles the actual
     # missing-package case at runtime.
-    import psycopg  # type: ignore[import-not-found]
-    from psycopg.rows import dict_row  # type: ignore[import-not-found]
+    import psycopg  # type: ignore[import-not-found,unused-ignore]
+    from psycopg.rows import dict_row  # type: ignore[import-not-found,unused-ignore]
 
     with psycopg.connect(connection_string) as conn:
         with conn.cursor(row_factory=dict_row) as cur:
@@ -2435,6 +2564,7 @@ def main(argv: list[str] | None = None) -> int:
         overall.merge(validate_shared_state_health())
         overall.merge(validate_issue_collisions())
         overall.merge(validate_scope_discipline())
+        overall.merge(validate_routine_mode())
         overall.merge(validate_graph())
 
     duration_ms = (time.monotonic() - start) * 1000

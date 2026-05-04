@@ -116,6 +116,30 @@ if [ -f engine/tools/validate.py ]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Routine-mode scope-check + master-plan-integrity (per ADR 0051)
+# Hard-fails staged commits that touch task-deliverable paths outside the
+# active task's scope_lock (∪ operational allowlist), or that mutate
+# auto_target.json keys other than tasks[*].status / tasks[*].blocked_reason
+# from a routine-mode session. The check tool itself detects routine-mode
+# (auto_target.json + current_plan.md + in_progress task) and exits 0
+# silently when not applicable, so always-invoking is safe.
+# ---------------------------------------------------------------------------
+
+if [ -f engine/session/auto_target.json ] && [ -f engine/tools/check_routine_scope.py ]; then
+    STATUS=0
+    python3 engine/tools/check_routine_scope.py --staged || STATUS=$?
+    if [ "$STATUS" -eq 1 ]; then
+        echo "[pre-commit] routine-mode scope-check failed. Commit blocked." >&2
+        echo "  See engine/operations/routine-mode-operations.md for the scope-lock model." >&2
+        exit 1
+    fi
+    if [ "$STATUS" -ge 2 ]; then
+        echo "[pre-commit] routine-mode scope-check tool error (exit $STATUS). Commit blocked." >&2
+        exit 1
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 # Run code-discipline gates against staged Python files under engine/
 # (Layer 2 of ADR 0038 — ruff, mypy --strict, pytest, test_presence)
 # ---------------------------------------------------------------------------

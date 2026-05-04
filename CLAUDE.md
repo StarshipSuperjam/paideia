@@ -26,7 +26,7 @@ A fresh session reading only this file learns the rules but not the procedures. 
 
 Other operations docs are defer-on-demand: read when the session's work item references them or when one of the four core docs points at them. The full index lives at [`engine/operations/README.md`](engine/operations/README.md).
 
-## Two session modes
+## Three session modes
 
 - **Default — exploration.** No project file edits to tracked files. No commits. No slot claim. Sketch in conversation. MemPalace captures with the `exploration` tag (via the stop/precompact hooks in `.claude/settings.json`). When discussion converges on something worth committing, offer `/start-engine`.
 - **Build — `/start-engine`.** Eager-claims the next slot, allows commits and project file edits, runs the shutdown sequence at close. Canonical invocation routes through three user-defined Skills under `.claude/skills/` (per [ADR 0044](engine/adr/0044-skill-conversion-recipe-vs-reference.md)):
@@ -34,7 +34,18 @@ Other operations docs are defer-on-demand: read when the session's work item ref
   - `session-shutdown-sequence` — close procedure invoked at session end (Layer 1 doc: `engine/operations/session-shutdown-sequence.md`).
   - `build-readiness-gate` — gate procedure invoked before substantive build sessions (Layer 1 doc: `engine/operations/build-readiness-gate.md`).
 
-  All three Skills carry `disable-model-invocation: true` — the AI invokes deliberately rather than auto-firing on description match. The Layer 1 ops docs remain the source-of-truth; updates flow doc → skill, never the reverse.
+  Routine mode (below) adds a fourth Skill `routine-mode-lifecycle` invoked by `/start-routine`. All four Skills carry `disable-model-invocation: true` — the AI invokes deliberately rather than auto-firing on description match. The Layer 1 ops docs remain the source-of-truth; updates flow doc → skill, never the reverse.
+
+- **Routine — `/start-routine`, unattended cadence-driven** (per [ADR 0051](engine/adr/0051-routine-mode-and-engine-loop.md)). A Claude Code Routine fires sessions on a cadence; each fired session invokes `/start-routine`, which reads [`engine/session/auto_target.json`](engine/session/auto_target.json), picks the next eligible task, runs plan-then-scope-check, executes or exits gracefully without claiming a slot. Layer 1 doc: [`engine/operations/routine-mode-operations.md`](engine/operations/routine-mode-operations.md). Skill: [`routine-mode-lifecycle`](.claude/skills/routine-mode-lifecycle/SKILL.md). Architecturally distinct from `/start-engine` — they share only the eager-claim ritual; every other concern (boot procedure, scope rules, commit posture, permission model, shutdown logic) is routine-specific.
+
+  **Routine-mode posture (load-bearing):**
+  - **`scope_lock` is invariant on task-deliverable paths.** The active task's `scope_lock.allowed_paths` is the cap. Pre-commit hook hard-fails any commit touching paths outside this set ∪ the operational allowlist.
+  - **Operational allowlist always permitted.** Files the session apparatus runs on (`engine/session/current.json`, `current_plan.md`, `auto_target.json` (status fields only), `engine/session/archive/S-*.json`, `register_state.json`, `ENGINE_LOG.md`, `HANDOFF.md`) commit freely regardless of active task.
+  - **`gh issue create` is explicitly authorized** for in-band discoveries (bugs, tech-debt, cleanup, enhancements) outside the current task's scope. No tracked files touched, scope_lock irrelevant. Continue with assigned task.
+  - **HANDOFF additions are explicitly authorized** for genuine blockers, scope-expansion-needed, and decision-required signals. Existing `audit_handoff_dispositions.py` audit (per ADR 0048) catches malformed entries.
+  - **Master plan revisions ONLY via HANDOFF — never unilateral edits.** Pre-commit hook hard-fails any routine commit to `auto_target.json` that diffs keys other than `tasks[*].status` and `tasks[*].blocked_reason`. The user adjudicates revisions in interactive sessions.
+
+  **Routine-mode runs in `Default` permission mode**, not `plan` mode — plan mode requires human ExitPlanMode approval that an unattended session cannot provide. The plan-then-scope-check (write `engine/session/current_plan.md`, then run `engine/tools/check_routine_scope.py --plan`) is the externalization-as-quality-gate equivalent, mechanically enforced rather than human-gated.
 
 ## Standing rules
 
@@ -126,6 +137,7 @@ Other rules previously held by posture are now mechanized:
 - **Mempalace mine atomic-write** is mechanized by the `mempalace-hook-wrapper.sh` extension per [ADR 0045](engine/adr/0045-shared-state-integrity-discipline.md): pre-mine snapshot via `cp -a`, post-mine `probe_palace.py` verification, rollback on probe failure (palace + KG together), one `palace.last-good` retained between hook fires. Closes the S-0034 vector.
 - **Boot-time shared-state health probes** are mechanized by `validate.py --health-probe-only` invoked from `session-start.sh` per [ADR 0045](engine/adr/0045-shared-state-integrity-discipline.md). `probe_palace.py` (chromadb opens, lists, counts) and `probe_repo.py` (effective + parent-clone direct `core.bare`, HEAD resolution) report findings to stderr at every session boot. Hard-broken findings emit a LOUD attention surface; the hook still exits 0 to avoid catch-22 boot-blocks.
 - **Project Python isolation and dependency pinning** are mechanized via a project-local venv (`<main_repo>/.venv/`, uv-managed, Python 3.12 pinned via `.python-version`) per [ADR 0050](engine/adr/0050-project-venv-and-hook-path-wiring.md). Hook scripts resolve `python3`, `ruff`, `mypy`, `pytest`, `mempalace`, etc. to the venv via a sourcing-time PATH prepend in [`engine/tools/scrub_env.sh`](engine/tools/scrub_env.sh) — worktree-local `.venv/` preferred, main repo's `.venv/` fallback, idempotent. PATH preservation across `scrubbed_env()` (per ADR 0045) propagates the prepend through every nested invocation, so `validate.py`'s ruff/mypy/pytest gates and all hook subprocesses pick up venv tools without per-script edits. `engine/tools/requirements.txt` lists the eight pinned deps. Machine prereq: `uv` installed (`brew install uv`). The hook is silent no-op when no venv exists (system Python continues to be used) and when sourced outside a git repo, so legitimate setup-pending and manual-debug cases are not blocked.
+- **Routine-mode scope-lock and master-plan integrity** are mechanized per [ADR 0051](engine/adr/0051-routine-mode-and-engine-loop.md). [`engine/tools/check_routine_scope.py`](engine/tools/check_routine_scope.py) runs at boot (`--plan`) against the session plan and at commit-time (`--staged`) against staged files; the pre-commit hook hard-fails task-deliverable paths outside the active task's `scope_lock.allowed_paths` ∪ the operational allowlist, AND hard-fails routine-mode commits to `auto_target.json` that diff keys other than `tasks[*].status` and `tasks[*].blocked_reason`. [`engine/tools/check_target.py`](engine/tools/check_target.py) runs criterion predicates (`migration_applied`, `validate_passes`, `adr_status`, `file_exists`, `predicate`) at boot to decide task eligibility and target-met. Two new `validate.py` soft-warns (`routine_no_target_reference`, `routine_issue_spam`) provide validate-time defense-in-depth. The combination makes "routine session goes rogue and lands rogue work at HEAD" structurally impossible.
 
 Soft enforcement preserves AI judgment. A reminder can be acknowledged and overridden in legitimate cases (an ADR supersession that intentionally reuses an existing decision drawer; a STATE.md edit with a transient placeholder mid-edit). Hard enforcement was rejected for these rules in [ADR 0043](engine/adr/0043-hook-architecture.md) because the legitimate-exception surface is non-empty.
 
@@ -133,8 +145,9 @@ Soft enforcement preserves AI judgment. A reminder can be acknowledged and overr
 
 Procedural depth lives in `engine/operations/` — one file per topic. Browse with `ls engine/operations/`. Index at `engine/operations/README.md`. High-frequency entries:
 
-- `session-build-lifecycle.md` — boot, eager-claim, in-session work, push cadence.
+- `session-build-lifecycle.md` — boot, eager-claim, in-session work, push cadence; routine-mode boot branch (per ADR 0051).
 - `session-shutdown-sequence.md` — audit, spot-check, `engine/STATE.md`, `engine/ENGINE_LOG.md`, archive.
+- `routine-mode-operations.md` — target file schema, master plan procedure, routine boot procedure, criterion catalog, mixing interactive and routine sessions.
 - `mempalace-operations.md` — install, init, mine, hook wiring, query patterns.
 - `mempalace-tagging-conventions.md` — `exploration` / `decision` / `work` tags.
 - `tools-validate-interpretation.md` — hard-fail vs soft-warn, what to do with each.
