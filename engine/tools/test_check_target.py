@@ -144,6 +144,54 @@ def test_migration_applied_no_db_url(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "SUPABASE_DB_URL" in detail
 
 
+def test_migration_applied_queries_name_column(monkeypatch: pytest.MonkeyPatch) -> None:
+    """SQL must use 'name' column (regression for Issue #9).
+
+    The auto_target.json `id` field is the descriptive migration name
+    (`0011_seed_epistemology_part1`), not the timestamp version. Querying
+    `WHERE version = %s` with the name returns no rows; every Phase 5
+    routine task's migration_applied criterion would FAIL post-apply.
+    """
+    captured: list[tuple[str, tuple[Any, ...]]] = []
+
+    class _Cur:
+        def execute(self, sql: str, params: tuple[Any, ...]) -> None:
+            captured.append((sql, params))
+
+        def fetchone(self) -> tuple[int, ...] | None:
+            return (1,)
+
+        def __enter__(self) -> _Cur:
+            return self
+
+        def __exit__(self, *_: Any) -> None:
+            pass
+
+    class _Conn:
+        def cursor(self) -> _Cur:
+            return _Cur()
+
+        def __enter__(self) -> _Conn:
+            return self
+
+        def __exit__(self, *_: Any) -> None:
+            pass
+
+    psycopg_stub = type(sys)("psycopg")
+    psycopg_stub.connect = lambda _url: _Conn()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "psycopg", psycopg_stub)
+    monkeypatch.setenv("SUPABASE_DB_URL", "postgresql://stub")
+
+    passed, detail = _check_migration_applied(id="0011_seed_epistemology_part1")
+
+    assert passed is True
+    assert len(captured) == 1
+    sql, params = captured[0]
+    assert "name = %s" in sql
+    assert "version = %s" not in sql
+    assert params == ("0011_seed_epistemology_part1",)
+
+
 # ---------------------------------------------------------------------------
 # validate_passes (subprocess-stubbed)
 # ---------------------------------------------------------------------------

@@ -111,7 +111,7 @@ def _check_migration_applied(*, id: str, **_: Any) -> tuple[bool, str]:
         with psycopg.connect(db_url) as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "SELECT 1 FROM supabase_migrations.schema_migrations WHERE version = %s",
+                    "SELECT 1 FROM supabase_migrations.schema_migrations WHERE name = %s",
                     (id,),
                 )
                 if cur.fetchone() is None:

@@ -183,4 +183,6 @@ After this fix lands, P5-01b (Epistemology specialized; depends only on P5-01a) 
 
 **Disposition:** tracked-as-issue #9
 
+**Resolved: 2026-05-04 (S-0051).** One-line column swap landed at `engine/tools/check_target.py:114` (`version` → `name`); regression test `test_migration_applied_queries_name_column` added asserting SQL uses the `name` column with the descriptive id. Live verification: `check_target.py --task-id P5-01a` reports both criteria PASS. P5-01a flipped to `complete` in `auto_target.json` (status field only); `blocked_reason` cleared. [Issue #9](https://github.com/StarshipSuperjam/paideia/issues/9) closed. The routine resumes — P5-01b through P5-10 become eligible.
+
 ---

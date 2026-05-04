@@ -95,6 +95,61 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 # ---------------------------------------------------------------------------
+# Worktree-staleness check (per Issue #10 / S-0051)
+# ---------------------------------------------------------------------------
+#
+# Surfaces when the working tree's HEAD is behind origin/main, which means
+# shared-state files (register_state.json, current.json, auto_target.json)
+# on disk reflect pre-update state. Symptom that motivated this check:
+# S-0051 boot in worktree great-wright-9dd19b saw register_state.json
+# showing S-0050 in_progress; S-0050 had actually closed and pushed to
+# origin/main, but this worktree was created at pre-shutdown HEAD and
+# never fast-forwarded. The AI spent ~30 min investigating "why didn't
+# routine shut down" before discovering the state was stale.
+#
+# Runs early (before cadence trigger reads register_state.json) so the
+# warning surfaces before any stale-data-derived counts. Best-effort: a
+# git fetch failure (no network, etc.) emits a stderr note and proceeds.
+# Hook always exits 0; the check is informational, never blocking.
+
+STALE_CHECK_STATUS="not-run"
+if command -v git >/dev/null 2>&1 && [ -d "$REPO_ROOT/.git" -o -f "$REPO_ROOT/.git" ]; then
+    if git -C "$REPO_ROOT" fetch --no-tags --quiet origin main 2>/dev/null; then
+        if git -C "$REPO_ROOT" merge-base --is-ancestor origin/main HEAD 2>/dev/null; then
+            STALE_CHECK_STATUS="up-to-date"
+        else
+            LOCAL_HEAD="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null)"
+            REMOTE_MAIN="$(git -C "$REPO_ROOT" rev-parse origin/main 2>/dev/null)"
+            BEHIND_COUNT="$(git -C "$REPO_ROOT" rev-list --count HEAD..origin/main 2>/dev/null)"
+            BEHIND_COUNT="${BEHIND_COUNT:-?}"
+            {
+                echo ""
+                echo "============================================================"
+                echo "[session-start] STALE WORKTREE: HEAD is behind origin/main by $BEHIND_COUNT commit(s)"
+                echo "============================================================"
+                echo "  HEAD:        ${LOCAL_HEAD:0:7}"
+                echo "  origin/main: ${REMOTE_MAIN:0:7}"
+                echo ""
+                echo "  Shared-state files on disk (register_state.json,"
+                echo "  current.json, auto_target.json) may reflect pre-update"
+                echo "  state. Boot-surface counts below may be wrong."
+                echo ""
+                echo "  Recover before substantive work:"
+                echo "    git fetch && git merge --ff-only origin/main"
+                echo "============================================================"
+                echo ""
+            } >&2
+            STALE_CHECK_STATUS="behind-$BEHIND_COUNT"
+        fi
+    else
+        log_fail "git-fetch-failed-or-offline"
+        STALE_CHECK_STATUS="fetch-failed"
+    fi
+else
+    STALE_CHECK_STATUS="not-a-git-repo"
+fi
+
+# ---------------------------------------------------------------------------
 # Cadence trigger surface
 # ---------------------------------------------------------------------------
 
@@ -560,5 +615,5 @@ if [ -f "$SCHEDULED_AUDITS_FILE" ]; then
     fi
 fi
 
-log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=$PERSISTENT_FOUND scheduled=$SCHEDULED_FOUND probe=$PROBE_STATUS backlog=$BACKLOG_STATUS scope_non_yes=$SCOPE_NON_YES conflict=$CONFLICT_STATUS env_pointer=$ENV_POINTER_STATUS"
+log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=$PERSISTENT_FOUND scheduled=$SCHEDULED_FOUND probe=$PROBE_STATUS backlog=$BACKLOG_STATUS scope_non_yes=$SCOPE_NON_YES conflict=$CONFLICT_STATUS env_pointer=$ENV_POINTER_STATUS stale_check=$STALE_CHECK_STATUS"
 exit 0
