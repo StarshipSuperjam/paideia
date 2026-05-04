@@ -131,3 +131,26 @@ This is the kind of finding that would have been mechanically caught if the side
 **Resolved: 2026-05-03 (S-0041).** The proposed pre-recovery sanity check landed in [`engine/operations/session-shutdown-sequence.md`](engine/operations/session-shutdown-sequence.md) Recovery section and the [`session-shutdown-sequence` Skill](.claude/skills/session-shutdown-sequence/SKILL.md) mirror — both gain a "Pre-recovery sanity check" subsection before the four recovery scenarios. The verification command, the asymmetry rationale, and the concrete trigger condition all match the proposal verbatim. Disposition applied during the S-0041 catch-up audit cleanup pass.
 
 ---
+
+## Phase 5 routine-mode blocked: SUPABASE_DB_URL not in worktree env (set at would-be-S-0049 boot)
+
+**Discovered.** Routine fire intended to claim S-0049 for P5-01a (Epistemology core seed) detected at the boot procedure that `SUPABASE_DB_URL` is not in the process env. Investigation:
+
+- `.env` exists in the main repo with the URL populated.
+- `.env` does NOT exist in this worktree (`.claude/worktrees/stoic-antonelli-c9ca56/`). It is gitignored, so worktree creation does not propagate it. The session-start hook's onboarding pointer (Issue #7) checks `$REPO_ROOT/.env` where `$REPO_ROOT = git rev-parse --show-toplevel`, which in a worktree resolves to the worktree path, not the main repo.
+- Neither [`engine/tools/check_target.py:103`](engine/tools/check_target.py) nor [`engine/tools/validate.py:2325`](engine/tools/validate.py) calls `load_dotenv()` — they read `os.environ.get("SUPABASE_DB_URL")` directly. Even if `.env` were copied into the worktree, the tools would not see the value unless the parent shell sourced it before launching the routine.
+
+Net effect: every Phase 5 routine fire fails the `migration_applied` criterion for all 16 tasks (`SUPABASE_DB_URL not set; cannot verify`). The S-0048 setup-helper closed the dashboard-only-password discoverability gap for interactive use but did not wire the env-loading path that routine sessions need.
+
+**Action taken at would-be-S-0049 boot.** Filed [Issue #8](https://github.com/StarshipSuperjam/paideia/issues/8) (`bug`, `priority:urgent`) with three remediation options (preferred: tools auto-load `.env` via a walk-up helper). Did not claim a slot. Did not author a plan. Did not modify `auto_target.json`. Routine exited 0 after this HANDOFF entry committed and pushed.
+
+**What the next session should do.**
+
+1. **Pause routine first.** Toggle the `paideia-engine-loop` Claude Code Routine to Manual immediately. Otherwise the next hourly fire wakes up, walks the same boot procedure, finds the same blocker, and either (a) re-files a duplicate Issue or (b) — worse — proceeds far enough to claim a slot before failing the criterion check, churning the slot register for nothing. Toggle is at the Routine UI; out-of-tree.
+2. **Adjudicate Issue #8.** Pick Option A / B / C. Option A (tools auto-load via walk-up) is preferred and the smallest defensible fix.
+3. **Land the fix in an interactive `/start-engine` session** (touches `engine/tools/`, out of every Phase 5 task's `scope_lock`). Verify by running `python3 engine/tools/check_target.py` from a fresh worktree — `migration_applied` should change from `SUPABASE_DB_URL not set; cannot verify` to either `migration X not in schema_migrations` (DB reachable, migration unapplied — expected pre-Phase-5) or pass.
+4. **Resume the routine** by flipping back to Hourly.
+
+**Disposition:** tracked-as-issue #8
+
+---
