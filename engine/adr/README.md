@@ -46,6 +46,7 @@ The engine collection has **17 ADRs total — all Accepted**. Engine ADRs are ab
 | [0049](0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md) | Scope-lock at boot, descope/reorder audit at shutdown, session-end context telemetry | Accepted |
 | [0050](0050-project-venv-and-hook-path-wiring.md) | Project venv (uv-managed) at main repo root with hook PATH wiring | Accepted |
 | [0051](0051-routine-mode-and-engine-loop.md) | Routine-mode session pattern and engine-loop foundation | Accepted |
+| [0052](0052-routine-boot-freshness-and-concurrency-defense.md) | Routine-mode boot freshness and concurrency defense | Accepted |
 
 ## Adding a new engine ADR
 

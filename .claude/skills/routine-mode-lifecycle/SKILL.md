@@ -16,6 +16,20 @@ A routine-mode session is any conversation spawned by a Claude Code Routine that
 
 ## Boot procedure (run in order)
 
+### 0a. Boot-freshness gate (per ADR 0052)
+
+Run `python3 engine/tools/routine_boot_freshness.py`. Mechanically fast-forwards the worktree to `origin/main` before any shared-state read. Per Issue #15 — the S-0054 loser session read stale `register_state.json` and re-claimed an already-taken slot.
+
+- Exit 0 → proceed to step 0b.
+- Exit 2 → HEAD has diverged from origin/main (real anomaly, not auto-recoverable). Write HANDOFF "routine boot refused: HEAD diverged from origin/main; needs human adjudication" with `**Disposition:** out-of-scope` → exit 0 without claiming.
+
+### 0b. Concurrency lock (per ADR 0052)
+
+Run `python3 engine/tools/routine_lock.py acquire`. Defense-in-depth against true concurrent fires (the residual case the freshness gate doesn't cover).
+
+- Exit 0 → proceed to step 1. (Release happens at step 11 shutdown.)
+- Exit 1 → another routine session is in progress. Log "another routine in progress, exiting cleanly" → exit 0 without claiming. No commit, no shared-state writes.
+
 ### 1. Detect routine-mode preconditions
 
 Confirm `engine/session/auto_target.json` exists at repo root. If absent → log "no target file; routine has nothing to do (interactive sessions use /start-engine)" → exit 0 without claiming any slot.
@@ -65,6 +79,11 @@ Same procedure as `/start-engine` (see [`session-build-lifecycle`](../session-bu
 
 Commit message: `chore(session): eager-claim S-<NNNN> — routine task <task_id>`. FF main, push.
 
+**Push-rejection branch (per ADR 0052):** if `git push origin main` is rejected with "Updates were rejected because the tip of your current branch is behind its remote counterpart" or similar, run `python3 engine/tools/routine_eager_claim_recovery.py`.
+
+- Exit 0 → recovery complete (HEAD reset to origin/main; loser commit gone). Run `python3 engine/tools/routine_lock.py release` and exit cleanly without re-claiming.
+- Exit 2 → ambiguous state (multiple commits ahead, or shape doesn't match). Write HANDOFF "eager-claim race recovery refused: ambiguous state" with `**Disposition:** out-of-scope`, run `routine_lock.py release`, exit 0.
+
 ### 9. Execute the work
 
 The pre-commit hook re-runs `check_routine_scope.py --staged` against staged files (`task.scope_lock.allowed_paths` ∪ operational allowlist) and the master-plan-integrity check on `auto_target.json`.
@@ -97,6 +116,7 @@ Same as `/start-engine` close per [`session-shutdown-sequence`](../session-shutd
 - Fill `outcome_summary` in `current.json` (~50 words)
 - Archive `current.json` → `engine/session/archive/S-<NNNN>.json`
 - Final commit + main FF + push
+- **Last action**: `python3 engine/tools/routine_lock.py release` (per ADR 0052; releases the lock acquired at step 0b so the next routine fire can claim it).
 
 Issues created during the session count into `outcome_summary` for shutdown review.
 

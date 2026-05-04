@@ -49,6 +49,10 @@ Routine sessions never edit the master plan. Status fields and `blocked_reason` 
 
 This is referenced by [`session-build-lifecycle.md`](session-build-lifecycle.md) as the routine-mode branch. The exact sequence:
 
+0a. **Boot-freshness gate** (per [ADR 0052](../adr/0052-routine-boot-freshness-and-concurrency-defense.md)). Run `engine/tools/routine_boot_freshness.py`. Mechanically fast-forwards the worktree to `origin/main` before any shared-state read. Exit 0 → proceed. Exit 2 (HEAD diverged) → write HANDOFF "routine boot refused: HEAD diverged from origin/main" with `**Disposition:** out-of-scope` → exit 0 without claiming. See "Concurrency control" below for the why.
+
+0b. **Concurrency lock** (per ADR 0052). Run `engine/tools/routine_lock.py acquire`. Exit 0 → proceed. Exit 1 (lock held by another fresh process) → log "another routine in progress, exiting cleanly" → exit 0 without claiming. The lock is released at step 11.
+
 1. **Detect mode.** `engine/session/auto_target.json` exists → routine-mode candidate; else fall through to standard interactive boot.
 2. **Pause check.** Target `paused: true` → log "target paused, no claim" → exit 0.
 3. **Target-met check.** Run `check_target.py` against every task; every task `status == complete` AND its criteria still pass → log "target met, no claim" → exit 0.
@@ -60,9 +64,24 @@ This is referenced by [`session-build-lifecycle.md`](session-build-lifecycle.md)
    - prose rationale (free-form; ignored by the checker)
 7. **Scope-check.** Run `engine/tools/check_routine_scope.py --plan engine/session/current_plan.md`. Exit 0 → proceed; non-zero → write HANDOFF "scope-check failed: `<reason>`" → exit 0.
 8. **Claim slot.** Standard eager-claim ritual: bump `register_state.json`, write `engine/session/current.json`, mark task `in_progress` in target file, commit, FF main, push.
+
+   **Push-rejection branch** (per ADR 0052). If `git push origin main` is rejected, run `engine/tools/routine_eager_claim_recovery.py`. Exit 0 → recovery complete (HEAD reset to origin/main); release lock, exit cleanly without re-claiming. Exit 2 → ambiguous state; write HANDOFF "eager-claim race recovery refused: ambiguous state" with `**Disposition:** out-of-scope`, release lock, exit 0.
+
 9. **Execute work.** Pre-commit hook re-runs `check_routine_scope.py --staged` against staged files (task scope_lock ∪ operational allowlist). Out-of-scope discoveries route to `gh issue create`. Genuine blockers route to HANDOFF + mark task `blocked` + early shutdown.
 10. **Verify completion.** After work commits clean: re-run task criteria via `check_target.py --task-id <id>`. All pass → mark task `complete` (commit). Any fail → mark `blocked: <reason>` (commit) + write HANDOFF.
-11. **Shutdown.** Run the standard shutdown sequence per [`session-shutdown-sequence.md`](session-shutdown-sequence.md). Issues created during the session count into `outcome_summary` for shutdown review.
+11. **Shutdown.** Run the standard shutdown sequence per [`session-shutdown-sequence.md`](session-shutdown-sequence.md). Issues created during the session count into `outcome_summary` for shutdown review. **Last action**: `engine/tools/routine_lock.py release` (per ADR 0052; releases the step-0b lock for the next routine fire).
+
+### Concurrency control (per ADR 0052)
+
+Three layers of routine-boot hardening, in order of how often each fires:
+
+1. **Boot-freshness gate** (primary; addresses the actual S-0054 failure mode). The S-0051 staleness check at [`engine/tools/hooks/session-start.sh:98-141`](../tools/hooks/session-start.sh) is informational only — it emits a LOUD stderr warning when HEAD is behind origin/main but does not act. The S-0054 loser routine saw the warning, didn't fast-forward, read stale `register_state.json`, and re-claimed an already-taken slot. Step 0a's `routine_boot_freshness.py` mechanizes the fix: bounded `git merge --ff-only origin/main` before any shared-state read. Diverged HEAD (impossible to ff) refuses the boot — that's a real anomaly that needs human adjudication.
+
+2. **Lockfile serialization** (defense-in-depth for true concurrent fires). Step 0b's `routine_lock.py` is an `O_EXCL` atomic write to `.claude/routine.lock` containing `{pid, started_at_iso}`. A stale-after-1h timeout (covers worst-case session length) handles crashed-session locks: the next acquire evicts and re-acquires (logging the eviction). The lockfile is gitignored (runtime artifact, never tracked).
+
+3. **Loser-recovery script** (residual defense). If both layers somehow slip and the eager-claim push is rejected, step 8's push-rejection branch invokes `routine_eager_claim_recovery.py`. The tool mechanically verifies the rejection has the eager-claim-race shape (HEAD has exactly one commit ahead of origin/main, that commit's subject matches the eager-claim convention, and origin/main HEAD also has an eager-claim commit for the same slot), then performs a bounded `git reset --hard origin/main`. Whitelisted as a narrow exception to the routine-mode destructive-action posture (per CLAUDE.md); outside the verified shape the destructive-action refusal stands.
+
+The three layers compose: freshness eliminates the staleness vector; lockfile prevents concurrent-fire claim collisions; recovery handles the tiny residual case where the lockfile machinery somehow fails. Pre-existing orphan branches/worktrees from before this contract still need manual cleanup; future races leave no orphans because the loser self-cleans.
 
 ## Scope-lock model
 
