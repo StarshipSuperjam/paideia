@@ -173,6 +173,12 @@ Trend canon: committed `engine/session/archive/S-NNNN.json` field `outcome_summa
 
 Per-invocation forensics: `engine/tools/validate-history.jsonl` (gitignored, per-clone). Useful for "when did this warn first appear" / "which commit introduced it" / "validator runtime drift."
 
+## Tool invocation under venv
+
+Tools that import `psycopg` (currently [`check_target.py`](../tools/check_target.py), [`validate.py`](../tools/validate.py), [`setup_env.py`](../tools/setup_env.py)) self-reexec under the project venv via [`engine/tools/_venv_reexec.py`](../tools/_venv_reexec.py) when invoked under a Python that lacks `psycopg`. Bare `python3 engine/tools/<x>.py` invocations work the same as if [`scrub_env.sh`](../tools/scrub_env.sh) had been sourced first. Per Issue #14 (S-0055): routine fires were resolving to system Python and emitting misleading `[FAIL] migration_applied — psycopg not available; cannot verify` output even though the migrations were genuinely applied.
+
+The reexec is silent on success (the venv interpreter takes over without printing). If no `.venv/bin/python3` exists on the walk-up from `engine/tools/` to the filesystem root, the function returns silently and the caller's `import psycopg` raises the original `ImportError` — the prior behavior is preserved for genuinely-broken environments.
+
 ## See also
 
 - [`session-shutdown-sequence.md`](session-shutdown-sequence.md) — where soft-warn counts get recorded.

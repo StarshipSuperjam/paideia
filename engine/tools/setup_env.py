@@ -22,10 +22,17 @@ no per-session prompting.
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
-from typing import Callable
+
+# Local helper at engine/tools/_venv_reexec.py — Issue #14.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _venv_reexec import ensure_venv_python  # noqa: E402
+
+ensure_venv_python()  # re-exec under venv if psycopg is unavailable
+
+import os  # noqa: E402
+from typing import Callable  # noqa: E402
 
 ENV_PATH = Path(".env")
 ENV_EXAMPLE_PATH = Path(".env.example")

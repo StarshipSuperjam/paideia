@@ -64,8 +64,12 @@ from typing import Any, Callable
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# Local helper at engine/tools/scrub_env.py — see ADR 0045.
+# Local helpers at engine/tools/{scrub_env,_venv_reexec}.py — ADR 0045 / Issue #14.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _venv_reexec import ensure_venv_python  # noqa: E402
+
+ensure_venv_python()  # re-exec under venv if psycopg is unavailable
+
 from scrub_env import scrubbed_env  # noqa: E402
 
 
