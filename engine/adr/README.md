@@ -44,6 +44,7 @@ The engine collection has **15 ADRs total — all Accepted**. Engine ADRs are ab
 | [0047](0047-structural-reference-parser-tool-and-adversarial-triage-workflow.md) | Structural-reference parser tool and adversarial-triage workflow | Accepted |
 | [0048](0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md) | HANDOFF.md narrowed to session-internal handoffs; GitHub Issues absorb cross-session deferrals | Accepted |
 | [0049](0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md) | Scope-lock at boot, descope/reorder audit at shutdown, session-end context telemetry | Accepted |
+| [0050](0050-project-venv-and-hook-path-wiring.md) | Project venv (uv-managed) at main repo root with hook PATH wiring | Accepted |
 
 ## Adding a new engine ADR
 

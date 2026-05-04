@@ -16,6 +16,15 @@ pytest>=8.0.0
 # the engine-tool import surface light when the audit isn't running.
 psycopg[binary]>=3.1.0
 
+# MemPalace shared-state probe — engine/tools/probe_palace.py per ADR 0045.
+# Chromadb is the embedded vector DB MemPalace stores into; the probe opens
+# the palace at boot, lists collections, and counts drawers as a health
+# check. Lazy import inside probe_palace.run_probe() so non-probe runs
+# (validate.py, most hooks) do not pay the import cost. Pinned explicitly
+# even though mempalace re-exposes it transitively, so probe_palace's
+# expected version is independent of mempalace's pin.
+chromadb>=0.5.0
+
 # Phase 4.6+ — structural-reference parser (engine/tools/parse_structural_reference.py)
 # per ADR 0047. BeautifulSoup4 is the HTML parser the HTMLInputAdapter uses to
 # normalize SEP- and IEP-shaped HTML into StructuralElement records. Lazy
@@ -23,3 +32,19 @@ psycopg[binary]>=3.1.0
 # (validate.py, hooks) do not pay the import cost. Future PDF input adapter
 # will add `pypdf` or `pdfplumber` at the session that lands it.
 beautifulsoup4>=4.12.0
+
+# Cross-cutting context telemetry — engine/tools/scan_context_telemetry.py
+# per ADR 0049. tiktoken provides the o200k_base encoder used as a Claude
+# proxy; absence flips the tool to a coarse chars/4 fallback. Lazy import
+# inside scan_context_telemetry.tokenize(). Available in the venv per
+# ADR 0050 so telemetry archives carry accurate token counts going forward.
+tiktoken>=0.7.0
+
+# MemPalace — the project's semantic-memory store, MCP server, and Stop /
+# PreCompact hook capture. Per ADR 0050 (engine), mempalace runs from the
+# project venv rather than user-scope system Python. The .mcp.json command
+# path and the engine/tools/hooks/mempalace-hook-wrapper.sh PATH lookup
+# both resolve to the venv's bin/. Provides binaries: `mempalace` (CLI) and
+# `mempalace-mcp` (MCP server entry point). Transitive deps: chromadb
+# (already pinned above), tomli, pyyaml.
+mempalace>=3.3.3
