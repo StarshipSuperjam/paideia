@@ -165,65 +165,58 @@ Tracked as [Issue #3](https://github.com/StarshipSuperjam/paideia/issues/3): `/s
 
 ## Harness permission allowlist
 
-Routine sessions run unattended — no human is available to answer permission prompts. **Every Bash command the routine procedure invokes must be pre-allowlisted in [`.claude/settings.json`](../../.claude/settings.json) `permissions.allow`.** A single un-allowlisted command deadlocks the session at the prompt that never gets answered.
+**Operational stance for routine sessions: Auto permission mode.** Project-level mechanical safeguards are the load-bearing anti-rogue layer; the harness allowlist in [`.claude/settings.json`](../../.claude/settings.json) is supplementary and serves *interactive* sessions, not unattended routines. The allowlist remains in tree because interactive `/start-engine` sessions still benefit from it; routine sessions sidestep it via Auto mode rather than relying on it.
 
-This is **distinct from** the project-level scope-lock and master-plan integrity checks per [ADR 0051](../adr/0051-routine-mode-and-engine-loop.md). Those gate *correctness* (does the AI's plan match the active task?). The harness allowlist gates *executability* (will the harness even let the AI run this command?). Both layers must pass.
+### Why Auto mode for routine sessions (the journey through S-0044 → S-0046 → S-0048)
 
-### S-0044 lesson (the gap that triggered S-0046)
+S-0044 shipped the routine-mode foundation assuming an allowlist would handle the unattended permission gap (*"Ask permissions: Default — Use `.claude/settings.local.json` allowlist for routine's needs"* in the original UI configuration table). That sentence shipped a load-bearing assumption without authoring the allowlist; the first manual routine fire after S-0045 master plan deadlocked at the very first Bash invocation. S-0046 authored a comprehensive 60+ pattern allowlist to close the gap.
 
-S-0044 shipped the foundation with this assumption in the routine UI configuration table: *"Ask permissions: Default — Use `.claude/settings.local.json` allowlist for routine's needs."* That sentence shipped a load-bearing assumption — "we'll lean on the allowlist" — without authoring the allowlist. The first manual routine fire after S-0045 master plan deadlocked at the very first Bash invocation: `python3 engine/tools/check_target.py` (boot step 3, target-met check). S-0046 patched the gap.
+The first manual fire after S-0046's allowlist landed *still* deadlocked — on the same target-met boot step. Root cause: the AI inside a routine session naturally uses compound Bash forms (`python3 engine/tools/check_target.py; echo "EXIT: $?"` to capture exit codes; `cmd1 && cmd2` to chain dependent steps), and the harness's permission system matches the *whole* compound command against patterns rather than the leading prefix. Adding patterns for every variation never converges — the AI's compound-form vocabulary outpaces enumeration. (Issue #6 documents the realization.)
 
-### The rule
+The post-S-0048 stance: **configure the routine in Auto permission mode.** The harness no longer gates Bash execution; project-level safeguards remain operational regardless and cover what matters:
 
-**Adding a new Bash invocation to the routine procedure REQUIRES adding a paired allowlist entry in the same commit.**
+- [`engine/tools/check_routine_scope.py --plan`](../tools/check_routine_scope.py) at boot — refuses to claim if the plan touches paths outside the active task's `scope_lock.allowed_paths`.
+- [`engine/tools/check_routine_scope.py --staged`](../tools/check_routine_scope.py) at every commit (pre-commit hook) — hard-fails the commit if staged paths fall outside scope ∪ operational allowlist.
+- Master-plan-integrity check (pre-commit hook) — hard-fails any routine commit to [`engine/session/auto_target.json`](../session/auto_target.json) that diffs keys other than `tasks[*].status` and `tasks[*].blocked_reason`.
+- [`engine/tools/audit_handoff_dispositions.py`](../tools/audit_handoff_dispositions.py) at session shutdown — hard-fails if any new HANDOFF section lacks a recognized `Disposition:` line (per ADR 0048).
+- [`engine/tools/validate.py`](../tools/validate.py) soft-warns (`routine_no_target_reference`, `routine_issue_spam`) — defense in depth at validate-time.
+- Eager-claim atomic protocol — slot reservation via git, immune to harness-mode.
 
-This applies to:
-- Edits to [`.claude/skills/routine-mode-lifecycle/SKILL.md`](../../.claude/skills/routine-mode-lifecycle/SKILL.md) — the executable Skill body.
-- Edits to [`.claude/commands/start-routine.md`](../../.claude/commands/start-routine.md) — the slash command body.
-- Edits to this ops doc that introduce new tooling references.
-- New criterion types in [`engine/tools/check_target.py`](../tools/check_target.py) that shell out (the `predicate` escape hatch can call subprocess; if it does, the command needs allowlist coverage).
-- Per-task scope_lock work that requires invocations the engine apparatus doesn't already cover (e.g., a Phase 5 sub-task that runs a one-off `npm` command would need `Bash(npm:*)` added; the master plan session is the right place to identify these).
+None of those depend on harness permissions. Destructive operations (`rm -rf`, `git reset --hard`, force-push) are not in the routine procedure and the [routine-mode-lifecycle Skill](../../.claude/skills/routine-mode-lifecycle/SKILL.md) explicitly refuses them and writes HANDOFF instead — Auto mode does not enable them either, because the Skill body governs whether the AI even *attempts* them.
 
-### Pre-allowlisted Bash command surface (post-S-0046)
+### Trade-off: what Auto mode permits vs what project safeguards prevent
 
-The complete pre-approved set covers:
+| Surface | Auto mode permits | Project safeguard prevents |
+|---|---|---|
+| Routine task work within `scope_lock.allowed_paths` | yes | n/a — by design |
+| Edits outside `scope_lock.allowed_paths` | yes (no harness gate) | `check_routine_scope.py --staged` hard-fails the commit |
+| Master-plan body revisions via `auto_target.json` | yes (no harness gate) | pre-commit hook hard-fails (only `tasks[*].status`/`blocked_reason` may diff) |
+| Destructive ops (`rm -rf`, `git reset --hard`, force-push) | yes (no harness gate) | Skill body refuses + writes HANDOFF |
+| HANDOFF entry without `Disposition:` line | yes | `audit_handoff_dispositions.py` hard-fails at shutdown |
+| `gh issue create` for in-band discoveries | yes | n/a — explicitly authorized per ADR 0048 |
+| Arbitrary new Bash invocation from inside a routine | yes (no harness gate) | scope-lock + master-plan-integrity catch any staged-file consequences; the AI's Skill-body discipline catches the rest |
 
-- **Engine python tools** — every `engine/tools/*.py` script runnable via `python3` with any args. Includes the routine-procedure tools (`check_target`, `check_routine_scope`, `scan_context_telemetry`, `audit_handoff_dispositions`) plus the broader engine tooling (`validate`, `scan_issue_*`, `scan_orphans`, `health_check`, `probe_*`, `parse_structural_reference`).
-- **Worktree-side git lifecycle** — `git add/commit/rm/mv/status/diff/log/rev-parse/fetch/show/ls-files/pull --ff-only origin main`. Pairs with the existing main-repo lifecycle entries (`git -C <main> merge --ff-only`, `git -C <main> push origin main`).
-- **Test/lint stack** — `pytest`, `ruff`, `mypy`, both as direct invocation and via `python3 -m`.
-- **GitHub Issues path** — `gh issue create/list/view/close/comment` plus `gh label list`. Routine sessions file Issues for in-band discoveries per ADR 0048.
-- **Supabase migration tooling** — `supabase db push/migration new/migration list/migration repair`. Used by Phase 5 task execution (per `auto_target.json` scope_lock workflows).
-- **Hook scripts** — `bash engine/tools/hooks/*.sh` for manual invocation during debugging.
-- **Shell utilities** — `date` (ISO timestamps in eager-claim), `ls`, `cat` (engine session files), `head`, `tail`, `wc`, `grep`, `rg`, `find . -name`.
-- **MemPalace CLI** — `mempalace search/status/list-drawers/add-drawer/diary read/diary write`.
-- **`source engine/tools/scrub_env.sh`** — for shell-side venv PATH wiring.
+Auto mode eliminates the brittle compound-form mismatch; project safeguards still cover everything load-bearing; the Skill body covers the destructive-op gap that no project tool can mechanically detect at staging time. Routine-mode safety does not depend on harness permissions.
 
-### Verification path
+### Allowlist remains useful for interactive sessions
 
-After extending the allowlist, manually fire the routine and walk the boot procedure:
+For interactive `/start-engine` sessions, **Default** permission mode + the existing `.claude/settings.json` allowlist remains the right posture. A human can answer permission prompts in real time; granular gating with the human-in-the-loop catches anomalies the project safeguards don't surface (typo'd commands, unexpected tool invocations). The S-0046 allowlist additions remain in `.claude/settings.json` for that purpose. They cover engine python tools, worktree-side git lifecycle, the test/lint stack, the GitHub Issues path, Supabase migration tooling, hook scripts, shell utilities, the MemPalace CLI, and `source engine/tools/scrub_env.sh`. The compound-form mismatch is less load-bearing under Default mode because the human-in-the-loop can approve a one-off compound that no pattern covers.
 
-1. Boot detects routine-mode (target file present).
-2. Pause check runs (no Bash call — file read).
-3. Target-met check invokes `python3 engine/tools/check_target.py` — should not prompt.
-4. Max-sessions check (no Bash call — directory list via Glob tool).
-5. Eligibility selection (no Bash call — file read).
-6. Plan authoring (no Bash call — Write tool).
-7. Boot-time scope-check invokes `python3 engine/tools/check_routine_scope.py --plan ...` — should not prompt.
-8. If eligible, eager-claim runs `git add`, `git commit`, `git -C <main> merge --ff-only`, `git -C <main> push origin main` — none should prompt.
-9. Per-task work runs whatever the task's scope_lock demands.
-10. Shutdown runs `python3 engine/tools/scan_context_telemetry.py`, `python3 engine/tools/audit_handoff_dispositions.py`, `git rm/mv`, `git commit`, push — none should prompt.
+### Procedural rule (replaces the S-0046 same-commit pairing rule)
 
-A routine session that fires and exits cleanly without any prompt-and-deny event is the working signal.
+Adding a new Bash invocation to the routine procedure (Skill body, slash command body, criterion predicate that shells out, per-task `scope_lock` workflow) does **not** require an allowlist entry under the Auto-mode stance — the routine runs unprompted regardless. The addition *should* still ship a paired allowlist entry for the interactive-session ergonomics, but the absence does not deadlock the routine. The S-0046 same-commit pairing rule is hereby retired.
 
-### What to do when a routine deadlocks on a permission prompt
+### What if a routine deadlocks on a permission prompt anyway
 
-1. **Deny the prompt.** Don't "Always allow" piecemeal — that adds only the one pattern that fired, and the next un-allowlisted command will deadlock the next fire.
-2. **Identify the missing pattern** from the prompt's command preview.
-3. **Open an interactive session** (`/start-engine`) and extend `.claude/settings.json` with the missing entry plus any obvious siblings.
-4. **Commit + push** so the allowlist propagates to the worktree the routine fires in.
-5. **Re-fire the routine manually** to verify.
+If a routine session deadlocks despite Auto-mode configuration:
 
-If the missing command is *task-specific* (one Phase 5 sub-task needs a tool nothing else uses), the right fix may be either the global allowlist (if the tool is genuinely safe) or — preferably — adjusting the task's `scope_lock.allowed_paths` and the `predicate` callable to use already-allowlisted tooling. Avoid pattern proliferation.
+1. **Verify the routine config is actually Auto.** Manual misconfiguration (Default selected by accident) is the most likely cause.
+2. **If Auto is confirmed and the prompt still fires**, this is a harness-side anomaly worth reporting upstream. Deny the prompt, document in `outcome_summary`, and escalate.
+3. **If the user has chosen Default mode for the routine** (e.g., during initial verification), extend `.claude/settings.json` with the missing pattern and any obvious siblings. Note that pattern proliferation is the cost paid for Default-mode rigor; once verification is complete, switch the routine back to Auto.
+
+### Optional `routine_mode_misconfigured` soft-warn — infeasible
+
+Considered: a `validate.py` soft-warn that fires when `auto_target.json` is present (routine-mode work staged/active) AND the routine config introspectively shows Default rather than Auto. Investigation surfaced no introspection path for permission mode — Claude Code Routines do not currently expose their mode to running code (no `$CLAUDE_PERMISSION_MODE` or equivalent env var; ADR 0051 §"Permission-mode posture" treats Default as fixed for the foundation). Detection from inside the project is therefore infeasible. The operational rule lives in this doc; the user is the gate when configuring the routine.
 
 ## Troubleshooting
 
