@@ -11,6 +11,7 @@ Procedural documentation. One file per topic. AI sessions discover topics by rea
 - [`session-build-lifecycle.md`](session-build-lifecycle.md) — boot procedure, eager-claim ritual mechanics, in-session commit cadence, push policy.
 - [`session-shutdown-sequence.md`](session-shutdown-sequence.md) — audit, spot-check, STATE.md update, ENGINE_LOG material-change criteria, archive, final push.
 - [`escalation-criteria.md`](escalation-criteria.md) — auto-mode interrupt criteria with worked examples.
+- [`issue-discipline.md`](issue-discipline.md) — HANDOFF.md vs GitHub Issues split (per ADR 0048); label taxonomy; Issue body shape; cleanup-batch workflow; boot-time backlog visibility.
 
 ### MemPalace
 

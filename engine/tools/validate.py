@@ -187,6 +187,12 @@ PRODUCT_ADR_DIR = REPO_ROOT / "product" / "adr"
 PROBE_PALACE = REPO_ROOT / "engine" / "tools" / "probe_palace.py"
 PROBE_REPO = REPO_ROOT / "engine" / "tools" / "probe_repo.py"
 
+# Issue-collisions scanner (per ADR 0048). Surfaces open GitHub Issues
+# whose body or title contains keywords from this session's
+# declared_scope or paths from the staged commit. Best-effort — gh
+# failure (no auth, no network, repo not on GitHub) is silently skipped.
+SCAN_ISSUE_COLLISIONS = REPO_ROOT / "engine" / "tools" / "scan_issue_collisions.py"
+
 
 # ---------------------------------------------------------------------------
 # Result accumulator
@@ -655,6 +661,81 @@ def validate_shared_state_health() -> ValidationResult:
                 f"{probe_name} probe exited {proc.returncode} (unexpected):\n{body}"
             )
 
+    return r
+
+
+# ---------------------------------------------------------------------------
+# Issue-collision check (post-S-0042 per ADR 0048)
+# ---------------------------------------------------------------------------
+
+
+def validate_issue_collisions() -> ValidationResult:
+    """Scan open GitHub Issues for keyword/path overlap with this session.
+
+    Wraps ``engine/tools/scan_issue_collisions.py``. Exit-code semantics
+    mirror the scanner's own contract:
+
+    - 0: no collisions; clean.
+    - 1: one or more collisions found; recorded as ``issue_collision``
+      soft-warns. The scanner's stderr lines (one per collision) become
+      the soft-warn bodies.
+
+    A ``gh`` failure (no auth, no network, repo not on GitHub) emits a
+    stderr note inside the scanner and the scanner returns 0 — the
+    check is best-effort, never blocking. The same posture applies if
+    the scanner itself is missing (treated as not-installed; a single
+    soft-warn surfaces and the validator continues).
+
+    Returns:
+        ValidationResult with ``issue_collision`` soft-warns when open
+        Issues touch the session's scope, or empty when clean.
+
+    Non-responsibilities:
+        - Does not create, update, or close Issues.
+        - Does not enforce any first-commit-only gating; the scanner's
+          input is the staged-files diff, which is empty on a no-op
+          run, so the check is naturally cheap when there's nothing to
+          match. The session decides whether to address each warn.
+    """
+    r = ValidationResult()
+    r.add_check("issue_collision")
+
+    if not SCAN_ISSUE_COLLISIONS.is_file():
+        r.soft_warn(
+            "issue_collision",
+            f"scan_issue_collisions.py missing at "
+            f"{SCAN_ISSUE_COLLISIONS.relative_to(REPO_ROOT)}",
+        )
+        return r
+
+    proc = subprocess.run(
+        ["python3", str(SCAN_ISSUE_COLLISIONS)],
+        capture_output=True,
+        text=True,
+        env=scrubbed_env(),
+    )
+
+    if proc.returncode == 0:
+        return r
+
+    if proc.returncode == 1:
+        # Each stderr line beginning with "[scan-issue-collisions]" is a
+        # collision finding. Strip the prefix for cleaner soft-warn bodies.
+        for line in proc.stderr.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith("[scan-issue-collisions]"):
+                line = line[len("[scan-issue-collisions]") :].strip()
+            r.soft_warn("issue_collision", line)
+        return r
+
+    # Unexpected exit code — surface as soft-warn so the run continues.
+    r.soft_warn(
+        "issue_collision",
+        f"scan_issue_collisions.py exited {proc.returncode} (unexpected): "
+        f"{proc.stderr.strip() or '(no output)'}",
+    )
     return r
 
 
@@ -2238,6 +2319,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         overall.merge(validate_repo_structure())
         overall.merge(validate_shared_state_health())
+        overall.merge(validate_issue_collisions())
         overall.merge(validate_graph())
 
     duration_ms = (time.monotonic() - start) * 1000

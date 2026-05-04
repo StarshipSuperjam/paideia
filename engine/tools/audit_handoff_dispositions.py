@@ -14,7 +14,7 @@ of the same details from cold — exceeds the inline-fix cost in
 nearly every case. (See CLAUDE.md "Default to fix-in-context.")
 
 Forcing every new HANDOFF.md section to carry an explicit
-``**Disposition:**`` line surfaces the choice at authoring time. Four
+``**Disposition:**`` line surfaces the choice at authoring time. Five
 forms accepted:
 
 - ``fixed-in-session @ <SHA>`` — the bug was fixed in this session;
@@ -28,6 +28,11 @@ forms accepted:
   recovery procedure that other sessions might need).
 - ``not-actionable`` — informational; no fix exists or no fix is
   warranted given current state.
+- ``tracked-as-issue #<num>`` — the work is cross-session deferral
+  routed to GitHub Issues per ADR 0048; ``<num>`` is the issue
+  number. Used when a HANDOFF section was authored before realizing
+  the work belonged in an Issue (or when an existing HANDOFF entry
+  is being closed by routing to a fresh Issue).
 
 Inputs
 ------
@@ -99,12 +104,13 @@ DISPOSITION_RE = re.compile(
     re.MULTILINE,
 )
 
-# Four accepted disposition forms — see module docstring.
+# Five accepted disposition forms — see module docstring.
 _VALID_DISPOSITION_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"^fixed-in-session\s+@\s+\S+$"),
     re.compile(r"^deferred-with-user-confirmation$"),
     re.compile(r"^out-of-scope$"),
     re.compile(r"^not-actionable$"),
+    re.compile(r"^tracked-as-issue\s+#\d+$"),
 ]
 
 
@@ -341,6 +347,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     print("  - **Disposition:** out-of-scope", file=sys.stderr)
     print("  - **Disposition:** not-actionable", file=sys.stderr)
+    print("  - **Disposition:** tracked-as-issue #<num>", file=sys.stderr)
     return 2
 
 

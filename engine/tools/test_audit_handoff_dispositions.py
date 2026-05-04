@@ -66,6 +66,19 @@ def test_is_valid_disposition_not_actionable() -> None:
     assert is_valid_disposition("not-actionable")
 
 
+def test_is_valid_disposition_tracked_as_issue_with_number() -> None:
+    assert is_valid_disposition("tracked-as-issue #1")
+    assert is_valid_disposition("tracked-as-issue #42")
+    assert is_valid_disposition("tracked-as-issue #12345")
+
+
+def test_is_valid_disposition_tracked_as_issue_without_number_rejected() -> None:
+    """Bare ``tracked-as-issue`` with no number is rejected."""
+    assert not is_valid_disposition("tracked-as-issue")
+    assert not is_valid_disposition("tracked-as-issue #")
+    assert not is_valid_disposition("tracked-as-issue #abc")
+
+
 def test_is_valid_disposition_unknown_value_rejected() -> None:
     assert not is_valid_disposition("deferred")
     assert not is_valid_disposition("queued for later")

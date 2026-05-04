@@ -263,6 +263,36 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Issues backlog visibility (per ADR 0048)
+# ---------------------------------------------------------------------------
+#
+# Calls scan_issue_backlog.py which wraps `gh issue list` and emits
+# either a single-line FYI ("Issues backlog: N bugs, ...") or a
+# multi-line LOUD attention block when any issue carries
+# `priority:urgent`. Best-effort: a gh failure (no auth, no network,
+# repo not on GitHub) emits a stderr note; the boot proceeds.
+#
+# Surfaces the backlog count at every boot so the user can see the
+# trend across sessions and dedicate cleanup-batch sessions when the
+# count crosses a threshold worth addressing.
+
+BACKLOG_TOOL="$REPO_ROOT/engine/tools/scan_issue_backlog.py"
+BACKLOG_STATUS="not-run"
+if [ -x "$(command -v python3)" ] && [ -f "$BACKLOG_TOOL" ]; then
+    if python3 "$BACKLOG_TOOL" 2>/dev/null; then
+        BACKLOG_STATUS="ok"
+    else
+        # Non-zero exit is reserved by the tool but currently unused.
+        # Treat as soft failure: log and proceed.
+        BACKLOG_STATUS="exit-nonzero"
+        log_fail "backlog-scan-nonzero"
+    fi
+else
+    log_fail "backlog-prereq-missing"
+    BACKLOG_STATUS="prereq-missing"
+fi
+
+# ---------------------------------------------------------------------------
 # Persistent-warn surface (last 5 archives, 3-of-5 threshold)
 # ---------------------------------------------------------------------------
 

@@ -109,6 +109,16 @@ The probe escalates to a **hard-fail** when `core.bare=true` is set on either th
 
 Recoverable — the probe's stderr names the exact `git -C <repo> config --unset core.bare` command needed for the bare-misconfig case; HEAD-resolution failures are typically detached-HEAD or partial-checkout artifacts and are addressed by the appropriate `git checkout` or `git switch` operation.
 
+### `issue_collision`
+
+The Issue-collision scanner at [`engine/tools/scan_issue_collisions.py`](../tools/scan_issue_collisions.py) found one or more open GitHub Issues whose body or title contains either a keyword from this session's `declared_scope` (or fallback `working_on`) field in `current.json`, or a path from this commit's staged-files diff. Active from S-0042 onward per [ADR 0048](../adr/0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md).
+
+Each soft-warn body names the colliding Issue's number, title, and the matched keyword(s) or path(s). The signal is informational — non-blocking — surfaced so the AI can decide whether to (a) fix the colliding Issue first and reference it in the eventual commit, (b) work on it in parallel with the planned scope, or (c) proceed and trust the existing scope is independent of the Issue's named breakage.
+
+A `gh` failure (no auth, no network, repo not on GitHub) silently skips the check; the scanner emits a stderr note and the validator records 0 collisions. The scanner-missing case (e.g., during `validate.py` migration) surfaces as a single soft-warn naming the missing path.
+
+Recoverable per the choice the AI makes; the warn does not require resolution to commit.
+
 ### Graph-audit soft-warns (S-0037 onward, active when SUPABASE_DB_URL is set)
 
 The seven categories ADR 0016 contracts. All seven register in `checks_run` even when zero findings fire, so cross-session telemetry distinguishes "category clean" from "category did not run" (the schema convention at [`session-shutdown-sequence.md`](session-shutdown-sequence.md)).
