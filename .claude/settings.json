@@ -38,6 +38,7 @@
       "Bash(python3 engine/tools/parse_structural_reference.py:*)",
       "Bash(python3 engine/tools/check_settings_sync.py:*)",
       "Bash(python3 engine/tools/check_session_conflict.py:*)",
+      "Bash(python3 engine/tools/setup_env.py:*)",
 
       "Bash(pytest:*)",
       "Bash(python3 -m pytest:*)",

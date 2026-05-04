@@ -190,6 +190,55 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# .env onboarding pointer (per Issue #7 / S-0048)
+# ---------------------------------------------------------------------------
+#
+# When auto_target.json is present (routine-mode is configured) AND .env is
+# missing SUPABASE_DB_URL, emit a LOUD pointer at boot so the user knows to
+# run `python3 engine/tools/setup_env.py` once. The pointer is informational
+# only — the hook always exits 0. Without SUPABASE_DB_URL, every Phase 5
+# routine fire bails cleanly per its own checks; the pointer just makes the
+# remediation discoverable.
+#
+# This is one-time-onboarding scaffolding. After the user runs setup_env.py
+# once, .env carries the URL forever (gitignored) and this pointer goes
+# silent for all future boots.
+
+ENV_FILE="$REPO_ROOT/.env"
+AUTO_TARGET_FILE="$REPO_ROOT/engine/session/auto_target.json"
+ENV_POINTER_STATUS="not-checked"
+if [ -f "$AUTO_TARGET_FILE" ]; then
+    DB_URL_PRESENT=0
+    if [ -f "$ENV_FILE" ] && grep -q '^SUPABASE_DB_URL=.\+' "$ENV_FILE" 2>/dev/null; then
+        DB_URL_PRESENT=1
+    fi
+    if [ "$DB_URL_PRESENT" -eq 0 ]; then
+        {
+            echo ""
+            echo "============================================================"
+            echo "[session-start] .env onboarding pointer"
+            echo "============================================================"
+            echo "  SUPABASE_DB_URL is missing from .env. Without it, every"
+            echo "  Phase 5 routine fire will bail at the migration_applied /"
+            echo "  validate_passes criteria (Issue #7)."
+            echo ""
+            echo "  One-time setup (gitignored .env persists forever after):"
+            echo "    python3 engine/tools/setup_env.py"
+            echo ""
+            echo "  Prompts for SUPABASE_DB_URL only, validates with a real"
+            echo "  psycopg.connect(), writes .env on success. Re-runnable;"
+            echo "  idempotent. Skip if you're not running Phase 5 routines"
+            echo "  in this session."
+            echo "============================================================"
+            echo ""
+        } >&2
+        ENV_POINTER_STATUS="missing-supabase-db-url"
+    else
+        ENV_POINTER_STATUS="ok"
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 # Concurrent-session collision check (per Issue #3 / S-0048)
 # ---------------------------------------------------------------------------
 #
@@ -511,5 +560,5 @@ if [ -f "$SCHEDULED_AUDITS_FILE" ]; then
     fi
 fi
 
-log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=$PERSISTENT_FOUND scheduled=$SCHEDULED_FOUND probe=$PROBE_STATUS backlog=$BACKLOG_STATUS scope_non_yes=$SCOPE_NON_YES conflict=$CONFLICT_STATUS"
+log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=$PERSISTENT_FOUND scheduled=$SCHEDULED_FOUND probe=$PROBE_STATUS backlog=$BACKLOG_STATUS scope_non_yes=$SCOPE_NON_YES conflict=$CONFLICT_STATUS env_pointer=$ENV_POINTER_STATUS"
 exit 0

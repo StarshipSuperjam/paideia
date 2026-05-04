@@ -128,7 +128,11 @@ cd paideia
 
 # Create local .env from template
 cp .env.example .env
-# Then fill in ANTHROPIC_API_KEY and Supabase credentials
+
+# Populate .env interactively (one-time; .env is gitignored and persists)
+# Prompts only for missing keys. Validates SUPABASE_DB_URL with a real
+# psycopg.connect() before writing. Idempotent — re-runnable.
+python3 engine/tools/setup_env.py
 
 # Create local .mcp.json (the committed copy is gitignored as it carries PATs)
 # Configure Supabase MCP (project ref ozooosgnuzxqqypotlke) and MemPalace MCP
@@ -136,6 +140,8 @@ cp .env.example .env
 ```
 
 After setup, restart Claude Code so the new MCP servers load.
+
+`SUPABASE_DB_URL` is required for Phase 5+ seed-authoring routine sessions and `validate.py`'s graph audit (per [ADR 0016](engine/adr/0016-graph-construction-needs-live-validation.md)). The DB password is dashboard-only by Supabase's design — no CLI/MCP/REST path retrieves it. Get it from `https://supabase.com/dashboard/project/<project-ref>/settings/database` ("Connection string" section, either Direct connection or Session pooler tab works) and paste when `setup_env.py` prompts. Reset the password first if the dashboard shows it as `[YOUR-PASSWORD]`. After this one-time setup, every routine fire reads the populated `.env` automatically.
 
 ---
 

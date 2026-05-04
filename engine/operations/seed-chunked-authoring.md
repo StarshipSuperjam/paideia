@@ -37,6 +37,12 @@ The full sequence from session boot to commit. Each step is mandatory; the valid
 
 When `SUPABASE_DB_URL` is unset, the validator records `graph_audit_skipped` in `checks_run` and does not query the DB — non-seed-authoring sessions are not gated on DB connectivity. Phase 5 sessions **must** set the env var for the workflow to engage; the audit-skip path is an escape hatch for engine-only sessions, not for seed authoring.
 
+### One-time setup of `SUPABASE_DB_URL`
+
+Per Issue #7 / S-0048: run `python3 engine/tools/setup_env.py` once on a fresh clone. The helper reads `.env.example` to discover canonical keys, prompts only for missing/empty values, validates `SUPABASE_DB_URL` with a real `psycopg.connect()` + `SELECT version()`, and writes `.env` atomically with 0600 permissions. The DB password is dashboard-only by Supabase's design (not retrievable via MCP, REST, or CLI); get it from `https://supabase.com/dashboard/project/<project-ref>/settings/database` ("Connection string" section — Direct connection or Session pooler tab both work) and paste when prompted. Reset the database password first if the dashboard shows it as `[YOUR-PASSWORD]`.
+
+After this one-time setup, `.env` is gitignored and persists. Subsequent routine fires read it automatically — no per-session prompting. The `engine/tools/hooks/session-start.sh` boot hook emits a LOUD pointer at every boot when `auto_target.json` is present and `SUPABASE_DB_URL` is missing from `.env`, so the gap is impossible to miss.
+
 ## Snapshot mode
 
 `python3 engine/tools/validate.py --export-snapshot path/to/snapshot.json` writes a full nodes-and-edges JSON dump for offline review. Useful for cold-context review at session shutdown (per [ADR 0040](../adr/0040-build-readiness-gate-before-substantive-build-sessions.md) Step 8 — sub-agent reads the snapshot against the contract block). Snapshot mode skips the validation checks; run `--validate-only` (default) for the audit, then `--export-snapshot` separately if a snapshot is wanted.
