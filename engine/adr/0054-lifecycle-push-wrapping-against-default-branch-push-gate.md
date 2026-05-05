@@ -139,6 +139,18 @@ The wrapper qualifies as a *novel cross-cutting mechanism* under ADR 0053's trig
 - **Cloud Routines migration.** If subprocess-bypass proves brittle, cloud Routines (with the "Allow unrestricted branch pushes" checkbox) is the alternate path. Defer until a concrete failure surfaces.
 - **PR-based routine flow.** Multi-ADR procedure rewrite. Last-resort if both subprocess-bypass AND cloud-Routines paths close.
 
+### Amendment (S-0072): post-push parent FF and post-close worktree sweep
+
+The user surfaced at S-0072 boot that every routine fire was needing boot-freshness FF to catch up to origin/main, observed concretely in this conversation's own boot logs ("worktree was behind origin/main; routine_boot_freshness.py fast-forwarded cleanly" appearing at every routine boot, e.g., the S-0071 close commit body's note "Boot-freshness intervention required at session start"). Diagnosis: the wrapper's `push()` advances `origin/main` and `refs/remotes/origin/main` but leaves the parent repo's local `main` ref at its prior commit, because the routine session pushes from inside a linked worktree on a feature branch (`HEAD:main`). Newly-created worktrees inherit stale parent main; the next routine fire's boot-freshness gate has to fast-forward.
+
+Interactive close already runs the parent-side FF *before* push (per [`engine/operations/session-build-lifecycle.md`](../operations/session-build-lifecycle.md) and [`engine/operations/session-shutdown-sequence.md`](../operations/session-shutdown-sequence.md)). The fix added at S-0072 is the routine-side equivalent run *after* push — `parent_ff()` in [`routine_lifecycle_push.py`](../tools/routine_lifecycle_push.py), invoked from `main()` after every successful push for all three modes. Failure to FF (parent on a non-target branch, uncommitted-change conflicts) is logged but does NOT propagate to the wrapper exit code; boot-freshness remains the safety net per [ADR 0052](0052-routine-boot-freshness-and-concurrency-defense.md).
+
+The same close-out-leaves-no-mess gap surfaced [Issue #16](https://github.com/StarshipSuperjam/paideia/issues/16) — 14+ stale `claude/<name>` worktrees and orphan branches accumulated by S-0072 because routine close did not sweep its own worktree. The Issue's "auto-clean as part of session shutdown" follow-on (named as a separate Issue in the original filing but never tracked) is implemented at S-0072 as a new tool [`engine/tools/routine_worktree_sweep.py`](../tools/routine_worktree_sweep.py), invoked as the last action of routine close after lock release. It removes the current worktree and its `claude/<name>` branch with the same pre-flight checks as `sweep_worktrees.sh` (claude/* branch, working tree clean, branch merged into main); failures are best-effort with explicit reasons, logged but not propagated.
+
+After S-0072 the routine close lifecycle matches the interactive close's leave-no-mess posture: parent main lands as `merge claude/<branch>: Fast-forward` (matching the interactive signature) instead of `merge refs/remotes/origin/main: Fast-forward` (the next session's reactive recovery), and the worktree is gone post-close.
+
+Both mechanisms ship with full pytest coverage: 7 new tests in `test_routine_lifecycle_push.py` (32 total) for parent FF; 18 tests in new `test_routine_worktree_sweep.py` for the sweep tool. They re-use the bare-origin + clone fixture pattern and add a `_make_clone_with_worktree` helper for linked-worktree scenarios.
+
 ## Cross-references
 
 - [ADR 0051](0051-routine-mode-and-engine-loop.md) — routine-mode foundation; lifecycle-push contract.
@@ -149,6 +161,9 @@ The wrapper qualifies as a *novel cross-cutting mechanism* under ADR 0053's trig
 - [`engine/operations/routine-mode-operations.md`](../operations/routine-mode-operations.md) — Layer 1 ops doc with the new "Lifecycle pushes via wrapper tool" subsection.
 - [`engine/tools/routine_lifecycle_push.py`](../tools/routine_lifecycle_push.py) — the wrapper.
 - [`engine/tools/test_routine_lifecycle_push.py`](../tools/test_routine_lifecycle_push.py) — test suite.
+- [`engine/tools/routine_worktree_sweep.py`](../tools/routine_worktree_sweep.py) — companion sweep tool added at S-0072 (Amendment).
+- [`engine/tools/test_routine_worktree_sweep.py`](../tools/test_routine_worktree_sweep.py) — sweep test suite.
+- [Issue #16](https://github.com/StarshipSuperjam/paideia/issues/16) — stale `claude/*` worktree buildup; auto-sweep follow-on landed via this Amendment.
 - [`engine/tools/probe_push_gate.py`](../tools/probe_push_gate.py) — Phase 0 empirical probe.
 - [`engine/build_readiness/routine_lifecycle_push_first_exercise.md`](../build_readiness/routine_lifecycle_push_first_exercise.md) — mechanism-first-exercise gate report.
 - S-0060 plan: `/Users/shanekidd/.claude/plans/what-is-going-on-wild-falcon.md` — design rationale and the testing-first directive.

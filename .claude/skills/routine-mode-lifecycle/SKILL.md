@@ -83,7 +83,7 @@ Commit message: `chore(session): eager-claim S-<NNNN> — routine task <task_id>
 python3 engine/tools/routine_lifecycle_push.py eager-claim
 ```
 
-**Why the wrapper (per ADR 0054):** raw `git push origin main` from a routine session is denied by the Claude Code Desktop client-side "Default Branch Push" gate ("Pushing the eager-claim commit directly to main bypasses pull request review"). The wrapper performs the push via `subprocess.run` inside a permitted python tool — the harness gate inspects Bash command surface, not subprocess-spawned git operations. The wrapper also mechanically shape-verifies HEAD before pushing (subject pattern, ahead-count, diff bounded to the eager-claim path set, register_state bumps `next_id` by exactly 1 and flips `closed → in_progress`). Exit codes:
+**Why the wrapper (per ADR 0054):** raw `git push origin main` from a routine session is denied by the Claude Code Desktop client-side "Default Branch Push" gate ("Pushing the eager-claim commit directly to main bypasses pull request review"). The wrapper performs the push via `subprocess.run` inside a permitted python tool — the harness gate inspects Bash command surface, not subprocess-spawned git operations. The wrapper also mechanically shape-verifies HEAD before pushing (subject pattern, ahead-count, diff bounded to the eager-claim path set, register_state bumps `next_id` by exactly 1 and flips `closed → in_progress`). After every successful push the wrapper additionally runs a best-effort `git -C <parent> merge --ff-only origin/main` to advance the parent repo's local main (S-0072 / Issue #16 follow-on) — closes the asymmetry vs interactive close where parent main was being left stale and every new-worktree boot needed boot-freshness FF to catch up. Exit codes:
 
 - `0` → push succeeded; continue.
 - `2` → verification refused. Write HANDOFF naming the specific reject reason; exit cleanly. Do NOT amend or retry.
@@ -159,7 +159,15 @@ Same as `/start-engine` close per [`session-shutdown-sequence`](../session-shutd
 
   The wrapper verifies the close commit shape (subject `^chore\(session\): close S-NNNN`; archive file created; current.json deleted; register_state flips `in_progress → closed`; any other touched paths are in the operational allowlist). Exit codes 0/2/3/4/5 same as the other wrapper modes — exit 2 means the close commit is malformed; write HANDOFF naming the reject reason. (Note: an exit 2 mid-shutdown is rare, but if it happens DO NOT amend the close commit — the partial-shutdown state is the artifact future sessions will pick up.)
 
-- **Last action**: `python3 engine/tools/routine_lock.py release` (per ADR 0052; releases the lock acquired at step 0b so the next routine fire can claim it). Do NOT release the lock until after the close push has succeeded.
+- **Lock release**: `python3 engine/tools/routine_lock.py release` (per ADR 0052; releases the lock acquired at step 0b so the next routine fire can claim it). Do NOT release the lock until after the close push has succeeded.
+
+- **Last action — worktree sweep** (S-0072 / Issue #16 follow-on):
+
+  ```
+  python3 engine/tools/routine_worktree_sweep.py
+  ```
+
+  Removes the current session's worktree and its `claude/<name>` feature branch. Best-effort: pre-flight checks (claude/* branch, working tree clean, branch merged into main) refuse with exit 2 if any condition fails; generic git error exits 5. In both cases the routine SKILL logs and exits cleanly — close has already succeeded, sweep is best-effort. The tool chdirs to the parent repo before calling `git worktree remove` so child-process forks from this Python process don't fail on macOS after the worktree's CWD is unlinked.
 
 Issues created during the session count into `outcome_summary` for shutdown review.
 

@@ -105,7 +105,21 @@ A fourth mechanical layer added at S-0060: routine-mode pushes to `origin/main` 
 
 **Safety posture.** The wrapper does NOT perform destructive recovery on verification failure. The author adjudicates a refused push (amend, reset, or HANDOFF). Same posture as `routine_eager_claim_recovery.py`: mechanically-verified bounded shape only; outside the shape, refuse.
 
-**Composition with the three prior layers.** Freshness, lock, and recovery handle *whether* and *when* a push happens; the wrapper handles *how*. The four together: freshness (boot synchronizes with origin), lock (only one routine session at a time), wrapper (each push is shape-verified and bypasses the gate), recovery (if a push race somehow lands, the loser self-cleans).
+**Parent-side fast-forward post-push** (added S-0072). After every successful push, the wrapper runs a best-effort `git -C <parent> merge --ff-only origin/<target>` to advance the parent repo's local `main`. Routine sessions push from inside a linked worktree on a feature branch (`HEAD:main`); that advances `origin/main` and the local tracking ref but leaves the parent's local `main` at its prior commit, so newly-created worktrees inherit stale `main` and the next routine fire's boot-freshness gate has to fast-forward. Interactive close already FFs parent main *before* the push (per [`session-build-lifecycle.md`](session-build-lifecycle.md) and [`session-shutdown-sequence.md`](session-shutdown-sequence.md)); this is the routine-side equivalent run *after* push. Failure to FF (parent on a non-target branch, uncommitted changes that conflict, etc.) is logged but does NOT propagate to the wrapper exit code — boot-freshness remains the safety net per [ADR 0052](../adr/0052-routine-boot-freshness-and-concurrency-defense.md).
+
+**Composition with the three prior layers.** Freshness, lock, and recovery handle *whether* and *when* a push happens; the wrapper handles *how* (and now keeps parent main in sync). The four together: freshness (boot synchronizes with origin), lock (only one routine session at a time), wrapper (each push is shape-verified, bypasses the gate, and FFs parent main), recovery (if a push race somehow lands, the loser self-cleans).
+
+### Post-close worktree sweep (per ADR 0054 amendment, S-0072)
+
+Each routine close ends with `engine/tools/routine_worktree_sweep.py`, invoked from inside the worktree after the close push (and its post-push parent FF) and the lock release have completed. The tool removes the current worktree and its `claude/<name>` feature branch.
+
+**Why.** Routine sessions create a fresh worktree per fire (the Worktree checkbox in Claude Code Routines). Without an at-close sweep they accumulated — by S-0072 the project carried 14+ active worktrees plus orphan branches ([Issue #16](https://github.com/StarshipSuperjam/paideia/issues/16)). The sweep closes the gap so a clean routine close leaves no detritus.
+
+**Pre-flight checks** mirror [`engine/tools/sweep_worktrees.sh`](../tools/sweep_worktrees.sh) exactly: branch must match `claude/*`; working tree must be clean; branch must be merged into `main`. Failing any check exits 2 with an explicit reason.
+
+**Posture.** Best-effort by design — close has already succeeded by the time sweep runs. Exit 2 (refused) and exit 5 (git error) are both logged-and-continue. The Skill body does not propagate sweep failure into the close exit code.
+
+**Self-CWD safety.** The tool chdirs to the parent repo BEFORE calling `git worktree remove`. Once the worktree directory is unlinked, child-process forks from the running Python process inheriting the about-to-be-removed CWD would fail on macOS; the chdir avoids that.
 
 ## Scope-lock model
 
@@ -317,4 +331,4 @@ The existing eager-claim protocol handles this: routine N+1 reads register_state
 - [`mechanism-first-exercise-gate.md`](mechanism-first-exercise-gate.md) — the gate posture for novel cross-cutting mechanisms; the wrapper qualified at S-0060.
 - [`issue-discipline.md`](issue-discipline.md) — HANDOFF vs Issue routing; routine sessions follow it unchanged.
 - [`tools-validate-interpretation.md`](tools-validate-interpretation.md) — soft-warn taxonomy; the new routine-mode soft-warns plug into this.
-- [`engine/tools/check_target.py`](../tools/check_target.py), [`engine/tools/check_routine_scope.py`](../tools/check_routine_scope.py), [`engine/tools/routine_lifecycle_push.py`](../tools/routine_lifecycle_push.py) — the foundation tools.
+- [`engine/tools/check_target.py`](../tools/check_target.py), [`engine/tools/check_routine_scope.py`](../tools/check_routine_scope.py), [`engine/tools/routine_lifecycle_push.py`](../tools/routine_lifecycle_push.py), [`engine/tools/routine_worktree_sweep.py`](../tools/routine_worktree_sweep.py) — the foundation tools.
