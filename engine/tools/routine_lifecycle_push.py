@@ -72,6 +72,9 @@ import sys
 from pathlib import Path
 from typing import Literal
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import check_routine_scope  # noqa: E402
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 EAGER_CLAIM_SUBJECT_RE = re.compile(r"^chore\(session\): eager-claim S-\d{4}\b")
@@ -81,6 +84,11 @@ DELIVERABLE_SUBJECT_RE = re.compile(
 )
 LIFECYCLE_SUBJECT_RESERVED_RE = re.compile(r"^chore\(session\):")
 
+# Eager-claim is structurally narrower than the operational allowlist by design:
+# the eager-claim ritual creates/touches exactly these four files, and any other
+# touch in the eager-claim commit is a malformed claim. NOT derived from
+# OPERATIONAL_ALLOWLIST because the constraint here is "exactly these four,
+# nothing else", which is stricter than "operational files always permitted".
 EAGER_CLAIM_ALLOWED_PATHS = {
     "engine/session/register_state.json",
     "engine/session/current.json",
@@ -88,14 +96,20 @@ EAGER_CLAIM_ALLOWED_PATHS = {
     "engine/session/current_plan.md",
 }
 
-CLOSE_ALLOWED_OPERATIONAL_PATHS = {
-    "engine/session/register_state.json",
-    "engine/session/current.json",
-    "engine/session/auto_target.json",
+# Close-mode allowlist = canonical OPERATIONAL_ALLOWLIST plus engine/STATE.md
+# (which the close commit touches per session-shutdown-sequence step "Update
+# engine/STATE.md", but which is NOT in OPERATIONAL_ALLOWLIST because routine
+# sessions don't routinely edit STATE.md mid-session). Pulled from
+# check_routine_scope.OPERATIONAL_ALLOWLIST so the wrapper can't drift behind
+# the canonical source — if the canonical list grows, close mode picks it up.
+# Per Issue #17 (S-0061): the prior literal-set form of this constant was
+# missing engine/session/current_plan.md, which the close commit deletes
+# alongside current.json; rebuilding from the canonical source closes that gap
+# and any future drift.
+CLOSE_ALLOWED_GLOBS: tuple[str, ...] = (
+    *check_routine_scope.OPERATIONAL_ALLOWLIST,
     "engine/STATE.md",
-    "engine/ENGINE_LOG.md",
-    "HANDOFF.md",
-}
+)
 
 
 Mode = Literal["eager-claim", "deliverable", "close"]
@@ -302,13 +316,7 @@ def verify_deliverable_shape(repo: Path, remote: str, target: str) -> tuple[bool
     if not clean:
         return False, "working tree is not clean (uncommitted changes present)"
 
-    # Defer to check_routine_scope for the actual scope check against current.json
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
-    try:
-        import check_routine_scope  # noqa: PLC0415
-    except ImportError as exc:
-        return False, f"could not import check_routine_scope: {exc}"
-
+    # check_routine_scope is imported at module level; reuse for scope check
     changed = get_changed_paths_since(repo, remote, target)
     if changed is None:
         return False, "git diff failed; cannot enumerate changed paths"
@@ -402,10 +410,13 @@ def verify_close_shape(repo: Path, remote: str, target: str) -> tuple[bool, str]
     if changed is None:
         return False, "git diff failed; cannot enumerate changed paths"
 
-    # Required: archive/S-NNNN.json created
-    archive_re = re.compile(r"^engine/session/archive/S-\d{4}\.json$")
+    # Required: archive/S-NNNN.json created. Strict regex on top of the glob
+    # match below — the glob just permits the path; this check enforces that
+    # at least one archive file must actually be CREATED (status 'A') with the
+    # canonical S-NNNN.json name.
+    archive_strict_re = re.compile(r"^engine/session/archive/S-\d{4}\.json$")
     archives_added = [
-        p for status, p in changed if status == "A" and archive_re.match(p)
+        p for status, p in changed if status == "A" and archive_strict_re.match(p)
     ]
     if not archives_added:
         return False, (
@@ -436,20 +447,19 @@ def verify_close_shape(repo: Path, remote: str, target: str) -> tuple[bool, str]
             f"got {before['current_status']!r} -> {after['current_status']!r}"
         )
 
-    # Other paths must be in operational allowlist (or be the archive add / current delete)
-    out_of_set = []
-    for status, p in changed:
-        if archive_re.match(p):
-            continue
-        if p == "engine/session/current.json":
-            continue
-        if p in CLOSE_ALLOWED_OPERATIONAL_PATHS:
-            continue
-        out_of_set.append(p)
+    # All paths must match a glob in CLOSE_ALLOWED_GLOBS. The glob set is
+    # derived from check_routine_scope.OPERATIONAL_ALLOWLIST plus engine/STATE.md
+    # so it stays canonical-aligned. archive/S-*.json is included via the
+    # OPERATIONAL_ALLOWLIST glob, so no separate handling needed here.
+    out_of_set = [
+        p
+        for _status, p in changed
+        if not check_routine_scope.matches_any(p, CLOSE_ALLOWED_GLOBS)
+    ]
     if out_of_set:
         return False, (
             f"close diff touches paths outside the operational allowlist "
-            f"({sorted(CLOSE_ALLOWED_OPERATIONAL_PATHS)}): {out_of_set}"
+            f"({list(CLOSE_ALLOWED_GLOBS)}): {out_of_set}"
         )
 
     return True, f"close shape verified (slot {before['last_claimed']})"

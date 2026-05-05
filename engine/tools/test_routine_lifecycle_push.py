@@ -21,6 +21,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from routine_lifecycle_push import (  # noqa: E402
+    CLOSE_ALLOWED_GLOBS,
     main,
     push,
     verify_close_shape,
@@ -473,6 +474,109 @@ def test_close_rejects_when_diff_touches_arbitrary_paths(tmp_path: Path) -> None
     ok, reason = verify_close_shape(clone, "origin", "main")
     assert not ok
     assert "RANDOM.md" in reason
+
+
+# ---------------------------------------------------------------------------
+# Issue #17 regressions — close-mode allowlist must match documented operational allowlist
+# ---------------------------------------------------------------------------
+
+
+def test_close_accepts_with_current_plan_md_deletion(tmp_path: Path) -> None:
+    """Issue #17 literal repro: close commit deletes current_plan.md alongside
+    current.json; mode must accept. Pre-fix this case REFUSED with exit 2 in the
+    routine session for S-0061; post-fix it accepts because current_plan.md is
+    in check_routine_scope.OPERATIONAL_ALLOWLIST."""
+    _origin, clone = _make_origin_with_clone(tmp_path)
+    _make_eager_claim_commit(clone)
+    _git(["push"], clone)
+
+    sess_dir = clone / "engine" / "session"
+    state = json.loads((sess_dir / "register_state.json").read_text())
+    state["current_status"] = "closed"
+    (sess_dir / "register_state.json").write_text(json.dumps(state) + "\n")
+    archive_dir = sess_dir / "archive"
+    archive_dir.mkdir(exist_ok=True)
+    (archive_dir / "S-0060.json").write_text(json.dumps({"id": "S-0060"}) + "\n")
+    (sess_dir / "current.json").unlink()
+    # The literal Issue #17 trigger: close also deletes current_plan.md
+    (sess_dir / "current_plan.md").unlink()
+    _git(["add", "-A", "engine/session"], clone)
+    _git(["commit", "-m", "chore(session): close S-0060 — current_plan deleted"], clone)
+    ok, reason = verify_close_shape(clone, "origin", "main")
+    assert ok, (
+        f"Issue #17 regression: close shape with current_plan.md deletion rejected: {reason}"
+    )
+
+
+def test_close_accepts_with_archive_creation_and_current_plan_deletion(
+    tmp_path: Path,
+) -> None:
+    """Full close shape including BOTH archive creation AND current_plan.md
+    deletion (the realistic post-S-0062 close shape). Verifies both globs
+    resolve through the canonical OPERATIONAL_ALLOWLIST glob match."""
+    _origin, clone = _make_origin_with_clone(tmp_path)
+    _make_eager_claim_commit(clone)
+    _git(["push"], clone)
+
+    sess_dir = clone / "engine" / "session"
+    state = json.loads((sess_dir / "register_state.json").read_text())
+    state["current_status"] = "closed"
+    (sess_dir / "register_state.json").write_text(json.dumps(state) + "\n")
+    archive_dir = sess_dir / "archive"
+    archive_dir.mkdir(exist_ok=True)
+    (archive_dir / "S-0060.json").write_text(
+        json.dumps({"id": "S-0060", "outcome_summary": "x"}) + "\n"
+    )
+    (sess_dir / "current.json").unlink()
+    (sess_dir / "current_plan.md").unlink()
+    # Also touch STATE.md and ENGINE_LOG.md (operational close-time edits)
+    (clone / "engine" / "STATE.md").write_text("# State\n\nupdated\n")
+    (clone / "engine" / "ENGINE_LOG.md").write_text("# Log\n\nupdated\n")
+    _git(["add", "-A"], clone)
+    _git(["commit", "-m", "chore(session): close S-0060 — full close shape"], clone)
+    ok, reason = verify_close_shape(clone, "origin", "main")
+    assert ok, f"full close shape rejected: {reason}"
+
+
+def test_close_rejects_when_archive_path_format_wrong(tmp_path: Path) -> None:
+    """Archive file at wrong-format path (5 digits instead of 4) is refused.
+    Confirms the strict archive_strict_re still enforces canonical S-NNNN.json."""
+    _origin, clone = _make_origin_with_clone(tmp_path)
+    _make_eager_claim_commit(clone)
+    _git(["push"], clone)
+
+    sess_dir = clone / "engine" / "session"
+    state = json.loads((sess_dir / "register_state.json").read_text())
+    state["current_status"] = "closed"
+    (sess_dir / "register_state.json").write_text(json.dumps(state) + "\n")
+    archive_dir = sess_dir / "archive"
+    archive_dir.mkdir(exist_ok=True)
+    # Wrong: 5-digit suffix instead of 4
+    (archive_dir / "S-12345.json").write_text(json.dumps({"id": "S-12345"}) + "\n")
+    (sess_dir / "current.json").unlink()
+    _git(["add", "-A", "engine/session"], clone)
+    _git(["commit", "-m", "chore(session): close S-0060 — bad archive name"], clone)
+    ok, reason = verify_close_shape(clone, "origin", "main")
+    assert not ok
+    assert "must CREATE engine/session/archive/S-NNNN.json" in reason
+
+
+def test_close_allowed_globs_derived_from_canonical_operational_allowlist() -> None:
+    """Structural test: CLOSE_ALLOWED_GLOBS must contain every entry of
+    check_routine_scope.OPERATIONAL_ALLOWLIST plus engine/STATE.md. Locks in
+    the canonical-source alignment so a future drift (constant added to one
+    list but not the other) is caught at test time."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import check_routine_scope  # noqa: PLC0415
+
+    canonical = set(check_routine_scope.OPERATIONAL_ALLOWLIST)
+    close_set = set(CLOSE_ALLOWED_GLOBS)
+    missing = canonical - close_set
+    assert not missing, f"CLOSE_ALLOWED_GLOBS is missing canonical entries: {missing}"
+    assert "engine/STATE.md" in close_set, (
+        "CLOSE_ALLOWED_GLOBS must include engine/STATE.md "
+        "(close commits update STATE.md per session-shutdown-sequence)"
+    )
 
 
 # ---------------------------------------------------------------------------
