@@ -132,6 +132,94 @@ def test_adr_status_finds_in_product_dir(
     assert passed is True
 
 
+def test_adr_status_duplicate_id_across_registries_fails_without_discriminator(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Issue #19 repro: engine/adr/0052 + product/adr/0052 both exist; without
+    a directory discriminator the predicate fails on multiple matches."""
+    (tmp_path / "engine" / "adr").mkdir(parents=True)
+    (tmp_path / "engine" / "adr" / "0052-engine-thing.md").write_text(
+        "- **Status:** Accepted\n"
+    )
+    (tmp_path / "product" / "adr").mkdir(parents=True)
+    (tmp_path / "product" / "adr" / "0052-product-thing.md").write_text(
+        "- **Status:** Accepted\n"
+    )
+    monkeypatch.setattr("check_target.REPO_ROOT", tmp_path)
+    passed, detail = _check_adr_status(id="0052", status="Accepted")
+    assert passed is False
+    assert "multiple ADR files match id 0052" in detail
+
+
+def test_adr_status_directory_engine_disambiguates(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Issue #19 fix: directory='engine' picks engine/adr/0052 only."""
+    (tmp_path / "engine" / "adr").mkdir(parents=True)
+    (tmp_path / "engine" / "adr" / "0052-engine-thing.md").write_text(
+        "- **Status:** Accepted\n"
+    )
+    (tmp_path / "product" / "adr").mkdir(parents=True)
+    (tmp_path / "product" / "adr" / "0052-product-thing.md").write_text(
+        "- **Status:** Draft\n"
+    )
+    monkeypatch.setattr("check_target.REPO_ROOT", tmp_path)
+    passed, detail = _check_adr_status(id="0052", status="Accepted", directory="engine")
+    assert passed is True
+    assert "Accepted" in detail
+
+
+def test_adr_status_directory_product_disambiguates(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Issue #19 fix: directory='product' picks product/adr/0052 only.
+
+    This is the canonical use case: P5-12 closeout's adr_status criterion
+    targets product/adr/0052 (Phase 5 subdomain decomposition) and uses
+    directory='product' to disambiguate from engine/adr/0052
+    (routine boot freshness)."""
+    (tmp_path / "engine" / "adr").mkdir(parents=True)
+    (tmp_path / "engine" / "adr" / "0052-engine-thing.md").write_text(
+        "- **Status:** Draft\n"
+    )
+    (tmp_path / "product" / "adr").mkdir(parents=True)
+    (tmp_path / "product" / "adr" / "0052-product-thing.md").write_text(
+        "- **Status:** Accepted\n"
+    )
+    monkeypatch.setattr("check_target.REPO_ROOT", tmp_path)
+    passed, detail = _check_adr_status(
+        id="0052", status="Accepted", directory="product"
+    )
+    assert passed is True
+
+
+def test_adr_status_invalid_directory_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Invalid 'directory' value rejects with a clear error."""
+    monkeypatch.setattr("check_target.REPO_ROOT", tmp_path)
+    passed, detail = _check_adr_status(id="0052", status="Accepted", directory="bogus")
+    assert passed is False
+    assert "invalid directory" in detail
+
+
+def test_adr_status_directory_not_found_in_specified_registry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When directory='engine' but the ADR is only in product/, fail with
+    a directory-scoped 'not found' message."""
+    (tmp_path / "product" / "adr").mkdir(parents=True)
+    (tmp_path / "product" / "adr" / "0052-product-thing.md").write_text(
+        "- **Status:** Accepted\n"
+    )
+    (tmp_path / "engine" / "adr").mkdir(parents=True)  # empty engine dir
+    monkeypatch.setattr("check_target.REPO_ROOT", tmp_path)
+    passed, detail = _check_adr_status(id="0052", status="Accepted", directory="engine")
+    assert passed is False
+    assert "no ADR file found for id 0052" in detail
+    assert "in engine/adr" in detail
+
+
 # ---------------------------------------------------------------------------
 # migration_applied — only the no-DB-URL path is unit-testable
 # ---------------------------------------------------------------------------

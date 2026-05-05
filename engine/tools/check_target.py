@@ -154,15 +154,42 @@ def _check_validate_passes(**_: Any) -> tuple[bool, str]:
 _STATUS_RE = re.compile(r"\*\*Status:\*\*\s*(.+?)\s*$", re.MULTILINE)
 
 
-def _check_adr_status(*, id: str, status: str, **_: Any) -> tuple[bool, str]:
-    """Verify an ADR's frontmatter Status field matches expected."""
+def _check_adr_status(
+    *, id: str, status: str, directory: str | None = None, **_: Any
+) -> tuple[bool, str]:
+    """Verify an ADR's frontmatter Status field matches expected.
+
+    The optional ``directory`` parameter ('engine' or 'product')
+    constrains the search to a single ADR registry, disambiguating
+    the case where both registries carry an ADR with the same id (per
+    [ADR 0037](engine/adr/0037-engine-product-wall-and-changelog-rename.md)
+    the partition allows id reuse — engine/adr/0052 (S-0055) and
+    product/adr/0052 (S-0045) both exist). When omitted, both registries
+    are searched and a duplicate-id match returns the multiple-files
+    failure that surfaces the collision.
+
+    Per [Issue #19](https://github.com/StarshipSuperjam/paideia/issues/19).
+    """
+    if directory is not None and directory not in ("engine", "product"):
+        return False, (
+            f"invalid directory {directory!r} (must be 'engine', 'product', or omitted)"
+        )
+    candidate_dirs: tuple[Path, ...]
+    if directory is not None:
+        candidate_dirs = (REPO_ROOT / directory / "adr",)
+    else:
+        candidate_dirs = (
+            REPO_ROOT / "engine" / "adr",
+            REPO_ROOT / "product" / "adr",
+        )
     matches: list[Path] = []
-    for adr_dir in (REPO_ROOT / "engine" / "adr", REPO_ROOT / "product" / "adr"):
+    for adr_dir in candidate_dirs:
         if not adr_dir.exists():
             continue
         matches.extend(sorted(adr_dir.glob(f"{id}-*.md")))
     if not matches:
-        return False, f"no ADR file found for id {id}"
+        scope = f" in {directory}/adr" if directory else ""
+        return False, f"no ADR file found for id {id}{scope}"
     if len(matches) > 1:
         return False, f"multiple ADR files match id {id}: {[p.name for p in matches]}"
     text = matches[0].read_text()

@@ -365,7 +365,7 @@
       "name": "Phase 5 closeout (engine/build_readiness/phase_5_closeout.md + ENGINE_LOG + STATE.md + optional close ADR)",
       "depends_on": ["P5-11"],
       "criteria": [
-        {"type": "adr_status", "id": "0052", "status": "Accepted"},
+        {"type": "adr_status", "id": "0052", "status": "Accepted", "directory": "product"},
         {"type": "file_exists", "path": "engine/build_readiness/phase_5_closeout.md"},
         {"type": "validate_passes"}
       ],
