@@ -48,6 +48,7 @@ The engine collection has **17 ADRs total — all Accepted**. Engine ADRs are ab
 | [0051](0051-routine-mode-and-engine-loop.md) | Routine-mode session pattern and engine-loop foundation | Accepted |
 | [0052](0052-routine-boot-freshness-and-concurrency-defense.md) | Routine-mode boot freshness and concurrency defense | Accepted |
 | [0053](0053-mechanism-first-exercise-gate.md) | Mechanism-first-exercise gate for novel cross-cutting mechanisms | Accepted |
+| [0054](0054-lifecycle-push-wrapping-against-default-branch-push-gate.md) | Lifecycle-push wrapping against the Default Branch Push gate | Accepted |
 
 ## Adding a new engine ADR
 

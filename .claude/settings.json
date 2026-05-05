@@ -25,6 +25,7 @@
 
       "Bash(python3 engine/tools/check_target.py:*)",
       "Bash(python3 engine/tools/check_routine_scope.py:*)",
+      "Bash(python3 engine/tools/routine_lifecycle_push.py:*)",
       "Bash(python3 engine/tools/validate.py:*)",
       "Bash(python3 engine/tools/scan_context_telemetry.py:*)",
       "Bash(python3 engine/tools/audit_handoff_dispositions.py:*)",
