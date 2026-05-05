@@ -1,0 +1,12 @@
+{
+  "id": "S-0060",
+  "started_at": "2026-05-05T04:53:58Z",
+  "status": "in_progress",
+  "mode": "build",
+  "working_on": "Land routine_lifecycle_push.py wrapper tool to bypass the local-routine 'Default Branch Push' harness gate that blocked S-0059's eager-claim push. Three modes (eager-claim, deliverable, close), each mechanically shape-verifying HEAD before pushing via subprocess. User-directed interactive build session preempting the planned routine fire for P5-05 (which will resume after the wrapper lands and routines can run unattended again). Empirical Phase 0 probe verifies the subprocess-bypass hypothesis before committing the full wrapper. Comprehensive test coverage (~20 tests against tmp-dir bare-repo fixtures) per the user's 'test, test, test' directive — half a dozen prior routine sessions all required follow-up bug fixes that better up-front testing would have prevented.",
+  "declared_scope": "Phase 0: engine/tools/probe_push_gate.py (~40 lines) + engine/tools/test_probe_push_gate.py + engine/build_readiness/routine_lifecycle_push_first_exercise.md (per ADR 0053 mechanism-first-exercise gate). Phase 1: engine/tools/routine_lifecycle_push.py (~150 lines) + engine/tools/test_routine_lifecycle_push.py (~250 lines, ~20 tests covering well-formed accepts, shape-verification rejects per mode, push-failure paths, edge cases) + engine/adr/0054-lifecycle-push-wrapping-against-default-branch-push-gate.md + engine/operations/routine-mode-operations.md (Lifecycle pushes subsection) + .claude/skills/routine-mode-lifecycle/SKILL.md (3 call-site updates) + .claude/settings.json (one allowlist entry) + CLAUDE.md (one bullet under Routine-mode posture machinery list). Phase 2: live verification via interactive dry-run + one routine fire. Three commits expected: (1) Phase 0 probe + readiness note, (2) Phase 1 foundations (ADR + ops doc), (3) Phase 1 mechanization + wiring (tool + tests + Skill + settings + CLAUDE.md). Sub-range S-0060 in lifecycle-tooling category.",
+  "outcome_summary": null,
+  "approved_plan": "/Users/shanekidd/.claude/plans/what-is-going-on-wild-falcon.md",
+  "branch": "claude/peaceful-albattani-4d67ed",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/peaceful-albattani-4d67ed"
+}
