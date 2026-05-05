@@ -1,0 +1,11 @@
+{
+  "id": "S-0072",
+  "started_at": "2026-05-05T20:50:00Z",
+  "status": "in_progress",
+  "mode": "interactive",
+  "working_on": "Engine apparatus: close routine close-out gaps. (1) Parent main FF post-push in routine_lifecycle_push.py — fixes the 'every new-worktree boot needs FF' pattern that the user surfaced from this conversation's own boot-freshness check. Routine close pushes from inside its worktree on a feature branch (HEAD:main); origin/main advances but parent's local main does not, so newly-created worktrees inherit stale main. Interactive close already does parent-side FF before push; routine close does not. (2) Auto-sweep current worktree at routine close — Issue #16 follow-on, currently untracked. (3) One-shot manual cleanup of accumulated stale worktrees (Issue #16). (4) S-0071 archive missing_rigor_score 289 → 316 (Issue #25). Boot note: this conversation booted while S-0071 was actively running in funny-roentgen worktree (the user named that explicitly); S-0071 closed normally during plan-mode investigation. The recovery push attempted at /start-engine boot returned 'Everything up-to-date' — origin/main already had S-0071's close.",
+  "outcome_summary": null,
+  "approved_plan": "/Users/shanekidd/.claude/plans/a-routine-session-is-magical-lark.md",
+  "branch": "claude/cranky-fermat-b30b4a",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/cranky-fermat-b30b4a"
+}
