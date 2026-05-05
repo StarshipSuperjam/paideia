@@ -33,6 +33,22 @@ Modes
   diff falls within the active task's scope_lock ∪ operational allowlist.
 - ``close``       — Skill step 11 close push. Verifies close commit shape.
 
+Parent-side fast-forward (post-push)
+------------------------------------
+After a successful push, the wrapper performs a best-effort parent-side
+``git -C <parent> merge --ff-only origin/<target>`` to advance the
+parent repo's local main. Routine sessions push from inside a linked
+worktree on a feature branch (``HEAD:main``); that advances
+``origin/main`` and the local tracking ref but leaves the parent's
+local ``main`` at its prior commit. Newly-created worktrees inherit
+that stale main and the next routine fire's boot-freshness gate has to
+fast-forward. The interactive close procedure (``session-build-lifecycle.md``)
+already runs the parent-side FF *before* push; this is the routine-side
+equivalent, run *after* push. Failure to FF (parent on a non-target
+branch, uncommitted changes that conflict, etc.) is logged but does
+NOT propagate to the wrapper exit code — boot-freshness remains the
+safety net per ADR 0052.
+
 Exit codes
 ----------
 - ``0`` — push succeeded.
@@ -465,6 +481,78 @@ def verify_close_shape(repo: Path, remote: str, target: str) -> tuple[bool, str]
     return True, f"close shape verified (slot {before['last_claimed']})"
 
 
+def get_parent_repo_path(repo: Path) -> Path | None:
+    """Resolve the parent repo path for a linked worktree.
+
+    For a linked worktree, ``.git`` is a file pointing at
+    ``<parent>/.git/worktrees/<name>``. ``git rev-parse --git-common-dir``
+    returns the path to the shared ``.git`` directory; the parent repo
+    root is its parent directory. The result may be relative (parent
+    invocations) or absolute (worktree invocations); both cases are
+    resolved to an absolute path.
+
+    Returns ``None`` on git error or unexpected layout (bare repo etc.).
+    Returns the same path as ``repo`` when ``repo`` IS the parent (i.e.,
+    not a linked worktree); the caller should treat that as a no-op.
+    """
+    result = _run_git(["rev-parse", "--git-common-dir"], repo)
+    if result.returncode != 0:
+        return None
+    common_dir = Path(result.stdout.strip())
+    if not common_dir.is_absolute():
+        common_dir = (repo / common_dir).resolve()
+    else:
+        common_dir = common_dir.resolve()
+    if common_dir.name != ".git":
+        return None
+    return common_dir.parent
+
+
+def parent_ff(repo: Path, target: str) -> tuple[bool, str]:
+    """Best-effort parent-side ``git merge --ff-only origin/<target>`` post-push.
+
+    Routine sessions push from a linked worktree on a feature branch
+    (``HEAD:main``). After push, ``origin/main`` and the local tracking
+    ref are current but the parent repo's local ``main`` is not — so
+    newly-created worktrees inherit stale ``main``. This helper closes
+    the gap by FF-ing parent's main from origin/main after push.
+
+    The function refuses (without modifying state) when:
+    - parent isn't on the target branch (FF would advance the wrong branch),
+    - the git merge --ff-only refuses (uncommitted changes that would
+      conflict; not actually a fast-forward; etc.).
+
+    Returns ``(True, reason)`` on success or no-op (running in parent),
+    ``(False, reason)`` on a meaningful refusal. Caller logs both forms
+    but does not propagate failure to the wrapper exit code.
+    """
+    parent = get_parent_repo_path(repo)
+    if parent is None:
+        return False, "could not resolve parent repo path"
+    if parent == repo:
+        return True, "no-op (running in parent repo, not a linked worktree)"
+
+    head_branch_result = _run_git(["rev-parse", "--abbrev-ref", "HEAD"], parent)
+    if head_branch_result.returncode != 0:
+        return False, "could not determine parent's current branch"
+    head_branch = head_branch_result.stdout.strip()
+    if head_branch != target:
+        return (
+            False,
+            f"parent on branch {head_branch!r}, not {target!r}; skipping FF",
+        )
+
+    ref = f"origin/{target}"
+    result = _run_git(["merge", "--ff-only", ref], parent)
+    if result.returncode == 0:
+        head = _run_git(["rev-parse", "--short", "HEAD"], parent).stdout.strip()
+        return True, f"parent main FF'd to {head}"
+
+    msg_source = result.stderr.strip() or result.stdout.strip() or "unknown error"
+    msg = msg_source.splitlines()[0] if msg_source else "unknown error"
+    return False, f"refused: {msg}"
+
+
 def push(repo: Path, remote: str, target: str) -> tuple[int, str, str]:
     """Push HEAD to remote/target via subprocess. Returns (exit_code, stdout, stderr).
 
@@ -574,6 +662,16 @@ def main(argv: list[str] | None = None) -> int:
         )
         if stdout.strip():
             print(stdout.strip(), file=sys.stderr)
+
+        ff_ok, ff_reason = parent_ff(repo, target)
+        if ff_ok:
+            print(f"[routine-lifecycle-push] {ff_reason}", file=sys.stderr)
+        else:
+            print(
+                f"[routine-lifecycle-push] parent FF best-effort failed: {ff_reason}",
+                file=sys.stderr,
+            )
+
         return 0
 
     if code == 3:

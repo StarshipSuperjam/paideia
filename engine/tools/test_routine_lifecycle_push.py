@@ -22,7 +22,9 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from routine_lifecycle_push import (  # noqa: E402
     CLOSE_ALLOWED_GLOBS,
+    get_parent_repo_path,
     main,
+    parent_ff,
     push,
     verify_close_shape,
     verify_deliverable_shape,
@@ -692,3 +694,143 @@ def test_dry_run_verifies_but_does_not_push(
         check=True,
     ).stdout.strip()
     assert head_before_origin == head_after_origin
+
+
+# ---------------------------------------------------------------------------
+# Parent-side FF post-push (the gap closed by this session)
+# ---------------------------------------------------------------------------
+
+
+def _make_clone_with_worktree(tmp_path: Path) -> tuple[Path, Path, Path]:
+    """Returns (origin, clone, worktree). Clone is on main with the standard
+    initial state; worktree is a linked worktree on feature branch
+    `claude/test-worktree`, sharing the clone's `.git` directory."""
+    origin, clone = _make_origin_with_clone(tmp_path)
+    worktree = tmp_path / "worktree"
+    _git(
+        ["worktree", "add", "-b", "claude/test-worktree", str(worktree)],
+        clone,
+    )
+    _git(["config", "user.email", "test@example.com"], worktree)
+    _git(["config", "user.name", "Test"], worktree)
+    return origin, clone, worktree
+
+
+def test_get_parent_repo_path_resolves_for_linked_worktree(tmp_path: Path) -> None:
+    """From a linked worktree, get_parent_repo_path returns the clone's path."""
+    _origin, clone, worktree = _make_clone_with_worktree(tmp_path)
+    parent = get_parent_repo_path(worktree)
+    assert parent is not None
+    assert parent.resolve() == clone.resolve()
+
+
+def test_get_parent_repo_path_returns_self_for_parent(tmp_path: Path) -> None:
+    """From the parent (clone), get_parent_repo_path returns the same path."""
+    _origin, clone = _make_origin_with_clone(tmp_path)
+    parent = get_parent_repo_path(clone)
+    assert parent is not None
+    assert parent.resolve() == clone.resolve()
+
+
+def test_parent_ff_advances_parent_main_after_push(tmp_path: Path) -> None:
+    """After pushing from worktree, parent_ff advances parent's local main."""
+    _origin, clone, worktree = _make_clone_with_worktree(tmp_path)
+
+    parent_head_before = _git(["rev-parse", "main"], clone).stdout.strip()
+
+    # Make a commit on the worktree's branch and push to main
+    (worktree / "wt-file").write_text("hi\n")
+    _git(["add", "."], worktree)
+    _git(["commit", "-m", "feat: from worktree"], worktree)
+    _git(["push", "origin", "HEAD:main"], worktree)
+
+    # Parent main is still at the prior commit (push advanced origin/main only)
+    parent_head_after_push = _git(["rev-parse", "main"], clone).stdout.strip()
+    assert parent_head_after_push == parent_head_before
+
+    # parent_ff brings parent's main current
+    ok, reason = parent_ff(worktree, "main")
+    assert ok, f"expected success, got: {reason}"
+    assert "parent main FF'd to" in reason
+
+    parent_head_after_ff = _git(["rev-parse", "main"], clone).stdout.strip()
+    assert parent_head_after_ff != parent_head_before
+    worktree_head = _git(["rev-parse", "HEAD"], worktree).stdout.strip()
+    assert parent_head_after_ff == worktree_head
+
+
+def test_parent_ff_noop_when_called_from_parent(tmp_path: Path) -> None:
+    """parent_ff returns success no-op when called against the parent itself."""
+    _origin, clone = _make_origin_with_clone(tmp_path)
+    ok, reason = parent_ff(clone, "main")
+    assert ok
+    assert "no-op" in reason
+
+
+def test_parent_ff_refuses_when_parent_on_different_branch(tmp_path: Path) -> None:
+    """parent_ff refuses if the parent is checked out on a non-target branch."""
+    _origin, clone, worktree = _make_clone_with_worktree(tmp_path)
+
+    # Switch parent to a different branch (not main)
+    _git(["checkout", "-b", "experiment"], clone)
+
+    # Make a commit on the worktree and push to main
+    (worktree / "wt-file").write_text("hi\n")
+    _git(["add", "."], worktree)
+    _git(["commit", "-m", "feat: from worktree"], worktree)
+    _git(["push", "origin", "HEAD:main"], worktree)
+
+    parent_head_before = _git(["rev-parse", "HEAD"], clone).stdout.strip()
+    ok, reason = parent_ff(worktree, "main")
+    assert not ok
+    assert "experiment" in reason
+    # Parent's HEAD must not have moved
+    parent_head_after = _git(["rev-parse", "HEAD"], clone).stdout.strip()
+    assert parent_head_after == parent_head_before
+
+
+def test_main_invokes_parent_ff_after_successful_eager_claim_push(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """End-to-end: main(eager-claim) push success advances parent's local main."""
+    _origin, clone, worktree = _make_clone_with_worktree(tmp_path)
+
+    parent_head_before = _git(["rev-parse", "main"], clone).stdout.strip()
+    _make_eager_claim_commit(worktree)
+
+    rc = main(["eager-claim", "--repo-root", str(worktree)])
+    assert rc == 0
+
+    captured = capsys.readouterr()
+    assert "parent main FF'd to" in captured.err
+
+    parent_head_after = _git(["rev-parse", "main"], clone).stdout.strip()
+    assert parent_head_after != parent_head_before
+    worktree_head = _git(["rev-parse", "HEAD"], worktree).stdout.strip()
+    assert parent_head_after == worktree_head
+
+
+def test_main_returns_zero_when_parent_ff_fails(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """parent_ff failure does NOT propagate to main()'s exit code — best-effort."""
+    _origin, clone, worktree = _make_clone_with_worktree(tmp_path)
+
+    # Force parent_ff to refuse: switch parent off main
+    _git(["checkout", "-b", "experiment"], clone)
+
+    _make_eager_claim_commit(worktree)
+    rc = main(["eager-claim", "--repo-root", str(worktree)])
+    assert rc == 0  # push succeeded; parent_ff failure is non-fatal
+
+    captured = capsys.readouterr()
+    assert "parent FF best-effort failed" in captured.err
+    # Origin/main DID advance (push succeeded)
+    origin_head = subprocess.run(
+        ["git", "-C", str(_origin), "rev-parse", "main"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    worktree_head = _git(["rev-parse", "HEAD"], worktree).stdout.strip()
+    assert origin_head == worktree_head
