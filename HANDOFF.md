@@ -186,3 +186,49 @@ After this fix lands, P5-01b (Epistemology specialized; depends only on P5-01a) 
 **Resolved: 2026-05-04 (S-0051).** One-line column swap landed at `engine/tools/check_target.py:114` (`version` → `name`); regression test `test_migration_applied_queries_name_column` added asserting SQL uses the `name` column with the descriptive id. Live verification: `check_target.py --task-id P5-01a` reports both criteria PASS. P5-01a flipped to `complete` in `auto_target.json` (status field only); `blocked_reason` cleared. [Issue #9](https://github.com/StarshipSuperjam/paideia/issues/9) closed. The routine resumes — P5-01b through P5-10 become eligible.
 
 ---
+
+## S-0061 close commit landed locally but not pushed — routine_lifecycle_push.py close-mode allowlist missing `engine/session/current_plan.md`
+
+**Discovered:** S-0061 (2026-05-05). The routine session for P5-05 Political philosophy completed all substantive work cleanly: eager-claim and deliverable both pushed via the wrapper; P5-05 verified PASS on both criteria; STATE.md, ENGINE_LOG.md, archive S-0061.json all authored; close commit `cd33979` landed locally with subject `chore(session): close S-0061 — Phase 5 political-philosophy seed; P5-05 complete`. The pre-commit hook chain (validate.py + audit_handoff_dispositions.py + audit_archive_structured_fields.py) all passed clean.
+
+The close push via `python3 engine/tools/routine_lifecycle_push.py close` REFUSED with exit 0 + the message:
+
+```
+[routine-lifecycle-push] REFUSED (close): close diff touches paths outside the operational allowlist (['HANDOFF.md', 'engine/ENGINE_LOG.md', 'engine/STATE.md', 'engine/session/auto_target.json', 'engine/session/current.json', 'engine/session/register_state.json']): ['engine/session/current_plan.md']
+```
+
+The wrapper's hardcoded close-mode allowlist appears to be missing `engine/session/current_plan.md` AND `engine/session/archive/S-*.json` — the close commit deletes `current_plan.md` (the boot-time plan artifact created by step 6 of the routine-mode-lifecycle skill) and creates `archive/S-0061.json` (the close-time archive artifact). The S-*.json appears to be tolerated by some glob path the message doesn't list, but `current_plan.md` is not.
+
+The discrepancy is between:
+
+- The wrapper's hardcoded close-mode allowlist (per the REFUSED message): `HANDOFF.md, ENGINE_LOG.md, STATE.md, auto_target.json, current.json, register_state.json`
+- The routine-mode-lifecycle Skill's documented operational allowlist (`.claude/skills/routine-mode-lifecycle/SKILL.md` step 9): the same six PLUS `engine/session/current_plan.md` AND `engine/session/archive/S-*.json`
+
+Per CLAUDE.md "Routine-mode posture (load-bearing)", the operational allowlist is supposed to include `current_plan.md`. The wrapper enforces a narrower allowlist than the documented one.
+
+**Local state at handoff:**
+
+- Local HEAD: `cd33979` (close commit; 1 commit ahead of `origin/main`)
+- `origin/main` HEAD: `2ccdd71` (the deliverable commit which DID push successfully; S-0061's substantive work is on origin/main)
+- Working tree clean
+- Routine lock acquired but pending release (will be released by the cleanup at the end of this routine fire)
+- `engine/session/current.json` and `engine/session/current_plan.md` are deleted (staged in close commit)
+- `engine/session/register_state.json`: `current_status: "closed"`, `next_id: "0062"`, `last_claimed: "S-0061"`
+- `engine/session/auto_target.json`: P5-05 status = `complete`
+- `engine/session/archive/S-0061.json`: created
+- ENGINE_LOG and STATE.md: updated
+
+**Why HANDOFF instead of in-band fix:** Per CLAUDE.md auto-mode interrupt criteria, this is a routine-mode session that cannot perform `git commit --amend` (forbidden by CLAUDE.md commit conventions) or `git reset --hard` (forbidden by destructive-action confirmation). Filing an Issue + writing HANDOFF + exiting cleanly is the documented routine-mode protocol for blockers per the skill body's "Auto-mode interrupt criteria" section.
+
+**Action for next interactive session:**
+
+1. Adjudicate the wrapper's allowlist gap. Two paths:
+   - **Path A (fix the wrapper):** add `engine/session/current_plan.md` (and confirm `engine/session/archive/S-*.json`) to `routine_lifecycle_push.py`'s close-mode `EXPECTED_PATHS` (or whatever the variable is named — see [`engine/tools/routine_lifecycle_push.py`](engine/tools/routine_lifecycle_push.py)). Add a regression test under `engine/tools/test_routine_lifecycle_push.py` covering the close-with-current_plan.md-deletion case. Then push S-0061's close commit (e.g. `git push origin main` from interactive context — the harness gate doesn't fire for interactive sessions per ADR 0054).
+   - **Path B (fix the convention):** if the intent is that `current_plan.md` should NOT be deleted at session close (i.e. left in place for next session to overwrite), update the routine-mode-lifecycle Skill body to explicitly say "do not delete current_plan.md at close" AND amend the S-0061 close commit to drop the deletion, then push.
+
+2. Either way, file or extend an Issue documenting the wrapper-vs-skill allowlist gap.
+
+3. After the close push lands, the routine cadence can resume normally; no Phase 5 task work was lost.
+
+**Disposition:** tracked-as-issue #17
+
