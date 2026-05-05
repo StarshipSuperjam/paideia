@@ -1,11 +1,54 @@
 {
   "id": "S-0067",
   "started_at": "2026-05-05T17:54:53Z",
-  "status": "in_progress",
+  "status": "closed",
+  "mode": "build",
+  "target_id": null,
+  "task_id": null,
   "working_on": "Unblock P5-06 in auto_target.json (status flip from blocked → pending; clear S-0063 blocked_reason now that Issue #18 was resolved at S-0064 AND T1-A subprocess-bypass hypothesis was verified at S-0066's apply_migration.py wrapper exercise) so the next routine fire of paideia-engine-loop picks Aesthetics. Recovery session — original eager-claim attempt at this slot collided with the routine's already-landed S-0066 (routine fire executed during plan authoring, picked P5-07a since P5-06 was still blocked). Local stale-claim discarded via git reset --hard origin/main with explicit user authorization.",
-  "outcome_summary": null,
+  "declared_scope": "engine/session/auto_target.json (P5-06 status field + blocked_reason clear) — operational allowlist; no scope-lock. phase: NA-engine-bookkeeping",
+  "outcome_summary": "P5-06 Aesthetics unblocked at S-0067 — two-line edit on engine/session/auto_target.json (status: blocked → pending; blocked_reason: stale S-0063 reason → null) so the next routine fire of paideia-engine-loop walks eligibility, finds P5-06 with depends_on [P5-01a] satisfied, and picks Aesthetics for 0110_seed_aesthetics_part1.sql. The unblock is now safe because (a) Issue #18 was resolved at S-0064 commit 6b7999c via the engine/tools/apply_migration.py wrapper per ADR 0055; (b) T1-A subprocess-bypass hypothesis (the load-bearing test for the wrapper from routine context) closed at S-0066's clean exercise on P5-07a Philosophy of mind core (apply succeeded single-call, recorded in schema_migrations as version 20260505170416). Per CLAUDE.md routine-mode posture, blocked → pending is a master-plan revision routing through an interactive session — which is what S-0067 is. **Recovery from stale-claim collision**: original S-0066 eager-claim attempt at boot collided with the routine fire's already-landed S-0066 (executed during plan authoring; routine pushed first). Local commit b475c42 discarded via git reset --hard origin/main with explicit user authorization (CLAUDE.md destructive-action confirmation). Session re-claimed S-0067 cleanly. The collision shape is distinct from ADR 0052's eager-claim race (origin/main HEAD here is the rival's close commit, not eager-claim commit; routine_eager_claim_recovery.py's shape verifier would refuse and manual reset is the right path). Two commits before close: eager-claim 531fb69 (register + current.json) and deliverable d2edab6 (auto_target.json unblock). **Routine UI prompt cleanup (out-of-repo, user-owned)**: plan's Phase 2 surfaced real drift in the Claude Code Routine UI's Instructions field — names 'session-build-lifecycle skill in routine mode' (the actual skill is 'routine-mode-lifecycle'); redundantly summarizes the slash command body; omits the wrappers (apply_migration.py, routine_lifecycle_push.py) and gates (routine_boot_freshness.py, routine_lock.py). Recommended replacement is just /start-routine. Verification: validate.py 30 checks 0 hard-fails 241 soft-warns (236 missing_rigor_score expected per phase_5.md T2-C partial-seed shape with 246 total nodes from S-0066's seed; 5 issue_collision: #1, #2, #16, #20, #21 upstream/non-blockers). Forward state: routine cadence resumes; next routine fire claims S-0068 and authors 0110_seed_aesthetics_part1.sql for P5-06. Phase 5 progress unchanged: 9/16 tasks complete; 9 routine sessions consumed of 18 max_sessions per phase_5.md T1-C.",
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": true,
+    "explanation": "Yes. Plan declared scope was a two-line edit on engine/session/auto_target.json (P5-06 status flip + blocked_reason clear) plus an out-of-repo UI prompt update the user owns. Both Step 1 (the auto_target.json edit) and Step 3 (T1-A verification) are now complete — Step 1 landed in commit d2edab6; Step 3 was verified end-to-end during plan authoring when the routine fire executed against S-0066, exercised apply_migration.py cleanly, and closed T1-A. Step 2 (UI prompt update) remains user-owned out-of-repo. Recovery from the stale-claim collision was named explicitly in the plan-relative outcome (the plan said 'commit S-0066'; the routine got S-0066; this session pivoted to S-0067 cleanly with explicit user authorization for the destructive action) — not a scope expansion, the same logical work landed."
+  },
   "approved_plan": "/Users/shanekidd/.claude/plans/routine-mode-is-blocked-pure-wilkinson.md",
   "branch": "claude/heuristic-gates-d71b84",
   "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/heuristic-gates-d71b84",
-  "declared_scope": "engine/session/auto_target.json (P5-06 status field + blocked_reason clear) — operational allowlist; no scope-lock. phase: NA-engine-bookkeeping"
+  "closed_at": "2026-05-05T18:06:36Z",
+  "issues_filed": [],
+  "commits": [
+    {"sha": "531fb69", "type": "chore(session)", "summary": "eager-claim S-0067 — unblock P5-06 for next routine fire"},
+    {"sha": "d2edab6", "type": "chore(target)", "summary": "unblock P5-06 — Issue #18 resolved at S-0064; T1-A verified at S-0066"}
+  ],
+  "side_discoveries": [
+    "Stale-claim collision shape distinct from ADR 0052's eager-claim race. ADR 0052's routine_eager_claim_recovery.py mechanically verifies a narrow recovery (HEAD = exactly one commit ahead of origin/main, both commits being eager-claims for the same slot). When a routine fires AND closes during another session's planning window, the rival session may then attempt to eager-claim the same slot post-rival-close — origin/main HEAD is a *close* commit, not an eager-claim commit, so the recovery tool's shape verifier (correctly) refuses. Manual git reset --hard origin/main with explicit user authorization is the right path here. Worth a posture-doc note that ADR 0052's coverage is the FIRE-during-FIRE collision, not the FIRE-during-PLANNING collision; the latter is structurally rarer (interactive sessions read state at boot and would normally see 'closed' before claiming) but happens when planning is long enough to span a routine fire. Not urgent to mechanize — the manual reset takes one user-authorized command.",
+    "Routine UI prompt drift named 'session-build-lifecycle skill in routine mode' — this skill does not exist for routine fires. The actual routine skill is 'routine-mode-lifecycle' (per .claude/skills/routine-mode-lifecycle/SKILL.md, frontmatter: disable-model-invocation: true). Routine fires reading this misleading entry point have to recover. Plan recommended replacing UI prompt with just /start-routine (the slash command body is the canonical comprehensive boot procedure). User owns the UI edit; out-of-repo. Worth pairing with a CLAUDE.md or operations-doc bullet noting: 'When the AI inside a routine fire reads a UI prompt that diverges from the slash command body, treat the slash command as canonical.'"
+  ],
+  "outcome_summary_soft_warns": {
+    "expected_future_file_missing": 0,
+    "adr_missing_status": 0,
+    "adr_index_inconsistent": 0,
+    "cross_reference_broken": 0,
+    "engine_log_format": 0,
+    "state_format": 0,
+    "superseded_adr_currency": 0,
+    "adr_back_reference_orphan": 0,
+    "adr_consequences_deliverable_audit": 0,
+    "chromadb_palace_health": 0,
+    "repo_config_health": 0,
+    "issue_collision": 5,
+    "graph_audit_skipped": 0,
+    "undeclared_predicate": 0,
+    "attribute_shape_inconsistency": 0,
+    "missing_rigor_score": 236,
+    "render_readiness_violation": 0,
+    "synthetic_review_queue": 0,
+    "orphan_leaf": 0,
+    "suspicious_cross_domain_ratio": 0,
+    "diary_skipped": 0,
+    "routine_no_target_reference": 0,
+    "routine_issue_spam": 0
+  }
 }
