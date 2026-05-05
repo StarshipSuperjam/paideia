@@ -43,6 +43,10 @@ Conclusion: raw push to main from interactive context does NOT trigger the gate.
 
 This run confirms the probe script executes end-to-end correctly and that subprocess push is functionally available. It does **not** answer the load-bearing question (we already knew interactive push works via any path). The signal is binary "probe runs cleanly," which it does.
 
+### Phase 2 interactive verification (S-0060 close)
+
+Before pushing the S-0060 close commit raw (interactive sessions don't trigger the gate), the wrapper's `close` mode is dry-run against the actual close commit shape via `python3 engine/tools/routine_lifecycle_push.py close --dry-run`. This is real-world data, not a fixture. **Result (appended at S-0060 close):** see the close commit message for the dry-run output verifying `close shape verified (slot S-0060)`.
+
 ### Run 3 — subprocess push to main from routine context (the load-bearing test) — DEFERRED to Phase 2
 
 **Why deferred:** running a routine fire mid-build-session is operationally awkward (the routine would either claim S-0061 — colliding with this session — or refuse due to the in-progress check). The cleaner verification is to land Phase 1's full wrapper, then trigger one routine fire manually as Phase 2 verification. The wrapper's `eager-claim` mode pushes via the same subprocess mechanism the probe tests; if the wrapper-driven eager-claim push lands cleanly from the routine fire, the subprocess-bypass hypothesis is empirically confirmed *and* the wrapper itself is verified end-to-end in one stroke.
@@ -55,10 +59,10 @@ This run confirms the probe script executes end-to-end correctly and that subpro
 
 | ID | Finding | Status |
 |---|---|---|
-| T1-A | Subprocess-bypass hypothesis is unverified for routine context | **Pending Phase 2 verification.** Phase 0 Run 2 confirms the probe works end-to-end from interactive; the load-bearing routine-context test happens via Phase 2 wrapper verification (see "Run 3" above). |
-| T1-B | Wrapper's shape-verification rejects must catch every mode's malformed-commit case | Resolved in Phase 1 by ~20 pytests covering each predicate's well-formed-accept and shape-violation-reject. Pre-merge gate: `pytest engine/tools/test_routine_lifecycle_push.py -v` green. |
-| T1-C | Wrapper's push-failure handling must distinguish gate-fired vs network vs FF-rejected vs generic-git-error | Resolved in Phase 1 by per-failure-mode exit codes (3/4/5) and stderr guidance. Test coverage in the same pytest suite. |
-| T1-D | Skill body's three call sites must reference the wrapper, not raw `git push` | Resolved in Phase 1 by Skill body edits. Verified by manual inspection at commit time + the post-commit live-verification probe. |
+| T1-A | Subprocess-bypass hypothesis is unverified for routine context | **Pending the user's first routine fire post-S-0060.** Phase 0 Run 2 confirmed subprocess push to throwaway branch from interactive context (commit `dafaad6` on remote ref `claude/probe-push-gate-20260505T045706Z`). The load-bearing routine-context test happens when the user manually triggers `paideia-engine-loop` once with the wrapper in place: if the wrapper-driven eager-claim push lands cleanly on origin/main from the routine context, T1-A closes. If the harness gate fires (wrapper exits 3 instead of 0): file Issue `bug + priority:urgent`, fall back to PR-based flow per ADR 0054. |
+| T1-B | Wrapper's shape-verification rejects must catch every mode's malformed-commit case | **Resolved at S-0060.** 21 pytests (3 well-formed accepts + 12 shape rejects + 3 push failures + 3 edge cases) all green. `pytest engine/tools/test_routine_lifecycle_push.py -v` is the pre-merge gate. |
+| T1-C | Wrapper's push-failure handling must distinguish gate-fired vs network vs FF-rejected vs generic-git-error | **Resolved at S-0060** by per-failure-mode exit codes 0/2/3/4/5 and stderr guidance. Test coverage: `test_push_failure_non_fast_forward_returns_3`, `test_push_failure_unreachable_remote_returns_4`, `test_push_failure_missing_remote_returns_5`. |
+| T1-D | Skill body's three call sites must reference the wrapper, not raw `git push` | **Resolved at S-0060.** Skill body edits verified by manual inspection of the diff at commit time. Three call sites updated (step 8 eager-claim, step 9-area deliverable, step 11 close), each documenting the wrapper's exit-code routing. |
 
 ## Tier 2 findings (settle in advance, document)
 
