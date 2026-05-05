@@ -207,8 +207,8 @@
           "product/seed-graph/migrations/ROUTING.md"
         ]
       },
-      "status": "blocked",
-      "blocked_reason": "decision-required: routine-mode DB-apply path denied; see Issue #18 and HANDOFF S-0063 entry"
+      "status": "pending",
+      "blocked_reason": null
     },
     {
       "id": "P5-07a",
