@@ -58,6 +58,7 @@ Edit the `## Current` table:
 
 - **Last build session** → `S-<this session's id> (<date>) — <one-line summary>`.
 - **Last commit on main** → leave the placeholder pointing at `git log --oneline -1 main`; the next session reads it live.
+- **Trim policy (size guard)**: delete every row labeled "Prior build session" or "Prior-prior build session" from the table — keep only the new "Last build session" row. These rows duplicate ENGINE_LOG.md; accumulating them without a drop bound caused STATE.md to exceed the MCP tool read limit at S-0069. If STATE.md still exceeds ~20,000 tokens after the row drop, also collapse the "Current phase" cell to the current-state summary form: `Phase N — <description> (in progress/closed; S-XXXX → present). N/M tasks complete. K ADRs — J Accepted + L Superseded — A engine + B product. Full session history in ENGINE_LOG.md.`
 
 Edit the `## Next session work item` block:
 
