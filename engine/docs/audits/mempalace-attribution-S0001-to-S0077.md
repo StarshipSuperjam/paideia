@@ -1,7 +1,21 @@
 # MemPalace attribution audit — S-0001 to S-0077
 
 > One-shot audit produced by [`engine/tools/audit_mempalace_attribution.py`](../../tools/audit_mempalace_attribution.py).
-> Per [ADR 0056](../../adr/0056-mempalace-mechanical-adoption-checks.md) and the approved plan at `~/.claude/plans/use-of-mempalace-by-velvety-pebble.md` (Part B). Surfaces the per-session worklist that `recover_mempalace_from_transcript.py` consumes.
+> Per [ADR 0056](../../adr/0056-mempalace-mechanical-adoption-checks.md) and the approved plan at `~/.claude/plans/use-of-mempalace-by-velvety-pebble.md` (Part B). Surfaces the per-session list of missing deliberate-content writes (diary entries; pushback / lesson / decision drawers).
+
+## Recovery shape (corrected at S-0080)
+
+S-0079 misread the recovery direction twice (subagent-driven first-person extraction; user-driven analytical-voice from a separate session). The actual recovery shape, per the user's direction:
+
+- The user has the original sessions still accessible.
+- The user pastes a brief reflection prompt into each missing session.
+- That original session writes its own MemPalace entries in its own voice — no impersonation, honest first-person attribution to its own `S-NNNN`, original session's own context (no transcript re-reading needed).
+
+The reflection prompt to give each original session lives in the chat history where the prompt was developed; copy it from there. It instructs the session to: search MemPalace first to avoid duplicates, then write a diary entry (via `mempalace_diary_write`), pushback drawers (`room=problems`), lesson drawers (`room=lessons`), and decision drawers (`room=decisions`) for any ADRs the session authored — each with `added_by` set to the session's own id.
+
+The S-0079 wrapper `engine/tools/recover_mempalace_from_transcript.py` and the user-driven recovery guide at `engine/docs/audits/mempalace-recovery-guide-user-driven.md` were both deleted at S-0080 — they encoded the wrong shape (separate session reading transcripts) and would mislead future readers.
+
+This audit report (the missing-session list below) is the only S-0079 deliverable that survives. The B1 audit script that produced it (`engine/tools/audit_mempalace_attribution.py`) also stays.
 
 ## Summary
 
