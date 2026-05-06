@@ -4,6 +4,7 @@
   "status": "in_progress",
   "mode": "interactive",
   "working_on": "MemPalace recovery (Part B per approved plan at ~/.claude/plans/use-of-mempalace-by-velvety-pebble.md): build engine/tools/audit_mempalace_attribution.py + engine/tools/recover_mempalace_from_transcript.py; run audit; dry-run executor on one high-priority session; scale recovery via subagent transcript-crawl across S-0032 → S-0077 missing-content sessions if quality validates. Approved S-0079 plan at ~/.claude/plans/to-continue-to-keen-lemur.md. OQ-DEC1 settlement and Phase 6 master plan authoring shift to S-0080+.",
+  "declared_scope": "Build B1 (audit_mempalace_attribution.py one-shot tool) + run it to produce engine/docs/audits/mempalace-attribution-S0001-to-S0077.md. Build B3 (recover_mempalace_from_transcript.py one-shot wrapper that spawns Agent subagents). Dry-run B3 on one high-priority routine session to validate extraction quality. If quality validates, scale recovery in batches across the audit's missing-content session list, tracking progress at engine/docs/audits/mempalace-recovery-progress.md. Halt at sensible boundary if budget caps; the next session resumes from progress file.",
   "outcome_summary": null,
   "approved_plan": "/Users/shanekidd/.claude/plans/to-continue-to-keen-lemur.md",
   "branch": "claude/objective-torvalds-9e135c",
