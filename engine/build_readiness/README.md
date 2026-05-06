@@ -16,7 +16,12 @@ See [`../operations/build-readiness-gate.md`](../operations/build-readiness-gate
 |---|---|---|---|
 | [`phase_3_sql.md`](phase_3_sql.md) | S-0027 | S-0028 | Build session closed |
 | [`phase_4_graph_validation.md`](phase_4_graph_validation.md) | S-0034 | S-0037 | Build session closed |
-| [`phase_5.md`](phase_5.md) | S-0045 (master plan) | Routine-mode (per [ADR 0051](../adr/0051-routine-mode-and-engine-loop.md)) — 16 explicit tasks per [`engine/session/auto_target.json`](../session/auto_target.json) | Authored, awaiting routine activation |
+| [`phase_5.md`](phase_5.md) | S-0045 (master plan) | Routine-mode (per [ADR 0051](../adr/0051-routine-mode-and-engine-loop.md)) — 16 explicit tasks per [`engine/session/auto_target.json`](../session/auto_target.json) | Routine block executed S-0050 → S-0076; phase closed |
+| [`phase_5_production_audit_gate.md`](phase_5_production_audit_gate.md) | S-0081 (audit-warrant gate, novel class) | Audit master-plan session pending PROCEED recommendation | Gate authored; PROCEED recommended; master plan + 12-evidence-session block + closeout(s) follow |
+
+The `phase_5_production_audit_gate.md` report is a new class — an *audit-warrant gate* — that determines whether a multi-session production audit is warranted before the master-plan session sets it up. Structurally it parallels the standard build-readiness gate (Tier 1/2/3 triage adapted to PROCEED/RESCOPE/CANCEL outcomes) but its consumer is a future gate session (the audit master-plan), not a build session. The closeout session of the audit will introduce two further report classes (production-audit, audit-system-input) and update this index accordingly per [Issue #26](https://github.com/StarshipSuperjam/paideia/issues/26).
+
+Closeout-class reports (e.g., [`phase_5_closeout.md`](phase_5_closeout.md)) and first-exercise readiness notes (e.g., [`apply_migration_first_exercise.md`](apply_migration_first_exercise.md), [`mempalace_mechanical_adoption_first_exercise.md`](mempalace_mechanical_adoption_first_exercise.md), [`routine_lifecycle_push_first_exercise.md`](routine_lifecycle_push_first_exercise.md)) and apparatus-improvement reports (e.g., [`engine_apparatus_improvements_s0042.md`](engine_apparatus_improvements_s0042.md)) currently live in this directory without being indexed in the table above. The closeout session of the production audit (currently planned for S-0094 or thereabouts) is the natural surface to introduce a multi-class indexing structure resolving Issue #26.
 
 ## Lifecycle
 
