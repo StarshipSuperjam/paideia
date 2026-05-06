@@ -64,6 +64,7 @@
       "Bash(bash engine/tools/hooks/session-start.sh:*)",
       "Bash(bash engine/tools/hooks/post-adr-write.sh:*)",
       "Bash(bash engine/tools/hooks/post-state-edit.sh:*)",
+      "Bash(bash engine/tools/hooks/post-mempalace-tool-use.sh:*)",
       "Bash(bash engine/tools/hooks/mempalace-hook-wrapper.sh:*)",
       "Bash(bash engine/tools/hooks/pre-commit:*)",
 
@@ -132,6 +133,15 @@
           {
             "type": "command",
             "command": "engine/tools/hooks/post-state-edit.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__mempalace__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "engine/tools/hooks/post-mempalace-tool-use.sh"
           }
         ]
       }

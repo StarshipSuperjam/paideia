@@ -48,3 +48,9 @@ npm-debug.log*
 
 # Per-clone validate.py telemetry (consumed by health checks; per-AI-local).
 engine/tools/validate-history.jsonl
+
+# Per-session MemPalace MCP-call telemetry (per ADR 00NN; this session).
+# Written by engine/tools/hooks/post-mempalace-tool-use.sh on every
+# mcp__mempalace__* call; rolled up into archive `mempalace_activity` field
+# at session close; deleted after rollup. Per-clone, never committed.
+engine/session/current_mempalace.jsonl

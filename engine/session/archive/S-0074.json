@@ -56,7 +56,6 @@
     "synthetic_review_queue": 0,
     "orphan_leaf": 0,
     "suspicious_cross_domain_ratio": 0,
-    "diary_skipped": 0,
     "routine_no_target_reference": 0,
     "routine_issue_spam": 0,
     "health_check_overdue": 0

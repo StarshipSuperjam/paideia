@@ -172,7 +172,52 @@ If drawers aren't appearing: check `~/.mempalace/hook_state/` for stale lock fil
 
 - **Hook auto-capture wing-naming derives per-worktree wings.** Diagnosed at S-0040 against mempalace 3.3.3 (full-encoded-path wings); **behavior changed but not fixed in 3.3.4**, re-verified at S-0043. The 3.3.4 derivation in `mempalace/hooks_cli.py:_wing_from_transcript_path()` does `encoded.rsplit("-", 1)[-1]` and returns `wing_<last-token>`. Direct invocation against sample paths: main session derives `wing_paideia`; worktree session derives `wing_<random-hash>` (e.g., `wing_a5d511`) — still per-worktree because each worktree's path-suffix is unique. The S-0001 / S-0002 era documented a single bare `paideia` wing for project content; the new auto-capture `wing_paideia` is a **distinct wing** from the documented `paideia` wing (488 drawers, manually curated as of S-0041). The `mempalace hook run` CLI does not accept a `--wing` argument; the hook wrapper at [`engine/tools/hooks/mempalace-hook-wrapper.sh`](../tools/hooks/mempalace-hook-wrapper.sh) cannot pass a wing override. Compounded by the wing-search bug above: even if the wing-naming were corrected, wing-filtered search would still be broken. Practical impact: project content lands across multiple worktree-derived wings plus a separate `wing_paideia` for main-session captures; unfiltered search still surfaces all of it; the documented bare `paideia` wing remains as a manually-curated anchor from explicit `mempalace_add_drawer` and historical `mempalace mine --wing paideia` invocations. No in-project remediation required while the upstream bugs persist; document as project reality. Filed as Issue [#2](https://github.com/StarshipSuperjam/paideia/issues/2).
 
+## Mechanical adoption checks (per ADR 0056, S-0078)
+
+Pre-S-0078 the deliberate uses of MemPalace were posture-only — the project relied on the AI honestly invoking `mempalace_search` at boot, `mempalace_diary_read` at boot, and `mempalace_diary_write` at shutdown, plus self-recording `diary_skipped: 1` when the diary write was missed. [Issue #27](https://github.com/StarshipSuperjam/paideia/issues/27) confirmed the gap: 12 of 16 Phase 5 routine sessions silently skipped the diary write AND the `diary_skipped` self-record. Both directions failed; the persistent-warn 3-of-5 surface stayed inert.
+
+S-0078 mechanizes the three deliberate uses end-to-end:
+
+**Telemetry layer.** A `PostToolUse` hook matched on `mcp__mempalace__.*` invokes [`engine/tools/hooks/post-mempalace-tool-use.sh`](../tools/hooks/post-mempalace-tool-use.sh) on every MemPalace MCP call. The hook appends a single JSONL line to `engine/session/current_mempalace.jsonl` with shape `{"ts": "<iso>", "tool": "<name>", "args_summary": "<truncated>"}`. Always exits 0; never blocks. Per-session, gitignored, cleared at archive.
+
+**Rollup layer.** [`engine/tools/scan_mempalace_activity.py`](../tools/scan_mempalace_activity.py) runs at session-shutdown step 0 (before the audit pass). Reads `current_mempalace.jsonl`, counts calls per tool, writes the structured `mempalace_activity` field into `current.json`:
+
+```json
+"mempalace_activity": {
+  "search_calls": 3,
+  "diary_read_calls": 1,
+  "diary_write_calls": 1,
+  "add_drawer_calls": 2,
+  "status_calls": 0,
+  "list_drawers_calls": 0,
+  "other_calls": 0,
+  "total_calls": 7,
+  "first_call_ts": "...",
+  "last_call_ts": "..."
+}
+```
+
+The field carries forward into the archive. Future health checks query archives via `jq` for "which sessions used MemPalace?" — structured data, not prose grep. The structural-fields audit ([`audit_archive_structured_fields.py`](../tools/audit_archive_structured_fields.py)) requires `mempalace_activity` on every archive ≥ S-0078.
+
+**Audit layer.** `validate.py --final-check` (gated CLI flag; only invoked at shutdown step 1) reads `mempalace_activity` and emits three categories:
+
+| Category | Severity | Trigger |
+|---|---|---|
+| `mempalace_boot_query_skipped` | soft-warn | `search_calls == 0` |
+| `mempalace_diary_read_skipped` | soft-warn | `diary_read_calls == 0` |
+| `mempalace_diary_write_skipped` | **hard-fail** | `diary_write_calls == 0` AND no acknowledgement-token in `outcome_summary` |
+| `mempalace_diary_write_acknowledged_skip` | soft-warn | `diary_write_calls == 0` AND `mempalace_unavailable_acknowledged: <reason>` is in `outcome_summary` |
+
+**Severity rationale.** Boot query and diary read fail more gracefully (re-invokable mid-session; cost is "context not retrieved" not "data lost"). Diary write is the only first-person reflection layer — once a session closes without it, the reflection is irretrievable except via expensive transcript-crawl. Hard-fail there forces the issue while it's still cheap.
+
+**Acknowledgement-token escape hatch.** Legitimate edge cases exist (MCP server unreachable; routine session that early-exits with nothing meaningful to reflect on; fresh repo). Add `mempalace_unavailable_acknowledged: <one-line reason>` to `outcome_summary` of `current.json` before the final validate; the hard-fail downgrades to a soft-warn. Misuse is detectable — persistent acknowledged-skips fire the same 3-of-5 escalation as unacknowledged ones (per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md)).
+
+**Field migration.** The pre-S-0078 `diary_skipped` (manually-recorded) was renamed to `mempalace_diary_write_skipped` (mechanically-detected) across every existing archive via [`engine/tools/migrate_diary_skipped_archive_field.py`](../tools/migrate_diary_skipped_archive_field.py). One-shot migration; idempotent.
+
+**Coverage.** All session types — interactive build (`/start-engine`) AND routine (`/start-routine`). Default-mode (exploration, non-build) sessions are exempt because they have no formal slot or shutdown sequence.
+
 ## See also
 
 - [`mempalace-tagging-conventions.md`](mempalace-tagging-conventions.md) — when to apply which tag, and where each tag's drawers go (room-targeting conventions added at S-0032).
 - `HANDOFF.md` (top-level) — historical record of the MemPalace setup decisions made in S-0001.
+- [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md) — the contract layer for the mechanical adoption checks added at S-0078 (closes Issues #27 and #20).

@@ -42,8 +42,7 @@
     "issue_collision": 2,
     "empty_declared_scope": 0,
     "phase_mismatch_declared_scope": 0,
-    "scope_delivery_non_yes": 0,
-    "diary_skipped": 0
+    "scope_delivery_non_yes": 0
   },
   "approved_plan": "/Users/shanekidd/.claude/plans/i-m-seeing-some-recurring-clever-axolotl.md",
   "branch": "claude/admiring-heisenberg-c97499",

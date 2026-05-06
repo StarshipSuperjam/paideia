@@ -58,10 +58,13 @@ This is referenced by [`session-build-lifecycle.md`](session-build-lifecycle.md)
 3. **Target-met check.** Run `check_target.py` against every task; every task `status == complete` AND its criteria still pass → log "target met, no claim" → exit 0.
 4. **Max-sessions check.** Count routine-mode sessions in `engine/session/archive/` matching the current `target_id`; ≥ `max_sessions` → write HANDOFF "max_sessions reached for `<target_id>`" → exit 0.
 5. **Eligibility selection.** Walk tasks in order; pick the first whose `status == pending` AND `depends_on` are all `complete`. None found → write HANDOFF "no eligible task" → exit 0.
+5.5. **MemPalace boot query** (per ADR 0056, S-0078). Call `mempalace_search` with terms derived from the picked task's `name` plus `scope_lock.allowed_paths` basenames. Skip silently on first failure. Mechanically backstopped by `mempalace_boot_query_skipped` soft-warn — `engine/tools/hooks/post-mempalace-tool-use.sh` records the call to `engine/session/current_mempalace.jsonl`; `validate.py --final-check` at shutdown emits the soft-warn if no call landed.
+5.6. **MemPalace diary read** (per ADR 0056, S-0078). Call `mempalace_diary_read agent_name="claude" last_n=3`. Mechanically backstopped by `mempalace_diary_read_skipped` soft-warn.
 6. **Plan authoring.** Write a session plan to [`engine/session/current_plan.md`](../session/current_plan.md) with fields:
    - `paths_to_modify: [<glob>, ...]` — every file the session intends to touch
    - `criteria_addressed: [<criterion_index>, ...]` — indices into the active task's criteria list
    - prose rationale (free-form; ignored by the checker)
+   - the rationale should fold in any context surfaced by steps 5.5 and 5.6.
 7. **Scope-check.** Run `engine/tools/check_routine_scope.py --plan engine/session/current_plan.md`. Exit 0 → proceed; non-zero → write HANDOFF "scope-check failed: `<reason>`" → exit 0.
 8. **Claim slot.** Standard eager-claim ritual: bump `register_state.json`, write `engine/session/current.json`, mark task `in_progress` in target file, commit, FF main, push.
 
@@ -70,6 +73,8 @@ This is referenced by [`session-build-lifecycle.md`](session-build-lifecycle.md)
 9. **Execute work.** Pre-commit hook re-runs `check_routine_scope.py --staged` against staged files (task scope_lock ∪ operational allowlist). Out-of-scope discoveries route to `gh issue create`. Genuine blockers route to HANDOFF + mark task `blocked` + early shutdown.
 10. **Verify completion.** After work commits clean: re-run task criteria via `check_target.py --task-id <id>`. All pass → mark task `complete` (commit). Any fail → mark `blocked: <reason>` (commit) + write HANDOFF.
 11. **Shutdown.** Run the standard shutdown sequence per [`session-shutdown-sequence.md`](session-shutdown-sequence.md). Issues created during the session count into `outcome_summary` for shutdown review. **Last action**: `engine/tools/routine_lock.py release` (per ADR 0052; releases the step-0b lock for the next routine fire).
+
+   **Issue #27 root cause (Phase 5 silent diary-skip across 12/16 routine sessions).** The pre-S-0078 routine-mode-lifecycle SKILL enumerated a SUBSET of canonical shutdown steps that omitted the diary write and the pushback/lesson capture asks; routine sessions followed the enumeration in practice. Closed at S-0078 by (a) explicitly enumerating diary write + pushback/lesson capture in the routine-mode-lifecycle SKILL step 11 and (b) mechanizing the diary-write check as `mempalace_diary_write_skipped` hard-fail in `validate.py --final-check`. The shutdown sequence's MemPalace activity rollup (`scan_mempalace_activity.py` before the audit pass) writes the `mempalace_activity` field to `current.json` so the audit can see the per-tool call counts.
 
 ### Concurrency control (per ADR 0052)
 

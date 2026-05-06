@@ -1,81 +1,90 @@
 """Session-shutdown audit for missing structured archive fields.
 
-Layer 1 contract per ADR 0042 + ADR 0048.
+Layer 1 contract per ADR 0042 + ADR 0048; parameterized at S-0078 per
+ADR 0056 (this session) and Issue #20 closure.
 
 Purpose
 -------
-Defend the persistent-warn surface (per ADR 0042) against silent
-field-absence lapses in session archives. The surface counts categories
-inside ``outcome_summary_soft_warns`` and flags persistence at 3-of-5
-recent archives. The mechanism *cannot detect a missing field* — a
-session that forgets to write the field is invisible to the surface for
-the next 5 sessions.
+Defend the archive structured-field contract against silent field-absence
+lapses. Multiple ADRs have added structured fields to the archive over
+time, and each accumulates an audit-coverage gap unless the audit is
+extended to cover the new field. Issue #20 (S-0065 Finding A; S-0077
+strengthening evidence) flagged the recurring pattern:
 
-Empirical evidence: the S-0052 health-check audit found that S-0043
-through S-0047 (five consecutive archives) lacked the field entirely
-(not empty — the JSON key was absent). The boot-surface message
-"calibration window in effect (4/5 structured archives; surface defers
-until 5)" was the visible symptom; the root cause was the absent field.
+==============  =====================================  =============================  ============
+Added by        Field                                  Field-absence emerged at       Caught at
+==============  =====================================  =============================  ============
+ADR 0042        ``outcome_summary_soft_warns``         S-0057 archive                 S-0065
+ADR 0051        ``mode``                               S-0065 + S-0069 archives       S-0077
+ADR 0056        ``mempalace_activity`` (this session)  (none yet — S-0078 forward)    n/a
+==============  =====================================  =============================  ============
 
-This audit fires at session-shutdown after the structured field is
-written and BEFORE the archive is committed. Hard-fail blocks the close.
+The S-0078 closure parameterizes the audit to a declarative
+``REQUIRED_ARCHIVE_FIELDS`` list. Future structured-field ADRs add a row
+to that list in the same session per ADR 0053 mechanism-first-exercise-gate
+framing — no audit code change required.
 
-Symmetric in shape to ``audit_handoff_dispositions.py`` — that audit
-catches HANDOFF disposition lapses; this audit catches archive-field
-lapses. Both fire from the pre-commit hook on closing commits, both
-exit 2 on hard-fail, both report to stderr.
+In-flight mode (default)
+------------------------
+Reads the in-flight ``engine/session/current.json``; for every required
+field whose ``since_session`` is ``<=`` the session's id, validates the
+field is present, non-null, and of the expected shape. Hard-fails block
+the close commit (the pre-commit hook invokes via ``--from-stdin`` on
+``chore(session): close S-NNNN`` commits).
 
-Inputs
-------
-The session's in-flight ``engine/session/current.json``. The audit
-reads the file, validates the field, and exits.
+Archive-history mode (``--archive-history``)
+--------------------------------------------
+Walks every ``engine/session/archive/S-NNNN.json`` and reports any
+archive whose session id is ``>=`` a field's ``since_session`` but lacks
+the field (or carries it with the wrong shape). Informational only — does
+NOT modify historical archives. Closes Issue #20: the health-check audit
+pass that surfaces the lapse class as a structured cross-archive report
+instead of relying on per-audit ad-hoc grep.
 
 Detection
 ---------
-1. ``outcome_summary_soft_warns`` key missing → hard-fail.
-2. ``outcome_summary_soft_warns`` value is JSON ``null`` → hard-fail.
-3. ``outcome_summary_soft_warns`` value is ``{}`` (empty dict) → pass.
-   Empty is the legitimate shape for a session whose validate.py emitted
-   no warnings (rare but possible). The optional secondary check below
-   catches the "default-empty written without thought" failure mode
-   without blocking the legitimate case.
+For each field in ``REQUIRED_ARCHIVE_FIELDS``:
+
+1. If ``current_session_id < since_session_id``: skip (field not yet
+   required at this session's vintage).
+2. Field absent → hard-fail.
+3. Field is JSON ``null`` → hard-fail.
+4. Field has the wrong shape (dict expected got list, etc.) → hard-fail.
+5. Field is the legitimate empty value (``{}`` for dict, ``""`` for str,
+   ``0`` for int) → pass with optional advisory.
 
 Optional secondary check (soft-warn only, exit 0)
 -------------------------------------------------
-If ``outcome_summary_soft_warns`` is present but empty AND the session
-had >= 3 commits (counted via the auto-detected eager-claim range), emit
-a stderr soft-warn pointing at the likely "wrote empty by default"
-pattern. This is an advisory; the field is technically present and
-non-null, so the hard-fail does not fire.
+For ``outcome_summary_soft_warns`` specifically: if the field is present
+but ``{}`` AND the session had ``>= 3`` commits since eager-claim, emit
+a stderr advisory pointing at the likely "wrote empty by default"
+pattern. Preserved from the pre-S-0078 contract.
 
 Exit codes
 ----------
-- ``0`` — field present and non-null (with optional soft-warn note).
-- ``2`` — field absent or null. Per-finding detail to stderr.
+- ``0`` — every required field present and well-formed (in-flight mode);
+  archive-history report emitted (informational mode).
+- ``2`` — at least one field absent, null, or malformed (in-flight mode).
 
 CLI
 ---
 - ``audit_archive_structured_fields.py`` — defaults to
   ``engine/session/current.json`` under the script's repo root.
-- ``audit_archive_structured_fields.py --current-path PATH`` — override
-  the input path (any file with the same JSON shape works).
-- ``audit_archive_structured_fields.py --from-stdin`` — read the JSON
-  from stdin instead. Used by the pre-commit hook on closing commits,
-  which pipes the staged archive content via ``git show :<path>``.
-  current.json has been deleted in the staged commit at that point.
-- ``audit_archive_structured_fields.py --repo-root PATH`` — override
-  for test fixtures (used when computing the eager-claim range for
-  the optional secondary check).
+- ``--current-path PATH`` — override the input path.
+- ``--from-stdin`` — read the JSON from stdin instead. Used by the
+  pre-commit hook on closing commits.
+- ``--repo-root PATH`` — override for test fixtures (used when computing
+  the eager-claim range for the optional secondary check).
+- ``--archive-history`` — walk every archive, emit Markdown report to
+  stdout, exit 0. Informational mode for Issue #20.
 
 Out of scope
 ------------
-- No detection of *malformed* ``outcome_summary_soft_warns`` shapes
-  (e.g., a list instead of a dict, or string keys with non-int values).
-  ``validate.py`` writes the field; if it goes wrong upstream, that's
-  a validate.py bug, not this audit's concern.
-- No archive-history audit. This fires only against the in-flight
-  ``current.json``. Retroactively detecting lapses across past archives
-  belongs in ``health_check.py`` (see S-0052 Finding C for prior art).
+- No detection of malformed nested values within a structured field
+  (e.g., a string-keyed dict whose values aren't ints). ``validate.py``
+  writes the fields; per-field invariants belong upstream.
+- No backfill of historical archives. Archive-history mode REPORTS;
+  it does not modify.
 """
 
 from __future__ import annotations
@@ -86,29 +95,93 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CURRENT_PATH = REPO_ROOT / "engine" / "session" / "current.json"
+ARCHIVE_DIR = REPO_ROOT / "engine" / "session" / "archive"
 EAGER_CLAIM_PATTERN = re.compile(
     r"^chore\(session\): eager-claim S-\d{4}\b", re.MULTILINE
 )
+SESSION_ID_PATTERN = re.compile(r"^S-(\d{4})$")
 EMPTY_DICT_COMMIT_THRESHOLD = 3
 
 
-def load_current(path: Path) -> dict[str, object]:
-    """Read and parse the in-flight session file."""
-    with path.open("r", encoding="utf-8") as f:
-        data: dict[str, object] = json.load(f)
-        return data
+# Declarative field set. Each entry names a structured archive field, the
+# session vintage from which it became required, the expected JSON shape,
+# and the ADR that introduced it. Add a row when a new structured-field
+# ADR lands — do NOT change the audit logic itself.
+REQUIRED_ARCHIVE_FIELDS: list[dict[str, str]] = [
+    {
+        "field": "outcome_summary_soft_warns",
+        "since_session": "S-0055",
+        "shape": "dict",
+        "adr": "ADR 0042",
+    },
+    {
+        "field": "mode",
+        "since_session": "S-0048",
+        "shape": "str",
+        "adr": "ADR 0051",
+    },
+    {
+        "field": "mempalace_activity",
+        "since_session": "S-0078",
+        "shape": "dict",
+        "adr": "ADR 0056 (S-0078)",
+    },
+]
+
+
+def parse_session_id(session_str: str | None) -> int | None:
+    """Parse 'S-NNNN' to integer NNNN. Returns None on malformed input."""
+    if not isinstance(session_str, str):
+        return None
+    m = SESSION_ID_PATTERN.match(session_str.strip())
+    if m is None:
+        return None
+    return int(m.group(1))
+
+
+def shape_check(value: Any, expected: str) -> str | None:
+    """Return error string if value's shape doesn't match expected, else None."""
+    if value is None:
+        return "value is null"
+    if expected == "dict":
+        if not isinstance(value, dict):
+            return f"expected dict, got {type(value).__name__}"
+    elif expected == "str":
+        if not isinstance(value, str):
+            return f"expected str, got {type(value).__name__}"
+    elif expected == "int":
+        if not isinstance(value, int) or isinstance(value, bool):
+            return f"expected int, got {type(value).__name__}"
+    elif expected == "list":
+        if not isinstance(value, list):
+            return f"expected list, got {type(value).__name__}"
+    else:
+        return f"unknown expected shape '{expected}' (audit bug)"
+    return None
+
+
+def applicable_fields(session_id_int: int | None) -> list[dict[str, str]]:
+    """Return REQUIRED_ARCHIVE_FIELDS rows applicable to a session id."""
+    if session_id_int is None:
+        # Session id unparseable — defensively check every field. The check
+        # itself will hard-fail if the session lacks any of them.
+        return list(REQUIRED_ARCHIVE_FIELDS)
+    out: list[dict[str, str]] = []
+    for row in REQUIRED_ARCHIVE_FIELDS:
+        since = parse_session_id(row.get("since_session"))
+        if since is not None and session_id_int >= since:
+            out.append(row)
+    return out
 
 
 def session_commit_count(repo: Path) -> int | None:
     """Best-effort count of commits since the eager-claim.
 
-    Returns None if no eager-claim is found in the recent history (in which
-    case the secondary check is skipped). The count includes the eager-claim
-    commit itself, so a typical 'just-claimed-no-other-commits' session
-    returns 1.
+    Returns None if no eager-claim is found in the recent history.
     """
     try:
         result = subprocess.run(
@@ -126,13 +199,163 @@ def session_commit_count(repo: Path) -> int | None:
     return None
 
 
+def audit_one(
+    data: dict[str, Any], source_label: str, repo: Path | None
+) -> tuple[int, list[str]]:
+    """Audit a single session payload. Returns (exit_code, advisory_lines).
+
+    Hard-fail messages are printed to stderr inside this function.
+    Advisory lines are returned for the caller to print (stderr) — they
+    do not affect the exit code.
+    """
+    session_id_str = data.get("id") if isinstance(data.get("id"), str) else None
+    session_id_int = parse_session_id(session_id_str)
+    fields = applicable_fields(session_id_int)
+    advisories: list[str] = []
+    failures: list[str] = []
+
+    for row in fields:
+        field = row["field"]
+        expected = row["shape"]
+        adr = row.get("adr", "(unknown ADR)")
+        since = row.get("since_session", "(unknown vintage)")
+
+        if field not in data:
+            failures.append(
+                f"{source_label} is missing the '{field}' key "
+                f"(required since {since} per {adr})."
+            )
+            continue
+
+        err = shape_check(data[field], expected)
+        if err is not None:
+            failures.append(
+                f"{source_label} has '{field}' with bad shape: {err} "
+                f"(required since {since} per {adr})."
+            )
+            continue
+
+        # Optional secondary check, scoped to outcome_summary_soft_warns.
+        if (
+            field == "outcome_summary_soft_warns"
+            and data[field] == {}
+            and repo is not None
+        ):
+            commit_count = session_commit_count(repo)
+            if commit_count is not None and commit_count >= EMPTY_DICT_COMMIT_THRESHOLD:
+                advisories.append(
+                    f"advisory: '{field}' is empty but session has "
+                    f"{commit_count} commits since eager-claim. If "
+                    f"validate.py emitted soft-warns during the session, the "
+                    f"field may have been written empty-by-default. Confirm."
+                )
+
+    if failures:
+        for msg in failures:
+            print(
+                f"[audit-archive-structured-fields] HARD-FAIL: {msg}",
+                file=sys.stderr,
+            )
+        print("", file=sys.stderr)
+        print(
+            "Per the relevant ADR, every session archive must carry the "
+            "named structured field with the expected shape. See "
+            "engine/operations/session-shutdown-sequence.md and "
+            "engine/tools/audit_archive_structured_fields.py "
+            "REQUIRED_ARCHIVE_FIELDS for the field-set declaration.",
+            file=sys.stderr,
+        )
+        return 2, advisories
+
+    return 0, advisories
+
+
+def archive_history_report(archive_dir: Path) -> str:
+    """Walk archives, return a Markdown report of structured-field gaps."""
+    if not archive_dir.is_dir():
+        return f"# Archive-history report\n\n_no archive directory at {archive_dir}_\n"
+
+    lines: list[str] = [
+        "# Archive-history audit — structured-field gaps",
+        "",
+        "Per Issue #20 (S-0065 origin; S-0078 mechanization). Walks every "
+        "`engine/session/archive/S-*.json` and reports any archive whose "
+        "session id is `>=` a required field's `since_session` but which "
+        "lacks the field or carries it with the wrong shape.",
+        "",
+        "Informational only. Historical archives are not modified.",
+        "",
+        "## Findings",
+        "",
+    ]
+
+    findings_count = 0
+    archives = sorted(archive_dir.glob("S-*.json"))
+    for archive in archives:
+        try:
+            payload = json.loads(archive.read_text())
+        except (json.JSONDecodeError, OSError):
+            lines.append(f"- **{archive.name}** — could not read or parse.")
+            findings_count += 1
+            continue
+
+        session_id_int = parse_session_id(
+            payload.get("id") if isinstance(payload.get("id"), str) else archive.stem
+        )
+        if session_id_int is None:
+            session_id_int = parse_session_id(archive.stem)
+
+        for row in applicable_fields(session_id_int):
+            field = row["field"]
+            expected = row["shape"]
+            since = row.get("since_session", "?")
+            adr = row.get("adr", "?")
+            if field not in payload:
+                lines.append(
+                    f"- **{archive.name}** missing `{field}` "
+                    f"(required since {since} per {adr})."
+                )
+                findings_count += 1
+                continue
+            err = shape_check(payload[field], expected)
+            if err is not None:
+                lines.append(
+                    f"- **{archive.name}** has `{field}` with bad shape "
+                    f"({err}) (required since {since} per {adr})."
+                )
+                findings_count += 1
+
+    if findings_count == 0:
+        lines.append(
+            "_no findings — every applicable archive carries every "
+            "required field with the expected shape._"
+        )
+    else:
+        lines.insert(
+            len(lines),
+            f"\n**Total findings: {findings_count}** across {len(archives)} archives.",
+        )
+
+    lines.append("")
+    lines.append("## Field set audited")
+    lines.append("")
+    for row in REQUIRED_ARCHIVE_FIELDS:
+        lines.append(
+            f"- `{row['field']}` — required since {row['since_session']} "
+            f"({row['shape']}); per {row['adr']}."
+        )
+    lines.append("")
+    return "\n".join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
     """CLI entry. Returns 0 on clean, 2 on hard-fail."""
     parser = argparse.ArgumentParser(
         description=(
-            "Audit the in-flight engine/session/current.json for the "
-            "outcome_summary_soft_warns structured field. Defends ADR 0042's "
-            "persistent-warn surface against silent field-absence lapses."
+            "Audit structured archive fields. Defaults to the in-flight "
+            "engine/session/current.json. --archive-history walks every "
+            "archive and emits a Markdown report (informational; closes "
+            "Issue #20)."
         ),
     )
     parser.add_argument(
@@ -154,9 +377,22 @@ def main(argv: list[str] | None = None) -> int:
         "--repo-root",
         type=Path,
         default=REPO_ROOT,
-        help="Repo root for git invocations (used by the secondary check).",
+        help="Repo root for git invocations.",
+    )
+    parser.add_argument(
+        "--archive-history",
+        action="store_true",
+        help=(
+            "Walk every engine/session/archive/S-*.json, emit Markdown "
+            "report to stdout, exit 0. Informational mode for Issue #20."
+        ),
     )
     args = parser.parse_args(argv)
+
+    if args.archive_history:
+        archive_dir = args.repo_root / "engine" / "session" / "archive"
+        print(archive_history_report(archive_dir))
+        return 0
 
     current_path: Path = args.current_path
     repo: Path = args.repo_root
@@ -181,7 +417,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         try:
-            data = load_current(current_path)
+            data = json.loads(current_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
             print(
                 f"[audit-archive-structured-fields] {current_path} is not valid "
@@ -190,74 +426,19 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 2
 
-    field = "outcome_summary_soft_warns"
-    if field not in data:
-        print(
-            f"[audit-archive-structured-fields] HARD-FAIL: "
-            f"{source_label} is missing the '{field}' key.",
-            file=sys.stderr,
-        )
-        print("", file=sys.stderr)
-        print(
-            "Per ADR 0042, every session archive must carry "
-            f"'{field}' (a dict mapping soft-warn category names to counts; "
-            "{} is acceptable for a clean session).",
-            file=sys.stderr,
-        )
-        print(
-            "Write the field at the shutdown step that builds outcome_summary "
-            "(see engine/operations/session-shutdown-sequence.md step 8). "
-            "Empirical lapses: S-0043 through S-0047 each lacked this field, "
-            "blinding the persistent-warn surface for 5 consecutive sessions.",
-            file=sys.stderr,
-        )
-        return 2
+    rc, advisories = audit_one(data, source_label, repo)
+    for advisory in advisories:
+        print(f"[audit-archive-structured-fields] {advisory}", file=sys.stderr)
 
-    value = data[field]
-    if value is None:
+    if rc == 0:
+        n_fields = len(applicable_fields(parse_session_id(data.get("id"))))
         print(
-            f"[audit-archive-structured-fields] HARD-FAIL: "
-            f"{source_label} has '{field}' set to null.",
-            file=sys.stderr,
+            f"[audit-archive-structured-fields] PASS: {n_fields} "
+            f"required field{'s' if n_fields != 1 else ''} present "
+            f"with expected shape{'s' if n_fields != 1 else ''}."
         )
-        print("", file=sys.stderr)
-        print(
-            "Null is a placeholder, not a value. If the session genuinely had "
-            "no soft-warns, write {} (empty dict). If validate.py reported "
-            "warnings, write the per-category counts dict.",
-            file=sys.stderr,
-        )
-        return 2
 
-    if not isinstance(value, dict):
-        print(
-            f"[audit-archive-structured-fields] HARD-FAIL: "
-            f"{source_label} has '{field}' of type "
-            f"{type(value).__name__}, expected dict.",
-            file=sys.stderr,
-        )
-        return 2
-
-    # Field is present, non-null, dict. Optional secondary check: if empty
-    # and the session had multiple commits, surface a stderr advisory.
-    if value == {}:
-        commit_count = session_commit_count(repo)
-        if commit_count is not None and commit_count >= EMPTY_DICT_COMMIT_THRESHOLD:
-            print(
-                f"[audit-archive-structured-fields] advisory: '{field}' is "
-                f"empty but session has {commit_count} commits since "
-                f"eager-claim. If validate.py emitted soft-warns during the "
-                f"session, the field may have been written empty-by-default. "
-                f"Confirm the empty value is intentional.",
-                file=sys.stderr,
-            )
-
-    n = len(value) if isinstance(value, dict) else 0
-    print(
-        f"[audit-archive-structured-fields] PASS: '{field}' present "
-        f"with {n} categor{'y' if n == 1 else 'ies'}."
-    )
-    return 0
+    return rc
 
 
 if __name__ == "__main__":

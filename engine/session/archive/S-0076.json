@@ -66,7 +66,6 @@
     "orphan_leaf": 0,
     "suspicious_cross_domain_ratio": 0,
     "graph_audit_skipped": 0,
-    "diary_skipped": 0,
     "routine_no_target_reference": 0,
     "routine_issue_spam": 0,
     "scope_delivery_non_yes": 0

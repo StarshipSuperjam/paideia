@@ -16,8 +16,7 @@
     "adr_back_reference_orphan": 0,
     "adr_consequences_deliverable_audit": 0,
     "chromadb_palace_health": 0,
-    "repo_config_health": 0,
-    "diary_skipped": 0
+    "repo_config_health": 0
   },
   "approved_plan": null,
   "branch": "claude/infallible-mestorf-084f1a",

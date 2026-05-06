@@ -2426,6 +2426,113 @@ def validate_graph(
 # ---------------------------------------------------------------------------
 
 
+def validate_mempalace_adoption() -> ValidationResult:
+    """Soft-warn boot-query/diary-read; hard-fail diary-write per ADR 0056 (S-0078).
+
+    Reads engine/session/current.json's ``mempalace_activity`` field (written
+    by ``scan_mempalace_activity.py`` at shutdown step 7-pre from
+    ``engine/session/current_mempalace.jsonl`` — the per-session telemetry
+    appended by the PostToolUse hook on every ``mcp__mempalace__*`` call).
+
+    Three categories:
+
+    - ``mempalace_boot_query_skipped`` (soft-warn) — fires when no
+      ``mempalace_search`` call recorded during the session.
+    - ``mempalace_diary_read_skipped`` (soft-warn) — fires when no
+      ``mempalace_diary_read`` call recorded.
+    - ``mempalace_diary_write_skipped`` (HARD-FAIL) — fires when no
+      ``mempalace_diary_write`` call recorded AND no acknowledgement token
+      in ``outcome_summary``. Hard-fail blocks the session close.
+
+    Acknowledgement-token escape hatch: if ``outcome_summary`` contains the
+    substring ``mempalace_unavailable_acknowledged:`` (followed by a
+    one-line reason), the diary-write hard-fail downgrades to a soft-warn
+    (``mempalace_diary_write_acknowledged_skip``). Misuse is detectable —
+    persistent acknowledged-skips fire the same 3-of-5 escalation.
+
+    Default-mode (exploration, non-build) sessions are exempt: when
+    ``current.json`` is absent there is no formal session to audit, and the
+    function returns a clean ValidationResult after recording one check.
+
+    Gated by the ``--final-check`` CLI flag — pre-commit hook invocations
+    (no flag) skip this validator so mid-session commits don't nag. The
+    shutdown SKILL invokes ``validate.py --final-check`` at step 7 after
+    ``scan_mempalace_activity.py`` has written the field.
+    """
+    r = ValidationResult()
+    r.add_check("validate_mempalace_adoption")
+
+    current_path = REPO_ROOT / "engine" / "session" / "current.json"
+    if not current_path.is_file():
+        # No formal session in flight — exploration mode. Adoption checks
+        # do not apply (no slot, no diary expectation).
+        return r
+
+    try:
+        current = json.loads(current_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        # Malformed current.json is caught by validate_repo_structure;
+        # don't double-fail here.
+        return r
+
+    activity = current.get("mempalace_activity")
+    if not isinstance(activity, dict):
+        # The field is the responsibility of scan_mempalace_activity.py;
+        # if it didn't run or wrote a bad shape, audit_archive_structured_fields
+        # catches that at closing-commit time. Skip the adoption check
+        # here rather than emitting confusing duplicate failures.
+        return r
+
+    search_calls = int(activity.get("search_calls", 0))
+    diary_read_calls = int(activity.get("diary_read_calls", 0))
+    diary_write_calls = int(activity.get("diary_write_calls", 0))
+
+    if search_calls == 0:
+        r.soft_warn(
+            "mempalace_boot_query_skipped",
+            "No mempalace_search call recorded during this session. The "
+            "boot-time MemPalace query (CLAUDE.md startup ceremony step 3 / "
+            "session-build-lifecycle step 3 / routine-mode-lifecycle step 5.5) "
+            "did not run, or its telemetry was not captured.",
+        )
+
+    if diary_read_calls == 0:
+        r.soft_warn(
+            "mempalace_diary_read_skipped",
+            "No mempalace_diary_read call recorded during this session. The "
+            "boot-time diary read (session-build-lifecycle step 3b / "
+            "routine-mode-lifecycle step 5.6) did not run.",
+        )
+
+    if diary_write_calls == 0:
+        outcome_summary = current.get("outcome_summary") or ""
+        if not isinstance(outcome_summary, str):
+            outcome_summary = ""
+        if "mempalace_unavailable_acknowledged:" in outcome_summary:
+            r.soft_warn(
+                "mempalace_diary_write_acknowledged_skip",
+                "No mempalace_diary_write call recorded BUT outcome_summary "
+                "carries the 'mempalace_unavailable_acknowledged:' token. "
+                "Hard-fail downgraded to soft-warn. If this fires across 3+ "
+                "of the last 5 sessions, the underlying problem deserves "
+                "investigation rather than repeated acknowledgement.",
+            )
+        else:
+            r.hard_fail(
+                "mempalace_diary_write_skipped: no mempalace_diary_write "
+                "call recorded during this session, and no "
+                "'mempalace_unavailable_acknowledged: <reason>' token in "
+                "outcome_summary. Per ADR 0056 (S-0078), the diary write is "
+                "the only first-person reflection layer — irretrievable once "
+                "the session closes. Either invoke mempalace_diary_write "
+                "now, or add the acknowledgement token to outcome_summary "
+                "with a one-line reason (MCP server unreachable, no work to "
+                "reflect on, etc.) and re-run validate.py --final-check."
+            )
+
+    return r
+
+
 def session_id_from_current() -> str:
     """Return the in-progress session id, or 'outside-session' if none.
 
@@ -2572,6 +2679,16 @@ def main(argv: list[str] | None = None) -> int:
         help="Files to pass to --code-gates or --sql-gates. Required when "
         "either gate flag is set.",
     )
+    parser.add_argument(
+        "--final-check",
+        action="store_true",
+        help="Include MemPalace adoption checks (boot-query / diary-read "
+        "soft-warns; diary-write hard-fail with acknowledgement-token "
+        "escape hatch) per ADR 0056 (S-0078). Invoked by the shutdown "
+        "SKILL at step 7 after scan_mempalace_activity.py has written the "
+        "mempalace_activity field. Pre-commit hook does NOT pass this flag "
+        "so mid-session commits are not nagged.",
+    )
     args = parser.parse_args(argv)
 
     start = time.monotonic()
@@ -2592,6 +2709,8 @@ def main(argv: list[str] | None = None) -> int:
         overall.merge(validate_scope_discipline())
         overall.merge(validate_routine_mode())
         overall.merge(validate_graph())
+        if args.final_check:
+            overall.merge(validate_mempalace_adoption())
 
     duration_ms = (time.monotonic() - start) * 1000
 

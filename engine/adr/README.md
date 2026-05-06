@@ -50,6 +50,7 @@ The engine collection has **17 ADRs total — all Accepted**. Engine ADRs are ab
 | [0053](0053-mechanism-first-exercise-gate.md) | Mechanism-first-exercise gate for novel cross-cutting mechanisms | Accepted |
 | [0054](0054-lifecycle-push-wrapping-against-default-branch-push-gate.md) | Lifecycle-push wrapping against the Default Branch Push gate | Accepted |
 | [0055](0055-apply-migration-wrapping-against-production-reads-gate.md) | Apply-migration wrapping against the Production Reads gate | Accepted |
+| [0056](0056-mempalace-mechanical-adoption-checks.md) | MemPalace mechanical adoption checks | Accepted |
 
 ## Adding a new engine ADR
 

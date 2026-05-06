@@ -14,9 +14,17 @@ At the end of every build session — once substantive work is at a commitable c
 
 ## Sequence
 
+### 0. MemPalace activity rollup (per ADR 0056, S-0078)
+
+Run `python3 engine/tools/scan_mempalace_activity.py`. The tool reads `engine/session/current_mempalace.jsonl` (per-session telemetry written by `engine/tools/hooks/post-mempalace-tool-use.sh` on every `mcp__mempalace__*` MCP call), counts calls per tool, and writes the structured `mempalace_activity` field into `engine/session/current.json`. Must run BEFORE step 1 so `validate.py --final-check` sees the field.
+
+Idempotent — re-running overwrites the rollup. Absence of the JSONL file (no MemPalace calls fired this session) writes a zero-count rollup; the audit's adoption check interprets zero counts per the ADR's severity rules.
+
 ### 1. Audit pass
 
-Run `python3 engine/tools/validate.py` from the repo root. Resolve any hard-fails — these are blocking by default in the pre-commit hook anyway, so reaching shutdown means the working tree should already be clean of hard-fails. If somehow a hard-fail surfaces (e.g., a file referenced in CROSS_REFERENCES.md that was intended but not authored), fix it before continuing.
+Run `python3 engine/tools/validate.py --final-check` from the repo root. The `--final-check` flag includes the MemPalace adoption checks per ADR 0056 (S-0078) — the two soft-warns (`mempalace_boot_query_skipped`, `mempalace_diary_read_skipped`) and the hard-fail (`mempalace_diary_write_skipped` — with acknowledgement-token escape hatch).
+
+Resolve any hard-fails — these are blocking by default in the pre-commit hook anyway, so reaching shutdown means the working tree should already be clean of hard-fails. The `mempalace_diary_write_skipped` hard-fail can be downgraded by adding `mempalace_unavailable_acknowledged: <reason>` to `outcome_summary` (see step 7's escape-hatch guidance) and re-running validate. If somehow a hard-fail surfaces (e.g., a file referenced in CROSS_REFERENCES.md that was intended but not authored), fix it before continuing.
 
 Soft-warns are not blocking but must be recorded — they feed health-check telemetry. Note the per-category counts; write them into `outcome_summary_soft_warns` at step 6.
 
@@ -154,9 +162,9 @@ After the diary write, run the **`pushback` / `lesson` capture check** (added at
 
 Both capture decisions are explicit yes/no asks at every shutdown — judgment-alone produced zero captures across the eight sessions between tag definition (S-0032) and the audit (S-0041). When the answer is no, no drawer is written. When yes, the drawer lands before step 8 so capture is durable before archive.
 
-If the diary write is skipped (deliberately or by accident), record `diary_skipped: 1` in `outcome_summary_soft_warns` at step 8 below. Per [ADR 0042](../../../engine/adr/0042-soft-warn-lifecycle-archive-canon.md)'s 3-of-5 threshold, three skipped diary writes in the last five sessions fire a persistent-warn at the next session's boot — the mechanical adoption check.
+**Diary write is mechanically enforced as of S-0078** (per ADR 0056). The previous posture (`diary_skipped: 1` self-recorded soft-warn) was load-bearing in name only — Issue #27 confirmed that 12 of 16 Phase 5 routine sessions silently skipped the diary write AND skipped the `diary_skipped` self-record, leaving the persistent-warn surface inert. Now `validate.py --final-check` (step 1) reads `mempalace_activity.diary_write_calls` from current.json and hard-fails (`mempalace_diary_write_skipped`) if zero. The previous `diary_skipped` field has been renamed to `mempalace_diary_write_skipped` across existing archives via `engine/tools/migrate_diary_skipped_archive_field.py`.
 
-If the MemPalace MCP server is unavailable at shutdown, attempt the write; if it fails, record `diary_skipped: 1` and proceed. The session does not block on the diary.
+**Acknowledgement-token escape hatch.** Legitimate edge cases exist (MCP server unreachable; routine session that early-exits with nothing meaningful to reflect on; fresh repo). The AI bypasses the hard-fail by writing a one-line acknowledgement into `outcome_summary` of `current.json` BEFORE the final validate call: `mempalace_unavailable_acknowledged: <one-line reason>`. The validator scans for the token; if present, the hard-fail downgrades to a soft-warn (`mempalace_diary_write_acknowledged_skip`) — which still participates in the 3-of-5 escalation per ADR 0042, so persistent acknowledged skips fire the same surface as unacknowledged ones.
 
 ### 7a. Scope-delivery audit (per ADR 0049)
 
@@ -207,11 +215,13 @@ If the transcript can't be located or `current.json` is missing, the tool emits 
   "adr_consequences_deliverable_audit": 0,
   "chromadb_palace_health": 0,
   "repo_config_health": 0,
-  "diary_skipped": 0
+  "mempalace_boot_query_skipped": 0,
+  "mempalace_diary_read_skipped": 0,
+  "mempalace_diary_write_skipped": 0
 }
 ```
 
-All known soft-warn categories appear in the block, even with zero counts; absent keys signal "this category did not exist at this session's close" rather than "this category fired zero times." The boot-time persistent-warn surface (per `soft-warn-lifecycle.md`) reads this field across the last 5 archives. `diary_skipped` is session-state (recorded by step 7), not validator output. `chromadb_palace_health` and `repo_config_health` are the shared-state probe categories per ADR 0045.
+All known soft-warn categories appear in the block, even with zero counts; absent keys signal "this category did not exist at this session's close" rather than "this category fired zero times." The boot-time persistent-warn surface (per `soft-warn-lifecycle.md`) reads this field across the last 5 archives. `chromadb_palace_health` and `repo_config_health` are the shared-state probe categories per ADR 0045. The three `mempalace_*_skipped` categories are emitted by `validate.py --final-check` per ADR 0056 (S-0078) reading `mempalace_activity` written by `scan_mempalace_activity.py` at step 0; the previous self-recorded `diary_skipped` was renamed to `mempalace_diary_write_skipped` and is now mechanically detected from telemetry.
 
 **Aggregation procedure:** filter `validate-history.jsonl` to entries with this session's `session_id` (or by timestamp window if any are tagged "outside-session"); for each category appearing in any entry, take the max count.
 

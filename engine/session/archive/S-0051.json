@@ -25,7 +25,6 @@
     "synthetic_review_queue": 0,
     "orphan_leaf": 0,
     "suspicious_cross_domain_ratio": 0,
-    "diary_skipped": 0,
     "health_check_overdue": 1,
     "issue_collision": 4
   },

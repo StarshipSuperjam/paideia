@@ -241,18 +241,20 @@ Shape:
   "synthetic_review_queue": 0,
   "orphan_leaf": 0,
   "suspicious_cross_domain_ratio": 0,
-  "diary_skipped": 0
+  "mempalace_boot_query_skipped": 0,
+  "mempalace_diary_read_skipped": 0,
+  "mempalace_diary_write_skipped": 0
 }
 ```
 
-All known soft-warn categories appear in the block, even with zero counts; absent keys signal "this category did not exist at this session's close" rather than "this category fired zero times." The boot-time persistent-warn surface (per [`soft-warn-lifecycle.md`](soft-warn-lifecycle.md)) reads this field across the last 5 archives and surfaces categories appearing in 3-or-more. `diary_skipped` is session-state (recorded by step 7 of this procedure), not validator output. `chromadb_palace_health` and `repo_config_health` are the shared-state probe categories per ADR 0045 — they fire on either suspicion (palace empty, etc.) or hard-broken (segfault, parent core.bare=true) state at any validator invocation during the session. The seven graph-audit categories (`undeclared_predicate` through `suspicious_cross_domain_ratio`) added at S-0037 per [ADR 0016](../adr/0016-graph-construction-needs-live-validation.md) and the [Phase 4 build-readiness gate](../build_readiness/phase_4_graph_validation.md) — they fire when `SUPABASE_DB_URL` is set and the audit runs against the live DB; sessions without DB connectivity record zeros (the audit skips entirely, recording `graph_audit_skipped` in `checks_run` rather than firing any category).
+All known soft-warn categories appear in the block, even with zero counts; absent keys signal "this category did not exist at this session's close" rather than "this category fired zero times." The boot-time persistent-warn surface (per [`soft-warn-lifecycle.md`](soft-warn-lifecycle.md)) reads this field across the last 5 archives and surfaces categories appearing in 3-or-more. The three `mempalace_*_skipped` categories are emitted by `validate.py --final-check` per ADR 0056 (S-0078) reading `mempalace_activity` written by `scan_mempalace_activity.py` at step 0; the previous self-recorded `diary_skipped` was renamed to `mempalace_diary_write_skipped` and is now mechanically detected from telemetry. `chromadb_palace_health` and `repo_config_health` are the shared-state probe categories per ADR 0045 — they fire on either suspicion (palace empty, etc.) or hard-broken (segfault, parent core.bare=true) state at any validator invocation during the session. The seven graph-audit categories (`undeclared_predicate` through `suspicious_cross_domain_ratio`) added at S-0037 per [ADR 0016](../adr/0016-graph-construction-needs-live-validation.md) and the [Phase 4 build-readiness gate](../build_readiness/phase_4_graph_validation.md) — they fire when `SUPABASE_DB_URL` is set and the audit runs against the live DB; sessions without DB connectivity record zeros (the audit skips entirely, recording `graph_audit_skipped` in `checks_run` rather than firing any category).
 
 **Aggregation procedure (per ADR 0045):**
 
 1. Determine session-base SHA: `git merge-base origin/main HEAD` (the commit immediately before the eager-claim).
 2. Read `engine/tools/validate-history.jsonl`. Filter entries whose `session_id` matches this session's S-NNNN (or whose timestamp falls between session-base time and now if `session_id` is "outside-session").
 3. For each soft-warn category appearing in any filtered entry's `soft_warns` dict, take the max count across all entries.
-4. Add `diary_skipped: 0` (or 1 if step 7 was skipped).
+4. Per ADR 0056 (S-0078), the three `mempalace_*_skipped` categories come from `validate.py --final-check` — they are part of the validate-history.jsonl entries from step 1, not separate session-state. The aggregation procedure picks them up automatically along with all other validator categories.
 5. Ensure every known category from the catalog appears with at least 0; absent keys carry the documented "category didn't exist" semantic.
 
 ### 9. Archive the claim
