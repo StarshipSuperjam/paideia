@@ -45,14 +45,26 @@ Downstream:
 
 Cleanup
 -------
-This tool does NOT delete the JSONL file. The shutdown SKILL deletes it
-after the archive commit lands (parallel to deleting current.json).
-Re-running this tool is idempotent — it overwrites ``mempalace_activity``
-with the current rollup.
+After successfully writing the rollup into ``current.json``, this tool
+truncates ``current_mempalace.jsonl`` to zero bytes so the next session's
+PostToolUse hook starts from a clean baseline. The truncation only fires
+on the success path — if the rollup write fails (e.g., ``current.json``
+absent), the JSONL stays intact for recovery. Per Issue #37 (S-0083): the
+JSONL was previously appended-to indefinitely across sessions, inflating
+each archive's ``mempalace_activity`` field with prior-session calls.
+Per-session truncation closes that defect.
+
+Re-running this tool is idempotent in shape — it overwrites
+``mempalace_activity`` with the current rollup. After the first run
+within a session, the JSONL is empty, so a second run produces the empty
+rollup and writes that into ``current.json``. The shutdown sequence's
+single invocation is the intended call site; manual re-runs (rare) reset
+``mempalace_activity`` to zero counts.
 
 If the JSONL file is absent (no MemPalace MCP calls fired this session),
-write the field with all zero counts and null timestamps. The validate
-audit interprets zero-counts according to the ADR's severity rules.
+write the field with all zero counts and null timestamps. No truncation
+is necessary in that path. The validate audit interprets zero-counts
+according to the ADR's severity rules.
 
 Exit codes
 ----------
@@ -168,6 +180,22 @@ def write_rollup_to_current(current_path: Path, rollup: dict[str, Any]) -> None:
     current_path.write_text(json.dumps(data, indent=2) + "\n")
 
 
+def truncate_jsonl(jsonl_path: Path) -> None:
+    """Truncate the JSONL telemetry file to zero bytes.
+
+    Called from ``main`` only after ``write_rollup_to_current`` succeeds, so
+    the rollup data is already preserved in ``current.json`` before the
+    JSONL evidence is cleared. Per Issue #37 (S-0083) — the JSONL had been
+    accumulating across sessions, inflating each archive's per-session
+    rollup with prior-session calls; this truncation closes that defect.
+
+    Idempotent: absent file is a no-op (the next session's hook will create
+    it on first MCP call).
+    """
+    if jsonl_path.is_file():
+        jsonl_path.write_text("")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -230,6 +258,8 @@ def main(argv: list[str] | None = None) -> int:
             flush=True,
         )
         return 0
+
+    truncate_jsonl(jsonl_path)
 
     return 0
 

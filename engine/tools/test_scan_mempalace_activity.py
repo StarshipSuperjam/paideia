@@ -13,6 +13,7 @@ from scan_mempalace_activity import (  # noqa: E402
     EMPTY_ROLLUP,
     main,
     rollup_jsonl,
+    truncate_jsonl,
     write_rollup_to_current,
 )
 
@@ -220,6 +221,78 @@ def test_main_writes_rollup(tmp_path: Path) -> None:
     assert data["mempalace_activity"]["search_calls"] == 1
     assert data["mempalace_activity"]["diary_write_calls"] == 1
     assert data["mempalace_activity"]["total_calls"] == 2
+    # Per Issue #37 — JSONL truncated after successful write
+    assert jsonl.read_text() == ""
+
+
+def test_truncate_jsonl_clears_file(tmp_path: Path) -> None:
+    """truncate_jsonl empties an existing JSONL file in place."""
+    jsonl = tmp_path / "current_mempalace.jsonl"
+    jsonl.write_text(
+        '{"ts": "2026-05-06T03:00:00Z", "tool": "mcp__mempalace__mempalace_search"}\n'
+    )
+    truncate_jsonl(jsonl)
+    assert jsonl.is_file()
+    assert jsonl.read_text() == ""
+
+
+def test_truncate_jsonl_absent_is_noop(tmp_path: Path) -> None:
+    """truncate_jsonl on an absent path does nothing and does not raise."""
+    jsonl = tmp_path / "missing.jsonl"
+    truncate_jsonl(jsonl)
+    assert not jsonl.exists()
+
+
+def test_main_does_not_truncate_when_current_missing(tmp_path: Path) -> None:
+    """If current.json is absent (write fails), JSONL is preserved for recovery."""
+    jsonl = tmp_path / "current_mempalace.jsonl"
+    write_jsonl(
+        jsonl,
+        [
+            {"ts": "2026-05-06T03:00:00Z", "tool": "mcp__mempalace__mempalace_search"},
+        ],
+    )
+    rc = main(
+        [
+            "--jsonl",
+            str(jsonl),
+            "--current-path",
+            str(tmp_path / "no-current.json"),
+            "--repo-root",
+            str(tmp_path),
+        ]
+    )
+    assert rc == 0
+    # JSONL must be intact — the rollup never landed in current.json
+    assert jsonl.read_text() != ""
+
+
+def test_main_dry_run_does_not_truncate(tmp_path: Path) -> None:
+    """Dry-run skips both write AND truncate."""
+    jsonl = tmp_path / "current_mempalace.jsonl"
+    write_jsonl(
+        jsonl,
+        [
+            {"ts": "2026-05-06T03:00:00Z", "tool": "mcp__mempalace__mempalace_search"},
+        ],
+    )
+    current = tmp_path / "current.json"
+    current.write_text(json.dumps({"id": "S-0078"}))
+
+    original_jsonl = jsonl.read_text()
+    rc = main(
+        [
+            "--jsonl",
+            str(jsonl),
+            "--current-path",
+            str(current),
+            "--repo-root",
+            str(tmp_path),
+            "--dry-run",
+        ]
+    )
+    assert rc == 0
+    assert jsonl.read_text() == original_jsonl  # untouched
 
 
 def test_main_handles_absent_jsonl(tmp_path: Path) -> None:
