@@ -165,7 +165,31 @@ The seven categories ADR 0016 contracts. All seven register in `checks_run` even
 
 When the escalation criterion ([`soft-warn-lifecycle.md`](soft-warn-lifecycle.md), 10 consecutive archives) lands on "accept and annotate," the category gets an entry below explaining why the persistence is expected and what condition would resolve it. The boot surface respects the annotation by suppressing the surface for sessions that match the named condition.
 
-*(No annotated categories yet — first annotations expected when the structured-data window matures.)*
+The first three annotations land at the S-0077 audit (`docs/health-checks/S-0077.md` Fit section). Prior audits (S-0052, S-0065) referenced "annotated as expected per phase_5.md T2-C / scope breadth" in audit prose, but the canonical home below was empty — the annotations were conceptual rather than persisted in the document the boot-time persistent-warn surface actually reads. The S-0077 audit's reading of "the structured-data window has matured" trigger fired with three categories crossing the persistence threshold across multiple windows.
+
+### `health_check_overdue` (annotated S-0077)
+
+**Expected when:** at any session boot whose `last_audit_session` is more than `health_check_cadence` slots back (i.e., the trigger has fired but the audit hasn't been accepted yet — see [`health-check.md`](health-check.md) cadence-trigger logic).
+
+**Resolution condition:** clears the moment `engine/tools/health_check.py --session S-NNNN` runs at audit close (the report-emit bumps `last_audit_session` and the next boot's hook + this validator both see `slots_since == 0`).
+
+**Why annotated rather than addressed:** the soft-warn is the cadence-trigger's defense-in-depth (per the same hook silently failing — the S-0033/S-0034 vector pattern). It's structurally expected to fire whenever the user defers an audit through one or more sessions; promoting to hard-fail would block any session that overlaps the cadence window. The persistent-warn surface should suppress this category for the session that *is* the audit (the audit's own commits will fire it once before health_check.py bumps the field; this is correct).
+
+### `issue_collision` (annotated S-0077)
+
+**Expected when:** the session's `declared_scope` (or fallback `working_on`) and/or staged-files diff contains keywords or paths that broad-scope open Issues mention. The intentionally-broad keyword match in [`engine/tools/scan_issue_collisions.py`](../tools/scan_issue_collisions.py) catches scope-overlap risk so the AI can decide whether to fix-the-issue-first, work-in-parallel, or trust-independent-scope. Routine-mode sessions in particular fire this consistently because routine work has narrow paths but broad operational keywords (`session`, `start-engine`, `validate`, `routine-mode`, `boot`, etc.) that cross-cut most open Issues.
+
+**Resolution condition:** declines naturally as the open-Issues backlog clears (cleanup-batch sessions) or as Issues are filed with narrower keyword surfaces. Does not require resolution to commit; the warn is informational by design per [ADR 0048](../adr/0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md).
+
+**Why annotated rather than addressed:** the warn's intentional broadness is the design choice from ADR 0048 — narrowing the keyword scanner would defeat the purpose (it's defense against "AI didn't realize the same concern was already filed"). The persistent-warn surface should suppress this category for build sessions that exhibit `issue_collision >= 5` with no >7 spike.
+
+### `missing_rigor_score` (annotated S-0077)
+
+**Expected when:** during phases that author concept nodes faster than the rigor-backfill cadence — Phase 5 partial-seed shape per [`engine/build_readiness/phase_5.md`](../build_readiness/phase_5.md) T2-C established the pattern; Phase 6 self-correction per [`product/docs/self-correction.md`](../../product/docs/self-correction.md) is the resolution surface.
+
+**Resolution condition:** the Phase 6 self-correction backlog counter (per the Phase 5 closeout's "Forward pointers to Phase 6+" rigor-calibration deliverable) drains as Phase 6 routine sessions backfill `rigor_score_computed` against topology-bearing nodes. Does not require resolution to commit; structural per the architecture.md formula's expectation that topology data feeds the rigor score.
+
+**Why annotated rather than addressed:** addressing in Phase 5 was the wrong shape — the rigor score depends on neighborhood structure (inbound edges), and partial seeds during phase build-up genuinely cannot compute the score reliably. The Phase 5 closeout deferred the calibration to Phase 6 as a pre-decided architectural choice, not a slip.
 
 ## Telemetry
 

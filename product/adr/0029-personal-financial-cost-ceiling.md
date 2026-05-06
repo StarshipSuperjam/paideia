@@ -59,6 +59,6 @@ This commitment does not specify the cost ceiling's numeric value. The value is 
 - [ADR 0014](0014-sonnet-teaches-opus-reviews.md) — the Sonnet-Opus role split that the soft-wall degradation ladder uses.
 - [`docs/business.md`](../docs/business.md) — Cost Model, Seasonal Cost Profile, Personal-Use Cost Estimates, Grant Opportunities, Internal fine-tuning.
 - [`docs/session-lifecycle.md`](../docs/session-lifecycle.md) — Concept Engagement as the Atomic Unit (the integrity the soft-wall principle protects).
-- [`docs/tensions.md`](../docs/tensions.md) — OQ-BYOK-REGIME, OQ-WALL-BEHAVIOR (added in this session, both decide-before consumer-launch).
+- [`docs/tensions.md`](../docs/tensions.md) — OQ-WALL-BEHAVIOR (added in this session, decide-before consumer-launch). OQ-BYOK-REGIME also originated here but was withdrawn by ADR 0032 per its replacement of the subscription/BYOK trade-space framing with the personal-project disposition (per S-0077 audit "Gaps" cleanup; see `docs/health-checks/S-0077.md`).
 - [`ROADMAP.md`](../../ROADMAP.md) — Phase 8 and Phase 9 success criteria (extended in this session to gate on cost-cap mechanism).
 - [`STATE.md`](../../engine/STATE.md) — backup tag (related operational rollback mechanism).
