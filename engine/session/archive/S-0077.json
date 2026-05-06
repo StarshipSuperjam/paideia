@@ -1,0 +1,71 @@
+{
+  "id": "S-0077",
+  "started_at": "2026-05-06T02:35:53Z",
+  "closed_at": "2026-05-06T03:05:00Z",
+  "status": "closed",
+  "mode": "interactive",
+  "working_on": "Project health check at the cadence-overdue-by-2 trigger (slots_since = 77 − 65 = 12; cadence = 10). 5th formal audit (after S-0030 / S-0041 / S-0052 / S-0065). Audit window S-0066 → S-0076 (Phase 5 routine-mode execution end-to-end). User accepted the audit at /start-engine boot.",
+  "declared_scope": "Author docs/health-checks/S-0077.md — the 5th formal project health-check report — covering audit window S-0066 → S-0076 (Phase 5 routine-mode execution + closeout). Run engine/tools/scan_orphans.py for dead-weight candidates, pull soft-warn / transcript_token_pct / scope_delivery / mode-field telemetry from the 11 audit-window archives, apply the four postures (Fit / Gaps / Infrastructure-without-function / Bloat) per engine/operations/health-check.md operative-discipline framing. Surface ≥1 non-obvious finding not on any mechanical scanner's output. Pre-flagged candidates: telemetry partial-recovery shape (5/11 vs prior 1/10 None — what changed?); mode field absent on S-0065/67/69/72 archives (extends prior audit's structured-field-consistency Finding A); Issue #20 (archive-history audit extension) and Issue #27 (routine-mode diary-skipped) status. Fold in audit-shaped Phase 5 content already in build_readiness/phase_5_closeout.md by citation; focus prose on what the closeout couldn't see (engine drift, ADR currency cross-check, ops-doc usage, persistent-warn surface across all phases). Per-candidate disposition for each scanner row (retire / convert / preserve-with-reason). Cadence calibration: keep at 10 (default; gap analysis 11/11/13/12 = avg 11.75 within tolerance) unless the audit surfaces a reason to change. In-session corrective fixes (default to fix-in-context per CLAUDE.md): annotation updates in tools-validate-interpretation.md if Phase-5-anchored phrasing no longer applies; ADR count drift in STATE.md if census surfaces it; OQ-BYOK reference in product/adr/0029 (S-0052 + S-0065 carry-over). Larger items (Issue #20 archive-history extension, Issue #27 diary-skipped) — decide at audit time whether they fit in-session or remain tracked-as-issue. Run engine/tools/health_check.py at audit completion to bump last_audit_session = S-0077 (clears cadence trigger). Update STATE.md (last build session pointer; next-session work item Phase 6 master plan; cadence boot-time check cleared). Update ENGINE_LOG.md [Unreleased] Changed entry. End-state: audit report + register_state bumped + STATE updated; next /start-engine session reads cleared cadence at boot. phase: NA-health-check-audit.",
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": false,
+    "explanation": "Yes. Declared scope was the 5th formal project health-check report covering audit window S-0066 → S-0076, four postures applied, ≥1 non-obvious finding surfaced, in-session corrective fixes per default-to-fix-in-context. Delivered four non-obvious findings (target was ≥1) — Findings A (STATE.md ADR count drift, fixed inline), B (mode field absent on S-0069 extending prior audit pattern), C (transcript_token_pct partial recovery without anyone fixing #21), D (Issue #27 confirmed by audit's own MemPalace probes; upgraded to address-before-Phase-6 priority). Per-candidate disposition for all 25 scanner rows. Folded in audit-shaped Phase 5 content from closeout by citation; focused prose on what the closeout couldn't see. Inline corrective fixes: STATE.md ADR count (lines 11 + 75 with re-count posture rule); first three Persistent-warn annotations in tools-validate-interpretation.md (canonical home was empty until this audit despite S-0052/S-0065 prose treating annotations as if they existed — meta-finding); OQ-BYOK reference removed from product/adr/0029 See-also (carry-over since S-0052). Larger items (Issue #20 archive-history extension, Issue #27 diary-skipped) tracked-as-issue with strengthened evidence (commented on each). Cadence cleared via health_check.py --session S-0077 (last_audit_session: S-0065 → S-0077). Cadence held at 10. STATE.md last build session row + next session work item rewritten. ENGINE_LOG.md [Unreleased] Added/Changed entries authored. Two-commit pattern (eager-claim 65b1155 + deliverable f8fcb42 + this close)."
+  },
+  "approved_plan": "/Users/shanekidd/.claude/plans/time-for-a-health-sparkling-oasis.md",
+  "branch": "claude/sad-franklin-fde053",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/sad-franklin-fde053",
+  "issues_filed": [],
+  "issues_closed": [],
+  "side_discoveries": [
+    {
+      "commit": "f8fcb42",
+      "marker": "noted",
+      "disposition_type": "addressed_inline",
+      "disposition_ref": "engine/operations/tools-validate-interpretation.md#persistent-warn-annotation",
+      "reasoning": "The Persistent-warn annotation section in tools-validate-interpretation.md was empty until this audit despite S-0052 and S-0065 audit prose referencing 'annotated as expected' as if annotations existed. The prior audits were treating annotations as conceptual (anchored in phase_5.md T2-C, in scope-breadth observations elsewhere) rather than canonical-form annotations in the document the boot-time persistent-warn surface actually reads. Authored the first three annotations inline (health_check_overdue, issue_collision, missing_rigor_score with re-anchored Phase 6 self-correction reference) per CLAUDE.md 'Default to fix-in-context.' Naming this here so a future audit can see the pattern: prior-audit prose claiming annotations exist is not the same as canonical-form annotations in the persistent-warn surface's actual home. Surfaces during the audit's own probe of tools-validate-interpretation.md."
+    }
+  ],
+  "commits": [
+    {
+      "sha": "65b1155",
+      "type": "chore(session)",
+      "summary": "eager-claim S-0077 — cadence audit"
+    },
+    {
+      "sha": "f8fcb42",
+      "type": "docs(audit)",
+      "summary": "S-0077 5th project health-check audit; cadence cleared"
+    }
+  ],
+  "transcript_token_estimate": 395314,
+  "transcript_token_pct": 0.3953,
+  "tokenizer_used": "tiktoken-o200k_base",
+  "outcome_summary_soft_warns": {
+    "expected_future_file_missing": 0,
+    "adr_missing_status": 0,
+    "adr_index_inconsistent": 0,
+    "cross_reference_broken": 0,
+    "engine_log_format": 0,
+    "state_format": 0,
+    "superseded_adr_currency": 0,
+    "adr_back_reference_orphan": 0,
+    "adr_consequences_deliverable_audit": 0,
+    "chromadb_palace_health": 0,
+    "repo_config_health": 0,
+    "health_check_overdue": 0,
+    "issue_collision": 9,
+    "undeclared_predicate": 0,
+    "attribute_shape_inconsistency": 0,
+    "missing_rigor_score": 366,
+    "render_readiness_violation": 0,
+    "synthetic_review_queue": 0,
+    "orphan_leaf": 0,
+    "suspicious_cross_domain_ratio": 0,
+    "graph_audit_skipped": 0,
+    "diary_skipped": 0,
+    "routine_no_target_reference": 0,
+    "routine_issue_spam": 0,
+    "scope_delivery_non_yes": 0
+  },
+  "outcome_summary": "5th formal project health-check audit lands. Cadence trigger cleared (last_audit_session S-0065 → S-0077 via health_check.py). Audit window S-0066 → S-0076 (11 sessions; first audit dominated by sustained routine-only run). Four non-obvious findings the dead-weight scanner couldn't see: (A) STATE.md narrative-surface ADR count drift — lines 11+75 wrong AND disagreeing; reality 56/21/35; fixed inline with re-count posture rule. (B) mode field absent on S-0069 archive (and S-0065) — extends prior audit's structured-field-consistency Finding A pattern to a different field; ADR 0051 added mode without extending audit_archive_structured_fields.py. (C) transcript_token_pct partial recovery 5/11 captured (45%) vs prior 1/10 (10%) without anyone fixing Issue #21 — reframes #21 from 'broken' to 'non-deterministic'; materially changes candidate fix-set. (D) Issue #27 (routine-mode skips MemPalace pushback/lesson capture) confirmed mechanically by audit's own MemPalace probes returning empty; upgraded to address-before-Phase-6-master-plan priority. Inline corrective fixes: STATE.md ADR count (lines 11+75); first three Persistent-warn annotations in tools-validate-interpretation.md (canonical home was empty until this audit despite prior-audit prose treating annotations as existing — surface meta-finding); OQ-BYOK reference removed from product/adr/0029 See-also (3rd-time carry-over). Issues #20, #21, #27 each commented with audit findings. 25 dead-weight scanner candidates triaged with explicit per-candidate dispositions; 0 retire-recommendations. Cadence held at 10 (gap analysis 11/11/13/12 = avg 11.75; re-evaluate at S-0087). Two-commit pattern (eager-claim 65b1155 + deliverable f8fcb42 + this close). validate.py final: 30 checks, 0 hard-fails, 375 soft-warns (366 missing_rigor_score expected per Phase 6 deferral; 9 issue_collision expected per intentionally-broad keyword match; 0 health_check_overdue — cleared). transcript_token_pct 0.3953 captured (high end of recent routine-mode normal range; consistent with audit's writing burden). Forward state: S-0078 = Phase 6 master plan session; OQ-DEC1-A/C/D settlement and Issue #27 close as prerequisites."
+}
