@@ -1,39 +1,45 @@
-"""Recovery executor: extract missing MemPalace content from a session's transcript.
+"""Recovery helper: locate transcripts and emit analytical-voice prompts for user-driven MemPalace recovery.
 
 Plan
 ----
 Implements Part B step B3 of the approved plan at
 ``~/.claude/plans/use-of-mempalace-by-velvety-pebble.md`` (S-0079
-execution plan at ``~/.claude/plans/to-continue-to-keen-lemur.md``).
+execution plan at ``~/.claude/plans/to-continue-to-keen-lemur.md``),
+revised at S-0079 after a content-integrity concern surfaced. The
+revised guidance lives at
+``engine/docs/audits/mempalace-recovery-guide-user-driven.md``.
 
-How this tool fits the dispatch model
--------------------------------------
-This wrapper does NOT spawn subagents itself — the ``Agent`` tool only
-exists inside a Claude Code session. Instead, this CLI provides four
-shapes the parent session uses:
+Direction (revised at S-0079)
+------------------------------
+Recovery sessions run in **default Claude Code mode** (no
+``/start-engine``, no eager-claim, no slot consumption). The user
+opens a fresh chat, pastes the prompt this tool emits, the recovering
+session reads the transcript and writes drawers/diary in **its own
+analytical voice** — NOT impersonating the original session — then
+ends naturally. The session counter stays clean.
 
-1. ``--worklist`` — print the prioritized list of pending sessions plus
-   their resolved transcript paths (or ``unrecoverable: <reason>``).
-2. ``--prompt SESSION`` — emit the subagent prompt for that session.
-   The parent session pipes this into ``Agent({prompt: ...})``.
-3. ``--mark-completed SESSION --summary "<short>"`` — record that the
-   session was processed (drawer-write outcomes captured).
-4. ``--mark-unrecoverable SESSION --reason "<why>"`` — record a skip.
+The ``S-NNNN-recovery-S-XXXX`` attribution shape from the original
+plan was rejected because it labels who *wrote* the drawer but not
+what the drawer *claims to be*. A future reader could miss the tag
+and treat synthetic first-person reflection as authentic primary
+signal. The revised prompts use ``added_by: "recovery-observer"`` and
+require ``Source: <TARGET> transcript (analytical recovery)`` headers
+in drawer bodies.
 
-Progress tracks at ``engine/docs/audits/mempalace-recovery-progress.md``.
-The file supports cross-session resume per the approved-plan budget rule:
-the parent session reads the progress file at boot, queries
-``--worklist --pending`` to pick up where the prior session halted.
-
-Why a wrapper plus parent-driven dispatch?
-
-- ``mempalace_add_drawer`` and ``mempalace_diary_write`` are MCP tools
-  that exist only inside the Claude Code harness. A standalone Python
-  process cannot call them.
-- ``Agent`` is also harness-side and inherits the harness's MCP surface.
-- The wrapper handles deterministic plumbing (path resolution, prompt
-  templating, progress accounting); the parent session handles the
-  AI-driven extraction.
+CLI
+---
+1. ``--worklist`` / ``--worklist --pending`` — print the prioritized
+   list of pending sessions plus their resolved transcript paths (or
+   ``unrecoverable: <reason>``).
+2. ``--resolve S-NNNN`` — print the resolved transcript path or
+   unrecoverable reason for one session (for ad-hoc inspection).
+3. ``--prompt S-NNNN`` / ``--prompt S-NNNN --dry-run`` — emit the
+   analytical-voice recovery prompt for the user to paste into a
+   fresh default-mode session.
+4. ``--mark-completed S-NNNN --summary "<short>"`` /
+   ``--mark-unrecoverable S-NNNN --reason "<why>"`` — record progress
+   at ``engine/docs/audits/mempalace-recovery-progress.md`` (optional;
+   the progress file is convenience-tracking, not a hard contract).
 
 Path resolution
 ---------------
@@ -57,48 +63,13 @@ For each archive at ``engine/session/archive/S-NNNN.json``:
 
 If no directory or no transcript matches → ``unrecoverable``.
 
-Subagent prompt template
--------------------------
-The prompt instructs the subagent to:
-
-1. Read the transcript ``<path>`` and the archive ``<path>``.
-2. Extract: (a) one diary-worthy reflection paragraph (~150 words);
-   (b) up to 3 pushback moments; (c) up to 3 lesson moments;
-   (d) up to 3 decision moments matched to ADRs added in the session
-   commit window.
-3. **In dry-run**: return all extractions as JSON, do NOT write to
-   MemPalace.
-4. **In write mode**: call ``mempalace_add_drawer`` for each pushback /
-   lesson / decision drawer, ``mempalace_diary_write`` for the diary
-   reflection, all attributed via ``added_by:
-   "S-NNNN-recovery-S-0079"``. The diary entry's body is prefixed
-   ``[recovery: original session S-NNNN]``.
-5. Return a one-line summary of what was extracted (``diary, P pushback,
-   L lesson, D decision``).
-
-If the transcript is too short or the session was wholly procedural
-(zero reflective content), the subagent skips with the marker
-``unrecoverable: empty_extraction``.
-
 Out of scope
 ------------
-- Editing the recovered drawers' content after subagent extraction.
-  Recovery is best-effort; recovered content stays as the subagent
-  wrote it. Future re-passes can refine via additional ``-recovery-S-NNNN``
-  layers.
-- Touching auto-captured drawers (``agent='session-hook'``) — the
-  recovery targets the deliberate-content gap, not the auto-capture
-  layer.
-
-CLI
----
-- ``recover_mempalace_from_transcript.py --worklist``
-- ``recover_mempalace_from_transcript.py --worklist --pending``
-- ``recover_mempalace_from_transcript.py --resolve S-0067``
-- ``recover_mempalace_from_transcript.py --prompt S-0067``
-- ``recover_mempalace_from_transcript.py --prompt S-0067 --dry-run``
-- ``recover_mempalace_from_transcript.py --mark-completed S-0067 --summary 'diary 1, pushback 2, lesson 1'``
-- ``recover_mempalace_from_transcript.py --mark-unrecoverable S-0067 --reason transcript_not_located``
+- Auto-dispatching subagents to write drawers (rejected at S-0079 for
+  the impersonation reason). The wrapper emits prompts; the user
+  pastes them into a fresh default-mode session.
+- Touching auto-captured drawers (``agent='session-hook'``) — recovery
+  targets the deliberate-content gap, not the auto-capture layer.
 """
 
 from __future__ import annotations
@@ -291,6 +262,19 @@ def build_recovery_prompt(
     current_session: str,
     dry_run: bool,
 ) -> str:
+    """Emit the analytical-voice recovery prompt for the user to paste into
+    a fresh default-mode Claude Code session.
+
+    The prompt instructs the recovering session to write drawers in its OWN
+    analytical voice — NOT impersonating the target session. See
+    ``engine/docs/audits/mempalace-recovery-guide-user-driven.md`` for the
+    rationale (the impersonation-shape original direction was rejected
+    after S-0079 surfaced a content-integrity concern).
+
+    The ``current_session`` parameter is unused in the new direction
+    (recovery sessions don't claim slots). It's retained for backwards
+    compatibility of the CLI surface.
+    """
     target_sid = re.match(r"S-(\d{4})\.json$", archive_path.name)
     if not target_sid:
         raise ValueError(f"bad archive name {archive_path.name}")
@@ -300,46 +284,65 @@ def build_recovery_prompt(
     started_at = archive.get("started_at") or "(unknown)"
     closed_at = archive.get("closed_at") or "(unknown)"
     archive_working_on = archive.get("working_on") or "(unknown)"
+    _ = current_session  # retained for backwards compatibility
     if dry_run:
-        write_clause = (
-            "**This is a DRY-RUN.** Do NOT call ``mempalace_add_drawer`` or "
-            "``mempalace_diary_write``. Instead, return all extractions as a "
-            "single JSON object with shape:\n\n"
-            "```json\n"
-            "{\n"
-            '  "diary": "<reflection paragraph or null>",\n'
-            '  "pushback": [{"first_line": "[pushback] ...", "body": "..."}],\n'
-            '  "lesson":   [{"first_line": "[lesson] ...", "body": "..."}],\n'
-            '  "decision": [{"first_line": "[decision] ADR XXXX — ...", "body": "..."}],\n'
-            '  "summary":  "diary 1, pushback N, lesson L, decision D"\n'
-            "}\n"
-            "```\n\n"
-            "Return ONLY the JSON. The user reviews quality before scaling."
-        )
+        dry_run_parts: list[str] = [
+            "**This is a DRY-RUN.** Do NOT call ``mempalace_add_drawer`` or ",
+            "``mempalace_diary_write``. Instead, return all observations as a ",
+            "single JSON object with shape:\n\n",
+            "```json\n",
+            "{\n",
+            '  "observation_diary": "<analytical reflection on what you ',
+            "learned by reading the transcript, in YOUR voice — not ",
+            f'first-person-from-{sid_label}>",\n',
+            '  "pushback":  [{"first_line": "[pushback] Pattern observed in ',
+            f'{sid_label}: ...", "body": "..."}}],\n',
+            '  "lesson":    [{"first_line": "[lesson] Pattern observed in ',
+            f'{sid_label}: ...", "body": "..."}}],\n',
+            '  "decision":  [{"first_line": "[decision] ADR XXXX (landed in ',
+            f'{sid_label}): ...", "body": "..."}}],\n',
+            '  "summary":   "observation_diary 1, pushback N, lesson L, decision D"\n',
+            "}\n",
+            "```\n\n",
+            "Return ONLY the JSON. The user reviews quality before scaling.",
+        ]
+        write_clause = "".join(dry_run_parts)
     else:
         write_clause = (
-            "Write each extracted drawer via ``mempalace_add_drawer`` with these "
-            "exact metadata:\n\n"
-            f"- ``added_by``: ``{sid_label}-recovery-{current_session}``\n"
-            "- ``room``: pushback drawers → ``problems``; lesson drawers → "
-            "``lessons``; decision drawers → ``decisions``\n"
-            "- Drawer body is the verbatim extracted moment, beginning with the "
-            "tag bracket: ``[pushback] ...``, ``[lesson] ...``, "
-            "``[decision] ADR XXXX — ...``\n\n"
-            "Write the diary reflection via ``mempalace_diary_write`` with "
-            '``agent_name: "claude"`` and ``topic`` set to '
-            f"``{sid_label}-recovery``. Prefix the diary body with "
-            f"``[recovery: original session {sid_label}]\\n\\n``.\n\n"
+            "**Mode of authorship.** Write drawers in YOUR analytical voice "
+            f"— NOT first-person-from-{sid_label}. Frame as observations of "
+            f"the transcript: ``Pattern observed in {sid_label}: ...`` rather "
+            "than ``I observed ...`` (which would impersonate that session).\n\n"
+            "Each drawer body must include a header line ``Source: "
+            f"{sid_label} transcript (analytical recovery)`` so any future "
+            "reader sees the relationship immediately.\n\n"
+            "Write each observation via ``mempalace_add_drawer`` with:\n\n"
+            "- ``wing``: ``paideia``\n"
+            "- ``room``: pushback → ``problems``; lesson → ``lessons``; "
+            "decision → ``decisions``\n"
+            "- ``added_by``: ``recovery-observer`` (do NOT use any S-NNNN "
+            "form — this is exploration mode, not a slot-claimed session)\n"
+            "- Drawer body begins with the tag bracket then the analytical "
+            f"framing: ``[pushback] Pattern observed in {sid_label}: ...``\n\n"
+            "OPTIONALLY, write a single MemPalace diary entry summarizing what "
+            "you LEARNED BY READING the transcript (your reflection, in your "
+            'voice). Use ``mempalace_diary_write agent_name="claude" '
+            f'topic="{sid_label}-observed"`` and prefix the entry body with '
+            f"``[recovery-observer reading {sid_label}]``.\n\n"
             "Return a one-line summary in the form "
-            "``diary 1|0, pushback N, lesson L, decision D``."
+            "``observation_diary 1|0, pushback N, lesson L, decision D``."
         )
-    return f"""You are a MemPalace recovery subagent. Your job is to reconstruct deliberate \
-MemPalace content (diary entry + decision/pushback/lesson drawers) for session \
-{sid_label} by reading its transcript and archive.
+    return f"""You are a MemPalace recovery exploration session. We are in DEFAULT mode \
+— do NOT invoke /start-engine, do NOT eager-claim a slot, do NOT commit to \
+tracked files. Your only outputs are MemPalace MCP tool calls.
+
+Read another session's transcript and write MemPalace entries that capture \
+what you LEARN from it, IN YOUR OWN ANALYTICAL VOICE — NOT impersonating \
+that session.
 
 ## Inputs
 
-- Target session: **{sid_label}**
+- Target session: **{sid_label}** (a past, completed session)
 - Session window: ``{started_at}`` → ``{closed_at}`` (UTC)
 - Session intent: {archive_working_on}
 - Transcript (Claude Code JSONL): ``{transcript_path}``
@@ -347,7 +350,7 @@ MemPalace content (diary entry + decision/pushback/lesson drawers) for session \
 
 The transcript may be 50K-2MB and may span MULTIPLE sessions in the same \
 worktree (Claude Code stores all sessions for a worktree in one JSONL). \
-**Filter to the target session by**:
+**Filter to {sid_label}'s segment by**:
 
 - Looking for the eager-claim commit message ``chore(session): eager-claim \
   {sid_label}`` — this marks the start.
@@ -355,17 +358,16 @@ worktree (Claude Code stores all sessions for a worktree in one JSONL). \
   — this marks the end.
 - Cross-checking against the session window timestamps above.
 
-Within {sid_label}'s segment of the transcript, focus on:
+Within {sid_label}'s segment, identify any of these that you'd want a \
+future session to know about (in YOUR analytical voice as an observer, \
+not as {sid_label}):
 
-1. **Reflection moments** — surprises, things that didn't work as expected, \
-   judgment calls the AI made, gaps the AI noticed but didn't act on, what \
-   would inform a future session at this seam.
-2. **Pushback moments** — places where the AI specifically named a risk, \
-   argued back against the user's framing, or self-critiqued an approach.
-3. **Lesson moments** — concrete, transferable takeaways (a tool gotcha, a \
-   workflow lesson, a debugging discovery worth remembering).
-4. **Decision moments** — settled architectural / process choices, especially \
-   any that landed as ADRs in the session.
+1. **Pushback moments** — risks named, pushback against user framing, \
+   self-critiques. → ``[pushback]`` drawer in ``room=problems``.
+2. **Lesson moments** — concrete tool gotchas, workflow lessons, debugging \
+   discoveries. → ``[lesson]`` drawer in ``room=lessons``.
+3. **Decision moments** — ADRs landed in the session, especially their \
+   motivation. → ``[decision]`` drawer in ``room=decisions``.
 
 ## Output
 
@@ -375,17 +377,17 @@ Mode: **{mode}**.
 
 ## Quality bar
 
-- Skip if the transcript yields nothing meaningful (procedural session with \
-  no reflection). Return ``"summary": "unrecoverable: empty_extraction"`` and \
-  do not call any write tools.
-- Diary reflection should be ~100-200 words, first-person from Claude's \
-  perspective, naming specific moments from THIS session — not generic.
-- Pushback / lesson / decision drawers cite concrete content (a function \
-  name, a file path, a specific bug, the ADR number) — not platitudes.
-- Skip duplicates: if the transcript shows the AI already wrote a particular \
-  drawer or diary entry during the session, do not re-write it.
+- **Skip if the transcript yields nothing meaningful.** Procedural session \
+  with no reflection-worthy content → respond ``unrecoverable: \
+  empty_extraction`` and do not call any write tools. This is a feature.
+- **Cite concrete content** — function name, file path, specific bug, ADR \
+  number. Avoid platitudes.
+- **Skip duplicates.** If ``mempalace_search`` shows the original session \
+  already wrote a particular drawer, don't re-author it.
+- **Use unfiltered ``mempalace_search``** because the wing-name landscape is \
+  messy (per ``engine/operations/mempalace-operations.md``).
 
-Begin extraction.
+Begin.
 """
 
 

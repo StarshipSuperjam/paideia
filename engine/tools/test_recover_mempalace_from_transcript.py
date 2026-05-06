@@ -169,8 +169,14 @@ def test_build_recovery_prompt_dry_run(tmp_path: Path) -> None:
     p = build_recovery_prompt(archive, transcript, "S-0079", dry_run=True)
     assert "DRY-RUN" in p
     assert "S-0067" in p
+    # Prompt must NOT instruct any S-NNNN-style attribution (impersonation
+    # shape was rejected at S-0079; recovery is analytical-voice only).
     assert "S-0067-recovery-S-0079" not in p
-    assert '"diary"' in p
+    assert "S-NNNN-recovery" not in p
+    # Dry-run JSON shape carries observation_diary, not a synthetic diary.
+    assert "observation_diary" in p
+    # Prompt must mark the analytical-voice framing.
+    assert "analytical" in p.lower()
 
 
 def test_build_recovery_prompt_write(tmp_path: Path) -> None:
@@ -179,9 +185,19 @@ def test_build_recovery_prompt_write(tmp_path: Path) -> None:
     transcript = tmp_path / "x.jsonl"
     transcript.write_text("{}")
     p = build_recovery_prompt(archive, transcript, "S-0079", dry_run=False)
-    assert "S-0067-recovery-S-0079" in p
+    # Write mode points at MCP tools.
     assert "mempalace_add_drawer" in p
     assert "mempalace_diary_write" in p
+    # No impersonation attribution: the recovery session is exploration mode,
+    # not slot-claimed; added_by must be a non-S-NNNN form.
+    assert "S-0067-recovery-S-0079" not in p
+    assert "recovery-observer" in p
+    # Drawer body framing must be analytical, not first-person.
+    assert "Pattern observed in S-0067" in p
+    # Default-mode framing must be explicit.
+    assert "DEFAULT mode" in p or "default mode" in p
+    assert "do NOT invoke /start-engine" in p
+    assert "do NOT eager-claim" in p
 
 
 def test_progress_round_trip(tmp_path: Path) -> None:
