@@ -96,14 +96,14 @@ def test_table_emptiness_partially_empty_row_still_counts() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_axis_register_emptiness_flags_empty_ideation(tmp_path: Path) -> None:
-    """An empty ideation.md is flagged."""
+def test_axis_register_emptiness_flags_empty_tensions(tmp_path: Path) -> None:
+    """An empty tensions.md is flagged."""
     docs = tmp_path / "product" / "docs"
     docs.mkdir(parents=True)
-    (docs / "ideation.md").write_text(
-        "# Ideation Register\n\n"
-        "| Date | Idea | Status |\n"
-        "|------|------|--------|\n"
+    (docs / "tensions.md").write_text(
+        "# Tensions Register\n\n"
+        "| Date | Tension | Status |\n"
+        "|------|---------|--------|\n"
         "| | | |\n"
     )
     # Initialize git in tmp_path so the count_inbound_references call doesn't
@@ -128,19 +128,19 @@ def test_axis_register_emptiness_flags_empty_ideation(tmp_path: Path) -> None:
 
     candidates = axis_register_emptiness(tmp_path)
     assert len(candidates) == 1
-    assert candidates[0].path == "product/docs/ideation.md"
+    assert candidates[0].path == "product/docs/tensions.md"
     assert candidates[0].axis == "register-empty"
 
 
 def test_axis_register_emptiness_skips_populated(tmp_path: Path) -> None:
-    """A populated ideation.md is NOT flagged."""
+    """A populated tensions.md is NOT flagged."""
     docs = tmp_path / "product" / "docs"
     docs.mkdir(parents=True)
-    (docs / "ideation.md").write_text(
-        "# Ideation Register\n\n"
-        "| Date | Idea | Status |\n"
-        "|------|------|--------|\n"
-        "| 2026-05-04 | Pilot a thing | captured |\n"
+    (docs / "tensions.md").write_text(
+        "# Tensions Register\n\n"
+        "| Date | Tension | Status |\n"
+        "|------|---------|--------|\n"
+        "| 2026-05-04 | OQ-EXAMPLE | open |\n"
     )
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
     subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)

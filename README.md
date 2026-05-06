@@ -73,7 +73,6 @@ paideia/
 │       ├── expansion.md            # future scope
 │       ├── business.md             # commercial model
 │       ├── tensions.md             # open questions (active); pre-commit-hook-allowed in exploration mode
-│       ├── ideation.md             # captured but not yet consumed; pre-commit-hook-allowed in exploration mode
 │       ├── prep-paideia-prompt-pack.md  # 14-session deliberation prompts (sessions 1–8 closed pre-foundation)
 │       ├── mempalace.yaml          # MemPalace wing/room config
 │       └── entities.json           # MemPalace entity classification (projects-only)
@@ -103,7 +102,7 @@ This project is built primarily by AI sessions. Two session modes:
 
 Just open Claude Code in this repo and start chatting. Default posture is **design partner**: discuss, sketch, push back, work through ideas in conversation. **No project file edits to tracked files. No commits. No slot claim.** When a discussion converges on something worth committing, convert with `/start-engine`.
 
-The pre-commit hook restricts exploration-mode commits to: `.claude/plans/`, `HANDOFF.md`, `product/docs/tensions.md`, `product/docs/ideation.md`. Anything else is refused with a pointer to `/start-engine`.
+The pre-commit hook restricts exploration-mode commits to: `.claude/plans/`, `HANDOFF.md`, `product/docs/tensions.md`. Anything else is refused with a pointer to `/start-engine`. (Pre-S-0083 the allowlist also included `product/docs/ideation.md`; that file retired at S-0083 per Issue #29 — its function migrated to GitHub Issues with the `enhancement` label per ADR 0048.)
 
 MemPalace captures exploration conversations under the `exploration` tag — knowing "we considered X, rejected for reason Y" prevents re-litigation.
 

@@ -72,8 +72,7 @@ def synthetic_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Create a minimal synthetic repo and patch health_check's path constants.
 
     Builds: archive dir, ADR dirs (engine + product), engine_log, tensions,
-    ideation, operations dir, report dir. Each starts empty; tests populate
-    as needed.
+    operations dir, report dir. Each starts empty; tests populate as needed.
     """
     (tmp_path / "engine" / "session" / "archive").mkdir(parents=True)
     (tmp_path / "engine" / "adr").mkdir(parents=True)
@@ -94,9 +93,6 @@ def synthetic_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     )
     monkeypatch.setattr(
         health_check, "TENSIONS_PATH", tmp_path / "product" / "docs" / "tensions.md"
-    )
-    monkeypatch.setattr(
-        health_check, "IDEATION_PATH", tmp_path / "product" / "docs" / "ideation.md"
     )
     monkeypatch.setattr(
         health_check, "OPERATIONS_DIR", tmp_path / "engine" / "operations"
@@ -388,16 +384,6 @@ def test_audit_dead_weight_cited_ops_doc(synthetic_repo: Path) -> None:
     # Should not flag popular.md as uncited.
     for obs, _ in findings.observations:
         assert "popular.md" not in obs or "zero inbound" not in obs
-
-
-def test_audit_dead_weight_unconsumed_ideation(synthetic_repo: Path) -> None:
-    (synthetic_repo / "product" / "docs" / "ideation.md").write_text(
-        "# Ideation\n\n## Idea A\n\nSome thought.\n\n## Idea B\n\nConsumed: 2026-04-01.\n"
-    )
-    findings = audit_dead_weight()
-    obs_text = " ".join(obs for obs, _ in findings.observations)
-    assert "Idea A" in obs_text
-    assert "Idea B" not in obs_text
 
 
 # ---------------------------------------------------------------------------

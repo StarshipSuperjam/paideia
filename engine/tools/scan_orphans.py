@@ -26,9 +26,11 @@ candidate against the operative diagnostic question.
 
 3. **Register-emptiness.** Files with detectable "register / log /
    queue" patterns (markdown tables with header rows but no data rows,
-   or known register filenames with no captured entries). Catches the
-   ``ideation.md`` pattern specifically: 17 inbound references, but
-   the register itself has never carried an entry.
+   or known register filenames with no captured entries). Pre-S-0083
+   the canonical example was ``ideation.md`` (17 inbound references but
+   no captured entries across S-0001..S-0077, retired at S-0083 per
+   Issue #29 — the function migrated to GitHub Issues with the
+   ``enhancement`` label per ADR 0048).
 
 4. **Ops-doc-uncited.** For each engine/operations/*.md, count
    citations across recent session archives (last 20). Files cited
@@ -116,9 +118,10 @@ _SWEEP_MARKERS = (
 )
 
 # Filename suffixes / paths that match the "register / log / queue" pattern
-# and are scanned by axis 3.
+# and are scanned by axis 3. (ideation.md was in this list pre-S-0083;
+# retired per Issue #29 — function migrated to GitHub Issues with the
+# `enhancement` label per ADR 0048.)
 _REGISTER_FILE_NAMES = (
-    "ideation.md",
     "tensions.md",  # has structural patterns; skip if entries present
 )
 

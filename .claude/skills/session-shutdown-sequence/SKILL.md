@@ -271,7 +271,7 @@ Design docs in `product/docs/` (`architecture.md`, `pedagogy.md`, `tensions.md`,
 - **New tension** → add to `product/docs/tensions.md` with enough context for a future session. Date the entry.
 - **Tension resolved** → re-mark in place with `Resolved: YYYY-MM-DD` and absorb to the relevant downstream file. Don't delete from `tensions.md`.
 - **New commitment + reasoning** → both *what* and *why* land in an ADR per [`adr-authoring.md`](../../../engine/operations/adr-authoring.md). Conversational story lands in MemPalace under the `decision` tag.
-- **Idea surfaces but isn't ready for a file** → capture in `product/docs/ideation.md`. When consumed or rejected, update status with date.
+- **Idea surfaces but isn't ready for a file** → file a GitHub Issue with the `enhancement` label per [ADR 0048](../../../engine/adr/0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md). (Pre-S-0083 captured in `product/docs/ideation.md`; retired at S-0083 per Issue #29.)
 - **Deprecated files** → absorption + delete pattern. Absorb reasoning into the right downstream artifact, then `git rm` the original. Recovery via git tags or `git show <commit>:<path>`. Update references in cross-reference maps in the same commit.
 - **Dead ends** → don't record. Design docs are forward-looking; MemPalace `exploration` drawers carry dead-end reasoning if anyone needs it.
 - **Note dates only where the date is the artifact's content.** ENGINE_LOG entry dates, Resolved-tension markers, ADR Date headers — these are the artifact doing its job. Inside body prose, revision dates and session-attribution markers migrate to ENGINE_LOG and git history.

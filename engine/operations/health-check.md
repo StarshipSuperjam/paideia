@@ -54,7 +54,7 @@ A file with 17 inbound references but zero captured entries is plumbing. A valid
 
 - **reference-count** — files with fewer than 3 inbound references.
 - **last-mod-age** — files unchanged across 20+ sessions of project history AND with low inbound references (the dual filter prevents foundation reference docs from surfacing).
-- **register-empty** — register/queue files (currently `ideation.md`, `tensions.md`) with no captured entries.
+- **register-empty** — register/queue files (currently `tensions.md`) with no captured entries. (Pre-S-0083 the list also included `ideation.md`; that file retired at S-0083 per Issue #29 — its function migrated to GitHub Issues with the `enhancement` label per ADR 0048.)
 - **ops-doc-uncited** — operations docs not cited in any of the last 20 session archives.
 - **stale-marker** — files carrying decide-trigger / decide-before / open decide-by markers whose pinned phase or session has passed.
 

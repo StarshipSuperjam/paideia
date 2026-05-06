@@ -31,7 +31,6 @@ Inputs (read):
 - engine/ENGINE_LOG.md — entry counts by date for Fit fidelity check.
 - product/docs/tensions.md — open tensions for Gaps; aged tensions
   (>TENSION_AGE_SESSIONS sessions open without movement) flagged.
-- product/docs/ideation.md — unconsumed entries for Dead-weight.
 - All .md files under REPO_ROOT (universal scan added at S-0041 per
   user direction; filesystem rglob with DEAD_WEIGHT_SKIP_PATH_PREFIXES
   + DEAD_WEIGHT_SKIP_NAMES filter) — read by audit_dead_weight (staleness
@@ -141,7 +140,6 @@ ENGINE_ADR_DIR = REPO_ROOT / "engine" / "adr"
 PRODUCT_ADR_DIR = REPO_ROOT / "product" / "adr"
 ENGINE_LOG_PATH = REPO_ROOT / "engine" / "ENGINE_LOG.md"
 TENSIONS_PATH = REPO_ROOT / "product" / "docs" / "tensions.md"
-IDEATION_PATH = REPO_ROOT / "product" / "docs" / "ideation.md"
 OPERATIONS_DIR = REPO_ROOT / "engine" / "operations"
 VALIDATE_HISTORY_PATH = REPO_ROOT / "engine" / "tools" / "validate-history.jsonl"
 REPORT_DIR = REPO_ROOT / "docs" / "health-checks"
@@ -785,14 +783,16 @@ def audit_dead_weight() -> CategoryFindings:
     triages at audit-read time. Opt-out via DEAD_WEIGHT_SKIP_PATH_PREFIXES
     + DEAD_WEIGHT_SKIP_NAMES below.
 
-    Plus the two Deprecated/Unconsumed special-purpose checks the prior
-    design carried (kept because they apply category-specific semantics that
-    universal scanning doesn't capture):
+    Plus a Deprecated-ADR special-purpose check the prior design carried
+    (kept because it applies category-specific semantics that universal
+    scanning doesn't capture):
 
     - **Deprecated ADRs** (Status: Deprecated for >DEPRECATED_ADR_AGE_SESSIONS
       sessions without successor): structural archival candidates.
-    - **Unconsumed ideation entries** in product/docs/ideation.md: per-entry
-      retire/promote/accept disposition.
+
+    (Pre-S-0083 there was a second special-purpose check for unconsumed
+    ideation.md entries; ideation.md retired at S-0083 per Issue #29 and
+    its function migrated to GitHub Issues per ADR 0048.)
 
     Returns CategoryFindings.
 
@@ -884,32 +884,9 @@ def audit_dead_weight() -> CategoryFindings:
             "genuinely-orphaned content with explicit disposition.",
         )
 
-    # Unconsumed ideation entries (special-purpose check; per-entry semantic).
-    if IDEATION_PATH.is_file():
-        ideation_text = IDEATION_PATH.read_text()
-        entries = re.findall(r"^##\s+(.+)$", ideation_text, re.MULTILINE)
-        unconsumed: list[str] = []
-        for entry_title in entries:
-            entry_pattern = re.compile(
-                rf"^##\s+{re.escape(entry_title)}.*?(?=^##\s|\Z)",
-                re.MULTILINE | re.DOTALL,
-            )
-            entry_match = entry_pattern.search(ideation_text)
-            if not entry_match:
-                continue
-            entry_text = entry_match.group(0)
-            if not re.search(
-                r"[Cc]onsumed|[Pp]romoted|[Rr]ejected|[Rr]etired", entry_text
-            ):
-                unconsumed.append(entry_title)
-        if unconsumed:
-            findings.add(
-                f"{len(unconsumed)} unconsumed ideation entry/entries: "
-                + "; ".join(unconsumed[:5])
-                + ("; ..." if len(unconsumed) > 5 else ""),
-                "Per entry: promote (becomes a tension or a downstream doc), "
-                "retire (mark Rejected with reason), or accept long-tail.",
-            )
+    # (Unconsumed-ideation-entries check retired at S-0083 per Issue #29 —
+    # ideation.md retired in the same session; ideas now go to GitHub Issues
+    # with the `enhancement` label per ADR 0048.)
 
     if findings.is_empty():
         findings.add(

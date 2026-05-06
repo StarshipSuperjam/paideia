@@ -17,9 +17,11 @@
 #
 #   exploration — neither of the above. Default mode for design-partner work.
 #               Restricts commits to: .claude/plans/, HANDOFF.md,
-#               product/docs/tensions.md, product/docs/ideation.md,
-#               engine/scheduled_audits.json. Anything else triggers a refusal
-#               with a pointer to /start-engine.
+#               product/docs/tensions.md, engine/scheduled_audits.json.
+#               Anything else triggers a refusal with a pointer to /start-engine.
+#               (product/docs/ideation.md was in this list pre-S-0083; the file
+#               retired at S-0083 per Issue #29 — its function migrated to
+#               GitHub Issues with the `enhancement` label per ADR 0048.)
 #
 # Validation always runs, regardless of mode. Hard-fails block the commit;
 # soft-warns are advisory.
@@ -65,17 +67,17 @@ if [ "$MODE" = "exploration" ]; then
     #   .claude/plans/                  plan files
     #   HANDOFF.md                      running log
     #   product/docs/tensions.md        open questions
-    #   product/docs/ideation.md        captured ideas
     #   engine/scheduled_audits.json    between-session scheduling surface
     #                                   (added at S-0033 per HANDOFF.md Item 3
     #                                   to fix the self-inflicted barrier where
     #                                   scheduling a near-term audit required
     #                                   opening a session)
+    # (product/docs/ideation.md retired at S-0083 per Issue #29; ideas now go
+    # to GitHub Issues with the `enhancement` label per ADR 0048.)
     DISALLOWED=$(git diff --cached --name-only \
         | grep -v -E '^\.claude/plans/' \
         | grep -v -E '^HANDOFF\.md$' \
         | grep -v -E '^product/docs/tensions\.md$' \
-        | grep -v -E '^product/docs/ideation\.md$' \
         | grep -v -E '^engine/scheduled_audits\.json$' \
         || true)
     if [ -n "$DISALLOWED" ]; then
@@ -86,7 +88,6 @@ if [ "$MODE" = "exploration" ]; then
         echo "    .claude/plans/                 (plan files)" >&2
         echo "    HANDOFF.md                     (running log)" >&2
         echo "    product/docs/tensions.md       (open questions)" >&2
-        echo "    product/docs/ideation.md       (captured ideas)" >&2
         echo "    engine/scheduled_audits.json   (between-session scheduling)" >&2
         echo "" >&2
         echo "  Disallowed staged paths:" >&2
