@@ -40,4 +40,12 @@ beautifulsoup4>=4.12.0
 # both resolve to the venv's bin/. Provides binaries: `mempalace` (CLI) and
 # `mempalace-mcp` (MCP server entry point). Transitive deps: chromadb
 # (already pinned above), tomli, pyyaml.
-mempalace>=3.3.3
+#
+# Floor bumped at S-0084 to capture upstream's `mempalace repair-status`
+# subcommand (added in 3.3.4) — engine/tools/probe_palace.py shells out
+# to it for HNSW-divergence detection per the ADR 0045 amendment. Per
+# the S-0084 user directive, mempalace version strings live only here in
+# requirements.txt; ADR/ops-doc prose references the version as a
+# forensic timestamp ("as observed at S-NNNN") rather than asserting a
+# specific version inline.
+mempalace>=3.3.4

@@ -648,6 +648,18 @@ def validate_shared_state_health() -> ValidationResult:
         # stdout if stderr is empty (covers an unexpected exit-code
         # path where the probe reported on stdout).
         body = (proc.stderr.strip() or proc.stdout.strip()) or "(no output)"
+
+        # Surface palace divergence as its own soft-warn category whenever
+        # the probe emits the divergence line, regardless of overall exit
+        # code (per ADR 0045 amendment, S-0084). This keeps the divergence
+        # signal addressable separately from the chromadb-openability
+        # health signal — they're independent failure modes.
+        if probe_name == "palace":
+            divergence_msg = _extract_palace_divergence(proc.stderr)
+            if divergence_msg is not None:
+                r.add_check("mempalace_hnsw_divergence")
+                r.soft_warn("mempalace_hnsw_divergence", divergence_msg)
+
         if proc.returncode == 0:
             continue
         if proc.returncode == 1:
@@ -666,6 +678,57 @@ def validate_shared_state_health() -> ValidationResult:
             )
 
     return r
+
+
+# Regex matching the divergence line probe_palace.py emits per ADR 0045
+# amendment (S-0084). Form: "[probe-palace] divergence: HNSW=N1 SQLite=N2 (P%)".
+_PROBE_DIVERGENCE_RE = re.compile(
+    r"\[probe-palace\]\s+divergence:\s+HNSW=(\d+)\s+SQLite=(\d+)\s+\(([\d.]+)%\)"
+)
+# Threshold above which divergence soft-warns; mirrors probe_palace.py's
+# DIVERGENCE_PROMOTE_PCT and the health-check.md "Maintenance probes" doc.
+_DIVERGENCE_SOFT_WARN_PCT = 10.0
+# Threshold above which the soft-warn body emits LOUD-attention prefix.
+_DIVERGENCE_LOUD_PCT = 30.0
+
+
+def _extract_palace_divergence(stderr: str) -> str | None:
+    """Parse probe_palace.py's divergence line; return formatted soft-warn body.
+
+    Returns ``None`` if the divergence line is absent, malformed, or
+    below the soft-warn threshold. Otherwise returns the body text the
+    soft-warn carries — at LOUD threshold, the body includes the
+    destructive-repair carve-out warning so AI sessions reading the
+    persistent-warn surface see the safety guidance immediately.
+    """
+    match = _PROBE_DIVERGENCE_RE.search(stderr or "")
+    if match is None:
+        return None
+    try:
+        hnsw = int(match.group(1))
+        sqlite = int(match.group(2))
+        pct = float(match.group(3))
+    except ValueError:
+        return None
+    if pct < _DIVERGENCE_SOFT_WARN_PCT:
+        return None
+
+    base = (
+        f"HNSW vector index has diverged from SQLite ground truth by "
+        f"{pct:.1f}% (HNSW={hnsw}, SQLite={sqlite}). "
+        f"`mempalace_search` is on BM25 lexical fallback; semantic similarity degraded."
+    )
+    if pct >= _DIVERGENCE_LOUD_PCT:
+        return (
+            "⚠️  " + base + "\n"
+            "DO NOT auto-remediate via `mempalace repair --mode legacy` — S-0078 "
+            "confirmed this destroys SQLite embedding rows (99.7% loss observed). "
+            "Use engine/tools/mempalace_rebuild_hnsw.py against a scratch palace "
+            "copy first; swap to live only after 0% divergence verified. See "
+            'engine/operations/mempalace-operations.md "Known issues" for forensic '
+            "detail and the upstream tracker."
+        )
+    return base
 
 
 # ---------------------------------------------------------------------------

@@ -89,7 +89,22 @@ The shared-state probe at [`engine/tools/probe_palace.py`](../tools/probe_palace
 
 The probe escalates to a **hard-fail** (not a soft-warn) when the palace is definitely broken — chromadb refuses to import, `PersistentClient` raises on open, `get_collection() / count()` raises, or the probe segfaults at SIGSEGV (the S-0034 chromadb_rust_bindings signature on a corrupt HNSW segment). Definite corruption blocks the commit so the build session must address it before proceeding; the soft-warn level is reserved for ambiguous states that don't yet warrant blocking.
 
-Recoverable — `mempalace mine <dir>` to re-populate from source jsonl files; or move the suspect segment dir aside (`palace/<segment-uuid>.broken/`) and re-run the probe so chromadb rebuilds from SQLite-stored embeddings (the S-0034 recovery procedure).
+Per the S-0084 amendment to ADR 0045, the probe also promotes its overall exit code from 0 (healthy) to 1 (suspect) when HNSW divergence ≥ 10% is detected via `mempalace repair-status` — that condition surfaces here as well, with the divergence line as the soft-warn body, AND in the dedicated `mempalace_hnsw_divergence` category below.
+
+Recoverable — `mempalace mine <dir>` to re-populate from source jsonl files; or move the suspect segment dir aside (`palace/<segment-uuid>.broken/`) and re-run the probe so chromadb rebuilds from SQLite-stored embeddings (the S-0034 recovery procedure). For the divergence-promoted case, see `mempalace_hnsw_divergence` below.
+
+### `mempalace_hnsw_divergence`
+
+The HNSW vector-index has diverged from the SQLite ground truth by ≥ 10%; `mempalace_search` is on BM25 lexical fallback (search functions but semantic similarity is degraded). Active from S-0084 onward per the [ADR 0045](../adr/0045-shared-state-integrity-discipline.md) amendment for [Issue #31](https://github.com/StarshipSuperjam/paideia/issues/31). The signal is sourced from `probe_palace.py`'s extension, which shells out to upstream's read-only `mempalace repair-status` subcommand (contracted to never open a chromadb client) and parses the SQLite vs HNSW counts.
+
+Threshold tiers:
+
+- **≥ 10%** (soft-warn): body names the percentage and the BM25-fallback consequence.
+- **≥ 30%** (LOUD-attention soft-warn): body adds the destructive-repair carve-out warning verbatim, naming the S-0078 forensic (99.7% loss observed when `mempalace repair --mode legacy` was run) and the supported restoration path via [`engine/tools/mempalace_rebuild_hnsw.py`](../tools/mempalace_rebuild_hnsw.py).
+
+**Do not auto-remediate via `mempalace repair --mode legacy`** under any divergence percentage. The supported restoration path is the project-internal direct-chromadb-rebuild tool — read collection contents via paginated `collection.get(include=["embeddings","documents","metadatas"])`, delete the collection preserving metadata, recreate, re-add via `collection.add()` to force fresh HNSW writes. Always run against a scratch palace copy first; atomic-rename swap to live gated on 0% divergence verification. See [`engine/operations/mempalace-operations.md`](mempalace-operations.md) "Known issues" for forensic detail.
+
+Recoverable — run [`engine/tools/mempalace_rebuild_hnsw.py`](../tools/mempalace_rebuild_hnsw.py) per the procedure documented there; soft-warn clears once divergence drops below 10%.
 
 ### `health_check_overdue`
 

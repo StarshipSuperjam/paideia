@@ -4,6 +4,7 @@
   "status": "in_progress",
   "working_on": "Issue #31 — HNSW divergence detection (wire probe to upstream repair-status) + non-destructive restoration via direct-chromadb-rebuild on scratch copy + live swap if successful + doc warnings + upstream tracker. Campaign session S-B.",
   "outcome_summary": null,
+  "declared_scope": "Resolve Issue #31: wire engine/tools/probe_palace.py to upstream `mempalace repair-status` for HNSW divergence detection; author engine/tools/mempalace_rebuild_hnsw.py for non-destructive direct-chromadb-rebuild; test on a scratch palace copy and atomically swap to live only on 0% divergence; update mempalace-operations.md, health-check.md, ADR 0045, and (per user directive) sweep version-pin prose so 3.3.4 lives only in requirements.txt; file an upstream MemPalace bug for the 99.7% loss pattern observed at S-0078.",
   "approved_plan": "/Users/shanekidd/.claude/plans/magical-cuddling-babbage.md",
   "branch": "claude/quizzical-wing-759654",
   "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/quizzical-wing-759654"

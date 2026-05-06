@@ -41,7 +41,7 @@ A small, deliberate label set with well-defined semantics:
 - **`tech-debt`** — code or structure that works but has known fragility.
 - **`cleanup`** — small, well-scoped maintenance items that batch naturally (the primary candidate for cleanup-batch sessions).
 - **`health-check-finding`** — surfaced by a health-check audit; downstream of a cadence-fired audit session.
-- **`upstream`** — the bug is real and affects the project but is not in-project actionable (e.g., the mempalace 3.3.3 wing-filter and wing-naming bugs from S-0040). Pairs with `bug` typically; signals "do not pick this up in a cleanup batch."
+- **`upstream`** — the bug is real and affects the project but is not in-project actionable (e.g., the mempalace wing-filter and wing-naming bugs from S-0040). Pairs with `bug` typically; signals "do not pick this up in a cleanup batch."
 - **`priority:urgent`** — used sparingly. Triggers the LOUD boot surface. Reserved for items that block other work or where silent persistence has a real cost.
 
 Labels are mutually compatible (one issue may carry multiple labels, e.g., `bug` + `upstream`). The taxonomy is open to refinement without superseding this ADR — adding a label is a workflow change, not a contract change.

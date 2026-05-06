@@ -76,6 +76,21 @@ Each candidate is annotated with axis, signal, last substantive change, and inbo
 
 ADR collection (counts by status across time), ENGINE_LOG entries (categorized engine changes by date), MemPalace stats (`mempalace_status`, `mempalace_kg_stats` — drawer growth, room balance, last-write activity).
 
+## Maintenance probes
+
+Automated probes surface in the audit's "Maintenance findings" subsection of the report. Each runs at session boot via `validate.py --health-probe-only` invoked by `session-start.sh`. Findings accumulate per the soft-warn lifecycle ([ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md)) and are first-class inputs to the audit.
+
+### MemPalace HNSW divergence (added S-0084 per Issue #31)
+
+[`engine/tools/probe_palace.py`](../tools/probe_palace.py) shells out to upstream's `mempalace repair-status` (read-only; never opens chromadb) on every session boot and parses the divergence percentage between the SQLite ground truth and the HNSW vector index. Soft-warn `mempalace_hnsw_divergence` fires at ≥10% divergence; LOUD-attention surface at ≥30%. The probe also promotes its overall exit code from 0 (healthy) to 1 (suspect) at ≥10%, which surfaces in `chromadb_palace_health` as a separate signal.
+
+When the audit fires, it should:
+
+1. Read the `mempalace_hnsw_divergence` count from the relevant archive(s)' `outcome_summary_soft_warns`.
+2. If non-zero across recent archives, name the divergence percentage in the audit's "Maintenance findings" subsection.
+3. **Do NOT recommend `mempalace repair --mode legacy`.** S-0078 confirmed that command destroys SQLite embedding rows (99.7% loss observed at the time; see [`mempalace-operations.md`](mempalace-operations.md) "Known issues" for forensic detail and the upstream tracker).
+4. Recommend [`engine/tools/mempalace_rebuild_hnsw.py`](../tools/mempalace_rebuild_hnsw.py) — non-destructive direct chromadb rebuild, run against a scratch palace copy first, swap to live only after 0% divergence verified.
+
 ## Audit posture (not categories — postures)
 
 The four traditional category buckets (Fit / Gaps / Dead-Weight / Bloat) are *organizing prompts for the audit's prose*, not a checklist to complete. Each is a posture to take while reading the project, not a slot to fill.

@@ -116,3 +116,182 @@ def test_probe_emits_findings_on_stderr_not_stdout(tmp_path: Path) -> None:
     assert "suspect" in proc.stderr
     # Stdout is empty (or at least doesn't carry the finding).
     assert "suspect" not in proc.stdout
+
+
+# ---------------------------------------------------------------------------
+# Divergence detection (S-0084 per ADR 0045 amendment, Issue #31)
+# ---------------------------------------------------------------------------
+
+
+def _write_stub_mempalace(
+    bin_dir: Path,
+    *,
+    sqlite_count: int,
+    hnsw_count: int,
+    extra_invocation_log: Path | None = None,
+) -> Path:
+    """Create a fake ``mempalace`` script that mimics the upstream tool.
+
+    The stub responds to ``mempalace --palace <X> repair-status`` with a
+    minimal output shape matching the regex in probe_palace.py. Any other
+    subcommand exits 1 — particularly bare ``repair`` (without ``-status``)
+    must NEVER be invoked by the probe; the caller can verify by reading
+    the invocation log.
+    """
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    stub = bin_dir / "mempalace"
+    log_arg = f'\necho "$@" >> {extra_invocation_log}' if extra_invocation_log else ""
+    stub.write_text(
+        f"""#!/bin/bash{log_arg}
+# Stub mempalace for probe_palace.py tests. Recognizes only repair-status.
+# Form: mempalace --palace <X> repair-status
+mode=""
+for arg in "$@"; do
+    if [ "$arg" = "repair-status" ]; then
+        mode="repair-status"
+    elif [ "$arg" = "repair" ]; then
+        mode="repair"
+    fi
+done
+
+if [ "$mode" = "repair-status" ]; then
+    cat <<EOF
+=======================================================
+  MemPalace Repair — Status
+=======================================================
+
+  Palace: /tmp/test
+  [drawers]
+    sqlite count:   {sqlite_count}
+    hnsw count:     {hnsw_count}
+    divergence:     $(( {sqlite_count} - {hnsw_count} ))
+    status:         DIVERGED
+EOF
+    exit 0
+elif [ "$mode" = "repair" ]; then
+    # Should NEVER run from probe_palace.py — destructive.
+    echo "ERROR: stub repair invoked (should not happen)" >&2
+    exit 99
+else
+    echo "ERROR: stub doesn't recognize args: $@" >&2
+    exit 1
+fi
+"""
+    )
+    stub.chmod(0o755)
+    return stub
+
+
+def _run_probe_with_stub(
+    palace_dir: Path,
+    stub_dir: Path,
+    *,
+    extra_env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Run probe_palace.py with a stubbed mempalace binary on PATH."""
+    env = dict(os.environ)
+    env["MEMPALACE_PROBE_PALACE_PATH"] = str(palace_dir)
+    env["PATH"] = f"{stub_dir}:{env.get('PATH', '')}"
+    if extra_env:
+        env.update(extra_env)
+    return subprocess.run(
+        [sys.executable, str(PROBE_PATH)],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+
+def _make_minimal_palace(palace_dir: Path) -> None:
+    """Build a minimal real chromadb palace under ``palace_dir``."""
+    chromadb = pytest.importorskip("chromadb")
+    palace_dir.mkdir(parents=True, exist_ok=True)
+    client = chromadb.PersistentClient(path=str(palace_dir))
+    col = client.get_or_create_collection("test_collection")
+    col.add(ids=["d1"], documents=["hello world"])
+    del col
+    del client
+
+
+def test_probe_emits_divergence_line_when_repair_status_available(
+    tmp_path: Path,
+) -> None:
+    """When mempalace is on PATH, probe emits the divergence stderr line."""
+    palace_dir = tmp_path / ".mempalace" / "palace"
+    _make_minimal_palace(palace_dir)
+    stub_dir = tmp_path / "bin"
+    _write_stub_mempalace(stub_dir, sqlite_count=100, hnsw_count=98)
+
+    proc = _run_probe_with_stub(palace_dir, stub_dir)
+
+    # 2/100 divergence = 2.0% — below 10% threshold; probe still exit 0.
+    assert proc.returncode == 0
+    assert "divergence: HNSW=98 SQLite=100 (2.0%)" in proc.stderr
+
+
+def test_probe_promotes_to_suspect_on_10pct_divergence(tmp_path: Path) -> None:
+    """Divergence >= 10% promotes a healthy probe to exit 1 (suspect)."""
+    palace_dir = tmp_path / ".mempalace" / "palace"
+    _make_minimal_palace(palace_dir)
+    stub_dir = tmp_path / "bin"
+    _write_stub_mempalace(stub_dir, sqlite_count=100, hnsw_count=80)
+
+    proc = _run_probe_with_stub(palace_dir, stub_dir)
+
+    # 20/100 divergence = 20% — above 10% threshold.
+    assert proc.returncode == 1
+    assert "divergence: HNSW=80 SQLite=100 (20.0%)" in proc.stderr
+    # The healthy chromadb-layer line still appears on stdout.
+    assert "healthy" in proc.stdout
+
+
+def test_probe_handles_missing_mempalace_binary_gracefully(tmp_path: Path) -> None:
+    """When mempalace isn't on PATH, probe exits 0 with no divergence line."""
+    palace_dir = tmp_path / ".mempalace" / "palace"
+    _make_minimal_palace(palace_dir)
+    # Empty bin dir (no mempalace stub) + minimal-PATH = FileNotFoundError.
+    stub_dir = tmp_path / "bin"
+    stub_dir.mkdir()
+
+    proc = _run_probe_with_stub(palace_dir, stub_dir, extra_env={"PATH": str(stub_dir)})
+
+    # No divergence available, but chromadb layer is healthy.
+    assert proc.returncode == 0
+    assert "divergence:" not in proc.stderr
+    assert "healthy" in proc.stdout
+
+
+def test_probe_never_invokes_mempalace_repair(tmp_path: Path) -> None:
+    """Negative test: probe must never spawn `mempalace repair` (destructive).
+
+    Per S-0078 forensic and ADR 0045 amendment (S-0084), the probe is
+    detection-only. Verified by inspecting the stub's invocation log
+    after a probe run.
+    """
+    palace_dir = tmp_path / ".mempalace" / "palace"
+    _make_minimal_palace(palace_dir)
+    stub_dir = tmp_path / "bin"
+    invocation_log = tmp_path / "stub-invocations.log"
+    _write_stub_mempalace(
+        stub_dir,
+        sqlite_count=50000,
+        hnsw_count=10,  # extreme divergence — probe must still not invoke repair
+        extra_invocation_log=invocation_log,
+    )
+
+    proc = _run_probe_with_stub(palace_dir, stub_dir)
+
+    assert proc.returncode == 1  # very-high divergence promotes to suspect
+    assert invocation_log.exists()
+    invocations = invocation_log.read_text().strip().splitlines()
+    # Every stub invocation must include `repair-status`, never bare `repair`.
+    for line in invocations:
+        # Token-level check: split args; reject if "repair" appears without
+        # being the literal string "repair-status".
+        tokens = line.split()
+        assert "repair" not in tokens, (
+            f"probe spawned bare `repair` (destructive): {line!r}"
+        )
+        assert any("repair-status" in t for t in tokens), (
+            f"probe stub invocation missing `repair-status`: {line!r}"
+        )

@@ -50,7 +50,7 @@ Three additions to [`engine/tools/requirements.txt`](../tools/requirements.txt):
 
 - **`chromadb>=0.5.0`** — was implicit (used by `probe_palace.py`, only worked because of incidental user-scope install via mempalace). Now explicit so probe_palace's expected version is independent of mempalace's pin.
 - **`tiktoken>=0.7.0`** — *retired at S-0083 per the ADR 0049 amendment.* Originally activated the accurate-tokenizer branch in `scan_context_telemetry.py` (ADR 0049). The tool and pin were retired together when the cross-session Session-load trend telemetry was retired (zero behavioral signal across three audits per Issue [#32](https://github.com/StarshipSuperjam/paideia/issues/32)). chromadb and mempalace pins remain.
-- **`mempalace>=3.3.3`** — migrates mempalace from user-scope system Python 3.9 into the project venv. Resolves the user's recurring Python-version issues with the tool. Provides `mempalace` and `mempalace-mcp` binaries; the MCP server config in `.mcp.json` (gitignored) is updated locally to point at `<main_repo>/.venv/bin/mempalace-mcp`. The hook wrapper at [`engine/tools/hooks/mempalace-hook-wrapper.sh`](../tools/hooks/mempalace-hook-wrapper.sh) already calls `mempalace` via PATH lookup, so the scrub_env.sh prepend handles the CLI side automatically.
+- **`mempalace`** — migrates mempalace from user-scope system Python 3.9 into the project venv. Resolves the user's recurring Python-version issues with the tool. Provides `mempalace` and `mempalace-mcp` binaries; the MCP server config in `.mcp.json` (gitignored) is updated locally to point at `<main_repo>/.venv/bin/mempalace-mcp`. The hook wrapper at [`engine/tools/hooks/mempalace-hook-wrapper.sh`](../tools/hooks/mempalace-hook-wrapper.sh) already calls `mempalace` via PATH lookup, so the scrub_env.sh prepend handles the CLI side automatically. The version floor lives in [`engine/tools/requirements.txt`](../tools/requirements.txt) (single source of truth for the supported version; prose in this ADR and elsewhere does not pin the version inline so the docs don't rot when upstream releases).
 
 ## Consequences
 
@@ -63,12 +63,12 @@ Three additions to [`engine/tools/requirements.txt`](../tools/requirements.txt):
 
 **Mempalace migration: bug status verified at S-0043.**
 
-The mempalace install in the venv resolved to 3.3.4 (`>=3.3.3` covers it). The two upstream bugs documented as Issues [#1](https://github.com/StarshipSuperjam/paideia/issues/1) and [#2](https://github.com/StarshipSuperjam/paideia/issues/2) were verified against the new version:
+The two upstream bugs documented as Issues [#1](https://github.com/StarshipSuperjam/paideia/issues/1) and [#2](https://github.com/StarshipSuperjam/paideia/issues/2) were verified against the venv-managed mempalace at S-0043:
 
-- **Issue #1 (wing-filtered search "Internal error: Error finding id"):** reproduces verbatim in 3.3.4. Same exact error string, same error path. Workaround unchanged: unfiltered `mempalace_search` continues to be the project's standing query pattern.
-- **Issue #2 (per-worktree wing names):** behavior changed in 3.3.4 but bug is not fixed. `mempalace/hooks_cli.py:_wing_from_transcript_path()` now does `encoded.rsplit("-", 1)[-1]` and returns `wing_<last-token>`. For Paideia: main sessions derive `wing_paideia` (closer to expected); worktree sessions derive `wing_<random-hash>` (e.g., `wing_a5d511`) — still per-worktree because each worktree's path-suffix is unique. Additionally, the new `wing_paideia` wing is distinct from the documented bare `paideia` wing (488 drawers, manually curated), so the auto-capture and curated wings remain separate.
+- **Issue #1 (wing-filtered search "Internal error: Error finding id"):** reproduces verbatim. Same exact error string, same error path. Workaround unchanged: unfiltered `mempalace_search` continues to be the project's standing query pattern.
+- **Issue #2 (per-worktree wing names):** behavior changed but bug is not fixed. `mempalace/hooks_cli.py:_wing_from_transcript_path()` now does `encoded.rsplit("-", 1)[-1]` and returns `wing_<last-token>`. For Paideia: main sessions derive `wing_paideia` (closer to expected); worktree sessions derive `wing_<random-hash>` (e.g., `wing_a5d511`) — still per-worktree because each worktree's path-suffix is unique. Additionally, the new `wing_paideia` wing is distinct from the documented bare `paideia` wing (488 drawers, manually curated), so the auto-capture and curated wings remain separate.
 
-[`engine/operations/mempalace-operations.md`](../operations/mempalace-operations.md) "Known issues" section is updated to reflect 3.3.4 behavior. The Issues themselves remain OPEN; the user can decide whether to update them externally.
+[`engine/operations/mempalace-operations.md`](../operations/mempalace-operations.md) "Known issues" section reflects current behavior. The Issues themselves remain OPEN; the user can decide whether to update them externally.
 
 **Posture preservation.**
 
@@ -85,6 +85,6 @@ The mempalace install in the venv resolved to 3.3.4 (`>=3.3.3` covers it). The t
 
 - [ADR 0045](0045-shared-state-integrity-discipline.md) — subprocess environment scrubbing; same `scrub_env.sh` file, related concern (PATH preservation across `scrubbed_env()` subprocess hops is what makes this ADR's PATH prepend propagate).
 - [ADR 0049](0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md) — pre-S-0083 the venv enabled tiktoken for that ADR's context-telemetry decision; that decision retired at S-0083 (this ADR's `tiktoken>=0.7.0` pin retired in the same commit). The other two pins this ADR added (chromadb, mempalace) remain.
-- [`engine/operations/mempalace-operations.md`](../operations/mempalace-operations.md) — Known issues section, updated for 3.3.4 behavior.
+- [`engine/operations/mempalace-operations.md`](../operations/mempalace-operations.md) — Known issues section, reflects current upstream behavior.
 - [Issue #1](https://github.com/StarshipSuperjam/paideia/issues/1), [Issue #2](https://github.com/StarshipSuperjam/paideia/issues/2) — mempalace upstream bugs, verification noted internally.
 - [`engine/tools/scrub_env.sh`](../tools/scrub_env.sh), [`engine/tools/scrub_env.py`](../tools/scrub_env.py), [`engine/tools/conftest.py`](../tools/conftest.py) — the three-layer scrub mirror (bash, python, pytest fixture).
