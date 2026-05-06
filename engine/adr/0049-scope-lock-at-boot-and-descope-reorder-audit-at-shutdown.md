@@ -78,6 +78,16 @@ The `SessionStart` hook ([`engine/tools/hooks/session-start.sh`](../tools/hooks/
 
 ## Consequences
 
+### Amendment (S-0083) — Decision 3 (session-end context telemetry) retired
+
+The telemetry-capture portion of this ADR (decision 3 above; deliverables `scan_context_telemetry.py`, the three archive fields, and the health-check Session-load trend section) is **retired** at S-0083 per Issues [#21](https://github.com/StarshipSuperjam/paideia/issues/21) and [#32](https://github.com/StarshipSuperjam/paideia/issues/32). Empirical justification per Issue #32: the Session-load trend section ran in the S-0052, S-0065, and S-0077 audits and produced **zero behavioral signal** across all three (S-0052 absorbed by triage of the >1.0 fluke; S-0065 had 62% None capture rate filed as Issue #21; S-0077 produced "low and stable; no bundling-recommendation change"). The capture itself fluctuated non-deterministically across routine-mode sessions (Issue #21 reframed at S-0077), undermining cross-session comparability. The defensive surface area required to keep the metric from being misread as live in-session pressure (Issue #11 inline-fix at S-0052; CLAUDE.md "Posture vs machinery" bullets; the at-read-site cumulative-vs-live framing) outweighed the metric's contribution to actionable decisions.
+
+The retirement deletes [`engine/tools/scan_context_telemetry.py`](../tools/scan_context_telemetry.py) and its 14 tests, removes the `tiktoken>=0.7.0` pin from [`engine/tools/requirements.txt`](../tools/requirements.txt), removes the shutdown step 7b from [`engine/operations/session-shutdown-sequence.md`](../operations/session-shutdown-sequence.md) and the corresponding step in [`.claude/skills/session-shutdown-sequence/SKILL.md`](../../.claude/skills/session-shutdown-sequence/SKILL.md), removes the Session-load trend section from [`engine/operations/health-check.md`](../operations/health-check.md), and removes the two related bullets from CLAUDE.md "Posture vs machinery" (the cumulative-vs-live distinction; the prior-archive-backstop rejection). Pre-S-0083 archives still carry the three telemetry fields as historical artifacts; new archives do not. The audit_archive_structured_fields.py REQUIRED_ARCHIVE_FIELDS list never enforced these fields, so no audit changes are needed.
+
+Decisions 1, 2, 4, and 5 of this ADR (declared_scope at boot, scope-delivery audit at shutdown, multi-session scope-erosion signal, build-readiness gate clause) are unaffected by the amendment and remain Accepted.
+
+### Original consequences (S-0042 deliverable scope)
+
 The deliverables this ADR commits to all land at S-0042:
 
 - **New:** [`engine/tools/scan_context_telemetry.py`](../tools/scan_context_telemetry.py), tests for the tool, tests for the new validator soft-warns.

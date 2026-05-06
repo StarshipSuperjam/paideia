@@ -12,10 +12,12 @@ tool reads that file at shutdown, counts calls per tool, and writes a
 structured ``mempalace_activity`` field into engine/session/current.json so
 the archive carries the telemetry forward into the canonical record.
 
-Symmetric in shape to ``scan_context_telemetry.py`` — that tool writes
-transcript-token telemetry; this tool writes MemPalace-call telemetry. Both
-run at session-shutdown step 7b before validate.py's final-check audit and
-before the archive ritual.
+Runs at session-shutdown step 0 (before validate.py's final-check audit and
+before the archive ritual). Pre-S-0083 there was a sibling tool
+``scan_context_telemetry.py`` running at step 7b for transcript-token
+telemetry; that tool retired at S-0083 per the ADR 0049 amendment, but the
+rollup-write-then-archive shape inherited from it remains the canonical
+pattern for shutdown-step structured-field captures.
 
 The field shape:
 

@@ -33,13 +33,6 @@ chromadb>=0.5.0
 # will add `pypdf` or `pdfplumber` at the session that lands it.
 beautifulsoup4>=4.12.0
 
-# Cross-cutting context telemetry — engine/tools/scan_context_telemetry.py
-# per ADR 0049. tiktoken provides the o200k_base encoder used as a Claude
-# proxy; absence flips the tool to a coarse chars/4 fallback. Lazy import
-# inside scan_context_telemetry.tokenize(). Available in the venv per
-# ADR 0050 so telemetry archives carry accurate token counts going forward.
-tiktoken>=0.7.0
-
 # MemPalace — the project's semantic-memory store, MCP server, and Stop /
 # PreCompact hook capture. Per ADR 0050 (engine), mempalace runs from the
 # project venv rather than user-scope system Python. The .mcp.json command

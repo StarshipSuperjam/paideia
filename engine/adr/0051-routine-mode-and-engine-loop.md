@@ -138,7 +138,7 @@ The routine itself (the user-created Claude Code Routine) is configured: Manual 
 
 **Future work surfaced (not deferred).**
 
-- **Anthropic `count_tokens` API integration for accurate post-shutdown telemetry** — explicitly rejected at S-0044 per user direction (introduces recurring API spend for telemetry refinement). The current `tiktoken-o200k_base` upper-bound estimate per ADR 0049 + ADR 0050 stands as the project's accepted approximation.
+- **Anthropic `count_tokens` API integration for accurate post-shutdown telemetry** — explicitly rejected at S-0044 per user direction (introduces recurring API spend for telemetry refinement). *(Note: the surrounding `transcript_token_pct` telemetry that this rejection sat alongside was itself retired at S-0083 per Issues #21/#32 and the ADR 0049 amendment, which makes the rejection moot — the project no longer captures token telemetry of any kind. Preserved here as historical record of the deliberation.)*
 - **Hourly-cadence flip** — user action after S-0045 lands the first real target.
 - **Additional criterion types beyond the initial five** — added as Phase 5 execution surfaces concrete needs (pure on-demand; no speculative pre-authoring).
 - **Routine-mode for non-build-mode work** (e.g., daily review, weekly archive consolidation) — orthogonal pattern; would author its own narrowly-scoped routine, not extend the engine loop.

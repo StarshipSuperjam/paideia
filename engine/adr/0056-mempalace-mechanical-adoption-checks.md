@@ -68,7 +68,7 @@ Always exits 0; never blocks the harness. Per-session, gitignored, cleared at ar
 }
 ```
 
-Symmetric in shape and lifecycle to `scan_context_telemetry.py` (per ADR 0049). Idempotent — re-running overwrites the rollup. The field carries forward into the archive.
+Idempotent — re-running overwrites the rollup. The field carries forward into the archive. (Pre-S-0083 this tool was symmetric in shape and lifecycle to `scan_context_telemetry.py`; that tool retired at S-0083 per the ADR 0049 amendment, but the rollup-write-then-archive shape inherited from it remains the canonical pattern for shutdown-step structured field captures.)
 
 ### Layer 3 — Audit (`validate.py --final-check`)
 

@@ -49,7 +49,7 @@ The sourcing-time side effect is intentional: every hook in this project that so
 Three additions to [`engine/tools/requirements.txt`](../tools/requirements.txt):
 
 - **`chromadb>=0.5.0`** — was implicit (used by `probe_palace.py`, only worked because of incidental user-scope install via mempalace). Now explicit so probe_palace's expected version is independent of mempalace's pin.
-- **`tiktoken>=0.7.0`** — activates the accurate-tokenizer branch in `scan_context_telemetry.py` (ADR 0049). Telemetry archives going forward carry `tokenizer_used: "tiktoken-o200k_base"` rather than the `chars-div-4-fallback` that S-0042 recorded.
+- **`tiktoken>=0.7.0`** — *retired at S-0083 per the ADR 0049 amendment.* Originally activated the accurate-tokenizer branch in `scan_context_telemetry.py` (ADR 0049). The tool and pin were retired together when the cross-session Session-load trend telemetry was retired (zero behavioral signal across three audits per Issue [#32](https://github.com/StarshipSuperjam/paideia/issues/32)). chromadb and mempalace pins remain.
 - **`mempalace>=3.3.3`** — migrates mempalace from user-scope system Python 3.9 into the project venv. Resolves the user's recurring Python-version issues with the tool. Provides `mempalace` and `mempalace-mcp` binaries; the MCP server config in `.mcp.json` (gitignored) is updated locally to point at `<main_repo>/.venv/bin/mempalace-mcp`. The hook wrapper at [`engine/tools/hooks/mempalace-hook-wrapper.sh`](../tools/hooks/mempalace-hook-wrapper.sh) already calls `mempalace` via PATH lookup, so the scrub_env.sh prepend handles the CLI side automatically.
 
 ## Consequences
@@ -59,7 +59,7 @@ Three additions to [`engine/tools/requirements.txt`](../tools/requirements.txt):
 - Every machine that runs engine code now needs `uv` installed (single command: `brew install uv` or the curl installer). Documented as a one-time machine prereq.
 - Per-worktree disk cost: zero by default (shared venv at main); ~250MB if a worktree opts into its own override venv (chromadb dominates).
 - The four `validate.py` subprocess gates (ruff, mypy, pytest, plus repository SQL checks) execute against pinned versions across machines and across sessions. Variance in lint/type/test results becomes a consequence of code changes, not environment drift.
-- `scan_context_telemetry.py` archives going forward carry accurate `tiktoken-o200k_base` token counts. The cross-session "running too long / too short" judgment in the health-check Session-load trend section (per ADR 0049) gains better signal.
+- *(Retired at S-0083.)* Pre-S-0083: `scan_context_telemetry.py` archives carry accurate `tiktoken-o200k_base` token counts. The Session-load trend section consumed those counts. Both the tool and the section retired at S-0083 per the ADR 0049 amendment; tiktoken pin removed from requirements.txt in the same commit.
 
 **Mempalace migration: bug status verified at S-0043.**
 
@@ -84,7 +84,7 @@ The mempalace install in the venv resolved to 3.3.4 (`>=3.3.3` covers it). The t
 ## See also
 
 - [ADR 0045](0045-shared-state-integrity-discipline.md) — subprocess environment scrubbing; same `scrub_env.sh` file, related concern (PATH preservation across `scrubbed_env()` subprocess hops is what makes this ADR's PATH prepend propagate).
-- [ADR 0049](0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md) — cross-cutting context telemetry; tiktoken is the tokenizer this ADR's venv enables.
+- [ADR 0049](0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md) — pre-S-0083 the venv enabled tiktoken for that ADR's context-telemetry decision; that decision retired at S-0083 (this ADR's `tiktoken>=0.7.0` pin retired in the same commit). The other two pins this ADR added (chromadb, mempalace) remain.
 - [`engine/operations/mempalace-operations.md`](../operations/mempalace-operations.md) — Known issues section, updated for 3.3.4 behavior.
 - [Issue #1](https://github.com/StarshipSuperjam/paideia/issues/1), [Issue #2](https://github.com/StarshipSuperjam/paideia/issues/2) — mempalace upstream bugs, verification noted internally.
 - [`engine/tools/scrub_env.sh`](../tools/scrub_env.sh), [`engine/tools/scrub_env.py`](../tools/scrub_env.py), [`engine/tools/conftest.py`](../tools/conftest.py) — the three-layer scrub mirror (bash, python, pytest fixture).

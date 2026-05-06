@@ -66,23 +66,11 @@ python3 engine/tools/scan_orphans.py --output engine/health_check/dead_weight_ca
 
 Each candidate is annotated with axis, signal, last substantive change, and inbound reference count. The audit walks the file top-to-bottom and triages each candidate against the operative diagnostic question. **Surfacing in multiple axes is a stronger signal.** A file that flags both `ops-doc-uncited` AND `last-mod-age` AND `reference-count` is almost certainly dead weight; the audit confirms by reading the file.
 
-### Session-load trend (per ADR 0049)
-
-When 5+ sessions have accumulated `transcript_token_pct` in their archives:
-
-- **Running too long** — 3+ of last 5 sessions above 60% of the 1M context window. Suggests work should be split or scoped tighter at boot.
-- **Running too short** — 3+ of last 5 sessions below 30%. Suggests work could have been bundled.
-- **High variance** — stddev across last 5 above 15% of the window. Suggests scope-declaration discipline is loose; cross-reference the `scope_delivery` answers in the same window.
-
-The audit produces a recommendation on bundling for the next N sessions. Telemetry is grounded; the recommendation is not vibes.
-
-**The field is upper-bound and routinely exceeds 1.0 in long sessions** (per [Issue #11](https://github.com/StarshipSuperjam/paideia/issues/11) closed at S-0052; the S-0052 audit window had 3 of 10 archives carrying `pct > 1.0`). It is cross-session telemetry only — the audit may use it to compare session-shape across the window but should not interpret a >1.0 reading as "this session blew its budget" (the metric is cumulative content over session lifetime, not live prompt pressure). When 3+ of last 5 are above 1.0, the right reading is "these sessions ran long and/or had heavy tool-output content" — the Session-load trend's directional signals (too long / too short / high variance) still apply.
-
 ### Validator telemetry
 
 `tools/validate-history.jsonl` (gitignored, per-clone) — soft-warn category trends, validator runtime drift, hard-fail incidence.
 
-`engine/session/archive/S-NNNN.json` — per-session `outcome_summary_soft_warns` (the canonical structured field per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md)), `started_at`, `closed_at`, `status`, `outcome_summary`, branch, and (post-ADR-0049) `scope_delivery` + `transcript_token_pct`.
+`engine/session/archive/S-NNNN.json` — per-session `outcome_summary_soft_warns` (the canonical structured field per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md)), `started_at`, `closed_at`, `status`, `outcome_summary`, branch, and (post-ADR-0049) `scope_delivery`. (Pre-S-0083 archives also carry `transcript_token_pct` / `transcript_token_estimate` / `tokenizer_used` from the retired ADR 0049 decision 3 telemetry; new archives do not.)
 
 ### Project state
 
@@ -173,12 +161,6 @@ with a note explaining why the absence of activity is intentional.
 
 <observations + corrective actions or "no action with reasoning">
 
-## Session-load trend (when telemetry is available)
-
-Reads `transcript_token_pct` across last N archives. Surfaces:
-running too long / running too short / high variance. Recommendation
-on bundling for next N sessions.
-
 ## Cadence calibration
 
 Is the cadence right? If consistently no-action, raise. If
@@ -210,7 +192,7 @@ Defaults work for most phases. Re-evaluate the cadence:
 
 - [ADR 0022](../adr/0022-periodic-project-health-checks.md) — periodic project health checks.
 - [ADR 0048](../adr/0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md) — health-check findings route to GitHub Issues with `health-check-finding` label.
-- [ADR 0049](../adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md) — `scope_delivery` and `transcript_token_pct` fields the audit's Session-load trend section consumes.
+- [ADR 0049](../adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md) — `scope_delivery` field the audit consumes (decision 2 of the ADR; decision 3's context-telemetry was retired at S-0083 per the ADR's amendment).
 - [`engine/tools/scan_orphans.py`](../tools/scan_orphans.py) — multi-axis dead-weight scanner.
-- [`session-shutdown-sequence.md`](session-shutdown-sequence.md) — telemetry sources fed by shutdown (including the new `transcript_token_pct` capture per ADR 0049).
+- [`session-shutdown-sequence.md`](session-shutdown-sequence.md) — telemetry sources fed by shutdown.
 - [`tools-validate-interpretation.md`](tools-validate-interpretation.md) — soft-warn categories the audit consumes.
