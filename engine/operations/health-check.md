@@ -46,7 +46,41 @@ A file with 17 inbound references but zero captured entries is plumbing. A valid
 
 **Required output:** every health-check must surface at least one **non-obvious finding** that is not on any mechanical scanner's output. Mechanical surfaces (the scanners below) feed the audit; they do not replace it. If the audit's report contains only what the scanners produced, the audit did not happen.
 
-## Mechanical inputs (the audit consumes; the audit is not consumed by them)
+## Adversarial stance (per [ADR 0057](../adr/0057-adversarial-stance-for-health-check-audits.md))
+
+The four posture sections below default to *confirming* that things still work, with **preserve** as the safe disposition. Across cumulative audit windows the preserve-disposition reinforces itself — S-0052 said preserve; S-0065 cited S-0052; S-0077 cited both — and accumulated dead-weight no audit retires. The fix is structural: the audit takes an **adversarial stance** at every section. Argue the candidate should be retired or replaced; only preserve with affirmative case.
+
+[ADR 0057](../adr/0057-adversarial-stance-for-health-check-audits.md) is the citable contract; this section is the operational surface. The adversarial-stance posture is the audit-side counterpart to [ADR 0040](../adr/0040-build-readiness-gate-before-substantive-build-sessions.md)'s gate-side adversarial-reconnaissance discipline. ADR 0040 asks *"what could break our session?"* prospectively at the gate; this contract asks *"what is broken or stale or superseded that we've been carrying as if it were fine?"* retrospectively at the audit.
+
+### Stats-as-proxy-for-function (named anti-pattern)
+
+The lazy-analysis pattern: an audit cites a count, a status field, or an existence check and treats it as evidence the system is doing its job. The diagnostic question is whether it is *doing the work*, which counts and existence don't answer. Every system reference in the audit must specify what *content probe* runs against it.
+
+The S-0065 audit looked at MemPalace and wrote *"Wing `paideia` carries 485 drawers across 5 rooms as of S-0032 close (from STATE.md infrastructure row); this audit did not run a fresh `mempalace_status`. Treat as a known number. **No action.**"* — citing a cached count from a prior audit and treating its existence as a healthy signal. Meanwhile, the routine-mode-skips-diary-write gap ([Issue #27](https://github.com/StarshipSuperjam/paideia/issues/27)) was actively dropping `pushback`/`lesson` capture across every Phase 5 routine session — invisible to drawer-count-as-stat but obvious to anyone who tried to *use* MemPalace recall during routine work.
+
+The class is broader than MemPalace. Validator soft-warn count → "working," even when soft-warns aren't producing acted-on signal. Supabase migrations table populated → "DB is fine," without checking whether the migration's empirical postconditions hold against live data. Hook scripts exist on disk → "hooks are running," even if a PATH problem makes them silently no-op (the S-0032 audit caught exactly this for the mempalace capture hook *only because* a probe-style fresh check ran). The Mechanical inputs section below names a per-system freshness-probe inventory; the audit's prose claim about a system's health must rest on a probe run *during this audit*, not on a cited number from a prior audit or a cached entry in [`engine/STATE.md`](../STATE.md).
+
+### Posture inversion is load-bearing
+
+Each of the four traditional postures (Fit / Gaps / Infrastructure-without-function / Bloat) gets an adversarial prompt-question rewrite below. The Infrastructure-without-function disposition options shift from `[retire / convert / preserve]` to `[recommend retire / recommend convert / recommend preserve-with-affirmative-case]` — *recommendation*-shape, not action-shape, per the user-buffered execution principle below. The affirmative case for preserve must specify *what work this artifact does that no other artifact does*. "Inbound references" alone is not an affirmative case; the references are themselves candidates for retirement.
+
+**Required output: ≥1 affirmative retire-candidate-recommendation** (or an adversarially-scrutinized explicit "no candidates" subsection). The current ≥1-non-obvious-finding requirement still holds; the new ≥1-retire-candidate requirement is additive. An audit that ends with all preserves and zero retires is structurally suspicious in the same way an audit producing no findings would be — the adversarial posture wasn't exercised. The escape hatch: if the project's current state honestly admits no retire candidates, the audit authors an explicit "no retire candidates this audit" subsection that adversarially scrutinizes its own claim ("I argue no retire candidates because X; if X were false, Y would be a candidate"). The escape is open *and* answerable.
+
+### Cold-context probe per audit
+
+The audit reads ≥1 randomly-selected artifact (operations doc, ADR, register, build-plan chunk, STATE.md row, hook script) *as if* it had no project context, and asks: do cross-references resolve to currently-correct content? does the prose tell a future cold consumer how to *use* this artifact, or only that it exists? does the artifact name a sibling that no longer exists? does it carry a rule whose successor superseded it without a back-reference? The probe is the audit's defense against compound drift in artifacts the warm-context audit can't see — the audit knows too much, and that knowledge is itself the failure mode. A randomly-selected target prevents the audit from converging on artifacts it already trusts.
+
+### User-buffered execution
+
+The audit's deliverable is **findings + guidance suggestions, surfaced to the user, before any retire / convert / replace action is taken**. The audit *reports* and *recommends*; the user *adjudicates and authorizes*; downstream sessions execute approved actions per [ADR 0048](../adr/0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md) issue-discipline (the `health-check-finding` label is the deferral lane).
+
+This is the structural counterpart to [ADR 0040](../adr/0040-build-readiness-gate-before-substantive-build-sessions.md)'s "gate sessions are conversational by default" posture — the cadence audit is conversational by default in the same way. The audit session has no path to executing retire / convert / replace actions autonomously; "auto-resolve" of an audit finding is a misidentification of the session's mode. Inline trivial cleanups that fall under the standard "default to fix-in-context" rule (per [CLAUDE.md](../../CLAUDE.md)) still apply — the buffer is for the audit's *adversarial recommendations* (retirement, replacement, structural change), not for stray typos noticed in passing.
+
+The report template carries a "User adjudication" subsection that the audit leaves *blank on arrival*. The user (or the next interactive session that picks up the audit's recommendations) populates that subsection with accept/reject/modify dispositions per recommendation. The audit closes with recommendations *surfaced*, not *executed*; the User adjudication subsection is the structural surface for the buffer.
+
+## Mechanical inputs and freshness probes (the audit consumes; the audit is not consumed by them)
+
+The mechanical scanners below feed the audit; the freshness probes attached to each external system the audit references answer the operative diagnostic question per the stats-as-proxy-for-function anti-pattern named above. The probe surfaces are required: the audit's prose claim about a system's health must rest on a probe run *during this audit*, not on a cited number from a prior audit.
 
 ### Dead-weight scanner
 
@@ -74,7 +108,31 @@ Each candidate is annotated with axis, signal, last substantive change, and inbo
 
 ### Project state
 
-ADR collection (counts by status across time), ENGINE_LOG entries (categorized engine changes by date), MemPalace stats (`mempalace_status`, `mempalace_kg_stats` — drawer growth, room balance, last-write activity).
+ADR collection (counts by status across time), ENGINE_LOG entries (categorized engine changes by date), MemPalace stats (`mempalace_status`, `mempalace_kg_stats` — drawer growth, room balance, last-write activity). **These are stats; they feed the audit but do not answer the operative diagnostic question.** The freshness probes below are required content probes, not substitutes for the stats.
+
+### Freshness probes (per [ADR 0057](../adr/0057-adversarial-stance-for-health-check-audits.md))
+
+Each external system the audit references gets a fresh content probe at audit-time. The probe answers "is this system *doing the work*?" not "does it exist?". Probes are run during the audit; the report's "Freshness probes run" subsection (per the new TEMPLATE.md shape) records what was probed and what the probe surfaced.
+
+#### MemPalace freshness probe
+
+Run `mempalace search` against ≥3 representative recent terms — derived from the last 1-3 sessions' `working_on` subjects in `engine/session/archive/*.json`, plus named `pushback`/`lesson` keywords. The probe is *"does recall return relevant content?"* not *"does the wing have drawers?"*. [`engine/tools/health_check.py`](../tools/health_check.py)'s `audit_mempalace()` function already runs `pushback`/`lesson` adoption-count probes via the local `mempalace search` CLI (added between S-0065 and S-0077, documented as **canonical contract** at S-0085 per [Issue #28](https://github.com/StarshipSuperjam/paideia/issues/28)) — the audit cannot skip them. Beyond the script's mechanical surface, the audit AI runs additional `mempalace_search` MCP calls during prose authoring against current-session-relevant terms; results are read for *content quality* (do the drawers carry usable context, or are they thin?), not just count.
+
+#### Validator freshness probe
+
+Read the *acted-on rate* of soft-warns across the audit window, not just the count. For each persistent soft-warn category surfaced at boot (3+ of last 5 archives per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md)), check whether commits in the audit window addressed the named category — `git log --grep` against the category name, cross-referenced with `outcome_summary_soft_warns` deltas across consecutive archives. The probe is *"are warnings producing acted-on signal?"* not *"what's the count?"*. Persistent warns with zero acted-on commits across the window are candidates for promotion to hard-fail (per [`tools-validate-interpretation.md`](tools-validate-interpretation.md) "Persistent-warn annotation"), category-redefinition, or retirement.
+
+#### Supabase freshness probe
+
+Verify the most-recent migration's empirical effect against the live DB. Sample row counts against the migration's expected scale; spot-check predicate distribution against the migration's `Postcondition-Assertions:` block (once that lands at S-E per [Issue #23](https://github.com/StarshipSuperjam/paideia/issues/23)); confirm the schema shape matches the migration's contract header. The probe is *"does the migration's postcondition hold?"* not *"is the schema_migrations row present?"*. Read-only via `psycopg`; never write through the audit path. Cross-ref [`migration-discipline.md`](migration-discipline.md).
+
+#### Hook freshness probe
+
+Tail `.claude/logs/*-hook.log` for the audit window; verify recent invocations show success exit codes (`OK exit=0`), not just hook script existence on disk. The probe is *"does the hook fire successfully?"* not *"does the script file exist?"*. The S-0032 audit caught the mempalace capture hook silently failing (FAIL exit=127 on every fire since S-0002 due to a PATH problem) only because a probe-style check ran; without that probe the failure would have remained invisible. The hooks the audit checks: SessionStart (`engine/tools/hooks/session-start.sh`), Stop / PreCompact (`engine/tools/hooks/mempalace-hook-wrapper.sh`), PostToolUse (`engine/tools/hooks/post-adr-write.sh`, `engine/tools/hooks/post-state-edit.sh`, `engine/tools/hooks/post-mempalace-tool-use.sh`).
+
+#### Registry freshness probe
+
+For each register file (`product/docs/tensions.md`, the dead-weight scanner output, `engine/session/auto_target.json`, `HANDOFF.md`), the probe asks whether content was *captured* in the audit window, not whether the file exists. Probe surface: `git log --since` against the file (commits that modified it), and an inline read for content shape (does the file carry actionable entries, or has it been static for many sessions?). A register with zero captures across the window is a candidate for retirement (per the dead-weight posture below) or for re-examination of whether sessions are actually using it.
 
 ## Maintenance probes
 
@@ -95,104 +153,113 @@ When the audit fires, it should:
 
 The four traditional category buckets (Fit / Gaps / Dead-Weight / Bloat) are *organizing prompts for the audit's prose*, not a checklist to complete. Each is a posture to take while reading the project, not a slot to fill.
 
+The leading prompt-question for each posture is **adversarially framed** per [ADR 0057](../adr/0057-adversarial-stance-for-health-check-audits.md) — argue against the status quo, surface what's silently ignored, and only preserve with affirmative case. Each posture's recommendations route through the report's User adjudication subsection (per the user-buffered execution principle); the audit *surfaces*, the user *adjudicates*, downstream sessions execute approved actions per [ADR 0048](../adr/0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md).
+
 ### Fit posture
 
-Walk through the project asking: **does the machinery match what the project is actually producing?**
+**Adversarial prompt:** *what machinery is silently ignored, what telemetry is being treated as load-bearing without anyone acting on it, and what category is firing 30+ times per session that no one reads?*
 
-- Does the validate.py soft-warn distribution surface useful signal, or are we ignoring most warnings? (Per the persistent-warn surface: any category firing in 3+ of last 5 sessions warrants the audit's attention.)
+Answer with acted-on-rate analysis and silent-channel probes, not stats:
+
+- Does the validate.py soft-warn distribution surface useful signal, or are we ignoring most warnings? (Per the persistent-warn surface: any category firing in 3+ of last 5 sessions warrants the audit's attention. The validator freshness probe above feeds this with acted-on-rate data.)
 - Do ENGINE_LOG entries match what was actually material, or is the project producing material changes that aren't being logged?
 - Do ADR statuses reflect reality, or are some `Accepted` ADRs effectively-superseded with no record? (Cross-check against the cascade-discipline soft-warns.)
-- Are MemPalace queries surfacing useful prior context, or is recall thin?
+- **Argue retirement / replacement:** which validator soft-warn categories should be retired (no acted-on signal across the window)? which ADRs should be moved to `Superseded` (effectively superseded but unrecorded)? which telemetry surfaces are plumbing waiting for a function that never arrived?
+- Are MemPalace queries surfacing useful prior context, or is recall thin? (The MemPalace freshness probe answers this with content-quality reads, not drawer counts.)
 - Are session archives faithfully recording what happened, or is `outcome_summary` becoming a thin gloss?
 
 ### Gaps posture
 
-What's missing that should be there?
+**Adversarial prompt:** *if a new collaborator joined the project tomorrow and tried to do work, what would they discover is missing only by tripping over it?*
+
+Answer by simulating cold-start consumption of named artifacts (the cold-context probe per audit fits here):
 
 - Tensions in `product/docs/tensions.md` open for >10 sessions — actionable now?
 - ADRs referenced in design docs that don't exist yet.
 - Authoring patterns in active use without rows in [`expression-contract-instantiation.md`](expression-contract-instantiation.md) per the "no row, no authoring" discipline.
 - Open questions in `STATE.md` that haven't progressed.
+- **Argue retirement / replacement:** which "missing thing" is actually unneeded (pin a deferral with a decide-trigger to surface this rather than carry the gap as work)? which open question should be closed by ADR rather than carried as a tension?
+- Cold-context probe finding: read a randomly-selected operations doc / ADR / register / build-plan chunk as if you have no project context. Do cross-references resolve? Does the prose tell a future cold consumer how to *use* this artifact, or only that it exists?
 
 ### Infrastructure-without-function (sharpened dead-weight posture)
+
+**Adversarial prompt:** *argue this candidate's retirement. What's the affirmative case for keeping it? If the case is "inbound references" alone, the references are themselves candidates for retirement.*
 
 This is the posture that catches the failure mode the user named at S-0042: a file referenced by infrastructure but never *used* — plumbing waiting for a function that never arrived. The reference-count axis alone misses this; reference count says "anyone pointing at this?" but the operative question is "is it doing work?"
 
 Use the dead-weight scanner output as a starting point, then ask of each candidate:
 
-- A register file: does it carry entries? If no entries across 20+ sessions of opportunity, the register is plumbing.
+- A register file: does it carry entries? If no entries across 20+ sessions of opportunity, the register is plumbing. (The registry freshness probe above feeds this.)
 - An ops doc: has any session ever cited following it? If the only references are the README index entry, no session has used it.
 - A decide-trigger / decide-before marker: has the pinned phase passed? If yes, the marker is stale and the decision either belongs in an ADR now or should be retired.
 - An ADR marked `Deprecated` for >20 sessions with no successor: archive consideration.
 - A stale worktree: per `git worktree list`, prune candidates surface here.
 
-Each surfaced candidate ends with an explicit disposition: **retire**, **convert to active use**, or **preserve with a note explaining why the absence of activity is intentional**. Saying "leave it for now" without naming why is itself the failure mode this audit exists to catch.
+Each surfaced candidate ends with an explicit *recommendation*: **recommend retire**, **recommend convert to active use**, or **recommend preserve-with-affirmative-case** (the affirmative case must specify *what work this artifact does that no other artifact does* — not "inbound references" alone). The dispositions are recommendation-shape per the user-buffered execution principle; the user adjudicates per the report's User adjudication subsection. Saying "leave it for now" without naming why is the failure mode this audit exists to catch.
+
+**Required output:** ≥1 affirmative retire-candidate-recommendation. If none, the audit authors an explicit "no retire candidates this audit" subsection that adversarially scrutinizes its own claim ("I argue no retire candidates because X; if X were false, Y would be a candidate").
 
 ### Bloat posture
 
-What's grown past its purpose?
+**Adversarial prompt:** *if the project's machinery were forced to halve in size, what would go first?*
 
-- Operations docs > ~300 lines — split if multiple concerns.
-- ADRs that should have been one decision but became three.
-- Validator categories that fire constantly but never get acted on (the persistent-warn 10-of-N escalation criterion).
-- Session shutdown sequences taking longer than the productive work.
+The thought experiment surfaces what's load-bearing vs accumulated:
+
+- Operations docs > ~300 lines — split if multiple concerns, retire if grown past purpose.
+- ADRs that should have been one decision but became three (consolidation candidates).
+- Validator categories that fire constantly but never get acted on (the persistent-warn 10-of-N escalation criterion). The Fit-posture validator freshness probe identifies these; bloat asks whether they should be retired.
+- Session shutdown sequences taking longer than the productive work — which steps should be retired or compressed?
+- **Argue retirement / replacement:** which doc / ADR / convention should go first? Which validator check is overhead the project no longer needs?
+
+## Accumulated pushbacks and lessons (per [Issue #36](https://github.com/StarshipSuperjam/paideia/issues/36) and [ADR 0057](../adr/0057-adversarial-stance-for-health-check-audits.md))
+
+The `pushback` and `lesson` MemPalace tags (per [`mempalace-tagging-conventions.md`](mempalace-tagging-conventions.md)) exist precisely to be retrieved later. The `pushback` tag captures verbatim moments where a real risk was named and a course correction happened; the `lesson` tag captures procedural failure modes the project should not re-attempt. They are the project's accumulated complaints and learnings. **The audit is the natural consumer.**
+
+Per CLAUDE.md "Posture vs machinery": the pushback rule has no log and no audit; a session that fails to surface a real risk leaves no trace. The `pushback` tag is the *partial* mechanization. Without the audit consuming it, the partial mechanization is itself plumbing waiting for a function that never arrived — exactly what the audit's operative diagnostic question is built to surface. Same logic for `lesson`: capturing a procedural failure mode only pays off if some downstream pass actually reads the captures. The health-check is that pass.
+
+The audit AI runs the following queries during prose authoring (the `health_check.py` script feeds adoption *counts* per [Issue #28](https://github.com/StarshipSuperjam/paideia/issues/28); the audit AI reads the *content*):
+
+```text
+mempalace_search(query="<topic-derived-from-recent-archives>",
+                 tags=["pushback"], limit=10)
+   — drawers since last_audit_session
+
+mempalace_search(query="<topic-derived-from-recent-archives>",
+                 tags=["lesson"], limit=10)
+   — drawers since last_audit_session
+```
+
+Topic terms derive from recent archives' `working_on` and `outcome_summary` fields (per the MemPalace freshness probe pattern), plus catch-all queries against the audit window's themes. The audit reads each returned drawer's verbatim content — *not* just the title — and surfaces clusters in prose:
+
+- **Cluster of pushbacks against the same risk-class** → posture rule that hasn't been mechanized → recommendation for new ADR, validator soft-warn, or hook gate.
+- **Cluster of lessons against the same workflow** → ops-doc gap or missing validator check → recommendation for ops-doc update or validator addition.
+- **Zero captures across the window** → meaningful signal too: either the posture wasn't exercised (audit-window had no pushback-worthy moments) OR the capture surface is failing silently again (the S-0078 vector with Issue #27). The audit distinguishes the two by sampling working-on subjects against `mempalace_diary_read` content; if diary entries describe pushback-shaped moments that no `pushback` drawer captures, the surface is failing.
+
+The audit produces *concrete recommendations* in this section — new ADR / ops-doc update / validator check / posture-rule mechanization — not just a finding list. Per the user-buffered execution principle, recommendations route through the User adjudication subsection; the user adjudicates; downstream sessions execute approved recommendations via Issues per [ADR 0048](../adr/0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md) (label `health-check-finding` for cross-session deferrals).
 
 ## Report template
 
-Author at `docs/health-checks/S-NNNN.md`. The report is the byproduct; the audit's value lives in the prose. Avoid template-by-rote completion.
+The canonical template lives at [`docs/health-checks/TEMPLATE.md`](../../docs/health-checks/TEMPLATE.md). Author the audit's report at `docs/health-checks/S-NNNN.md` against that template. The report is the byproduct; the audit's value lives in the prose. Avoid template-by-rote completion.
 
-```markdown
-# Health Check S-NNNN — YYYY-MM-DD
+The template carries (top-to-bottom):
 
-**Cadence:** every <N> sessions. Last check: S-NNNN (<delta>).
+- **Freshness probes run** — what was probed and what each probe surfaced (per the freshness-probe inventory above). Required; non-empty.
+- **Operative diagnostic applied** — restatement of how "is this thing doing the work it was created to do?" applied to surfaced candidates. The dead-weight scanner output is evidence; the audit's judgment is what makes this section non-trivial.
+- **Non-obvious finding(s)** — ≥1, not on any mechanical scanner's output.
+- **Fit / Gaps / Infrastructure-without-function / Bloat** — each posture's adversarial prompt-question; observations + recommendations. The Infrastructure-without-function dispositions are recommendation-shape: `recommend retire / recommend convert / recommend preserve-with-affirmative-case`.
+- **Accumulated pushbacks and lessons** — populated with `mempalace_search` results, drawer reading, and any cluster-driven recommendations.
+- **Affirmative retire candidates** — ≥1 retire-candidate-with-reasoning OR an explicit "no retire candidates this audit" subsection adversarially scrutinizing its own claim.
+- **Cold-context probe** — what artifact was randomly selected, what a context-cold consumer would see, what gaps surfaced.
+- **User adjudication** — left **blank on arrival**. The user (or the next interactive session that picks up the audit's recommendations) populates this with accept/reject/modify dispositions per recommendation. The audit closes with recommendations *surfaced*, not *executed*.
+- **Cadence calibration** — is the cadence right? If consistently no-action, raise. If consistently large action lists, lower.
+- **Summary** — one paragraph: what the project's discipline looks like now vs. last check.
 
-## Operative diagnostic applied
+After User adjudication, each accepted recommendation routes through one of four execution lanes:
 
-Brief restatement: which files / categories / rules surfaced as
-candidates against "is this thing doing the work it was created to do?"
-The dead-weight scanner output goes here as evidence; the audit's
-judgment is what makes this section non-trivial.
-
-## Non-obvious finding(s)
-
-At least one. Not on any mechanical scanner's output. The audit's
-own observation — what the AI/user noticed that no rule would catch.
-
-## Fit
-
-<observations + corrective actions or "no action with reasoning">
-
-## Gaps
-
-<observations + corrective actions or "no action with reasoning">
-
-## Infrastructure-without-function (dead weight)
-
-For each scanner-surfaced candidate AND any non-obvious additions,
-the explicit disposition: retire, convert to active use, or preserve
-with a note explaining why the absence of activity is intentional.
-
-## Bloat
-
-<observations + corrective actions or "no action with reasoning">
-
-## Cadence calibration
-
-Is the cadence right? If consistently no-action, raise. If
-consistently large action lists, lower.
-
-## Summary
-
-One paragraph: what the project's discipline looks like now vs. last
-check, and what's queued for next session.
-```
-
-Each corrective action either:
-
-- Lands in this session as a follow-on commit (small, scope-bounded fixes — the default per CLAUDE.md "Default to fix-in-context").
-- Becomes the next session's work item in STATE.md (large items requiring substantial scope).
-- Becomes a new GitHub Issue per [ADR 0048](../adr/0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md) with label `health-check-finding` (cross-session deferrals; the cleanup-batch workflow can pick them up later).
-- Becomes a new tension in `product/docs/tensions.md` if it's not yet actionable.
+- **Inline trivial cleanup** — only for cleanups that fit the standard "default to fix-in-context" rule (typos, broken cross-refs noticed in passing). The user-buffered execution principle reserves the audit session itself for findings + recommendations; substantive retire / convert / replace actions route through the lanes below, not inline.
+- **Next-session work item in STATE.md** — large items requiring substantial scope.
+- **New GitHub Issue per [ADR 0048](../adr/0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md)** with label `health-check-finding` (cross-session deferrals; the cleanup-batch workflow picks them up later). This is the default lane for adversarial recommendations.
+- **New tension in `product/docs/tensions.md`** if the item isn't yet actionable.
 
 ## Cadence policy
 
@@ -205,9 +272,15 @@ Defaults work for most phases. Re-evaluate the cadence:
 
 ## See also
 
-- [ADR 0022](../adr/0022-periodic-project-health-checks.md) — periodic project health checks.
+- [ADR 0022](../adr/0022-periodic-project-health-checks.md) — periodic project health checks (parent contract).
+- [ADR 0057](../adr/0057-adversarial-stance-for-health-check-audits.md) — adversarial stance for project health-check audits (the contract this operational surface implements).
+- [ADR 0040](../adr/0040-build-readiness-gate-before-substantive-build-sessions.md) — gate-side structural sibling: same adversarial-framing pattern at the build-session boundary; same conversational-by-default posture.
 - [ADR 0048](../adr/0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md) — health-check findings route to GitHub Issues with `health-check-finding` label.
 - [ADR 0049](../adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md) — `scope_delivery` field the audit consumes (decision 2 of the ADR; decision 3's context-telemetry was retired at S-0083 per the ADR's amendment).
+- [ADR 0053](../adr/0053-mechanism-first-exercise-gate.md) — first-exercise readiness gate; the cadence audit at S-0087 is the first exercise of ADR 0057.
+- [`mempalace-tagging-conventions.md`](mempalace-tagging-conventions.md) — `pushback` and `lesson` tag specifics the Accumulated-pushbacks-and-lessons section consumes.
+- [`docs/health-checks/TEMPLATE.md`](../../docs/health-checks/TEMPLATE.md) — canonical report template sessions populate.
+- [`engine/tools/health_check.py`](../tools/health_check.py) — script-generated mechanical input; `audit_mempalace()` runs canonical `pushback`/`lesson` adoption-count probes.
 - [`engine/tools/scan_orphans.py`](../tools/scan_orphans.py) — multi-axis dead-weight scanner.
 - [`session-shutdown-sequence.md`](session-shutdown-sequence.md) — telemetry sources fed by shutdown.
 - [`tools-validate-interpretation.md`](tools-validate-interpretation.md) — soft-warn categories the audit consumes.
