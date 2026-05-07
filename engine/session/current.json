@@ -1,0 +1,12 @@
+{
+  "id": "S-0090",
+  "started_at": "2026-05-07T20:00:46Z",
+  "status": "in_progress",
+  "mode": "interactive",
+  "working_on": "Routine-protection refinement of S-0089's MCP-availability tightening. User clarification: MCP unavailability is easy to fix (Claude Desktop reboot); user just needs visibility. Routine sessions running overnight / AFK must NOT be killed by intermittent MCP. S-0089's `mempalace_diary_write_skipped_invalid_token` hard-fail blocks the close when substrate is alive but token is present — exactly the routine-killing scenario the user pushed back against. Convert the invalid-token path from hard-fail to soft-warn with mode-aware body (engine LOUD ⚠️ surface; routine standard one-line). Visibility still preserved via LOUD body for engine + standard for routine; routines close cleanly. Campaign plan reorder: Issue #41 (C3) shifts S-0090 → S-0091.",
+  "outcome_summary": null,
+  "approved_plan": null,
+  "branch": "claude/awesome-carson-4840fe",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/awesome-carson-4840fe",
+  "declared_scope": "engine-apparatus-mcp-routine-protection"
+}
