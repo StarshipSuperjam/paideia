@@ -51,7 +51,9 @@ def _build_palace(tmp_path: Path) -> Path:
             "drawer_orphan_wing_bbbbbb_2",
             "drawer_canonical_wing_paideia",
             "drawer_canonical_wing_claude",
-            "drawer_historical_fullpath",
+            "drawer_historical_fullpath_a",
+            "drawer_historical_fullpath_b",
+            "drawer_historical_second_wing",
         ],
         documents=[
             "mined chunk of MISSION.md",
@@ -63,7 +65,9 @@ def _build_palace(tmp_path: Path) -> Path:
             "second diary entry from same orphan wing",
             "main-session capture into wing_paideia",
             "AI diary entry",
-            "auto-capture from old worktree path",
+            "auto-capture from old worktree path A",
+            "second auto-capture from same old worktree A",
+            "auto-capture from a different old worktree B",
         ],
         metadatas=[
             {"wing": "paideia", "room": "general", "added_by": "claude-s0002"},
@@ -77,6 +81,14 @@ def _build_palace(tmp_path: Path) -> Path:
             {"wing": "wing_claude", "room": "diary"},
             {
                 "wing": "-Users-test--claude-worktrees-foo-bar-12abcd",
+                "room": "general",
+            },
+            {
+                "wing": "-Users-test--claude-worktrees-foo-bar-12abcd",
+                "room": "general",
+            },
+            {
+                "wing": "-Users-other--claude-worktrees-baz-qux-34efgh",
                 "room": "general",
             },
         ],
@@ -257,14 +269,29 @@ def test_audit_orphan_wings_dry_run_finds_two_wings(tmp_path: Path) -> None:
     assert report.deleted == 0
 
 
-def test_audit_historical_paths_is_report_only(tmp_path: Path) -> None:
+def test_audit_historical_paths_dry_run_finds_candidates(tmp_path: Path) -> None:
+    """Dry run enumerates per-wing counts without mutation."""
     palace_dir = _build_palace(tmp_path)
-    report = prune_mempalace.audit_historical_paths(palace_dir)
+    report = prune_mempalace.audit_historical_paths(palace_dir, apply=False)
     assert report.mode == "historical-paths"
-    assert len(report.candidates) == 1  # one full-encoded-path wing in fixture
+    # Two distinct historical-path wings in the fixture.
+    assert len(report.candidates) == 2
+    # Three drawers total (two in wing A, one in wing B).
+    total = sum(c["drawer_count"] for c in report.candidates)
+    assert total == 3
     assert report.deleted == 0
-    # No mutation flag — historical mode is report-only by contract.
-    assert any("Deletion deferred to C3" in n for n in report.notes)
+
+
+def test_audit_historical_paths_dry_run_note_points_at_apply_path(
+    tmp_path: Path,
+) -> None:
+    """Dry-run note describes the apply path (S-0092 contract)."""
+    palace_dir = _build_palace(tmp_path)
+    report = prune_mempalace.audit_historical_paths(palace_dir, apply=False)
+    joined = " ".join(report.notes)
+    assert "--apply" in joined
+    assert "Issue #41" in joined
+    assert "S-0092" in joined
 
 
 # ---------------------------------------------------------------------------
@@ -318,6 +345,75 @@ def test_audit_orphan_wings_apply_deletes_orphans_only(tmp_path: Path) -> None:
     assert wings.get("wing_paideia", 0) == 1
     assert wings.get("wing_claude", 0) == 1
     assert wings.get("paideia", 0) == 5  # 5 paideia-wing drawers in the fixture
+
+
+def test_audit_historical_paths_apply_deletes_historical_only(
+    tmp_path: Path,
+) -> None:
+    """Apply mode bulk-deletes ALL historical-wing drawers; canonical wings untouched."""
+    palace_dir = _build_palace(tmp_path)
+    report = prune_mempalace.audit_historical_paths(palace_dir, apply=True)
+    # Three historical drawers across two historical wings.
+    assert report.deleted == 3
+
+    # Apply note announces the count and points at the signal-probe report.
+    joined = " ".join(report.notes)
+    assert "APPLY MODE" in joined
+    assert "signal-probe" in joined or "signal probe" in joined.replace("-", " ")
+
+    # Verify post-state: historical wings gone, canonical preserved.
+    db = palace_dir / "chroma.sqlite3"
+    con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    rows = con.execute(
+        "SELECT string_value, COUNT(DISTINCT id) FROM embedding_metadata "
+        "WHERE key='wing' GROUP BY string_value"
+    ).fetchall()
+    con.close()
+    wings = dict(rows)
+    # Both historical wings absent.
+    assert "-Users-test--claude-worktrees-foo-bar-12abcd" not in wings
+    assert "-Users-other--claude-worktrees-baz-qux-34efgh" not in wings
+    # Canonical wings preserved.
+    assert wings.get("paideia", 0) == 5
+    assert wings.get("wing_paideia", 0) == 1
+    assert wings.get("wing_claude", 0) == 1
+    # Orphan wings preserved (not in this audit's scope).
+    assert wings.get("wing_aaaaaa", 0) == 1
+    assert wings.get("wing_bbbbbb", 0) == 1
+
+
+def test_audit_historical_paths_apply_idempotent(tmp_path: Path) -> None:
+    """Second apply on the same palace deletes nothing (no historical drawers left)."""
+    palace_dir = _build_palace(tmp_path)
+    first = prune_mempalace.audit_historical_paths(palace_dir, apply=True)
+    assert first.deleted == 3
+    second = prune_mempalace.audit_historical_paths(palace_dir, apply=True)
+    assert second.deleted == 0
+    # Candidates list reflects current population, not original.
+    assert second.candidates == []
+
+
+def test_enumerate_historical_path_drawer_internal_ids_aggregates_across_wings(
+    tmp_path: Path,
+) -> None:
+    """Helper enumerator returns (wing, internal_id) for every historical-wing drawer."""
+    palace_dir = _build_palace(tmp_path)
+    con = prune_mempalace.open_sqlite_ro(palace_dir)
+    try:
+        pairs = prune_mempalace.enumerate_historical_path_drawer_internal_ids(con)
+    finally:
+        con.close()
+    wings_seen = {w for w, _ in pairs}
+    assert wings_seen == {
+        "-Users-test--claude-worktrees-foo-bar-12abcd",
+        "-Users-other--claude-worktrees-baz-qux-34efgh",
+    }
+    # Two drawers in the first wing, one in the second.
+    counts: dict[str, int] = {}
+    for wing, _ in pairs:
+        counts[wing] = counts.get(wing, 0) + 1
+    assert counts["-Users-test--claude-worktrees-foo-bar-12abcd"] == 2
+    assert counts["-Users-other--claude-worktrees-baz-qux-34efgh"] == 1
 
 
 # ---------------------------------------------------------------------------
@@ -387,3 +483,34 @@ def test_cli_apply_with_backup_dir_succeeds(tmp_path: Path) -> None:
     assert backup_dir.is_dir()
     assert (backup_dir / "chroma.sqlite3").is_file()
     assert "MODE: apply" in proc.stdout
+
+
+def test_cli_audit_historical_paths_apply_without_backup_exits_2(
+    tmp_path: Path,
+) -> None:
+    """Historical-paths apply requires --backup-dir, mirroring the other two modes."""
+    palace_dir = _build_palace(tmp_path)
+    proc = _run_cli(palace_dir, "--audit-historical-paths", "--apply")
+    assert proc.returncode == 2
+    assert "--backup-dir" in proc.stderr
+
+
+def test_cli_audit_historical_paths_apply_with_backup_succeeds(
+    tmp_path: Path,
+) -> None:
+    """Happy-path apply: backup dir created, drawers deleted, MODE: apply emitted."""
+    palace_dir = _build_palace(tmp_path)
+    backup_dir = tmp_path / "backup-historical"
+    proc = _run_cli(
+        palace_dir,
+        "--audit-historical-paths",
+        "--apply",
+        "--backup-dir",
+        str(backup_dir),
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert backup_dir.is_dir()
+    assert (backup_dir / "chroma.sqlite3").is_file()
+    assert "MODE: apply" in proc.stdout
+    # The apply note announces the deletion count.
+    assert "deleting 3" in proc.stdout or "deleted: 3" in proc.stdout

@@ -1,9 +1,12 @@
-"""Prune MemPalace noise floor: mined ops-doc drawers + orphaned per-worktree wings.
+"""Prune MemPalace noise floor: mined ops-doc drawers + orphaned per-worktree wings + historical full-encoded-path wings.
 
-Layer 1 contract per Issue #40 (S-0088). Closes Issue #40 parts A
-(mined ops-doc drawers) and B (orphaned per-worktree wings); part C
-(historical full-encoded-path wings) is C3 / S-0089 scope and surfaces
-here as report-only via ``--audit-historical-paths``.
+Layer 1 contract per Issues #40 + #41. Issue #40 parts A
+(mined ops-doc drawers) and B (orphaned per-worktree wings) closed at
+S-0088. Issue #40 part C / Issue #41 (historical full-encoded-path
+wings) closes at S-0092 — the apply path is wired here, gated by the
+S-0092 signal probe (engine/docs/audits/historical-wings-signal-probe-
+S-0092.md) which verified zero preservation candidates across the
+37,634-drawer population.
 
 Three modes
 -----------
@@ -19,9 +22,15 @@ Three modes
   output). Explicitly excludes ``wing_paideia`` (main-session
   captures), ``wing_claude`` (canonical AI diary), and ``sessions``
   (auto-captured session content).
-- ``--audit-historical-paths`` — report-only enumeration of
+- ``--audit-historical-paths`` — list/delete drawers in
   ``-Users-...`` and ``--claude-worktrees-`` historical full-encoded-
-  path wings. Deletion is C3 / S-0089 scope per the campaign plan.
+  path wings. Apply path landed at S-0092 (Issue #41). The
+  S-0092 signal probe verified zero preservation candidates in the
+  population (no ``decision``/``pushback``/``lesson`` markers; all
+  ``added_by=mempalace``; all ``room=general``); the apply path is
+  delete-only and does not wire ``--preserve-ids``. If a future
+  similar wing surfaces signal candidates, extend
+  ``audit_historical_paths()`` at that point.
 
 Common flags
 ------------
@@ -42,13 +51,10 @@ Exit codes
 
 Out of scope
 ------------
-- Does NOT preserve-via-re-capture. Orphan-wing drawers are diary-
-  tagged auto-captures with no ``decision`` / ``pushback`` / ``lesson``
-  markers (verified at S-0088 plan-time: 79 drawers across 50+ orphan
-  wings, all ``type=diary_entry``, none tagged). Bulk delete is
-  consistent with the audit's "Recommend retire" verdict.
-- Does NOT touch ``-Users-...`` historical full-path wings (40K+
-  drawers). C3 / S-0089 scope.
+- Does NOT preserve-via-re-capture. Orphan-wing drawers (S-0088
+  verification) and historical-path drawers (S-0092 verification) are
+  uniformly auto-capture residue with no curated markers; bulk delete
+  is consistent with both audits' "Recommend retire" verdicts.
 - Does NOT modify ``mempalace_closets``. Closets are the upstream
   collection-grouping primitive; pruning drawers does not orphan
   closets.
@@ -187,6 +193,26 @@ def enumerate_historical_paths(con: sqlite3.Connection) -> list[tuple[str, int]]
         if _HISTORICAL_FULL_PATH_RE.search(wing):
             out.append((wing, int(n)))
     return sorted(out, key=lambda t: -t[1])
+
+
+def enumerate_historical_path_drawer_internal_ids(
+    con: sqlite3.Connection,
+) -> list[tuple[str, str]]:
+    """Return ``(wing_name, internal_id)`` pairs for ALL historical-wing drawers.
+
+    Sibling to ``enumerate_orphan_wing_drawers`` — same single-pass
+    metadata scan, different classifier. Caller maps internal ids to
+    drawer UUIDs via ``fetch_drawer_uuids`` for the actual chromadb
+    delete batch.
+    """
+    rows = con.execute(
+        "SELECT id, string_value FROM embedding_metadata WHERE key='wing'"
+    ).fetchall()
+    out: list[tuple[str, str]] = []
+    for internal_id, wing in rows:
+        if _HISTORICAL_FULL_PATH_RE.search(wing):
+            out.append((wing, str(internal_id)))
+    return out
 
 
 def fetch_drawer_uuids(palace_path: Path, internal_ids: list[str]) -> list[str]:
@@ -341,23 +367,49 @@ def audit_orphan_wings(palace_path: Path, *, apply: bool) -> AuditReport:
     return report
 
 
-def audit_historical_paths(palace_path: Path) -> AuditReport:
-    """Report-only enumeration of historical full-encoded-path wings."""
+def audit_historical_paths(palace_path: Path, *, apply: bool) -> AuditReport:
+    """Audit + optionally delete historical full-encoded-path wing drawers.
+
+    When ``apply=False`` (default), report-only enumeration: the
+    operator sees per-wing drawer counts and the upstream-bug notice.
+    When ``apply=True``, fetches every drawer UUID across all matched
+    wings and bulk-deletes via ``collection.delete``. Per the S-0092
+    signal probe (engine/docs/audits/historical-wings-signal-probe-
+    S-0092.md) the population is uniformly auto-capture residue —
+    delete-only; no preservation branch.
+
+    The pre-flight ``--backup-dir`` gate is enforced by ``main()``
+    before this function is called when ``apply=True``.
+    """
     report = AuditReport(mode="historical-paths")
     con = open_sqlite_ro(palace_path)
     try:
         wings = enumerate_historical_paths(con)
+        pairs = enumerate_historical_path_drawer_internal_ids(con)
     finally:
         con.close()
     report.candidates = [{"wing": w, "drawer_count": n} for w, n in wings]
     total = sum(n for _, n in wings)
-    report.notes.append(
-        f"Found {len(wings)} historical full-encoded-path wings "
-        f"({total} drawers total). Inaccessible to wing-filtered "
-        f"queries due to upstream 'wing contains invalid characters' "
-        f"validation. Deletion deferred to C3 / S-0089 (Issue #41) — "
-        f"this mode is report-only."
-    )
+    flat_ids = [iid for _, iid in pairs]
+    if apply:
+        report.notes.append(
+            f"APPLY MODE: deleting {total} drawer(s) across {len(wings)} "
+            f"historical full-encoded-path wing(s). Per the S-0092 signal "
+            f"probe at engine/docs/audits/historical-wings-signal-probe-"
+            f"S-0092.md, zero preservation candidates in the population."
+        )
+    else:
+        report.notes.append(
+            f"Found {len(wings)} historical full-encoded-path wing(s) "
+            f"({total} drawer(s) total). Inaccessible to wing-filtered "
+            f"queries due to upstream 'wing contains invalid characters' "
+            f"validation. Pass --apply with --backup-dir to bulk-delete "
+            f"(Issue #41 / S-0092 scope; signal probe verifies zero "
+            f"preservation candidates)."
+        )
+    if apply and flat_ids:
+        uuids = fetch_drawer_uuids(palace_path, flat_ids)
+        report.deleted = delete_drawers_by_uuid(palace_path, uuids)
     return report
 
 
@@ -428,7 +480,7 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument(
         "--audit-historical-paths",
         action="store_true",
-        help="Report-only enumeration of historical full-encoded-path wings (C3 scope).",
+        help="Audit/delete historical full-encoded-path wing drawers (Issue #41).",
     )
     parser.add_argument(
         "--palace",
@@ -453,7 +505,11 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 3
 
-    is_mutating_mode = args.audit_mined_ops_docs or args.audit_orphan_wings
+    is_mutating_mode = (
+        args.audit_mined_ops_docs
+        or args.audit_orphan_wings
+        or args.audit_historical_paths
+    )
     if args.apply and is_mutating_mode:
         if not args.backup_dir:
             print(
@@ -480,7 +536,7 @@ def main(argv: list[str] | None = None) -> int:
     elif args.audit_orphan_wings:
         report = audit_orphan_wings(palace_path, apply=args.apply)
     else:
-        report = audit_historical_paths(palace_path)
+        report = audit_historical_paths(palace_path, apply=args.apply)
 
     print(format_report(report, apply=args.apply))
     return 0
