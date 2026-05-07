@@ -178,6 +178,30 @@ The original mechanism's 3-of-5 persistent-warn escalation cedes 2 free sessions
 
 **Cross-references:** S-0087 + S-0088 archives (the burial pattern this hardens against); user pushback at S-0088 close ("each session to warn me at session start if mempalace MCP is unavailable. engine sessions should hard warn, routine sessions should soft warn"); the [`mempalace status`](https://github.com/MemPalace/mempalace) upstream subcommand whose contract this amendment relies on as the substrate-availability probe.
 
+### Amendment — S-0090 (routine-protection refinement of S-0089's invalid-token hard-fail)
+
+User clarified at S-0089 close: *"It's easy for me to fix the MCP connection issue. Seems that Claude Desktop has to be periodically rebooted to keep that working. I just need to know when it happens. I don't want that to kill routine sessions running overnight or while I'm AFK though."*
+
+S-0089's `mempalace_diary_write_skipped_invalid_token` HARD-FAIL was over-correction. The user's S-0088-close framing was "obvious, not buried" — which the LOUD body achieves. Hard-failing the close blocks routines that hit intermittent MCP (substrate down when AI tried to write diary, alive at close-time) — exactly the routine-killing scenario the clarification rules out.
+
+**S-0090 conversion:**
+
+- The invalid-token branch (token + substrate-alive at close) is renamed to `mempalace_diary_write_skipped_substrate_intermittent` and converted from HARD-FAIL to SOFT-WARN.
+- Mode-aware body shape preserves visibility:
+  - **Engine (interactive):** LOUD ⚠️ "MCP INTERMITTENT — DO NOT BURY THIS" body. The live operator sees the contradiction (substrate alive + token claiming unavailable) and can act — invoke diary write immediately, or investigate the upstream MCP-load timing race.
+  - **Routine:** standard one-line body. The routine session running overnight closes cleanly with the warn surfaced in archive review for the user's later inspection. Reboot Claude Desktop is the user's known fix per the S-0090 clarification.
+- The S-0087/S-0088 burial pattern remains structurally hard to repeat. The LOUD body for engine sessions surfaces the contradiction explicitly; engine sessions cannot bury a LOUD ⚠️ "DO NOT BURY THIS" message in `outcome_summary`.
+
+**Other paths unchanged:**
+
+- No token + no diary write: still HARD-FAIL (`mempalace_diary_write_skipped`). The AI must add the token if it can't write — the routine-mode-lifecycle skill body has this branch; failure here means the skill body is buggy.
+- Token + substrate-down: still soft-warn (`mempalace_diary_write_acknowledged_skip`); LOUD for engine, standard for routine. Honest closure path when substrate is genuinely unreachable.
+- `mempalace_substrate_at_close` independent surface: unchanged. Continues firing whenever `mempalace status` fails at close, regardless of diary-write state.
+
+**Coverage.** All session types — interactive build (`/start-engine`) AND routine (`/start-routine`). The "soft-warn closes; LOUD for engines" posture is the load-bearing surface for both modes; the close-must-proceed posture is load-bearing for both modes per the S-0090 routine-protection clarification.
+
+**Cross-references:** S-0089 archive (the over-correction this softens); user clarification at S-0089 close ("I just need to know when it happens. I don't want that to kill routine sessions"); validate.py `validate_mempalace_adoption()` body shape.
+
 ### Pushback rule (per CLAUDE.md)
 
 The user's framing ("I need to know how to recover the lost memories") raised a separate concern about retroactive recovery of diary entries / decision drawers / pushback drawers / lesson drawers from the S-0032 → S-0077 window. That work is bounded as Part B of the approved plan and explicitly deferred to S-0079+ (see plan file at `~/.claude/plans/use-of-mempalace-by-velvety-pebble.md`); the recovery audit script and transcript-crawl executor are not part of S-0078's scope. Mechanization first stops the bleeding; recovery is bounded historical cleanup that fits cleanly in a separate session.

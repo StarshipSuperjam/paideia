@@ -246,13 +246,21 @@ class TestSubstrateTokenTightening:
             )
         )
 
-    def test_token_invalid_when_substrate_alive(
+    def test_token_substrate_intermittent_engine_loud_soft_warn(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Token + substrate alive → hard-fail invalid_token (S-0087/S-0088 burial pattern)."""
+        """Engine + token + substrate alive → LOUD soft-warn substrate_intermittent (S-0090).
+
+        S-0089 originally hard-failed this branch; S-0090 converted to soft-
+        warn per user routine-protection directive ("I just need to know
+        when it happens. I don't want that to kill routine sessions").
+        Visibility preserved via LOUD body for engine sessions; close
+        proceeds.
+        """
         monkeypatch.setattr(validate, "_check_mempalace_substrate_alive", lambda: True)
         self._make_session(
             tmp_path,
+            mode="interactive",
             outcome_summary=(
                 "Worked on stuff. "
                 "mempalace_unavailable_acknowledged: MCP not connected."
@@ -261,11 +269,63 @@ class TestSubstrateTokenTightening:
 
         with _patch_repo_root_to(tmp_path):
             result = validate.validate_mempalace_adoption()
-            assert len(result.hard_fails) == 1
-            assert "mempalace_diary_write_skipped_invalid_token" in result.hard_fails[0]
-            # The standard acknowledged-skip soft-warn does NOT fire when
-            # the token is invalidated — only the hard-fail.
+            # No hard-fail — close proceeds.
+            assert len(result.hard_fails) == 0
+            assert (
+                "mempalace_diary_write_skipped_substrate_intermittent"
+                in result.soft_warns
+            )
+            body = result.soft_warns[
+                "mempalace_diary_write_skipped_substrate_intermittent"
+            ][0]
+            assert body.startswith("⚠️")
+            assert "MCP INTERMITTENT" in body
+            assert "DO NOT BURY THIS" in body
+            # The acknowledged-skip soft-warn does NOT fire — that category
+            # is for genuinely-down substrate; the substrate_intermittent
+            # category covers the contradiction case (substrate alive at
+            # close while token claims unavailable).
             assert "mempalace_diary_write_acknowledged_skip" not in result.soft_warns
+
+    def test_token_substrate_intermittent_routine_standard_body(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Routine + token + substrate alive → standard soft-warn (no LOUD); routine closes cleanly.
+
+        Per S-0090 (user clarification: "I don't want that to kill routine
+        sessions running overnight or while I'm AFK"). A routine running
+        overnight that hits intermittent MCP — substrate down when AI
+        tried to write diary, alive at close — gets a clean close path.
+        Visibility preserved via standard one-line soft-warn in archive
+        review.
+        """
+        monkeypatch.setattr(validate, "_check_mempalace_substrate_alive", lambda: True)
+        self._make_session(
+            tmp_path,
+            mode="routine",
+            outcome_summary=(
+                "Routine work. mempalace_unavailable_acknowledged: "
+                "substrate flickered mid-session."
+            ),
+        )
+
+        with _patch_repo_root_to(tmp_path):
+            result = validate.validate_mempalace_adoption()
+            # Routine close is NOT blocked.
+            assert len(result.hard_fails) == 0
+            assert (
+                "mempalace_diary_write_skipped_substrate_intermittent"
+                in result.soft_warns
+            )
+            body = result.soft_warns[
+                "mempalace_diary_write_skipped_substrate_intermittent"
+            ][0]
+            # Routine body is standard one-line — no LOUD prefix.
+            assert not body.startswith("⚠️")
+            assert "MCP INTERMITTENT" not in body
+            # But still clearly identifies the substrate-alive contradiction
+            # for archive review.
+            assert "intermittent MCP" in body
 
     def test_token_valid_when_substrate_down(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

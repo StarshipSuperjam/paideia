@@ -2701,11 +2701,18 @@ def validate_mempalace_adoption() -> ValidationResult:
     - ``mempalace_diary_write_skipped`` (HARD-FAIL) — fires when no
       ``mempalace_diary_write`` call recorded AND no acknowledgement token
       in ``outcome_summary``. Hard-fail blocks the session close.
-    - ``mempalace_diary_write_skipped_invalid_token`` (HARD-FAIL; added at
-      S-0089) — fires when the acknowledgement token is present BUT
-      ``mempalace status`` succeeds at close-time. The token claims
-      substrate unavailable; reality contradicts; the diary skip is the
-      AI burying a real failure (the S-0087/S-0088 pattern).
+    - ``mempalace_diary_write_skipped_substrate_intermittent`` (soft-warn;
+      LOUD body for engine sessions per S-0090) — fires when the
+      acknowledgement token is present BUT ``mempalace status`` succeeds
+      at close-time. The substrate is reachable now even though the AI
+      claimed unavailable earlier — typically intermittent MCP resolved
+      by rebooting Claude Desktop (the user's known cause). Originally
+      designed at S-0089 as a hard-fail (``..._invalid_token``); converted
+      to soft-warn at S-0090 per user clarification: routine sessions
+      running overnight / AFK must NOT be killed by intermittent MCP. The
+      LOUD body preserves visibility (engine operator sees the
+      contradiction); routines close cleanly with the warn surfaced
+      in archive review.
     - ``mempalace_diary_write_acknowledged_skip`` (soft-warn; LOUD body
       for engine sessions per S-0089) — fires when token is present AND
       ``mempalace status`` confirms substrate IS unreachable. The token
@@ -2724,14 +2731,27 @@ def validate_mempalace_adoption() -> ValidationResult:
       feasible at the harness layer, so discipline + soft-warn detection is
       the load-bearing surface against scope drift.
 
-    Acknowledgement-token tightening (S-0089): the
-    ``mempalace_unavailable_acknowledged:`` token in ``outcome_summary``
-    only downgrades the diary-write hard-fail to a soft-warn IF
-    ``mempalace status`` actually fails at close-time. If the substrate
-    is reachable, the token is INVALID — the AI claimed unavailable but
-    reality contradicts — and a new hard-fail
-    (``mempalace_diary_write_skipped_invalid_token``) blocks the close.
-    Closes the S-0087/S-0088 burial pattern.
+    Acknowledgement-token contract (S-0089 tightening + S-0090 routine
+    protection): the ``mempalace_unavailable_acknowledged:`` token in
+    ``outcome_summary`` always downgrades the diary-write hard-fail to a
+    soft-warn (so the session closes); the soft-warn category and body
+    shape depend on the substrate state at close-time:
+
+    - **Substrate unreachable at close** → ``mempalace_diary_write_acknowledged_skip``.
+      Token is honestly valid; LOUD body for engine sessions, standard
+      for routine.
+    - **Substrate reachable at close** → ``mempalace_diary_write_skipped_substrate_intermittent``.
+      Token's claim is contradicted (likely AI-misperception or
+      intermittent MCP). LOUD body for engine sessions, standard for
+      routine. **Not a hard-fail** (per S-0090 routine protection: the
+      user's "I don't want that to kill routine sessions running
+      overnight" framing makes the close-must-proceed posture
+      load-bearing for both modes; the LOUD body is the visibility
+      surface, not the close-blocker).
+
+    The S-0087/S-0088 burial pattern remains structurally hard to
+    repeat because the LOUD body for engine sessions explicitly surfaces
+    the substrate-alive + token-present contradiction.
 
     Default-mode (exploration, non-build) sessions are exempt: when
     ``current.json`` is absent there is no formal session to audit, and the
@@ -2823,23 +2843,44 @@ def validate_mempalace_adoption() -> ValidationResult:
 
         if token_present and substrate_alive:
             # The token claims substrate unavailable, but `mempalace status`
-            # succeeded — reality contradicts the claim. The diary skip is
-            # the AI burying a real failure (the S-0087/S-0088 pattern).
-            # Hard-fail with a distinct category so trend audits can
-            # distinguish honest unavailability from invalid-token use.
-            r.hard_fail(
-                "mempalace_diary_write_skipped_invalid_token: "
-                "outcome_summary carries the "
-                "'mempalace_unavailable_acknowledged:' token claiming the "
-                "substrate is unavailable, BUT `mempalace status` succeeded "
-                "at close-time. The token is invalid — the substrate is "
-                "reachable. Per ADR 0056's tightened contract (S-0089), "
-                "the escape hatch only applies when the substrate genuinely "
-                "fails. Either invoke mempalace_diary_write now (since "
-                "MCP is live), or remove the token + investigate why the "
-                "AI's tool surface lacked mcp__mempalace__* despite the "
-                "substrate working (likely Claude Code MCP-load timing; "
-                "see the SessionStart hook's MCP-availability probe)."
+            # succeeded at close-time — substrate-intermittent or
+            # AI-misperception. Per S-0090 (user clarification: "I just
+            # need to know when it happens. I don't want that to kill
+            # routine sessions running overnight or while I'm AFK"), this
+            # path is now soft-warn with mode-aware body, NOT hard-fail.
+            # Visibility is preserved via LOUD body for engine sessions;
+            # routines close cleanly so they don't accumulate stuck
+            # in-progress states overnight from intermittent MCP. The
+            # S-0087/S-0088 burial pattern remains structurally hard
+            # to repeat because the LOUD body for engine sessions surfaces
+            # the contradiction explicitly (substrate alive at close +
+            # token claims unavailable = the AI's claim is suspect).
+            base_body = (
+                "No mempalace_diary_write call recorded; "
+                "'mempalace_unavailable_acknowledged:' token in "
+                "outcome_summary; BUT `mempalace status` succeeds at "
+                "close-time. The substrate is reachable now even though "
+                "the AI claimed unavailable earlier. This is intermittent "
+                "MCP — typically resolved by rebooting Claude Desktop "
+                "(per the user-known cause). The session closes cleanly; "
+                "investigation is the user's call."
+            )
+            if mode == "routine":
+                body = base_body
+            else:
+                body = (
+                    "⚠️  MCP INTERMITTENT — DO NOT BURY THIS\n"
+                    + base_body
+                    + "\nFor engine sessions: invoke mempalace_diary_write "
+                    "now (substrate is live) so this session's reflection "
+                    "is captured; or investigate why the AI's tool surface "
+                    "lacked mcp__mempalace__* despite the substrate "
+                    "working. The token's claim is contradicted by the "
+                    "close-time substrate probe."
+                )
+            r.soft_warn(
+                "mempalace_diary_write_skipped_substrate_intermittent",
+                body,
             )
         elif token_present:
             # Token present and substrate IS unreachable — token is valid;
