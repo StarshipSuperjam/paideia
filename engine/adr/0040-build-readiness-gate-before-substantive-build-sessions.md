@@ -66,6 +66,7 @@ The gate's amendment discipline matches the structural pattern of [ADR 0036](003
 - [ADR 0038](0038-expression-contract-for-ai-authored-code.md) — code-discipline contract; the precedent for the three-layer compensation pattern this ADR generalizes at the session level.
 - [ADR 0036](0036-expression-contract-for-inward-documents.md) — inward-document expression contract; structural sibling.
 - [ADR 0022](0022-periodic-project-health-checks.md) — sibling discipline at a different temporal scale (cadence vs per-phase). Health checks audit accumulated drift; gate sessions prevent decision-level drift before it accumulates.
+- [ADR 0057](0057-adversarial-stance-for-health-check-audits.md) — audit-side structural sibling: same adversarial-framing pattern at the cadence audit (retrospective; "what is broken or stale that we've been carrying as if it were fine?") that this ADR commits at the gate (prospective; "what could break our session?"). Both contracts inherit "conversational by default."
 - [`../operations/build-readiness-gate.md`](../operations/build-readiness-gate.md) — the operational surface for this contract.
 - [`../build_readiness/phase_3_sql.md`](../build_readiness/phase_3_sql.md) — the gate's first exercise; Phase 3 SQL build-readiness report.
 - [`../operations/session-build-lifecycle.md`](../operations/session-build-lifecycle.md) — boot procedure; amended in this commit to read the build-readiness report at boot.
