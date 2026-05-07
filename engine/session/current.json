@@ -1,0 +1,15 @@
+{
+  "id": "S-0092",
+  "mode": "interactive",
+  "started_at": "2026-05-07T21:11:00Z",
+  "status": "in_progress",
+  "working_on": "Issue close-out campaign C3: historical full-encoded-path wings deep cleanup. Close Issue #41 by extending prune_mempalace.py with --apply-historical-paths mode (sibling to existing --audit-historical-paths), running signal-probe per wing, then bulk-deleting the ~37,634 inaccessible drawers across 9 historical wings (with selective preservation of any high-signal drawers). Direct chromadb-sqlite access bypasses the upstream wing-filter validator per the S-0084 mempalace_rebuild_hnsw template.",
+  "declared_scope": "Investigate access path (re-confirm S-0084 direct-sqlite pattern works); per-wing signal probe; extend prune_mempalace.py with apply mode (dry-run default, --execute required, pre-flight backup gated, shape-mismatch refuse, optional --preserve-ids); ≥6 new pytests; pre-flight backup palace.S-0092-pre-c3; user destructive-action confirmation before execute; verify post-state via mempalace repair-status + probe_palace.py; close Issue #41; standard shutdown. phase: NA-engine-apparatus",
+  "outcome_summary": null,
+  "scope_delivery": null,
+  "outcome_summary_soft_warns": null,
+  "approved_plan": "/Users/shanekidd/.claude/plans/humble-bouncing-thompson.md",
+  "branch": "claude/zealous-ardinghelli-83d301",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/zealous-ardinghelli-83d301",
+  "mempalace_activity": null
+}
