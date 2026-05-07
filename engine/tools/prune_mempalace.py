@@ -55,9 +55,14 @@ Out of scope
   verification) and historical-path drawers (S-0092 verification) are
   uniformly auto-capture residue with no curated markers; bulk delete
   is consistent with both audits' "Recommend retire" verdicts.
-- Does NOT modify ``mempalace_closets``. Closets are the upstream
-  collection-grouping primitive; pruning drawers does not orphan
-  closets.
+- Mined-ops-docs and orphan-wings modes do NOT modify
+  ``mempalace_closets`` — neither classifier matched closet rows in
+  the live data at S-0088 audit time, and the deleted drawers had no
+  closets pointing at them. The historical-paths mode DOES touch
+  ``mempalace_closets`` because closets carry the same ``-Users-...``
+  wing tag as the drawers they group, and the S-0092 first apply
+  surfaced 67 surviving closet rows after the drawer pass; the apply
+  now fans deletes out by collection (``fetch_uuids_by_collection``).
 """
 
 from __future__ import annotations
@@ -198,12 +203,15 @@ def enumerate_historical_paths(con: sqlite3.Connection) -> list[tuple[str, int]]
 def enumerate_historical_path_drawer_internal_ids(
     con: sqlite3.Connection,
 ) -> list[tuple[str, str]]:
-    """Return ``(wing_name, internal_id)`` pairs for ALL historical-wing drawers.
+    """Return ``(wing_name, internal_id)`` pairs for every embedding row tagged with a historical full-encoded-path wing.
 
     Sibling to ``enumerate_orphan_wing_drawers`` — same single-pass
-    metadata scan, different classifier. Caller maps internal ids to
-    drawer UUIDs via ``fetch_drawer_uuids`` for the actual chromadb
-    delete batch.
+    metadata scan, different classifier. The result includes BOTH
+    drawer and closet rows because ``embedding_metadata`` stores
+    them together; the classifier filters on the ``wing`` tag only.
+    Caller maps internal ids to collection-grouped UUIDs via
+    ``fetch_uuids_by_collection`` for the actual chromadb delete
+    batch.
     """
     rows = con.execute(
         "SELECT id, string_value FROM embedding_metadata WHERE key='wing'"
@@ -222,6 +230,13 @@ def fetch_drawer_uuids(palace_path: Path, internal_ids: list[str]) -> list[str]:
     column on embedded rows); ``embedding_metadata.id`` is the
     SQLite-internal integer. This helper queries ``embeddings`` for
     the UUIDs corresponding to the provided internal-ids.
+
+    Returns UUIDs without their collection origin — suitable when the
+    caller already knows every internal-id belongs to a single
+    collection (e.g., orphan-wings + mined-ops-docs which only ever
+    have ``mempalace_drawers`` rows). For mixed-collection sets (e.g.,
+    historical-paths, where closets and drawers both carry the
+    ``-Users-...`` wing tag) use ``fetch_uuids_by_collection`` instead.
     """
     if not internal_ids:
         return []
@@ -236,6 +251,44 @@ def fetch_drawer_uuids(palace_path: Path, internal_ids: list[str]) -> list[str]:
     finally:
         con.close()
     return [r[0] for r in rows]
+
+
+def fetch_uuids_by_collection(
+    palace_path: Path, internal_ids: list[str]
+) -> dict[str, list[str]]:
+    """Group UUIDs by their owning chromadb collection.
+
+    Joins ``embeddings`` -> ``segments`` -> ``collections`` so each
+    UUID is bucketed under the collection name it lives in. Used by
+    the historical-paths apply path because the ``-Users-...`` wing
+    tag appears on BOTH ``mempalace_drawers`` rows and
+    ``mempalace_closets`` rows, and ``collection.delete`` is
+    collection-scoped — calling it on the wrong collection is a
+    silent no-op (which is what the S-0092 first apply discovered:
+    37,567 drawers deleted, 67 closets surviving).
+    """
+    if not internal_ids:
+        return {}
+    db = palace_path / "chroma.sqlite3"
+    con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    try:
+        placeholders = ",".join("?" for _ in internal_ids)
+        rows = con.execute(
+            f"""
+            SELECT e.embedding_id, c.name
+            FROM embeddings e
+            LEFT JOIN segments s ON e.segment_id = s.id
+            LEFT JOIN collections c ON s.collection = c.id
+            WHERE e.id IN ({placeholders})
+            """,
+            internal_ids,
+        ).fetchall()
+    finally:
+        con.close()
+    out: dict[str, list[str]] = {}
+    for uuid, collection in rows:
+        out.setdefault(collection or "<unknown>", []).append(uuid)
+    return out
 
 
 def sample_drawers(
@@ -272,19 +325,27 @@ def sample_drawers(
     return out
 
 
-def delete_drawers_by_uuid(palace_path: Path, uuids: list[str]) -> int:
-    """Delete a batch of drawers from the chromadb collection.
+def delete_drawers_by_uuid(
+    palace_path: Path,
+    uuids: list[str],
+    *,
+    collection: str = "mempalace_drawers",
+) -> int:
+    """Delete a batch of drawers from a chromadb collection.
 
     Returns the count requested (chromadb's delete is silent on
     success). Does not check post-state; caller may verify via a
-    follow-up query.
+    follow-up query. ``collection`` defaults to ``mempalace_drawers``
+    to preserve the pre-S-0092 contract for the orphan-wings and
+    mined-ops-docs callers; the historical-paths caller passes
+    ``mempalace_closets`` explicitly for the closet-deletion pass.
     """
     if not uuids:
         return 0
     import chromadb
 
     client = chromadb.PersistentClient(path=str(palace_path))
-    col = client.get_collection("mempalace_drawers")
+    col = client.get_collection(collection)
     col.delete(ids=uuids)
     return len(uuids)
 
@@ -408,8 +469,24 @@ def audit_historical_paths(palace_path: Path, *, apply: bool) -> AuditReport:
             f"preservation candidates)."
         )
     if apply and flat_ids:
-        uuids = fetch_drawer_uuids(palace_path, flat_ids)
-        report.deleted = delete_drawers_by_uuid(palace_path, uuids)
+        # Closets and drawers BOTH carry the ``-Users-...`` wing tag, so
+        # fan deletes out by collection. ``mempalace_drawers`` accounts
+        # for the bulk; ``mempalace_closets`` is the residue cleanup
+        # the S-0092 first apply discovered. Any other collection
+        # surfaces in the report sheet but is not auto-deleted —
+        # operator surfaces it explicitly.
+        by_collection = fetch_uuids_by_collection(palace_path, flat_ids)
+        for coll_name, coll_uuids in by_collection.items():
+            if coll_name in ("mempalace_drawers", "mempalace_closets"):
+                report.deleted += delete_drawers_by_uuid(
+                    palace_path, coll_uuids, collection=coll_name
+                )
+            else:
+                report.notes.append(
+                    f"WARN: {len(coll_uuids)} drawer(s) in unexpected "
+                    f"collection {coll_name!r} were NOT deleted; "
+                    f"investigate before re-running."
+                )
     return report
 
 

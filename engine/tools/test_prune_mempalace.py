@@ -93,7 +93,23 @@ def _build_palace(tmp_path: Path) -> Path:
             },
         ],
     )
+    # Add a closet pointing at the first historical wing so the
+    # by-collection deletion path is exercised. Mirrors the live
+    # palace shape the S-0092 first apply discovered (drawers AND
+    # closets both carry the ``-Users-...`` wing tag).
+    closets = client.get_or_create_collection("mempalace_closets")
+    closets.add(
+        ids=["closet_historical_a"],
+        documents=["closet entry referencing historical-wing drawers"],
+        metadatas=[
+            {
+                "wing": "-Users-test--claude-worktrees-foo-bar-12abcd",
+                "room": "general",
+            },
+        ],
+    )
     del col
+    del closets
     del client
     return palace_dir
 
@@ -276,9 +292,11 @@ def test_audit_historical_paths_dry_run_finds_candidates(tmp_path: Path) -> None
     assert report.mode == "historical-paths"
     # Two distinct historical-path wings in the fixture.
     assert len(report.candidates) == 2
-    # Three drawers total (two in wing A, one in wing B).
+    # Four entries total (two drawers + one closet in wing A, one
+    # drawer in wing B). enumerate_historical_paths counts everything
+    # tagged with the wing — drawers and closets both surface here.
     total = sum(c["drawer_count"] for c in report.candidates)
-    assert total == 3
+    assert total == 4
     assert report.deleted == 0
 
 
@@ -350,11 +368,11 @@ def test_audit_orphan_wings_apply_deletes_orphans_only(tmp_path: Path) -> None:
 def test_audit_historical_paths_apply_deletes_historical_only(
     tmp_path: Path,
 ) -> None:
-    """Apply mode bulk-deletes ALL historical-wing drawers; canonical wings untouched."""
+    """Apply mode bulk-deletes ALL historical-wing entries (drawers + closets); canonical wings untouched."""
     palace_dir = _build_palace(tmp_path)
     report = prune_mempalace.audit_historical_paths(palace_dir, apply=True)
-    # Three historical drawers across two historical wings.
-    assert report.deleted == 3
+    # Three drawers + one closet = four deletions across two wings.
+    assert report.deleted == 4
 
     # Apply note announces the count and points at the signal-probe report.
     joined = " ".join(report.notes)
@@ -386,7 +404,7 @@ def test_audit_historical_paths_apply_idempotent(tmp_path: Path) -> None:
     """Second apply on the same palace deletes nothing (no historical drawers left)."""
     palace_dir = _build_palace(tmp_path)
     first = prune_mempalace.audit_historical_paths(palace_dir, apply=True)
-    assert first.deleted == 3
+    assert first.deleted == 4
     second = prune_mempalace.audit_historical_paths(palace_dir, apply=True)
     assert second.deleted == 0
     # Candidates list reflects current population, not original.
@@ -396,7 +414,7 @@ def test_audit_historical_paths_apply_idempotent(tmp_path: Path) -> None:
 def test_enumerate_historical_path_drawer_internal_ids_aggregates_across_wings(
     tmp_path: Path,
 ) -> None:
-    """Helper enumerator returns (wing, internal_id) for every historical-wing drawer."""
+    """Helper enumerator returns (wing, internal_id) for every historical-wing entry across drawers and closets."""
     palace_dir = _build_palace(tmp_path)
     con = prune_mempalace.open_sqlite_ro(palace_dir)
     try:
@@ -408,12 +426,42 @@ def test_enumerate_historical_path_drawer_internal_ids_aggregates_across_wings(
         "-Users-test--claude-worktrees-foo-bar-12abcd",
         "-Users-other--claude-worktrees-baz-qux-34efgh",
     }
-    # Two drawers in the first wing, one in the second.
+    # Two drawers + one closet in the first wing, one drawer in the second.
     counts: dict[str, int] = {}
     for wing, _ in pairs:
         counts[wing] = counts.get(wing, 0) + 1
-    assert counts["-Users-test--claude-worktrees-foo-bar-12abcd"] == 2
+    assert counts["-Users-test--claude-worktrees-foo-bar-12abcd"] == 3
     assert counts["-Users-other--claude-worktrees-baz-qux-34efgh"] == 1
+
+
+def test_fetch_uuids_by_collection_groups_drawers_and_closets(
+    tmp_path: Path,
+) -> None:
+    """fetch_uuids_by_collection buckets UUIDs by their owning chromadb collection."""
+    palace_dir = _build_palace(tmp_path)
+    con = prune_mempalace.open_sqlite_ro(palace_dir)
+    try:
+        pairs = prune_mempalace.enumerate_historical_path_drawer_internal_ids(con)
+    finally:
+        con.close()
+    flat_ids = [iid for _, iid in pairs]
+    by_col = prune_mempalace.fetch_uuids_by_collection(palace_dir, flat_ids)
+    # Both collections present, with the expected per-collection counts.
+    assert "mempalace_drawers" in by_col
+    assert "mempalace_closets" in by_col
+    assert len(by_col["mempalace_drawers"]) == 3
+    assert len(by_col["mempalace_closets"]) == 1
+
+
+def test_fetch_uuids_by_collection_empty_input_returns_empty(
+    tmp_path: Path,
+) -> None:
+    """Empty input does not open a sqlite connection; returns {}."""
+    # No fixture needed for this branch — the early return fires before
+    # any palace access. Pass a path that doesn't exist to make that
+    # explicit.
+    out = prune_mempalace.fetch_uuids_by_collection(tmp_path / "nope", [])
+    assert out == {}
 
 
 # ---------------------------------------------------------------------------
@@ -512,5 +560,5 @@ def test_cli_audit_historical_paths_apply_with_backup_succeeds(
     assert backup_dir.is_dir()
     assert (backup_dir / "chroma.sqlite3").is_file()
     assert "MODE: apply" in proc.stdout
-    # The apply note announces the deletion count.
-    assert "deleting 3" in proc.stdout or "deleted: 3" in proc.stdout
+    # The apply note announces the deletion count (3 drawers + 1 closet).
+    assert "deleting 4" in proc.stdout or "deleted: 4" in proc.stdout
