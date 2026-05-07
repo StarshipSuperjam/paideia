@@ -160,6 +160,24 @@ The [S-0086 MemPalace adversarial review](../docs/audits/mempalace-adversarial-r
 
 **Cross-references:** [Issue #43](https://github.com/StarshipSuperjam/paideia/issues/43) (this amendment + ops-doc updates); [Issue #42](https://github.com/StarshipSuperjam/paideia/issues/42) (KG/tunnels/AAAK execution-side retirement docs); [Issue #45](https://github.com/StarshipSuperjam/paideia/issues/45) (G1 soft-warn).
 
+### Amendment — S-0089 (escape-hatch token tightening + boot/close MCP probes)
+
+The S-0087 + S-0088 archives both used the `mempalace_unavailable_acknowledged:` escape hatch to downgrade the `mempalace_diary_write_skipped` hard-fail. In both cases the AI claimed unavailability based on the absence of `mcp__mempalace__*` from its deferred-tool list at session start; in both cases the substrate was actually live (the S-0088 conversation's resume hook surfaced 30 mempalace tools that the boot hook had not). The acknowledgement-token text lived in `outcome_summary` and the burial pattern only became visible on user pushback at S-0088 close: *"0056's escape hatch is a soft fail but it needs to be an obvious warning to me so that I can fix the issue and get the diary logged."*
+
+The original mechanism's 3-of-5 persistent-warn escalation cedes 2 free sessions to the burial pattern by design — too lazy. The S-0089 tightening closes that gap on three fronts:
+
+**1. Boot-time MCP-availability probe** in [`engine/tools/hooks/session-start.sh`](../tools/hooks/session-start.sh). Runs `mempalace status` at every session boot. LOUD attention block when the CLI is missing or `status` fails — same surface treatment as ADR 0045's hard-broken probe findings. Mode differentiation does not apply at boot (the hook fires before `/start-engine` or `/start-routine`); the LOUD shape is uniform so the user sees it at the earliest possible moment regardless of session type.
+
+**2. Close-time substrate probe** in `validate.py --final-check` via the new helper `_check_mempalace_substrate_alive()` (uses `python3 -m mempalace status` to bypass PATH issues per the existing ruff/mypy/pytest precedent). New soft-warn category `mempalace_substrate_at_close` fires whenever the substrate is unreachable, independent of diary-write state — the substrate could have been alive at boot and broken by close. Mode differentiation applies: engine sessions get a LOUD ⚠️-prefixed body with "DO NOT BURY THIS" header; routine sessions get a one-line standard body.
+
+**3. Token validity tightening.** The `mempalace_unavailable_acknowledged:` token now only downgrades the `mempalace_diary_write_skipped` hard-fail when `mempalace status` actually fails at close-time. If the substrate is reachable, the token is INVALID — the AI claimed unavailable but reality contradicts — and a new hard-fail (`mempalace_diary_write_skipped_invalid_token`) blocks the close. The AI is forced to either (a) invoke `mempalace_diary_write` immediately (since MCP is live), or (b) investigate the upstream MCP-load timing issue rather than burying the failure.
+
+**4. LOUD body for engine `mempalace_diary_write_acknowledged_skip`.** Even when the token is genuinely valid (substrate truly down), engine-session bodies now carry the LOUD ⚠️ prefix — single-session use is investigation-worthy on its own under the tightened contract, not "wait for 3-of-5".
+
+**Coverage.** All session types — interactive build (`/start-engine`) AND routine (`/start-routine`). Engine sessions get LOUD; routines get standard one-line bodies because routines run unattended and the user reviews their archives later (LOUD attention blocks would just clutter archive review).
+
+**Cross-references:** S-0087 + S-0088 archives (the burial pattern this hardens against); user pushback at S-0088 close ("each session to warn me at session start if mempalace MCP is unavailable. engine sessions should hard warn, routine sessions should soft warn"); the [`mempalace status`](https://github.com/MemPalace/mempalace) upstream subcommand whose contract this amendment relies on as the substrate-availability probe.
+
 ### Pushback rule (per CLAUDE.md)
 
 The user's framing ("I need to know how to recover the lost memories") raised a separate concern about retroactive recovery of diary entries / decision drawers / pushback drawers / lesson drawers from the S-0032 → S-0077 window. That work is bounded as Part B of the approved plan and explicitly deferred to S-0079+ (see plan file at `~/.claude/plans/use-of-mempalace-by-velvety-pebble.md`); the recovery audit script and transcript-crawl executor are not part of S-0078's scope. Mechanization first stops the bleeding; recovery is bounded historical cleanup that fits cleanly in a separate session.

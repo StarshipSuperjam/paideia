@@ -1,0 +1,37 @@
+{
+  "id": "S-0089",
+  "started_at": "2026-05-07T19:24:32Z",
+  "status": "closed",
+  "mode": "interactive",
+  "working_on": "MCP-availability boot/close warning surfaces — guardrail follow-up to the S-0087 + S-0088 escape-hatch burial pattern. User directive: each session must warn at boot AND at close if mempalace MCP is unavailable, with engine sessions getting a LOUD attention surface and routine sessions getting a standard soft-warn — obvious, not buried in outcome_summary text. Tightens ADR 0056's `mempalace_unavailable_acknowledged` token contract: the token is valid only when `mempalace status` actually fails at validation time; if substrate is reachable but the AI claimed unavailable, the diary-write skip stays hard-fail. Campaign plan reorder: Issue #41 (C3) shifts to S-0090.",
+  "outcome_summary": "Closed the S-0087 + S-0088 escape-hatch burial pattern via ADR 0056 S-0089 in-place Consequences amendment. Three-front tightening: (1) boot-time MCP probe in session-start.sh runs `mempalace status`; LOUD attention block when CLI missing or substrate fails. (2) Close-time substrate probe in validate.py --final-check via new _check_mempalace_substrate_alive() helper using `python3 -m mempalace status`; new `mempalace_substrate_at_close` soft-warn fires independently of diary-write state, mode-aware (engine LOUD ⚠️ DO-NOT-BURY-THIS, routine standard). (3) Token validity tightening: token only downgrades hard-fail when substrate actually fails; substrate-alive + token = new `mempalace_diary_write_skipped_invalid_token` hard-fail. (4) LOUD body for engine `mempalace_diary_write_acknowledged_skip` even when token valid — single-session use is investigation-worthy. Bonus inline fix: scan_mempalace_activity.py write_rollup_to_current now MERGES with existing rollup instead of replacing — combined with the post-rollup JSONL truncation (Issue #37), running the scan more than once in a session was losing earlier counts. 13 new pytests in test_validate_mempalace_adoption.py (28 total); 3 new in test_scan_mempalace_activity.py (50 total). All pass. Validator post-fix: 0 hard-fails; baseline soft-warns + health_check_overdue (deferral cost). Campaign plan reorder: Issue #41 (C3) shifts to S-0090.",
+  "approved_plan": null,
+  "branch": "claude/awesome-carson-4840fe",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/awesome-carson-4840fe",
+  "declared_scope": "engine-apparatus-mcp-availability-guardrail",
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": true,
+    "explanation": "User directed the fix in this conversation following S-0088 close pushback on the escape-hatch burial pattern. Three-front tightening landed end-to-end: boot probe in session-start.sh + close-time substrate probe in validate.py + token-validity-must-be-verified contract tightening. ADR 0056 amended via in-place Consequences block (no supersession). 16 new tests across two test files, all pass. Bonus inline fix to scan_mempalace_activity.py merge-vs-replace bug discovered while debugging final-check (per CLAUDE.md default-to-fix-in-context posture). Campaign plan reorder: Issue #41 (C3) shifts S-0089 → S-0090."
+  },
+  "mempalace_activity": {
+    "search_calls": 1,
+    "diary_read_calls": 1,
+    "diary_write_calls": 2,
+    "add_drawer_calls": 1,
+    "status_calls": 1,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 6,
+    "first_call_ts": "2026-05-07T19:13:10Z",
+    "last_call_ts": "2026-05-07T19:40:59Z"
+  },
+  "closed_at": "2026-05-07T19:45:00Z",
+  "outcome_summary_soft_warns": {
+    "health_check_overdue": 1,
+    "adr_consequences_deliverable_audit": 1,
+    "missing_rigor_score": 366
+  }
+}

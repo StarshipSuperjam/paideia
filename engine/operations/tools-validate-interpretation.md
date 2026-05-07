@@ -21,6 +21,7 @@ Categories:
 - **`session/current.json` missing keys** — when present (during an in-progress session), must have `id`, `started_at`, `status`, `working_on`. `id` must match `^S-\d{4}$`.
 - **Graph-audit hard-fails** — duplicate node IDs, dangling edge references, prerequisite cycles in the `pedagogical_prerequisite` subgraph (detected via Kosaraju SCC). Active when `SUPABASE_DB_URL` is set in the environment; absent env var records `graph_audit_skipped` and runs no DB query (non-seed-authoring sessions are not gated on DB connectivity). See [ADR 0016](../adr/0016-graph-construction-needs-live-validation.md) for the full contract.
 - **`mempalace_diary_write_skipped`** — diary-write hard-fail per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md) (S-0078). Fires when `mempalace_activity.diary_write_calls == 0` AND `outcome_summary` lacks the `mempalace_unavailable_acknowledged: <reason>` token. Gated by `--final-check`; only the shutdown step's audit invocation can hit it (pre-commit hook fires skip the gate). The diary-write is the only first-person reflection layer — irretrievable post-close — so the hard-fail forces the issue while it's cheap. Recoverable by invoking `mempalace_diary_write` and re-running `validate.py --final-check`, OR by adding `mempalace_unavailable_acknowledged: <one-line reason>` to `outcome_summary` (legitimate edge case: MCP server unreachable, no work to reflect on, etc.) and re-running. The downgraded soft-warn is `mempalace_diary_write_acknowledged_skip`; persistent acknowledgement-skips fire the same 3-of-5 escalation as un-acknowledged ones.
+- **`mempalace_diary_write_skipped_invalid_token`** — token-validity hard-fail per the ADR 0056 Consequences amendment (S-0089). Fires when the `mempalace_unavailable_acknowledged:` token is present in `outcome_summary` BUT `mempalace status` succeeds at close-time. The token claims the substrate is unavailable; reality contradicts; the diary skip is the AI burying a real failure (the S-0087 + S-0088 pattern this contract tightening hardens against). Recoverable by invoking `mempalace_diary_write` immediately (since MCP is live), then re-running `validate.py --final-check`. Investigate why the AI's tool surface lacked `mcp__mempalace__*` despite the substrate working — likely a Claude Code MCP-load timing issue at session-start, surfaced by the SessionStart hook's MCP-availability probe.
 
 If a hard-fail blocks a commit and the fix is non-obvious, escalate per [`escalation-criteria.md`](escalation-criteria.md). Don't bypass the hook (`--no-verify`) — investigate the root cause.
 
@@ -106,7 +107,29 @@ No `mempalace_diary_read` call was recorded. Active from S-0078 onward per [ADR 
 
 ### `mempalace_diary_write_acknowledged_skip`
 
-No `mempalace_diary_write` call was recorded BUT `outcome_summary` carries the `mempalace_unavailable_acknowledged: <reason>` token, downgrading what would have been a hard-fail. Active from S-0078 onward per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md). Legitimate at session-by-session granularity (MCP server unreachable, fresh repo, routine session with nothing meaningful to reflect on); persistent firing across 3-of-5 sessions deserves investigation rather than repeated acknowledgement.
+No `mempalace_diary_write` call was recorded BUT `outcome_summary` carries the `mempalace_unavailable_acknowledged: <reason>` token, AND `mempalace status` confirms the substrate IS unreachable at close-time (the S-0089 contract tightening). Active from S-0078 onward per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md); contract tightened at S-0089 per the Consequences amendment.
+
+Body shape varies by session mode (per the user's S-0088-close pushback: "obvious, not buried"):
+
+- **Engine (interactive) sessions:** LOUD ⚠️-prefixed body that breaks out of the validator's stderr noise floor, with the explicit "DO NOT BURY THIS" header. Single-session use is investigation-worthy on its own — not "wait for 3-of-5".
+- **Routine sessions:** standard one-line body. Routines run unattended; LOUD attention blocks would just clutter archive review.
+
+The token only downgrades the hard-fail when substrate is genuinely unreachable. If `mempalace status` succeeds at close-time, the token is invalidated and `mempalace_diary_write_skipped_invalid_token` hard-fails instead — preventing the AI from burying a real failure as an acknowledged-skip (the S-0087/S-0088 pattern).
+
+Persistent firing across 3-of-5 sessions deserves investigation; single-session firing is itself investigation-worthy under the S-0089 contract.
+
+### `mempalace_substrate_at_close`
+
+The `mempalace status` substrate probe failed at session close (CLI not on PATH, palace dir missing, sqlite corrupt, chromadb open failure, or timeout). Active from S-0089 onward per the [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md) Consequences amendment.
+
+Independent of the diary-write check — this category surfaces broken substrate as its own signal so the user sees it at every close, not only when the acknowledgement token is used. The substrate could have been alive earlier in the session and broken by close (palace mid-prune, mid-rebuild, etc.).
+
+Body shape varies by session mode:
+
+- **Engine (interactive) sessions:** LOUD ⚠️-prefixed body with "DO NOT BURY THIS" header. Same surface treatment as the diary-write LOUD path — single-session signal, not "wait for 3-of-5".
+- **Routine sessions:** standard one-line body for archive review.
+
+Recoverable — diagnose via `mempalace status 2>&1`, `ls ~/.mempalace/palace`, `mempalace repair-status`. Recovery: [`engine/tools/mempalace_rebuild_hnsw.py`](../tools/mempalace_rebuild_hnsw.py) per its documented procedure (S-0084 precedent). If the substrate is genuinely unreachable AND no recovery is possible mid-session, the acknowledgement-token path is the honest closure (per the [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md) escape hatch + S-0089 tightening).
 
 ### `mempalace_retired_surface_used`
 

@@ -231,27 +231,91 @@ def test_write_rollup_to_current(tmp_path: Path) -> None:
     assert data["mempalace_activity"]["total_calls"] == 3
 
 
-def test_write_rollup_idempotent(tmp_path: Path) -> None:
-    """Re-running overwrites the prior rollup, not appending."""
+def test_write_rollup_merges_with_existing(tmp_path: Path) -> None:
+    """Re-running merges with the prior rollup, summing counts (S-0089 fix).
+
+    Pre-S-0089 contract was REPLACE: each scan invocation overwrote the
+    prior `mempalace_activity` field. Combined with the post-rollup JSONL
+    truncation (Issue #37 / S-0083), running the scan more than once in
+    a session LOST earlier counts. S-0089 changes the contract to MERGE:
+    counts sum, timestamps span. The function is still safe to invoke
+    once-per-session (the scan-once-at-shutdown discipline is unchanged);
+    the merge contract just makes accidental re-runs non-destructive.
+    """
     current = tmp_path / "current.json"
     current.write_text(
         json.dumps(
             {
                 "id": "S-0078",
-                "mempalace_activity": {"search_calls": 99, "total_calls": 99},
+                "mempalace_activity": {
+                    "search_calls": 2,
+                    "diary_read_calls": 1,
+                    "diary_write_calls": 0,
+                    "total_calls": 3,
+                    "first_call_ts": "2026-05-06T01:00:00Z",
+                    "last_call_ts": "2026-05-06T01:30:00Z",
+                },
             }
         )
     )
 
     fresh = dict(EMPTY_ROLLUP)
     fresh["diary_write_calls"] = 1
-    fresh["total_calls"] = 1
+    fresh["search_calls"] = 1
+    fresh["total_calls"] = 2
+    fresh["first_call_ts"] = "2026-05-06T02:00:00Z"
+    fresh["last_call_ts"] = "2026-05-06T02:15:00Z"
     write_rollup_to_current(current, fresh)
 
     data = json.loads(current.read_text())
-    assert data["mempalace_activity"]["search_calls"] == 0
+    # Counts sum across the merge.
+    assert data["mempalace_activity"]["search_calls"] == 3
+    assert data["mempalace_activity"]["diary_read_calls"] == 1
     assert data["mempalace_activity"]["diary_write_calls"] == 1
-    assert data["mempalace_activity"]["total_calls"] == 1
+    assert data["mempalace_activity"]["total_calls"] == 5
+    # Timestamps span the merge: earliest first, latest last.
+    assert data["mempalace_activity"]["first_call_ts"] == "2026-05-06T01:00:00Z"
+    assert data["mempalace_activity"]["last_call_ts"] == "2026-05-06T02:15:00Z"
+
+
+def test_write_rollup_with_no_existing_field_writes_fresh(tmp_path: Path) -> None:
+    """First scan against current.json with no mempalace_activity writes the rollup directly."""
+    current = tmp_path / "current.json"
+    current.write_text(json.dumps({"id": "S-0078", "mode": "interactive"}))
+
+    rollup = dict(EMPTY_ROLLUP)
+    rollup["search_calls"] = 5
+    rollup["total_calls"] = 5
+    write_rollup_to_current(current, rollup)
+
+    data = json.loads(current.read_text())
+    assert data["mempalace_activity"]["search_calls"] == 5
+    assert data["mempalace_activity"]["total_calls"] == 5
+
+
+def test_write_rollup_handles_null_timestamps(tmp_path: Path) -> None:
+    """Merging with all-null timestamps preserves the non-null side."""
+    current = tmp_path / "current.json"
+    current.write_text(
+        json.dumps(
+            {
+                "id": "S-0078",
+                "mempalace_activity": dict(EMPTY_ROLLUP),  # all None timestamps
+            }
+        )
+    )
+
+    fresh = dict(EMPTY_ROLLUP)
+    fresh["search_calls"] = 1
+    fresh["total_calls"] = 1
+    fresh["first_call_ts"] = "2026-05-07T10:00:00Z"
+    fresh["last_call_ts"] = "2026-05-07T10:00:00Z"
+    write_rollup_to_current(current, fresh)
+
+    data = json.loads(current.read_text())
+    assert data["mempalace_activity"]["first_call_ts"] == "2026-05-07T10:00:00Z"
+    assert data["mempalace_activity"]["last_call_ts"] == "2026-05-07T10:00:00Z"
+    assert data["mempalace_activity"]["search_calls"] == 1
 
 
 def test_write_rollup_missing_current_raises(tmp_path: Path) -> None:

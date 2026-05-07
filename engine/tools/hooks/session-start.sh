@@ -415,6 +415,116 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# MemPalace MCP availability probe (per S-0089 follow-up to S-0087/S-0088
+# escape-hatch burial pattern; tightens ADR 0056 token contract)
+# ---------------------------------------------------------------------------
+#
+# Verifies the MemPalace substrate is reachable BEFORE the AI starts
+# substantive work. Two failure modes the S-0087 + S-0088 archives surfaced:
+#
+#   1. The AI's deferred-tool list at boot doesn't always include
+#      `mcp__mempalace__*` even when the MCP server is registered in
+#      `.mcp.json` and loadable. The S-0088 conversation's resume hook
+#      surfaced 30 mempalace tools that the boot hook hadn't.
+#
+#   2. The AI defaults to ADR 0056's `mempalace_unavailable_acknowledged`
+#      escape-hatch token when its tool surface lacks `mcp__mempalace__*`,
+#      burying the failure in `outcome_summary` text. S-0087 + S-0088
+#      both did this; the 3-of-5 persistent-warn surface was one session
+#      away from firing.
+#
+# This probe runs `mempalace status` from the hook's PATH (which the
+# scrub_env.sh PATH-prepend at sourcing time wires to the project venv
+# per ADR 0050). If the CLI is reachable AND the palace responds, the
+# substrate is live — if the AI's tool surface later lacks
+# `mcp__mempalace__*`, the AI must investigate (likely a Claude Code
+# MCP-load timing issue), NOT default to the acknowledgement token.
+#
+# Failure modes the probe distinguishes:
+#   - CLI not on PATH         → substrate cannot be queried at all.
+#   - CLI on PATH, status fails → substrate present but broken
+#                                  (corrupt sqlite / missing palace dir /
+#                                   chromadb open failure).
+#   - All clean               → substrate confirmed live.
+#
+# Emission shape: LOUD attention block when substrate unavailable
+# (mirrors shared-state health probe LOUD pattern). Quiet OK line when
+# clean. Hook always exits 0 — informational, never blocking. Mode
+# differentiation (engine LOUD vs routine standard) lands at close time
+# in validate.py --final-check, where current.json's `mode` field is
+# known; at boot, mode is not yet declared, so the surface is uniform.
+
+MCP_PROBE_STATUS=""
+if command -v mempalace >/dev/null 2>&1; then
+    if mempalace status >/dev/null 2>&1; then
+        echo "[session-start] MemPalace MCP substrate: OK"
+        MCP_PROBE_STATUS="ok"
+    else
+        # CLI present but `status` fails — substrate is broken
+        # (palace dir missing, sqlite corrupt, chromadb won't open,
+        # post-prune flux, etc.). The AI's tool surface may still
+        # include `mcp__mempalace__*` but every call will fail.
+        {
+            echo ""
+            echo "============================================================"
+            echo "[session-start] MemPalace MCP substrate: HARD-WARN — broken"
+            echo "============================================================"
+            echo "  \`mempalace status\` failed despite CLI being on PATH."
+            echo "  The MCP server (if loaded) will fail every call."
+            echo ""
+            echo "  Investigate BEFORE substantive work:"
+            echo "    - ls ~/.mempalace/palace          (palace dir exists?)"
+            echo "    - mempalace status 2>&1           (full error output)"
+            echo "    - mempalace repair-status         (HNSW divergence?)"
+            echo ""
+            echo "  Recovery: engine/tools/mempalace_rebuild_hnsw.py per its"
+            echo "  documented procedure (S-0084 precedent). DO NOT use"
+            echo "  ADR 0056's mempalace_unavailable_acknowledged token to"
+            echo "  bypass the diary write — that's the burial pattern"
+            echo "  S-0089 hardens against. Fix the substrate or pause the"
+            echo "  session and address upstream."
+            echo "============================================================"
+            echo ""
+        } >&2
+        MCP_PROBE_STATUS="status-failed"
+        log_fail "mempalace-mcp=status-failed"
+    fi
+else
+    # CLI not on PATH — substrate is unreachable from hooks. The MCP
+    # server may still load via .mcp.json (Claude Code resolves its own
+    # binary path), but the hook-side check has no way to verify. Loud
+    # surface so the user can address the venv-PATH wiring (ADR 0050).
+    {
+        echo ""
+        echo "============================================================"
+        echo "[session-start] MemPalace MCP substrate: HARD-WARN — CLI missing"
+        echo "============================================================"
+        echo "  \`mempalace\` is not on the hook subshell PATH."
+        echo "  ADR 0050 wires the project venv's bin/ via scrub_env.sh"
+        echo "  at sourcing time; if that PATH-prepend isn't reaching the"
+        echo "  hook, the venv isn't installed at <main_repo>/.venv/ or"
+        echo "  the requirements.txt's mempalace pin failed to install."
+        echo ""
+        echo "  Investigate BEFORE substantive work:"
+        echo "    - ls <main_repo>/.venv/bin/mempalace"
+        echo "    - command -v python3 && python3 -c 'import mempalace'"
+        echo "    - cat <main_repo>/.python-version"
+        echo "    - uv pip install -r engine/tools/requirements.txt"
+        echo ""
+        echo "  If the AI's tool surface lacks \`mcp__mempalace__*\` AND"
+        echo "  this hook can't reach mempalace, the substrate is genuinely"
+        echo "  unavailable — ADR 0056's acknowledgement token applies"
+        echo "  honestly. If only one is true, the AI must investigate"
+        echo "  rather than default to the token (the S-0087/S-0088 burial"
+        echo "  pattern S-0089 hardens against)."
+        echo "============================================================"
+        echo ""
+    } >&2
+    MCP_PROBE_STATUS="cli-missing"
+    log_fail "mempalace-mcp=cli-missing"
+fi
+
+# ---------------------------------------------------------------------------
 # Issues backlog visibility (per ADR 0048)
 # ---------------------------------------------------------------------------
 #
@@ -615,5 +725,5 @@ if [ -f "$SCHEDULED_AUDITS_FILE" ]; then
     fi
 fi
 
-log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=$PERSISTENT_FOUND scheduled=$SCHEDULED_FOUND probe=$PROBE_STATUS backlog=$BACKLOG_STATUS scope_non_yes=$SCOPE_NON_YES conflict=$CONFLICT_STATUS env_pointer=$ENV_POINTER_STATUS stale_check=$STALE_CHECK_STATUS"
+log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=$PERSISTENT_FOUND scheduled=$SCHEDULED_FOUND probe=$PROBE_STATUS mcp=$MCP_PROBE_STATUS backlog=$BACKLOG_STATUS scope_non_yes=$SCOPE_NON_YES conflict=$CONFLICT_STATUS env_pointer=$ENV_POINTER_STATUS stale_check=$STALE_CHECK_STATUS"
 exit 0

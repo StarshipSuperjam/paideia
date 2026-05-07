@@ -202,12 +202,79 @@ def rollup_jsonl(jsonl_path: Path) -> dict[str, Any]:
     return rollup
 
 
+def _merge_rollups(existing: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]:
+    """Merge a new rollup into an existing one — sum counts, span timestamps.
+
+    Per S-0089: ``scan_mempalace_activity.py`` was REPLACING ``mempalace_activity``
+    on every invocation. Combined with the post-rollup JSONL truncation
+    (Issue #37 / S-0083), running the scan more than once in a session
+    LOST the earlier rollup's counts. Discovered when S-0089's mid-session
+    diary write got rolled up at first scan, then overwritten by the
+    second scan's search + diary_read counts (zero diary_write). Validator
+    then hard-failed because diary_write_calls was 0 in the final rollup
+    even though the diary write had happened.
+
+    Merge contract:
+
+    - All ``*_calls`` keys plus ``total_calls`` are summed.
+    - ``first_call_ts`` keeps the earlier of the two (preserving span).
+    - ``last_call_ts`` keeps the later of the two.
+    - Unknown keys (future extensions) prefer ``new``'s value to fall back
+      to ``existing`` so a schema addition doesn't drop unrecognized fields.
+
+    Idempotent: merging a rollup with itself doubles counts; this function
+    is invoked exactly once per scan invocation, against the previously-
+    written rollup, so the per-session total accumulates correctly across
+    truncation cycles.
+    """
+    if not isinstance(existing, dict):
+        return new
+
+    merged: dict[str, Any] = dict(existing)
+    for key, value in new.items():
+        if (key.endswith("_calls") or key == "total_calls") and isinstance(value, int):
+            existing_value = existing.get(key, 0)
+            if isinstance(existing_value, int):
+                merged[key] = existing_value + value
+            else:
+                merged[key] = value
+        elif key == "first_call_ts":
+            existing_ts = existing.get("first_call_ts")
+            if value is None:
+                merged[key] = existing_ts
+            elif existing_ts is None:
+                merged[key] = value
+            else:
+                merged[key] = existing_ts if existing_ts < value else value
+        elif key == "last_call_ts":
+            existing_ts = existing.get("last_call_ts")
+            if value is None:
+                merged[key] = existing_ts
+            elif existing_ts is None:
+                merged[key] = value
+            else:
+                merged[key] = existing_ts if existing_ts > value else value
+        else:
+            merged[key] = value
+    return merged
+
+
 def write_rollup_to_current(current_path: Path, rollup: dict[str, Any]) -> None:
-    """Update current.json with the rollup in the ``mempalace_activity`` field."""
+    """Update current.json with the rollup in the ``mempalace_activity`` field.
+
+    Merges with any existing ``mempalace_activity`` rather than replacing
+    (per S-0089 fix). Allows the scan to run multiple times within a
+    session without losing earlier counts. The JSONL truncation that
+    follows each scan (Issue #37 / S-0083) means the new rollup only
+    represents calls since the last scan; merging with the existing
+    rollup recovers the per-session total.
+    """
     if not current_path.is_file():
         raise FileNotFoundError(f"current.json not found at {current_path}")
     data: dict[str, Any] = json.loads(current_path.read_text())
-    data["mempalace_activity"] = rollup
+    existing = data.get("mempalace_activity")
+    merged = _merge_rollups(existing, rollup) if isinstance(existing, dict) else rollup
+    data["mempalace_activity"] = merged
     current_path.write_text(json.dumps(data, indent=2) + "\n")
 
 
