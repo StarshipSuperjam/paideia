@@ -179,6 +179,49 @@ If drawers aren't appearing: check `~/.mempalace/hook_state/` for stale lock fil
 
 - **`mempalace repair --mode legacy` destroys embedding rows.** Diagnosed at S-0078. Running the documented HNSW-rebuild command (`mempalace repair --backup --yes`, which defaults to `--mode legacy`) wiped 41,727 of 41,963 SQLite embedding rows; only 118 survived. The two collections (`mempalace_drawers`, `mempalace_closets`) survived as collection-table entries; only the embedding rows were destroyed. The `--backup` flag DID create `~/.mempalace/palace.backup/` with pre-repair state intact, enabling restoration via `mv palace palace.repair-broken-* && cp -a palace.backup palace`. The MCP server kept serving across the swap (no restart needed). **Do not run `mempalace repair --mode legacy`** until upstream behavior is understood. Pattern is adjacent to upstream Issues [#1238](https://github.com/MemPalace/mempalace/issues/1238) (mid-rebuild crash), [#1255](https://github.com/MemPalace/mempalace/issues/1255) (legacy mode discards embedding_model), [#1263](https://github.com/MemPalace/mempalace/issues/1263), and [#1308](https://github.com/MemPalace/mempalace/issues/1308) but isn't an exact match for any — filed as upstream Issue [MemPalace/mempalace#1394](https://github.com/MemPalace/mempalace/issues/1394) at S-0084. Forensic state preserved at `~/.mempalace/palace.repair-broken-S0078-21-31/` for upstream investigation. **Non-destructive restoration path** (S-0084): [`engine/tools/mempalace_rebuild_hnsw.py`](../tools/mempalace_rebuild_hnsw.py) reads drawer (id, document, metadata) tuples directly from `chroma.sqlite3`, deletes the collection preserving its metadata, recreates, and re-adds via `collection.add(documents=...)` letting chromadb re-compute embeddings via the default embedding function. The HNSW segment is written fresh in sync with SQLite. Always run against a scratch palace copy first; atomic-rename swap to live only after `mempalace repair-status` reports < 1% divergence on the rebuild. The detection probe per [ADR 0045](../adr/0045-shared-state-integrity-discipline.md) (extended at S-0084) shells out to upstream's read-only `mempalace repair-status` and emits the `mempalace_hnsw_divergence` soft-warn at ≥10% divergence. Filed as Issue [#31](https://github.com/StarshipSuperjam/paideia/issues/31) (in-repo tracker; closed at S-0084).
 
+## Prune procedure
+
+[`engine/tools/prune_mempalace.py`](../tools/prune_mempalace.py) (S-0088 per [Issue #40](https://github.com/StarshipSuperjam/paideia/issues/40)) is the audit-and-prune tool for two known noise sources: **mined ops-doc drawers** (S-0002 `mempalace mine docs/` output that duplicates in-git content) and **orphan per-worktree wings** (`wing_<6-hex>` artifacts of the upstream wing-naming bug per [Issue #1](https://github.com/StarshipSuperjam/paideia/issues/1) / [Issue #2](https://github.com/StarshipSuperjam/paideia/issues/2)). The third class — **historical full-encoded-path wings** (`-Users-...` shapes holding ~40K+ inaccessible drawers) — is reachable via the same tool but report-only; deletion is dedicated-session work per [Issue #41](https://github.com/StarshipSuperjam/paideia/issues/41).
+
+Three invocations:
+
+```bash
+# Dry-run audit (default; counts + sample of 5 entries):
+engine/tools/prune_mempalace.py --audit-mined-ops-docs
+engine/tools/prune_mempalace.py --audit-orphan-wings
+engine/tools/prune_mempalace.py --audit-historical-paths   # always report-only
+
+# Apply (mutates the palace; backup is mandatory):
+engine/tools/prune_mempalace.py --audit-mined-ops-docs \
+  --apply --backup-dir ~/.mempalace/palace.S-NNNN-pre-prune
+engine/tools/prune_mempalace.py --audit-orphan-wings \
+  --apply --backup-dir ~/.mempalace/palace.S-NNNN-pre-prune
+```
+
+**Backup discipline.** `--apply` requires `--backup-dir`; the tool refuses with exit 2 if the backup target already exists or fails to create. The `cp -a`-equivalent backup runs BEFORE any deletion. Mirrors the [`mempalace_rebuild_hnsw.py`](../tools/mempalace_rebuild_hnsw.py) Phase 0 precedent (S-0084).
+
+**Classifier signals (S-0088 plan-time verified, in this exact form to keep the surface predictable across maintenance batches):**
+
+| Mode | DELETE if | PRESERVE if |
+|---|---|---|
+| `--audit-mined-ops-docs` | `wing=paideia` AND `room IN ('general', 'operations')` AND `added_by == 'claude-s0002'` exact match | `added_by == 'claude-s0002-manual'` (curated `[decision]`-prefixed content from the same era), `added_by` starts with `claude-` other than mining (post-S-0002 manual additions), or `added_by` field is absent (manually-added drawers without provenance metadata) |
+| `--audit-orphan-wings` | wing matches `^wing_[0-9a-f]{6}$` exactly | `wing IN ('paideia', 'wing_paideia', 'wing_claude', 'sessions')` (canonical names always preserved by exact match, even if a future variant matched the regex) |
+| `--audit-historical-paths` | (report-only — no deletion) | n/a |
+
+**Post-prune verification.** After each `--apply` run:
+
+```bash
+mempalace repair-status                                 # status: OK or near-zero divergence
+engine/tools/probe_palace.py 2>&1 | grep wings          # wing count drops below the Tier-1 threshold
+mempalace_search "<recent topic>"                       # qualitative: more conversational drawers, fewer ops-doc chunks
+```
+
+If `mempalace repair-status` reports significant HNSW divergence post-prune, run [`engine/tools/mempalace_rebuild_hnsw.py`](../tools/mempalace_rebuild_hnsw.py) per its documented procedure to restore index consistency. Small (<10%) divergence is expected as flush-lag and clears on the next `mempalace mine` flush.
+
+**Repeatable maintenance.** This procedure is the standing answer to the `mempalace_wing_count_growth` soft-warn (per Issue #46). When the soft-warn fires, run the audit modes in dry-run, review the candidates, and apply with backup. The thresholds (in `register_state.json`) are calibrated for the post-prune state — do not raise them to silence the surface.
+
+**Tag-weighted retention policy** (Issue #40 part C, recorded for future cleanup batches): `decision` / `pushback` / `lesson` tags are preserve-priority across all wings. `work` and `diary` tagged drawers in non-canonical wings (orphan + historical-path) are auto-prune candidates. The S-0088 prune verified all 79 orphan-wing drawers were `type=diary_entry` with no high-signal markers, validating the bulk-delete approach for `--audit-orphan-wings`. Future cleanup batches that encounter mixed orphan-wing content (some high-signal drawers among the work-tagged majority) can extend the script to selectively preserve via `--preserve-by-tag` — the API surface is open for that variation when needed.
+
 ## Maintenance probes
 
 Boot-time probes that surface MemPalace state drift without blocking the session. Each probe runs from the SessionStart hook (and from `validate.py`'s shared-state-health pass at every commit, defense-in-depth against a silently-failing hook). All thresholds are configurable via `engine/session/register_state.json` so the project can tune as cleanup cadence shifts.
