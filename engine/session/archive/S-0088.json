@@ -1,0 +1,40 @@
+{
+  "id": "S-0088",
+  "started_at": "2026-05-07T16:43:42Z",
+  "status": "closed",
+  "mode": "interactive",
+  "working_on": "Issue close-out campaign session C2: closes Issues #40 (MemPalace prune of mined ops-doc drawers + orphaned per-worktree wings via new prune_mempalace.py), #46 (mempalace_wing_count_growth soft-warn at boot via probe_palace.py + validate.py + register_state.json thresholds), #47 (audit-trail boot surface via scan_issue_backlog.py extension separating health-check-finding Issues from undifferentiated backlog count). Builds on the S-0087 (C1) ADR 0056 amendment + retired-surface soft-warn contract foundation.",
+  "outcome_summary": "Closed Issues #40 (MemPalace prune), #46 (wing-count soft-warn), #47 (audit-trail boot surface). New prune_mempalace.py executed live: 414 mined ops-doc drawers + 79 orphan-wing drawers (51 wings) deleted; wing count 64→13; mempalace_wing_count_growth soft-warn cleared post-prune; mempalace repair-status: OK. Pre-prune backup at ~/.mempalace/palace.S-0088-pre-prune. Health-check audit deferral continues per campaign plan; health_check_overdue soft-warn fires (slots_since=12 vs cadence=10). 0 hard-fails post-prune. mempalace_unavailable_acknowledged: MCP server not connected to this conversation; boot search ran via direct sqlite probe and CLI fallback as needed.",
+  "approved_plan": "/Users/shanekidd/.claude/plans/proud-whistling-koala.md",
+  "branch": "claude/awesome-carson-4840fe",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/awesome-carson-4840fe",
+  "declared_scope": "issue-close-out-campaign-c2",
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": false,
+    "explanation": "All three declared issues closed at #40 #46 #47. Phase 1 (#46) shipped wing-count probe + validate.py soft-warn + register_state.json thresholds + 16 new tests + tools-validate-interpretation.md + mempalace-operations.md Maintenance probes section. Phase 2 (#47) shipped scan_issue_backlog.py audit-trail line + 13 new tests + issue-discipline.md. Phase 3 (#40) shipped new prune_mempalace.py with 25 pytests + mempalace-operations.md Prune procedure section + ENGINE_LOG entries. Phase 3 execution: 493 drawers deleted via two --apply runs (414 mined + 79 orphan-wing across 51 wings); pre-prune backup at ~/.mempalace/palace.S-0088-pre-prune; post-mined intermediate backup at ~/.mempalace/palace.S-0088-post-mined. mempalace repair-status post-prune: status OK (HNSW 47,204 / SQLite 47,072 within flush-lag tolerance). Wing count dropped 64→13, clearing the new mempalace_wing_count_growth soft-warn end-to-end. No mid-session descope or reorder. Health-check audit deferral was the only user-pre-authorized decision (per the approved plan's Context section)."
+  },
+  "mempalace_activity": {
+    "search_calls": 0,
+    "diary_read_calls": 0,
+    "diary_write_calls": 0,
+    "add_drawer_calls": 0,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 0,
+    "first_call_ts": null,
+    "last_call_ts": null
+  },
+  "closed_at": "2026-05-07T18:30:00Z",
+  "outcome_summary_soft_warns": {
+    "health_check_overdue": 1,
+    "adr_consequences_deliverable_audit": 1,
+    "missing_rigor_score": 366,
+    "mempalace_boot_query_skipped": 1,
+    "mempalace_diary_read_skipped": 1,
+    "mempalace_diary_write_acknowledged_skip": 1
+  }
+}
