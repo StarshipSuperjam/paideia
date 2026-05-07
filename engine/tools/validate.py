@@ -197,6 +197,13 @@ PROBE_REPO = REPO_ROOT / "engine" / "tools" / "probe_repo.py"
 # failure (no auth, no network, repo not on GitHub) is silently skipped.
 SCAN_ISSUE_COLLISIONS = REPO_ROOT / "engine" / "tools" / "scan_issue_collisions.py"
 
+# Session register (per ADR 0048 + the `mempalace_wing_count_growth`
+# threshold block per Issue #46 / S-0088). Some validator checks read
+# configuration from here at runtime — health-check cadence,
+# wing-count growth thresholds. Authoritative source for the
+# session-counter state.
+REGISTER_STATE_PATH = REPO_ROOT / "engine" / "session" / "register_state.json"
+
 
 # ---------------------------------------------------------------------------
 # Result accumulator
@@ -660,6 +667,19 @@ def validate_shared_state_health() -> ValidationResult:
                 r.add_check("mempalace_hnsw_divergence")
                 r.soft_warn("mempalace_hnsw_divergence", divergence_msg)
 
+            # Wing-count accumulation surface (per Issue #46, S-0088).
+            # Independent of openability and divergence — captures the
+            # rate of orphaned per-worktree wings + historical full-path
+            # wings the upstream wing-naming bug (Issues #1 / #2)
+            # produces. Threshold tiers configured in
+            # register_state.json so the project can tune as cleanup
+            # cadence shifts. Same posture as divergence: probe always
+            # emits when measurable; validator decides severity.
+            wing_count_msg = _extract_palace_wing_count(proc.stderr)
+            if wing_count_msg is not None:
+                r.add_check("mempalace_wing_count_growth")
+                r.soft_warn("mempalace_wing_count_growth", wing_count_msg)
+
         if proc.returncode == 0:
             continue
         if proc.returncode == 1:
@@ -729,6 +749,97 @@ def _extract_palace_divergence(stderr: str) -> str | None:
             "confirmed this destroys SQLite embedding rows (99.7% loss observed). "
             'See engine/operations/mempalace-operations.md "Known issues" for '
             "forensic detail and the upstream tracker."
+        )
+    return base
+
+
+# Regex matching the wing-count line probe_palace.py emits per Issue
+# #46 (S-0088). Form: "[probe-palace] wings: N (total)".
+_PROBE_WING_COUNT_RE = re.compile(r"\[probe-palace\]\s+wings:\s+(\d+)\s+\(total\)")
+# Bootstrap fallbacks if register_state.json is missing the threshold
+# block (e.g., a freshly-cloned repo before the S-0088 schema lands, or
+# a manually-stripped register). The values mirror the Issue #46
+# acceptance criteria — Tier 1 informational at 60, Tier 2 LOUD at 100.
+_WING_COUNT_INFORMATIONAL_DEFAULT = 60
+_WING_COUNT_LOUD_DEFAULT = 100
+
+
+def _read_wing_count_thresholds() -> tuple[int, int]:
+    """Read wing-count thresholds from register_state.json.
+
+    Returns ``(informational, loud)``. Falls back to the bootstrap
+    defaults (60 / 100) when:
+    - register_state.json is missing or unparseable;
+    - the ``wing_count_growth_thresholds`` block is absent;
+    - either threshold is missing or non-int.
+
+    Threshold contract: ``loud > informational > 0``. If the loaded
+    pair violates the contract, falls back to defaults — silent so a
+    typo in operator-edited register_state.json can't poison the
+    soft-warn but the project still gets the standing surface.
+    """
+    if not REGISTER_STATE_PATH.is_file():
+        return (_WING_COUNT_INFORMATIONAL_DEFAULT, _WING_COUNT_LOUD_DEFAULT)
+    try:
+        register = json.loads(REGISTER_STATE_PATH.read_text())
+    except (OSError, json.JSONDecodeError):
+        return (_WING_COUNT_INFORMATIONAL_DEFAULT, _WING_COUNT_LOUD_DEFAULT)
+    if not isinstance(register, dict):
+        return (_WING_COUNT_INFORMATIONAL_DEFAULT, _WING_COUNT_LOUD_DEFAULT)
+    block = register.get("wing_count_growth_thresholds")
+    if not isinstance(block, dict):
+        return (_WING_COUNT_INFORMATIONAL_DEFAULT, _WING_COUNT_LOUD_DEFAULT)
+    informational = block.get("informational")
+    loud = block.get("loud")
+    if not isinstance(informational, int) or not isinstance(loud, int):
+        return (_WING_COUNT_INFORMATIONAL_DEFAULT, _WING_COUNT_LOUD_DEFAULT)
+    if informational <= 0 or loud <= informational:
+        return (_WING_COUNT_INFORMATIONAL_DEFAULT, _WING_COUNT_LOUD_DEFAULT)
+    return (informational, loud)
+
+
+def _extract_palace_wing_count(stderr: str) -> str | None:
+    """Parse probe_palace.py's wing-count line; return formatted soft-warn body.
+
+    Returns ``None`` if the wing-count line is absent, malformed, or the
+    count is below the informational threshold. Otherwise returns the
+    body text the soft-warn carries. At LOUD threshold, the body
+    includes a more directive prompt to schedule a cleanup batch.
+
+    Thresholds come from ``register_state.json``'s
+    ``wing_count_growth_thresholds`` block (per Issue #46, S-0088), so
+    operators can tune as cleanup cadence shifts. Bootstrap defaults
+    are 60 / 100.
+    """
+    match = _PROBE_WING_COUNT_RE.search(stderr or "")
+    if match is None:
+        return None
+    try:
+        count = int(match.group(1))
+    except ValueError:
+        return None
+    informational, loud = _read_wing_count_thresholds()
+    if count < informational:
+        return None
+    base = (
+        f"MemPalace wing count is {count}, exceeding the informational "
+        f"threshold of {informational}. The upstream wing-naming bug "
+        f"(Issues #1 / #2) creates a new per-worktree wing on each "
+        f"auto-capture; accumulation degrades search recall over time. "
+        f"Schedule a cleanup batch via `engine/tools/prune_mempalace.py` "
+        f"(orphan-wings + ops-doc-drawer modes — Issue #40) and the "
+        f"dedicated heavy historical-paths session (Issue #41)."
+    )
+    if count >= loud:
+        return (
+            "⚠️  " + base + "\n"
+            f"At {count} wings, the noise floor is severely degrading "
+            f"`mempalace_search` recall — boot-search reformulations "
+            f"return ops-doc chunks ahead of conversational drawers. "
+            f"Cleanup is overdue, not optional. Adjust thresholds in "
+            f"`engine/session/register_state.json` only after a cleanup "
+            f"batch lands; do not raise the threshold to silence the "
+            f"surface."
         )
     return base
 

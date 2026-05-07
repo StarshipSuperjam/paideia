@@ -129,6 +129,21 @@ Threshold tiers:
 
 Recoverable — run [`engine/tools/mempalace_rebuild_hnsw.py`](../tools/mempalace_rebuild_hnsw.py) per the procedure documented there; soft-warn clears once divergence drops below 10%. If the rebuild itself surfaces an unexpected failure mode, file under the upstream tracker rather than reverting to a "live with BM25 fallback" posture.
 
+### `mempalace_wing_count_growth`
+
+Total MemPalace wing count has crossed an accumulation threshold. Active from S-0088 onward per [Issue #46](https://github.com/StarshipSuperjam/paideia/issues/46). The signal is sourced from `probe_palace.py`'s `[probe-palace] wings: N (total)` line, which counts distinct `wing` metadata values in the chromadb sqlite store directly (~2 s on a 47 K-drawer palace; the upstream `mempalace status` enumeration is too slow at boot scale). MemPalace stores all drawers in two chromadb collections with `wing` as a metadata field, so `len(client.list_collections())` is structurally always 2 — distinct-wing query is the only accurate accumulation surface.
+
+Threshold tiers (configurable via `engine/session/register_state.json`'s `wing_count_growth_thresholds` block; bootstrap defaults `informational: 60`, `loud: 100`):
+
+- **≥ informational** (soft-warn): body names the count and points at the cleanup tools (`engine/tools/prune_mempalace.py` for orphan-wings + ops-doc-drawer modes per Issue #40; the dedicated heavy historical-paths session per Issue #41).
+- **≥ loud** (LOUD-attention soft-warn): body adds severity prose noting recall degradation and the discipline-rule that thresholds may only be adjusted *after* a cleanup batch lands — never raised to silence the surface.
+
+The accumulation cause is the upstream wing-naming bug ([Issue #1](https://github.com/StarshipSuperjam/paideia/issues/1) / [Issue #2](https://github.com/StarshipSuperjam/paideia/issues/2)): each new worktree's auto-capture creates a new `wing_<hash>` per session, indefinitely. The Issue-#46 surface is the rate guardrail — symptoms accumulate between Issue-#40 / Issue-#41 cleanup batches; this soft-warn says "schedule the next batch."
+
+Threshold reader silently falls back to the bootstrap defaults (60 / 100) when the register block is absent, malformed, or violates the `loud > informational > 0` contract — so a typo in operator-edited register_state.json can't poison the soft-warn.
+
+Recoverable — run [`engine/tools/prune_mempalace.py`](../tools/prune_mempalace.py) per the procedure in [`engine/operations/mempalace-operations.md`](mempalace-operations.md) "Prune procedure"; the LOUD-tier finding clears once the count drops below the informational threshold.
+
 ### `health_check_overdue`
 
 The cadence-aligned health-check audit slot has been consumed by other work and the audit slid past one full cadence. Active from S-0041 onward per [ADR 0022](../adr/0022-periodic-project-health-checks.md) Consequences amendment (overdue-catchup logic).

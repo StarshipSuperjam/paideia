@@ -261,6 +261,80 @@ def test_probe_handles_missing_mempalace_binary_gracefully(tmp_path: Path) -> No
     assert "healthy" in proc.stdout
 
 
+def test_probe_emits_wing_count_line_on_healthy_palace(tmp_path: Path) -> None:
+    """Probe emits the wing-count line when the chromadb sqlite holds wing metadata."""
+    chromadb = pytest.importorskip("chromadb")
+    palace_dir = tmp_path / ".mempalace" / "palace"
+    palace_dir.mkdir(parents=True)
+    client = chromadb.PersistentClient(path=str(palace_dir))
+    col = client.get_or_create_collection("mempalace_drawers")
+    # Three distinct wings across five drawers.
+    col.add(
+        ids=[f"d{i}" for i in range(5)],
+        documents=[f"doc {i}" for i in range(5)],
+        metadatas=[
+            {"wing": "paideia"},
+            {"wing": "paideia"},
+            {"wing": "wing_abc"},
+            {"wing": "wing_def"},
+            {"wing": "wing_def"},
+        ],
+    )
+    del col
+    del client
+
+    proc = _run_probe(palace_dir)
+
+    assert proc.returncode == 0
+    assert "[probe-palace] wings: 3 (total)" in proc.stderr
+
+
+def test_probe_emits_wing_count_zero_when_no_wing_metadata(tmp_path: Path) -> None:
+    """Drawers without a `wing` metadata field yield a zero count, not a missing line."""
+    chromadb = pytest.importorskip("chromadb")
+    palace_dir = tmp_path / ".mempalace" / "palace"
+    palace_dir.mkdir(parents=True)
+    client = chromadb.PersistentClient(path=str(palace_dir))
+    col = client.get_or_create_collection("mempalace_drawers")
+    col.add(
+        ids=["d0"],
+        documents=["doc"],
+        metadatas=[{"room": "general"}],  # no `wing` key
+    )
+    del col
+    del client
+
+    proc = _run_probe(palace_dir)
+
+    assert proc.returncode == 0
+    assert "[probe-palace] wings: 0 (total)" in proc.stderr
+
+
+def test_probe_skips_wing_count_line_when_sqlite_absent(tmp_path: Path) -> None:
+    """If chroma.sqlite3 is absent (legacy/empty palace), the wing-count line is silently skipped.
+
+    The healthy line still emits if list_collections() succeeds. The wing-
+    count surface is best-effort — its absence must never block the probe.
+    """
+    palace_dir = tmp_path / ".mempalace" / "palace"
+    palace_dir.mkdir(parents=True)
+    # Don't init chromadb. The probe will try to open PersistentClient,
+    # which on recent chromadb creates a fresh empty palace; the wing
+    # query then runs but finds no matching rows (count = 0). The
+    # negative-skip path is exercised by the absent-sqlite branch
+    # explicitly; on a real fresh palace chromadb writes the file
+    # before our query, so we test the absent-sqlite path via the
+    # function directly instead of via subprocess.
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("probe_palace", PROBE_PATH)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    assert module._count_wings(palace_dir) is None
+
+
 def test_probe_never_invokes_mempalace_repair(tmp_path: Path) -> None:
     """Negative test: probe must never spawn `mempalace repair` (destructive).
 

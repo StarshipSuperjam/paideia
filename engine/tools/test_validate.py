@@ -1598,3 +1598,229 @@ class TestMain:
         """--code-gates with no --files exits 0 via the empty-check sentinel."""
         rc = main(["--code-gates"])
         assert rc == 0
+
+
+# ---------------------------------------------------------------------------
+# Wing-count threshold extraction (S-0088 per Issue #46)
+# ---------------------------------------------------------------------------
+
+
+class TestExtractPalaceWingCount:
+    """Wing-count line parsing + threshold-driven body emission.
+
+    Mirrors the private-helper test pattern: covers the regex parser,
+    threshold lookup from register_state.json, informational vs LOUD
+    severity transitions, and silent fallback on absent / malformed
+    config (the validator must never hard-fail on a missing
+    threshold block).
+    """
+
+    def test_no_wing_line_returns_none(self) -> None:
+        """Stderr without a wing-count line yields None."""
+        body = validate._extract_palace_wing_count(
+            "[probe-palace] healthy: 2 collections, 100 drawers, 0.50s\n"
+        )
+        assert body is None
+
+    def test_below_informational_threshold_returns_none(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Wing count below the informational threshold is silent."""
+        register = tmp_path / "register_state.json"
+        register.write_text(
+            json.dumps(
+                {
+                    "wing_count_growth_thresholds": {
+                        "informational": 60,
+                        "loud": 100,
+                    }
+                }
+            )
+        )
+        monkeypatch.setattr(validate, "REGISTER_STATE_PATH", register)
+
+        body = validate._extract_palace_wing_count("[probe-palace] wings: 50 (total)\n")
+        assert body is None
+
+    def test_at_informational_threshold_emits_body(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Reaching the informational threshold returns the standard body."""
+        register = tmp_path / "register_state.json"
+        register.write_text(
+            json.dumps(
+                {
+                    "wing_count_growth_thresholds": {
+                        "informational": 60,
+                        "loud": 100,
+                    }
+                }
+            )
+        )
+        monkeypatch.setattr(validate, "REGISTER_STATE_PATH", register)
+
+        body = validate._extract_palace_wing_count("[probe-palace] wings: 60 (total)\n")
+        assert body is not None
+        assert "MemPalace wing count is 60" in body
+        assert "Issues #1 / #2" in body
+        assert "prune_mempalace.py" in body
+        # Standard body, not LOUD prefix.
+        assert not body.startswith("⚠️")
+
+    def test_at_loud_threshold_emits_loud_prefix(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """At the LOUD threshold, body carries the warning prefix and severity prose."""
+        register = tmp_path / "register_state.json"
+        register.write_text(
+            json.dumps(
+                {
+                    "wing_count_growth_thresholds": {
+                        "informational": 60,
+                        "loud": 100,
+                    }
+                }
+            )
+        )
+        monkeypatch.setattr(validate, "REGISTER_STATE_PATH", register)
+
+        body = validate._extract_palace_wing_count(
+            "[probe-palace] wings: 100 (total)\n"
+        )
+        assert body is not None
+        assert body.startswith("⚠️")
+        assert "noise floor is severely degrading" in body
+
+    def test_above_loud_threshold_emits_loud_prefix(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Above LOUD threshold (e.g., 150), body is LOUD severity."""
+        register = tmp_path / "register_state.json"
+        register.write_text(
+            json.dumps(
+                {
+                    "wing_count_growth_thresholds": {
+                        "informational": 60,
+                        "loud": 100,
+                    }
+                }
+            )
+        )
+        monkeypatch.setattr(validate, "REGISTER_STATE_PATH", register)
+
+        body = validate._extract_palace_wing_count(
+            "[probe-palace] wings: 150 (total)\n"
+        )
+        assert body is not None
+        assert body.startswith("⚠️")
+        assert "MemPalace wing count is 150" in body
+
+    def test_malformed_count_returns_none(self) -> None:
+        """A wing-count line with non-integer count yields None (silent skip)."""
+        body = validate._extract_palace_wing_count(
+            "[probe-palace] wings: ABC (total)\n"
+        )
+        assert body is None
+
+    def test_missing_register_uses_default_thresholds(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """No register_state.json present -> falls back to (60, 100) defaults."""
+        monkeypatch.setattr(validate, "REGISTER_STATE_PATH", tmp_path / "absent.json")
+
+        # 59 is below default 60 -> None.
+        assert (
+            validate._extract_palace_wing_count("[probe-palace] wings: 59 (total)\n")
+            is None
+        )
+        # 60 is at default 60 -> body, no LOUD.
+        body_60 = validate._extract_palace_wing_count(
+            "[probe-palace] wings: 60 (total)\n"
+        )
+        assert body_60 is not None
+        assert not body_60.startswith("⚠️")
+        # 100 is at default LOUD 100 -> LOUD body.
+        body_100 = validate._extract_palace_wing_count(
+            "[probe-palace] wings: 100 (total)\n"
+        )
+        assert body_100 is not None
+        assert body_100.startswith("⚠️")
+
+    def test_malformed_threshold_block_uses_defaults(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Threshold block with loud <= informational falls back to defaults silently."""
+        register = tmp_path / "register_state.json"
+        register.write_text(
+            json.dumps(
+                {
+                    "wing_count_growth_thresholds": {
+                        "informational": 200,
+                        "loud": 50,  # invalid: loud < informational
+                    }
+                }
+            )
+        )
+        monkeypatch.setattr(validate, "REGISTER_STATE_PATH", register)
+
+        # 60 should fire under defaults (60, 100), not under the malformed (200, 50).
+        body = validate._extract_palace_wing_count("[probe-palace] wings: 60 (total)\n")
+        assert body is not None
+
+    def test_unparseable_register_uses_defaults(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Corrupt JSON in register_state.json falls back to defaults silently."""
+        register = tmp_path / "register_state.json"
+        register.write_text("not valid json { {")
+        monkeypatch.setattr(validate, "REGISTER_STATE_PATH", register)
+
+        body = validate._extract_palace_wing_count("[probe-palace] wings: 60 (total)\n")
+        assert body is not None
+
+
+class TestReadWingCountThresholds:
+    """Threshold reader: every fallback path returns the bootstrap defaults."""
+
+    def test_missing_file_returns_defaults(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(validate, "REGISTER_STATE_PATH", tmp_path / "missing.json")
+        assert validate._read_wing_count_thresholds() == (60, 100)
+
+    def test_missing_block_returns_defaults(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        register = tmp_path / "register_state.json"
+        register.write_text(json.dumps({"next_id": "0001"}))
+        monkeypatch.setattr(validate, "REGISTER_STATE_PATH", register)
+        assert validate._read_wing_count_thresholds() == (60, 100)
+
+    def test_valid_block_returns_configured_values(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        register = tmp_path / "register_state.json"
+        register.write_text(
+            json.dumps(
+                {"wing_count_growth_thresholds": {"informational": 30, "loud": 80}}
+            )
+        )
+        monkeypatch.setattr(validate, "REGISTER_STATE_PATH", register)
+        assert validate._read_wing_count_thresholds() == (30, 80)
+
+    def test_non_int_block_returns_defaults(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        register = tmp_path / "register_state.json"
+        register.write_text(
+            json.dumps(
+                {
+                    "wing_count_growth_thresholds": {
+                        "informational": "60",
+                        "loud": "100",
+                    }
+                }
+            )
+        )
+        monkeypatch.setattr(validate, "REGISTER_STATE_PATH", register)
+        assert validate._read_wing_count_thresholds() == (60, 100)
