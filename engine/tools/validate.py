@@ -716,17 +716,19 @@ def _extract_palace_divergence(stderr: str) -> str | None:
     base = (
         f"HNSW vector index has diverged from SQLite ground truth by "
         f"{pct:.1f}% (HNSW={hnsw}, SQLite={sqlite}). "
-        f"`mempalace_search` is on BM25 lexical fallback; semantic similarity degraded."
+        f"`mempalace_search` is degraded to BM25 lexical fallback for divergent "
+        f"drawers — this is a transient failure mode requiring action, not a "
+        f"working state. Run engine/tools/mempalace_rebuild_hnsw.py against a "
+        f"scratch palace copy and atomic-rename swap to live once 0% divergence "
+        f"is verified."
     )
     if pct >= _DIVERGENCE_LOUD_PCT:
         return (
             "⚠️  " + base + "\n"
             "DO NOT auto-remediate via `mempalace repair --mode legacy` — S-0078 "
             "confirmed this destroys SQLite embedding rows (99.7% loss observed). "
-            "Use engine/tools/mempalace_rebuild_hnsw.py against a scratch palace "
-            "copy first; swap to live only after 0% divergence verified. See "
-            'engine/operations/mempalace-operations.md "Known issues" for forensic '
-            "detail and the upstream tracker."
+            'See engine/operations/mempalace-operations.md "Known issues" for '
+            "forensic detail and the upstream tracker."
         )
     return base
 

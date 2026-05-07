@@ -99,7 +99,7 @@ Always run against a scratch palace copy first; atomic-rename swap to live gated
 
 The validator's check count rises from 16 to 17 (`mempalace_hnsw_divergence` is the new category). Default-mode runtime gains the cost of one `mempalace repair-status` subprocess per probe invocation — 5-15s on the live ~450 MB palace; the probe's existing chromadb-open is unchanged.
 
-The rebuild tool is project-internal. It duplicates capability that ought to live in upstream's `mempalace repair`. The S-0084 upstream tracker filed at MemPalace/mempalace tracks the destructive-repair pattern; if upstream lands a non-destructive `mempalace repair` mode, `mempalace_rebuild_hnsw.py` becomes vestigial and should retire.
+The rebuild tool is project-internal. It duplicates capability that ought to live in upstream's `mempalace repair`. The S-0084 upstream tracker [MemPalace/mempalace#1394](https://github.com/MemPalace/mempalace/issues/1394) tracks the destructive-repair pattern; if upstream lands a non-destructive `mempalace repair` mode, `mempalace_rebuild_hnsw.py` becomes vestigial and should retire.
 
 ## See also
 

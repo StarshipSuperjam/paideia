@@ -10,8 +10,12 @@ Exit codes
     Suspect. Either the openability/sanity layer flagged something
     (empty palace, zero-drawer collection in non-empty palace, slow
     probe) OR the chromadb layer is fine but HNSW divergence is
-    >= 10% (drawers exist in SQLite that the vector index can't see;
-    ``mempalace_search`` will fall back to BM25 lexical matching).
+    >= 10% (drawers exist in SQLite that the vector index can't see).
+    A non-zero exit on the divergence path is a transient failure
+    mode that requires action via
+    ``engine/tools/mempalace_rebuild_hnsw.py`` (non-destructive
+    direct chromadb rebuild on a scratch copy, then atomic-rename
+    swap), not a working state to live with on BM25 fallback.
 2
     Hard-broken. ``chromadb`` import failed, ``PersistentClient``
     raised, ``list_collections`` raised, or any per-collection load

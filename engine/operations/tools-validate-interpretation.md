@@ -95,16 +95,16 @@ Recoverable — `mempalace mine <dir>` to re-populate from source jsonl files; o
 
 ### `mempalace_hnsw_divergence`
 
-The HNSW vector-index has diverged from the SQLite ground truth by ≥ 10%; `mempalace_search` is on BM25 lexical fallback (search functions but semantic similarity is degraded). Active from S-0084 onward per the [ADR 0045](../adr/0045-shared-state-integrity-discipline.md) amendment for [Issue #31](https://github.com/StarshipSuperjam/paideia/issues/31). The signal is sourced from `probe_palace.py`'s extension, which shells out to upstream's read-only `mempalace repair-status` subcommand (contracted to never open a chromadb client) and parses the SQLite vs HNSW counts.
+The HNSW vector-index has diverged from the SQLite ground truth by ≥ 10%. The divergent drawers are invisible to `mempalace_search`'s semantic-similarity path; for queries that hit those drawers, search degrades to BM25 lexical matching. **This is a transient failure mode that requires action, not a working state to live with.** Active from S-0084 onward per the [ADR 0045](../adr/0045-shared-state-integrity-discipline.md) amendment for [Issue #31](https://github.com/StarshipSuperjam/paideia/issues/31). The signal is sourced from `probe_palace.py`'s extension, which shells out to upstream's read-only `mempalace repair-status` subcommand (contracted to never open a chromadb client) and parses the SQLite vs HNSW counts.
 
 Threshold tiers:
 
-- **≥ 10%** (soft-warn): body names the percentage and the BM25-fallback consequence.
-- **≥ 30%** (LOUD-attention soft-warn): body adds the destructive-repair carve-out warning verbatim, naming the S-0078 forensic (99.7% loss observed when `mempalace repair --mode legacy` was run) and the supported restoration path via [`engine/tools/mempalace_rebuild_hnsw.py`](../tools/mempalace_rebuild_hnsw.py).
+- **≥ 10%** (soft-warn): body names the percentage and points at the supported restoration path.
+- **≥ 30%** (LOUD-attention soft-warn): body adds the destructive-repair carve-out warning verbatim, naming the S-0078 forensic (99.7% loss observed when `mempalace repair --mode legacy` was run).
 
-**Do not auto-remediate via `mempalace repair --mode legacy`** under any divergence percentage. The supported restoration path is the project-internal direct-chromadb-rebuild tool — read collection contents via paginated `collection.get(include=["embeddings","documents","metadatas"])`, delete the collection preserving metadata, recreate, re-add via `collection.add()` to force fresh HNSW writes. Always run against a scratch palace copy first; atomic-rename swap to live gated on 0% divergence verification. See [`engine/operations/mempalace-operations.md`](mempalace-operations.md) "Known issues" for forensic detail.
+**Do not auto-remediate via `mempalace repair --mode legacy`** under any divergence percentage. The supported restoration path is the project-internal direct-chromadb-rebuild tool — reads `(id, document, metadata)` tuples directly from `chroma.sqlite3`, deletes the collection preserving metadata, recreates, re-adds via `collection.add(documents=...)` to force fresh HNSW writes via the registered embedding function. Always run against a scratch palace copy first; atomic-rename swap to live gated on `mempalace repair-status` reporting status OK (within upstream's flush-lag tolerance). See [`engine/operations/mempalace-operations.md`](mempalace-operations.md) "Known issues" for forensic detail and the S-0084 first execution.
 
-Recoverable — run [`engine/tools/mempalace_rebuild_hnsw.py`](../tools/mempalace_rebuild_hnsw.py) per the procedure documented there; soft-warn clears once divergence drops below 10%.
+Recoverable — run [`engine/tools/mempalace_rebuild_hnsw.py`](../tools/mempalace_rebuild_hnsw.py) per the procedure documented there; soft-warn clears once divergence drops below 10%. If the rebuild itself surfaces an unexpected failure mode, file under the upstream tracker rather than reverting to a "live with BM25 fallback" posture.
 
 ### `health_check_overdue`
 
