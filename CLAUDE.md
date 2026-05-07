@@ -167,7 +167,7 @@ Procedural depth lives in `engine/operations/` — one file per topic. Browse wi
 - `cascade-discipline.md` — three soft-warn validator checks plus manual procedures for cascade audits (per ADR 0041): superseded-ADR-citation currency, ADR back-reference orphan detection, ADR Consequences-deliverable audit. Manual procedures attached to file rename, ADR supersession, ops-doc restructure, deliverable handshake.
 - `cross-references.md` — engine-side dependency map (companion to product/docs/CROSS_REFERENCES.md): engine ADRs → consumers; operations docs → consumers; tools → consumers; harness → consumers. Read when restructuring an engine ADR, ops doc, or tool.
 - `soft-warn-lifecycle.md` — how soft-warns surface across sessions (per ADR 0042): trend canon in committed `engine/session/archive/*.json`, persistent-warn surface at boot, escalation criterion at ≥10 sessions persistence.
-- `health-check.md` — audit categories, report template, cadence policy.
+- `health-check.md` — audit categories, report template, cadence policy. Adversarial-stance posture per [ADR 0057](engine/adr/0057-adversarial-stance-for-health-check-audits.md): user-buffered execution (audit surfaces findings + guidance suggestions; user adjudicates; downstream sessions execute via Issues), freshness probes per external system (no stats-as-proxy), posture inversion across Fit/Gaps/Infrastructure-without-function/Bloat, ≥1 retire-candidate-recommendation, cold-context probe per audit, pushback/lesson drawer content reading + clustering.
 
 Project context (the *what* and *why*, not the *how*):
 
