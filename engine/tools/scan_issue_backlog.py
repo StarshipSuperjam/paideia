@@ -53,6 +53,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -79,6 +80,16 @@ TYPE_LABELS: dict[str, str] = {
 }
 PRIORITY_LABEL = "priority:urgent"
 UPSTREAM_LABEL = "upstream"
+HEALTH_CHECK_FINDING_LABEL = "health-check-finding"
+
+# Regex matching audit-report cross-references inside an issue body.
+# Both forms covered: full GitHub URL
+# (`https://github.com/<org>/<repo>/blob/<ref>/engine/docs/audits/<file>.md`)
+# and bare relative path (`engine/docs/audits/<file>.md`). Captures the
+# filename only — distinct filenames form the count of "active audits"
+# in the surface line. Non-greedy and bounded to `.md` to avoid greedy
+# trailing punctuation.
+_AUDIT_REF_RE = re.compile(r"engine/docs/audits/([\w\-]+\.md)")
 
 
 def fetch_open_issues(repo: str | None = None) -> list[dict[str, Any]] | None:
@@ -152,6 +163,41 @@ def collect_urgent(issues: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [issue for issue in issues if PRIORITY_LABEL in label_names(issue)]
 
 
+def collect_audit_lineage(
+    issues: list[dict[str, Any]],
+) -> tuple[list[str], int]:
+    """Return distinct audit-report filenames + count of health-check-finding issues.
+
+    Filters issues by the ``health-check-finding`` label, then extracts
+    audit-report cross-references from each issue's body via the
+    ``engine/docs/audits/<file>.md`` pattern (matches both GitHub URL
+    and bare relative-path forms). Returns (sorted distinct audit
+    filenames, total count of filtered issues).
+
+    An issue without a detectable audit cross-reference still counts
+    toward the recommendation tally — it's a recommendation even if
+    its lineage isn't machine-recoverable. The line surface clarifies
+    the relationship: ``N audits, M recommendations`` may have ``M >=
+    N`` (typical) or ``M > 0, N == 0`` (issues exist but their bodies
+    don't cite an audit report).
+
+    Per Issue #47 (S-0088). The audit lineage gives the boot surface
+    a structural anchor: future audits at the cadence cycle spawn new
+    `health-check-finding`-labeled Issues; this surface preserves the
+    audit → recommendation lineage so the user sees which audits are
+    still open without having to dig into the undifferentiated backlog
+    count.
+    """
+    relevant = [
+        issue for issue in issues if HEALTH_CHECK_FINDING_LABEL in label_names(issue)
+    ]
+    audits: set[str] = set()
+    for issue in relevant:
+        body = issue.get("body") or ""
+        audits.update(_AUDIT_REF_RE.findall(body))
+    return sorted(audits), len(relevant)
+
+
 def format_fyi_line(
     counts: dict[str, int], urgent_count: int, upstream_bug_count: int = 0
 ) -> str:
@@ -180,6 +226,31 @@ def format_fyi_line(
         f"[session-start] Issues backlog: {base} "
         f"({urgent_count} urgent; {upstream_total} upstream-blocked)."
     )
+
+
+def format_audit_trail_line(
+    audits: list[str], recommendation_count: int
+) -> list[str] | None:
+    """Build the audit-trail surface; return None when no findings present.
+
+    When `health-check-finding`-labeled Issues exist, emits:
+    ``[session-start] Active health-check audits: N (M open recommendations).``
+    plus one indented line per audit report path so the AI can `Read`
+    the audit context if the next-session work intersects.
+
+    Returns ``None`` when ``recommendation_count == 0`` so the call
+    site can suppress the line entirely on a clean backlog. Keeps the
+    boot surface noise-free until findings actually exist.
+    """
+    if recommendation_count == 0:
+        return None
+    lines = [
+        f"[session-start] Active health-check audits: {len(audits)} "
+        f"({recommendation_count} open recommendations)."
+    ]
+    for filename in audits:
+        lines.append(f"  engine/docs/audits/{filename}")
+    return lines
 
 
 def format_loud_block(urgent_issues: list[dict[str, Any]]) -> list[str]:
@@ -234,6 +305,7 @@ def main(argv: list[str] | None = None) -> int:
     counts = count_by_label(issues)
     urgent = collect_urgent(issues)
     upstream_bug_count = count_upstream_bugs(issues)
+    audits, recommendation_count = collect_audit_lineage(issues)
 
     if args.json:
         json.dump(
@@ -249,6 +321,8 @@ def main(argv: list[str] | None = None) -> int:
                     }
                     for i in urgent
                 ],
+                "audits": audits,
+                "recommendation_count": recommendation_count,
             },
             sys.stdout,
         )
@@ -256,6 +330,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     print(format_fyi_line(counts, len(urgent), upstream_bug_count), flush=True)
+    audit_lines = format_audit_trail_line(audits, recommendation_count)
+    if audit_lines is not None:
+        for line in audit_lines:
+            print(line, flush=True)
     if urgent:
         for line in format_loud_block(urgent):
             print(line, flush=True)

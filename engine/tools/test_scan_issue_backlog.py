@@ -9,16 +9,19 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from scan_issue_backlog import (  # noqa: E402
+    collect_audit_lineage,
     collect_urgent,
     count_by_label,
     count_upstream_bugs,
     fetch_open_issues,
+    format_audit_trail_line,
     format_fyi_line,
     format_loud_block,
     label_names,
@@ -383,3 +386,197 @@ def test_main_handles_gh_failure_gracefully(
 
     err = capsys.readouterr().err
     assert "gh issue list failed" in err
+
+
+# ---------------------------------------------------------------------------
+# Audit-trail lineage (S-0088 per Issue #47)
+# ---------------------------------------------------------------------------
+
+
+def test_collect_audit_lineage_filters_by_health_check_finding_label() -> None:
+    """Only issues with the `health-check-finding` label are counted."""
+    issues = [
+        {
+            "labels": [{"name": "bug"}],
+            "body": "see engine/docs/audits/foo.md",
+        },
+        {
+            "labels": [{"name": "health-check-finding"}],
+            "body": "see engine/docs/audits/bar.md",
+        },
+    ]
+    audits, count = collect_audit_lineage(issues)
+    assert audits == ["bar.md"]
+    assert count == 1
+
+
+def test_collect_audit_lineage_distinct_audits_only() -> None:
+    """Multiple issues citing the same audit yield one audit entry."""
+    issues = [
+        {
+            "labels": [{"name": "health-check-finding"}],
+            "body": "see engine/docs/audits/foo.md",
+        },
+        {
+            "labels": [{"name": "health-check-finding"}],
+            "body": "Also see engine/docs/audits/foo.md and engine/docs/audits/bar.md",
+        },
+    ]
+    audits, count = collect_audit_lineage(issues)
+    assert audits == ["bar.md", "foo.md"]
+    assert count == 2  # 2 issues, 2 distinct audits
+
+
+def test_collect_audit_lineage_handles_url_form() -> None:
+    """GitHub URL form (`https://.../engine/docs/audits/foo.md`) matches."""
+    issues = [
+        {
+            "labels": [{"name": "health-check-finding"}],
+            "body": (
+                "[S-0086 audit](https://github.com/StarshipSuperjam/paideia/blob/main/"
+                "engine/docs/audits/mempalace-adversarial-review-S-0086.md)"
+            ),
+        },
+    ]
+    audits, count = collect_audit_lineage(issues)
+    assert audits == ["mempalace-adversarial-review-S-0086.md"]
+    assert count == 1
+
+
+def test_collect_audit_lineage_finding_without_audit_ref_still_counts() -> None:
+    """Issue with the label but no audit cross-reference still counts toward M."""
+    issues = [
+        {
+            "labels": [{"name": "health-check-finding"}],
+            "body": "no audit reference here",
+        },
+    ]
+    audits, count = collect_audit_lineage(issues)
+    assert audits == []
+    assert count == 1
+
+
+def test_collect_audit_lineage_handles_missing_body() -> None:
+    """Issue with no body (or None body) doesn't crash; counts toward M, no audits."""
+    issues: list[dict[str, Any]] = [
+        {"labels": [{"name": "health-check-finding"}], "body": None},
+        {"labels": [{"name": "health-check-finding"}]},  # no body key at all
+    ]
+    audits, count = collect_audit_lineage(issues)
+    assert audits == []
+    assert count == 2
+
+
+def test_collect_audit_lineage_zero_when_empty() -> None:
+    """No issues yields empty lineage and zero count."""
+    audits, count = collect_audit_lineage([])
+    assert audits == []
+    assert count == 0
+
+
+def test_collect_audit_lineage_case_sensitive_label_match() -> None:
+    """Label match is case-sensitive (matches gh's JSON output convention)."""
+    issues = [
+        {
+            "labels": [{"name": "Health-Check-Finding"}],  # wrong case
+            "body": "see engine/docs/audits/foo.md",
+        },
+    ]
+    audits, count = collect_audit_lineage(issues)
+    assert audits == []
+    assert count == 0
+
+
+def test_format_audit_trail_line_none_when_zero_recs() -> None:
+    """Empty findings yields None — caller suppresses the line."""
+    assert format_audit_trail_line([], 0) is None
+
+
+def test_format_audit_trail_line_emits_count_and_paths() -> None:
+    lines = format_audit_trail_line(["audit-a.md", "audit-b.md"], 5)
+    assert lines is not None
+    assert lines[0] == (
+        "[session-start] Active health-check audits: 2 (5 open recommendations)."
+    )
+    # One indented line per audit, in the input order.
+    assert lines[1] == "  engine/docs/audits/audit-a.md"
+    assert lines[2] == "  engine/docs/audits/audit-b.md"
+
+
+def test_format_audit_trail_line_zero_audits_with_recs() -> None:
+    """Findings exist but no audit refs: line emits with 0 audits."""
+    lines = format_audit_trail_line([], 3)
+    assert lines is not None
+    assert lines == [
+        "[session-start] Active health-check audits: 0 (3 open recommendations)."
+    ]
+
+
+def test_main_emits_audit_trail_when_findings_present(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake_issues = [
+        {
+            "number": 47,
+            "title": "audit-trail",
+            "labels": [
+                {"name": "enhancement"},
+                {"name": "health-check-finding"},
+            ],
+            "body": (
+                "[S-0086 audit](https://github.com/StarshipSuperjam/paideia/blob/main/"
+                "engine/docs/audits/mempalace-adversarial-review-S-0086.md)"
+            ),
+        },
+    ]
+    monkeypatch.setattr(
+        "scan_issue_backlog.fetch_open_issues", lambda repo=None: fake_issues
+    )
+
+    rc = main([])
+    assert rc == 0
+
+    out = capsys.readouterr().out
+    assert "Active health-check audits: 1 (1 open recommendations)." in out
+    assert "engine/docs/audits/mempalace-adversarial-review-S-0086.md" in out
+
+
+def test_main_skips_audit_trail_when_no_findings(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake_issues = [
+        {"number": 1, "title": "x", "labels": [{"name": "bug"}], "body": ""},
+    ]
+    monkeypatch.setattr(
+        "scan_issue_backlog.fetch_open_issues", lambda repo=None: fake_issues
+    )
+
+    rc = main([])
+    assert rc == 0
+
+    out = capsys.readouterr().out
+    assert "Active health-check audits" not in out
+
+
+def test_main_json_mode_includes_audit_lineage(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake_issues = [
+        {
+            "number": 47,
+            "title": "audit-trail",
+            "labels": [{"name": "health-check-finding"}],
+            "body": "see engine/docs/audits/foo.md",
+        },
+    ]
+    monkeypatch.setattr(
+        "scan_issue_backlog.fetch_open_issues", lambda repo=None: fake_issues
+    )
+
+    rc = main(["--json"])
+    assert rc == 0
+
+    out = capsys.readouterr().out
+    payload = json.loads(out)
+    assert payload["audits"] == ["foo.md"]
+    assert payload["recommendation_count"] == 1
