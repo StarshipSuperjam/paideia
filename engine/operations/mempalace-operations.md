@@ -181,7 +181,7 @@ If drawers aren't appearing: check `~/.mempalace/hook_state/` for stale lock fil
 
 ## Prune procedure
 
-[`engine/tools/prune_mempalace.py`](../tools/prune_mempalace.py) (S-0088 per [Issue #40](https://github.com/StarshipSuperjam/paideia/issues/40)) is the audit-and-prune tool for two known noise sources: **mined ops-doc drawers** (S-0002 `mempalace mine docs/` output that duplicates in-git content) and **orphan per-worktree wings** (`wing_<6-hex>` artifacts of the upstream wing-naming bug per [Issue #1](https://github.com/StarshipSuperjam/paideia/issues/1) / [Issue #2](https://github.com/StarshipSuperjam/paideia/issues/2)). The third class — **historical full-encoded-path wings** (`-Users-...` shapes holding ~40K+ inaccessible drawers) — is reachable via the same tool but report-only; deletion is dedicated-session work per [Issue #41](https://github.com/StarshipSuperjam/paideia/issues/41).
+[`engine/tools/prune_mempalace.py`](../tools/prune_mempalace.py) is the audit-and-prune tool for three known noise sources: **mined ops-doc drawers** (S-0002 `mempalace mine docs/` output that duplicates in-git content; S-0088 per [Issue #40](https://github.com/StarshipSuperjam/paideia/issues/40)), **orphan per-worktree wings** (`wing_<6-hex>` artifacts of the upstream wing-naming bug; S-0088 per [Issue #1](https://github.com/StarshipSuperjam/paideia/issues/1) / [Issue #2](https://github.com/StarshipSuperjam/paideia/issues/2)), and **historical full-encoded-path wings** (`-Users-...` shapes; S-0092 per [Issue #41](https://github.com/StarshipSuperjam/paideia/issues/41) — apply path landed at S-0092 after the signal probe at [`engine/docs/audits/historical-wings-signal-probe-S-0092.md`](../docs/audits/historical-wings-signal-probe-S-0092.md) verified zero preservation candidates across the 37,634-drawer population; the apply now fans deletes out across both `mempalace_drawers` and `mempalace_closets` collections per the S-0092 first-apply discovery that closets carry the same wing tag as their grouped drawers).
 
 Three invocations:
 
@@ -189,12 +189,14 @@ Three invocations:
 # Dry-run audit (default; counts + sample of 5 entries):
 engine/tools/prune_mempalace.py --audit-mined-ops-docs
 engine/tools/prune_mempalace.py --audit-orphan-wings
-engine/tools/prune_mempalace.py --audit-historical-paths   # always report-only
+engine/tools/prune_mempalace.py --audit-historical-paths
 
 # Apply (mutates the palace; backup is mandatory):
 engine/tools/prune_mempalace.py --audit-mined-ops-docs \
   --apply --backup-dir ~/.mempalace/palace.S-NNNN-pre-prune
 engine/tools/prune_mempalace.py --audit-orphan-wings \
+  --apply --backup-dir ~/.mempalace/palace.S-NNNN-pre-prune
+engine/tools/prune_mempalace.py --audit-historical-paths \
   --apply --backup-dir ~/.mempalace/palace.S-NNNN-pre-prune
 ```
 
@@ -206,7 +208,7 @@ engine/tools/prune_mempalace.py --audit-orphan-wings \
 |---|---|---|
 | `--audit-mined-ops-docs` | `wing=paideia` AND `room IN ('general', 'operations')` AND `added_by == 'claude-s0002'` exact match | `added_by == 'claude-s0002-manual'` (curated `[decision]`-prefixed content from the same era), `added_by` starts with `claude-` other than mining (post-S-0002 manual additions), or `added_by` field is absent (manually-added drawers without provenance metadata) |
 | `--audit-orphan-wings` | wing matches `^wing_[0-9a-f]{6}$` exactly | `wing IN ('paideia', 'wing_paideia', 'wing_claude', 'sessions')` (canonical names always preserved by exact match, even if a future variant matched the regex) |
-| `--audit-historical-paths` | (report-only — no deletion) | n/a |
+| `--audit-historical-paths` | wing starts with `-Users-` OR contains `--claude-worktrees-` (full-encoded-path shape from past worktree auto-capture) | every other wing — apply path is delete-only against the matched wings, no preservation branch (S-0092 signal probe verified zero curated markers in the population). Apply spans both `mempalace_drawers` and `mempalace_closets` collections. |
 
 **Post-prune verification.** After each `--apply` run:
 
