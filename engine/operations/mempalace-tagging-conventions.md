@@ -92,6 +92,8 @@ Added at S-0032 per the audit's Improvement B recommendation. Where a new drawer
 
 When the right room isn't obvious, default to `general` rather than inventing a new room. New rooms are added by deliberate convention (additions to this section), not by ad-hoc drawer filing.
 
+**Tagging carries the meaning; room targeting is best-effort** (clarification per [Issue #43](https://github.com/StarshipSuperjam/paideia/issues/43) / S-0086 audit R8). The S-0086 review observed that pushback drawers occasionally land in `decisions` even when no ADR resulted — for example `drawer_paideia_decisions_a3d64680e953450f011e582f`, which is `pushback`-tagged and substantively about a settled-during-conversation course correction without a downstream ADR. The recommended disposition is to **trust the tag, not the room**: semantic search returns drawers by content + tag, so a pushback drawer in `decisions` is functionally retrievable as a pushback. Don't move drawers between rooms post-hoc; the tagging convention is what governs retrieval.
+
 ## How tags interact with the hooks
 
 The Stop hook fires every 15 human messages and the PreCompact hook fires before context compaction. Both invoke `mempalace hook run` which decides what to capture and how to tag based on conversation content. Tags are not a manual gate — they're applied to the captured drawers based on detected content patterns.

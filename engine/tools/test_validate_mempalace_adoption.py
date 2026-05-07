@@ -20,6 +20,8 @@ def _make_activity(**overrides: int) -> dict[str, object]:
         "add_drawer_calls": 0,
         "status_calls": 0,
         "list_drawers_calls": 0,
+        "kg_calls": 0,
+        "tunnel_calls": 0,
         "other_calls": 0,
         "total_calls": 0,
         "first_call_ts": None,
@@ -207,3 +209,127 @@ def test_malformed_current_json_skips(tmp_path: Path) -> None:
         result = validate.validate_mempalace_adoption()
         assert len(result.hard_fails) == 0
         assert len(result.soft_warns) == 0
+
+
+# ---------------------------------------------------------------------------
+# mempalace_retired_surface_used (S-0087 / ADR 0056 Consequences amendment)
+# ---------------------------------------------------------------------------
+
+
+def test_kg_call_fires_retired_surface_warn(tmp_path: Path) -> None:
+    """kg_calls > 0 → soft-warn mempalace_retired_surface_used."""
+    (tmp_path / "engine" / "session").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "engine" / "session" / "current.json").write_text(
+        json.dumps(
+            {
+                "id": "S-0087",
+                "mempalace_activity": _make_activity(
+                    search_calls=1, diary_read_calls=1, diary_write_calls=1, kg_calls=1
+                ),
+            }
+        )
+    )
+
+    with _patch_repo_root_to(tmp_path):
+        result = validate.validate_mempalace_adoption()
+        assert len(result.hard_fails) == 0
+        assert "mempalace_retired_surface_used" in result.soft_warns
+
+
+def test_tunnel_call_fires_retired_surface_warn(tmp_path: Path) -> None:
+    """tunnel_calls > 0 → soft-warn mempalace_retired_surface_used."""
+    (tmp_path / "engine" / "session").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "engine" / "session" / "current.json").write_text(
+        json.dumps(
+            {
+                "id": "S-0087",
+                "mempalace_activity": _make_activity(
+                    search_calls=1,
+                    diary_read_calls=1,
+                    diary_write_calls=1,
+                    tunnel_calls=2,
+                ),
+            }
+        )
+    )
+
+    with _patch_repo_root_to(tmp_path):
+        result = validate.validate_mempalace_adoption()
+        assert len(result.hard_fails) == 0
+        assert "mempalace_retired_surface_used" in result.soft_warns
+
+
+def test_both_kg_and_tunnel_fire_single_warn(tmp_path: Path) -> None:
+    """Both kg_calls > 0 AND tunnel_calls > 0 → ONE soft-warn naming both counts."""
+    (tmp_path / "engine" / "session").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "engine" / "session" / "current.json").write_text(
+        json.dumps(
+            {
+                "id": "S-0087",
+                "mempalace_activity": _make_activity(
+                    search_calls=1,
+                    diary_read_calls=1,
+                    diary_write_calls=1,
+                    kg_calls=3,
+                    tunnel_calls=2,
+                ),
+            }
+        )
+    )
+
+    with _patch_repo_root_to(tmp_path):
+        result = validate.validate_mempalace_adoption()
+        assert len(result.hard_fails) == 0
+        # Single soft-warn entry, not two separate ones.
+        assert "mempalace_retired_surface_used" in result.soft_warns
+        # Body names both counts so the user can see the scope of the regression.
+        # soft_warns values are lists of message strings.
+        bodies = result.soft_warns["mempalace_retired_surface_used"]
+        assert any("kg_calls=3" in b for b in bodies)
+        assert any("tunnel_calls=2" in b for b in bodies)
+
+
+def test_zero_kg_and_tunnel_no_retired_surface_warn(tmp_path: Path) -> None:
+    """kg_calls == 0 AND tunnel_calls == 0 → NO retired-surface warn (default state)."""
+    (tmp_path / "engine" / "session").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "engine" / "session" / "current.json").write_text(
+        json.dumps(
+            {
+                "id": "S-0087",
+                "mempalace_activity": _make_activity(
+                    search_calls=1, diary_read_calls=1, diary_write_calls=1
+                ),
+            }
+        )
+    )
+
+    with _patch_repo_root_to(tmp_path):
+        result = validate.validate_mempalace_adoption()
+        assert "mempalace_retired_surface_used" not in result.soft_warns
+
+
+def test_legacy_activity_without_kg_tunnel_fields_no_warn(tmp_path: Path) -> None:
+    """Pre-S-0087 archives lack kg_calls/tunnel_calls fields entirely;
+    validate must treat absence as zero (defensive .get default), not crash
+    or fire the retired-surface warn spuriously."""
+    legacy_activity: dict[str, object] = {
+        "search_calls": 1,
+        "diary_read_calls": 1,
+        "diary_write_calls": 1,
+        "add_drawer_calls": 0,
+        "status_calls": 0,
+        "list_drawers_calls": 0,
+        "other_calls": 0,
+        "total_calls": 3,
+        "first_call_ts": "2026-05-06T00:00:00Z",
+        "last_call_ts": "2026-05-06T00:01:00Z",
+    }
+    (tmp_path / "engine" / "session").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "engine" / "session" / "current.json").write_text(
+        json.dumps({"id": "S-0086", "mempalace_activity": legacy_activity})
+    )
+
+    with _patch_repo_root_to(tmp_path):
+        result = validate.validate_mempalace_adoption()
+        assert len(result.hard_fails) == 0
+        assert "mempalace_retired_surface_used" not in result.soft_warns

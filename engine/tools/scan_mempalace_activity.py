@@ -30,11 +30,24 @@ The field shape:
         "add_drawer_calls": int,
         "status_calls": int,
         "list_drawers_calls": int,
+        "kg_calls": int,
+        "tunnel_calls": int,
         "other_calls": int,
         "total_calls": int,
         "first_call_ts": str | null,
         "last_call_ts": str | null
     }
+
+The ``kg_calls`` and ``tunnel_calls`` buckets were added at S-0087 per ADR 0056's
+S-0086-audit Consequences amendment. They cover the five KG tools (``mempalace_kg_query``,
+``mempalace_kg_add``, ``mempalace_kg_invalidate``, ``mempalace_kg_stats``,
+``mempalace_kg_timeline``) and the five tunnel tools (``mempalace_find_tunnels``,
+``mempalace_list_tunnels``, ``mempalace_create_tunnel``, ``mempalace_delete_tunnel``,
+``mempalace_traverse``) — surfaces the project retired from use at S-0087. Tracking
+them as named buckets (rather than rolling them into ``other_calls``) lets
+``validate.py --final-check`` emit the ``mempalace_retired_surface_used`` soft-warn
+when a session invokes a retired tool, defense-in-depth against MCP-side filtering
+not being available upstream.
 
 Downstream:
 
@@ -111,6 +124,20 @@ TOOL_KEY_MAP: dict[str, str] = {
     "mcp__mempalace__mempalace_add_drawer": "add_drawer_calls",
     "mcp__mempalace__mempalace_status": "status_calls",
     "mcp__mempalace__mempalace_list_drawers": "list_drawers_calls",
+    # KG family — retired from project use at S-0087 per ADR 0056 Consequences
+    # amendment. Tracked as a named bucket so validate.py --final-check can fire
+    # the mempalace_retired_surface_used soft-warn on any invocation.
+    "mcp__mempalace__mempalace_kg_query": "kg_calls",
+    "mcp__mempalace__mempalace_kg_add": "kg_calls",
+    "mcp__mempalace__mempalace_kg_invalidate": "kg_calls",
+    "mcp__mempalace__mempalace_kg_stats": "kg_calls",
+    "mcp__mempalace__mempalace_kg_timeline": "kg_calls",
+    # Tunnels family — retired from project use at S-0087, same rationale.
+    "mcp__mempalace__mempalace_find_tunnels": "tunnel_calls",
+    "mcp__mempalace__mempalace_list_tunnels": "tunnel_calls",
+    "mcp__mempalace__mempalace_create_tunnel": "tunnel_calls",
+    "mcp__mempalace__mempalace_delete_tunnel": "tunnel_calls",
+    "mcp__mempalace__mempalace_traverse": "tunnel_calls",
 }
 
 # Empty-rollup template — every count starts at 0; timestamps null.
@@ -121,6 +148,8 @@ EMPTY_ROLLUP: dict[str, Any] = {
     "add_drawer_calls": 0,
     "status_calls": 0,
     "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
     "other_calls": 0,
     "total_calls": 0,
     "first_call_ts": None,

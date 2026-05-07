@@ -22,6 +22,24 @@
 
 <observations>
 
+## Forward-fit map
+
+> Required alongside historical-evidence reading per the dual-temporal-frame discipline ([`engine/operations/health-check.md`](../../engine/operations/health-check.md) "Forward-fit map" + [Issue #44](https://github.com/StarshipSuperjam/paideia/issues/44) + S-0086 audit lesson). Adversarial audits weigh BOTH historical fit AND fit-to-CONTINUE; either alone produces a muddled or too-charitable verdict. Apply to any internal subsystem under audit (or any artifact whose value depends on continued use).
+
+For each upcoming phase / committed-future-need, name the system-under-audit's role:
+
+- **Load-bearing forward** — system is committed to play a specific role in the next phase or open-question settlement.
+- **Candidate-among-substrates** — system *could* play a role; alternatives exist; commitment not yet made.
+- **No role** — forward state needs are met by other substrates; system has no called-out role.
+
+Map state-needs to candidate substrates (Postgres + pgvector / MemPalace / ADR + ENGINE_LOG / STATE.md / new). The forward-fit map informs every retire/preserve/scale-back recommendation alongside the historical-evidence section that follows.
+
+| Forward state need | System-under-audit role | Alternative substrate |
+|---|---|---|
+| <upcoming phase or OQ> | <load-bearing / candidate / no-role> | <Postgres / ADR / etc.> |
+
+<Add rows per upcoming phase / OQ / committed-future-need. The dual-frame produces the most decisive recommendations when historical and forward signals point opposite directions.>
+
 ## Non-obvious finding(s)
 
 > ≥1 required, per [`engine/operations/health-check.md`](../../engine/operations/health-check.md). Not on any mechanical scanner's output. The audit's own observation — what the AI/user noticed that no rule would catch.

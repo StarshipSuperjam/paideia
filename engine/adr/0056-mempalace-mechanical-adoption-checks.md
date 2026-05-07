@@ -141,6 +141,25 @@ The pre-S-0078 self-recorded `diary_skipped` is renamed to `mempalace_diary_writ
 
 - The mechanism is the third structured-field ADR after ADR 0042 and ADR 0051. The parameterization of `audit_archive_structured_fields.py` (Layer 4) is the discipline that prevents the next one from accumulating an audit-coverage gap. The next structured-field ADR adds a row to `REQUIRED_ARCHIVE_FIELDS` in the same session — no code change required.
 
+### Amendment — S-0087 (S-0086 audit scale-back verdict)
+
+The [S-0086 MemPalace adversarial review](../docs/audits/mempalace-adversarial-review-S-0086.md) — the first concrete application of [ADR 0057](0057-adversarial-stance-for-health-check-audits.md)'s adversarial-stance posture — reached a **scale back** verdict against the project's MemPalace surface, weighing both historical fit AND fit-to-CONTINUE per dual-temporal-frame discipline. Load-bearing core (search, add_drawer, diary read/write, read-only inspection, Stop/PreCompact hooks; ADR 0057 cadence-audit `pushback`/`lesson` substrate; ADR 0051 routine-mode boot diary read; two-layer decision recording per CLAUDE.md) earns its weight; dead-weight perimeter does not.
+
+**Retirement program** (executed at S-0087; cleanup-side at downstream sessions per the issue close-out campaign):
+
+- **KG family retired** (`mempalace_kg_query` / `kg_add` / `kg_invalidate` / `kg_stats` / `kg_timeline`) — zero forward-fit dependencies (Phase 6/7/DEC.1 specify Postgres + pgvector for runtime structural state).
+- **Tunnels family retired** (`mempalace_find_tunnels` / `list_tunnels` / `create_tunnel` / `delete_tunnel` / `traverse`) — single-project install with no cross-wing-linking use case.
+- **AAAK-for-project-drawers retired**; diary-wing AAAK carve-out preserved (`wing_claude` only) — AAAK's compression earns its weight in a single high-volume wing, not across one-off project captures.
+- **Mined ops-doc drawers + orphaned per-worktree wings** flagged for cleanup execution at downstream sessions per Issues [#40](https://github.com/StarshipSuperjam/paideia/issues/40), [#41](https://github.com/StarshipSuperjam/paideia/issues/41), [#42](https://github.com/StarshipSuperjam/paideia/issues/42) per ADR 0048 issue-discipline routing.
+
+**Contract scope unchanged.** ADR 0056's four-layer mechanical adoption checks (telemetry / rollup / audit / parameterization) still apply — the audit categories continue to fire on the scoped surface; what changes is **which surface** the contract covers. The scoped surface is now declared at [`engine/operations/mempalace-operations.md`](../operations/mempalace-operations.md) "Project usage scope" rather than implicit in the broader MemPalace tool registry.
+
+**New audit category — `mempalace_retired_surface_used`** (soft-warn, fires when `mempalace_activity.kg_calls > 0` OR `mempalace_activity.tunnel_calls > 0`). Defense-in-depth against the retirement contract; MCP-server-side per-tool filtering is not yet feasible at the harness layer (the MCP server registers the full tool surface), so discipline + soft-warn detection are the load-bearing surface against scope regression. Participates in the 3-of-5 persistent-warn surface per ADR 0042.
+
+**Rollup extended.** [`engine/tools/scan_mempalace_activity.py`](../tools/scan_mempalace_activity.py) gains `kg_calls` and `tunnel_calls` named buckets in `TOOL_KEY_MAP` and `EMPTY_ROLLUP`. The `audit_archive_structured_fields.py` `REQUIRED_ARCHIVE_FIELDS` row for `mempalace_activity` is unchanged — the new bucket fields ride that row per Layer 4 parameterization.
+
+**Cross-references:** [Issue #43](https://github.com/StarshipSuperjam/paideia/issues/43) (this amendment + ops-doc updates); [Issue #42](https://github.com/StarshipSuperjam/paideia/issues/42) (KG/tunnels/AAAK execution-side retirement docs); [Issue #45](https://github.com/StarshipSuperjam/paideia/issues/45) (G1 soft-warn).
+
 ### Pushback rule (per CLAUDE.md)
 
 The user's framing ("I need to know how to recover the lost memories") raised a separate concern about retroactive recovery of diary entries / decision drawers / pushback drawers / lesson drawers from the S-0032 → S-0077 window. That work is bounded as Part B of the approved plan and explicitly deferred to S-0079+ (see plan file at `~/.claude/plans/use-of-mempalace-by-velvety-pebble.md`); the recovery audit script and transcript-crawl executor are not part of S-0078's scope. Mechanization first stops the bleeding; recovery is bounded historical cleanup that fits cleanly in a separate session.
@@ -171,7 +190,10 @@ Considered and rejected. Wrapping every MCP tool call would be invasive (every t
 - [ADR 0049](0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md) — the prior `scope_delivery` audit that runs alongside the new MemPalace audit at shutdown.
 - [ADR 0051](0051-routine-mode-and-engine-loop.md) — the routine-mode lifecycle whose SKILL is the Issue #27 root-cause fix target.
 - [ADR 0053](0053-mechanism-first-exercise-gate.md) — the first-exercise gate this ADR triggers.
+- [ADR 0057](0057-adversarial-stance-for-health-check-audits.md) — the adversarial-stance posture whose first concrete application produced the S-0086 audit and the scale-back verdict the S-0087 amendment records.
 - [`engine/build_readiness/mempalace_mechanical_adoption_first_exercise.md`](../build_readiness/mempalace_mechanical_adoption_first_exercise.md) — the first-exercise readiness note for this mechanism.
-- [`engine/operations/mempalace-operations.md`](../operations/mempalace-operations.md) "Mechanical adoption checks" section — the operational form of this ADR.
+- [`engine/operations/mempalace-operations.md`](../operations/mempalace-operations.md) "Project usage scope" + "Mechanical adoption checks" sections — the operational form of this ADR (post-S-0087-amendment scope).
+- [`engine/docs/audits/mempalace-adversarial-review-S-0086.md`](../docs/audits/mempalace-adversarial-review-S-0086.md) — the audit underlying the S-0087 amendment.
 - [Issue #27](https://github.com/StarshipSuperjam/paideia/issues/27) — closes.
 - [Issue #20](https://github.com/StarshipSuperjam/paideia/issues/20) — closes.
+- [Issue #43](https://github.com/StarshipSuperjam/paideia/issues/43) — S-0087 amendment + ops-doc updates.

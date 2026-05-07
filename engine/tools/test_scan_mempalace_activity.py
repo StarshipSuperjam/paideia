@@ -67,23 +67,116 @@ def test_rollup_counts_per_tool(tmp_path: Path) -> None:
 
 
 def test_rollup_unknown_tool_falls_into_other(tmp_path: Path) -> None:
+    """A truly unknown mempalace tool name (not in TOOL_KEY_MAP) lands in other_calls."""
     p = tmp_path / "current_mempalace.jsonl"
     write_jsonl(
         p,
         [
             {
                 "ts": "2026-05-06T03:00:00Z",
+                "tool": "mcp__mempalace__mempalace_invented_future_tool",
+            },
+        ],
+    )
+    rollup = rollup_jsonl(p)
+    assert rollup["other_calls"] == 1
+    assert rollup["total_calls"] == 1
+
+
+def test_rollup_kg_tools_count_into_kg_calls(tmp_path: Path) -> None:
+    """All five KG-family tools roll into the kg_calls bucket — S-0087 / ADR 0056 amendment.
+
+    Tracking KG and tunnel invocations in named buckets (rather than other_calls) is
+    the foundation for validate.py's mempalace_retired_surface_used soft-warn.
+    """
+    p = tmp_path / "current_mempalace.jsonl"
+    write_jsonl(
+        p,
+        [
+            {
+                "ts": "2026-05-07T03:00:00Z",
                 "tool": "mcp__mempalace__mempalace_kg_query",
             },
+            {"ts": "2026-05-07T03:01:00Z", "tool": "mcp__mempalace__mempalace_kg_add"},
             {
-                "ts": "2026-05-06T03:01:00Z",
+                "ts": "2026-05-07T03:02:00Z",
+                "tool": "mcp__mempalace__mempalace_kg_invalidate",
+            },
+            {
+                "ts": "2026-05-07T03:03:00Z",
+                "tool": "mcp__mempalace__mempalace_kg_stats",
+            },
+            {
+                "ts": "2026-05-07T03:04:00Z",
+                "tool": "mcp__mempalace__mempalace_kg_timeline",
+            },
+        ],
+    )
+    rollup = rollup_jsonl(p)
+    assert rollup["kg_calls"] == 5
+    assert rollup["tunnel_calls"] == 0
+    assert rollup["other_calls"] == 0
+    assert rollup["total_calls"] == 5
+
+
+def test_rollup_tunnel_tools_count_into_tunnel_calls(tmp_path: Path) -> None:
+    """All five tunnel-family tools roll into the tunnel_calls bucket."""
+    p = tmp_path / "current_mempalace.jsonl"
+    write_jsonl(
+        p,
+        [
+            {
+                "ts": "2026-05-07T03:00:00Z",
+                "tool": "mcp__mempalace__mempalace_find_tunnels",
+            },
+            {
+                "ts": "2026-05-07T03:01:00Z",
+                "tool": "mcp__mempalace__mempalace_list_tunnels",
+            },
+            {
+                "ts": "2026-05-07T03:02:00Z",
+                "tool": "mcp__mempalace__mempalace_create_tunnel",
+            },
+            {
+                "ts": "2026-05-07T03:03:00Z",
+                "tool": "mcp__mempalace__mempalace_delete_tunnel",
+            },
+            {
+                "ts": "2026-05-07T03:04:00Z",
                 "tool": "mcp__mempalace__mempalace_traverse",
             },
         ],
     )
     rollup = rollup_jsonl(p)
-    assert rollup["other_calls"] == 2
-    assert rollup["total_calls"] == 2
+    assert rollup["kg_calls"] == 0
+    assert rollup["tunnel_calls"] == 5
+    assert rollup["other_calls"] == 0
+    assert rollup["total_calls"] == 5
+
+
+def test_rollup_kg_and_tunnel_mixed(tmp_path: Path) -> None:
+    """KG and tunnel calls mixed with normal calls — each lands in its own bucket."""
+    p = tmp_path / "current_mempalace.jsonl"
+    write_jsonl(
+        p,
+        [
+            {"ts": "2026-05-07T03:00:00Z", "tool": "mcp__mempalace__mempalace_search"},
+            {
+                "ts": "2026-05-07T03:01:00Z",
+                "tool": "mcp__mempalace__mempalace_kg_query",
+            },
+            {
+                "ts": "2026-05-07T03:02:00Z",
+                "tool": "mcp__mempalace__mempalace_traverse",
+            },
+        ],
+    )
+    rollup = rollup_jsonl(p)
+    assert rollup["search_calls"] == 1
+    assert rollup["kg_calls"] == 1
+    assert rollup["tunnel_calls"] == 1
+    assert rollup["other_calls"] == 0
+    assert rollup["total_calls"] == 3
 
 
 def test_rollup_skips_malformed_lines(tmp_path: Path) -> None:

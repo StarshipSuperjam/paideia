@@ -20,6 +20,7 @@ Categories:
 - **`session/register_state.json` missing or malformed** — required keys: `next_id`, `last_claimed`, `current_status`. Format must parse as JSON.
 - **`session/current.json` missing keys** — when present (during an in-progress session), must have `id`, `started_at`, `status`, `working_on`. `id` must match `^S-\d{4}$`.
 - **Graph-audit hard-fails** — duplicate node IDs, dangling edge references, prerequisite cycles in the `pedagogical_prerequisite` subgraph (detected via Kosaraju SCC). Active when `SUPABASE_DB_URL` is set in the environment; absent env var records `graph_audit_skipped` and runs no DB query (non-seed-authoring sessions are not gated on DB connectivity). See [ADR 0016](../adr/0016-graph-construction-needs-live-validation.md) for the full contract.
+- **`mempalace_diary_write_skipped`** — diary-write hard-fail per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md) (S-0078). Fires when `mempalace_activity.diary_write_calls == 0` AND `outcome_summary` lacks the `mempalace_unavailable_acknowledged: <reason>` token. Gated by `--final-check`; only the shutdown step's audit invocation can hit it (pre-commit hook fires skip the gate). The diary-write is the only first-person reflection layer — irretrievable post-close — so the hard-fail forces the issue while it's cheap. Recoverable by invoking `mempalace_diary_write` and re-running `validate.py --final-check`, OR by adding `mempalace_unavailable_acknowledged: <one-line reason>` to `outcome_summary` (legitimate edge case: MCP server unreachable, no work to reflect on, etc.) and re-running. The downgraded soft-warn is `mempalace_diary_write_acknowledged_skip`; persistent acknowledgement-skips fire the same 3-of-5 escalation as un-acknowledged ones.
 
 If a hard-fail blocks a commit and the fix is non-obvious, escalate per [`escalation-criteria.md`](escalation-criteria.md). Don't bypass the hook (`--no-verify`) — investigate the root cause.
 
@@ -92,6 +93,28 @@ The probe escalates to a **hard-fail** (not a soft-warn) when the palace is defi
 Per the S-0084 amendment to ADR 0045, the probe also promotes its overall exit code from 0 (healthy) to 1 (suspect) when HNSW divergence ≥ 10% is detected via `mempalace repair-status` — that condition surfaces here as well, with the divergence line as the soft-warn body, AND in the dedicated `mempalace_hnsw_divergence` category below.
 
 Recoverable — `mempalace mine <dir>` to re-populate from source jsonl files; or move the suspect segment dir aside (`palace/<segment-uuid>.broken/`) and re-run the probe so chromadb rebuilds from SQLite-stored embeddings (the S-0034 recovery procedure). For the divergence-promoted case, see `mempalace_hnsw_divergence` below.
+
+### `mempalace_boot_query_skipped`
+
+No `mempalace_search` call was recorded during the session. Active from S-0078 onward per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md). Sourced from `mempalace_activity.search_calls == 0` on `current.json`. Gated by `--final-check` (the shutdown step's audit invocation, not pre-commit hook fires).
+
+Recoverable mid-session by invoking `mempalace_search` once with the next-session work item terms; the post-tool-use hook captures the call into the session's JSONL, the rollup picks it up at shutdown, and the warn clears.
+
+### `mempalace_diary_read_skipped`
+
+No `mempalace_diary_read` call was recorded. Active from S-0078 onward per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md). Same telemetry path as the boot-query skip; same recovery (invoke once via the MCP tool with `agent_name="claude" last_n=3`).
+
+### `mempalace_diary_write_acknowledged_skip`
+
+No `mempalace_diary_write` call was recorded BUT `outcome_summary` carries the `mempalace_unavailable_acknowledged: <reason>` token, downgrading what would have been a hard-fail. Active from S-0078 onward per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md). Legitimate at session-by-session granularity (MCP server unreachable, fresh repo, routine session with nothing meaningful to reflect on); persistent firing across 3-of-5 sessions deserves investigation rather than repeated acknowledgement.
+
+### `mempalace_retired_surface_used`
+
+The session invoked one or more MemPalace tools that the project retired from use at S-0087 — KG family (`mempalace_kg_query` / `kg_add` / `kg_invalidate` / `kg_stats` / `kg_timeline`) or tunnel family (`mempalace_find_tunnels` / `list_tunnels` / `create_tunnel` / `delete_tunnel` / `traverse`). Active from S-0087 onward per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md) Consequences amendment. Sourced from `mempalace_activity.kg_calls > 0` OR `mempalace_activity.tunnel_calls > 0` on `current.json`. Body names the specific call counts (e.g., `kg_calls=3, tunnel_calls=2`).
+
+This is a defense-in-depth surface — MCP-server-side per-tool filtering is not yet feasible at the harness layer (the MCP server registers the full tool surface), so discipline + soft-warn detection is the load-bearing surface against scope regression. The contract is at [`engine/operations/mempalace-operations.md`](mempalace-operations.md) "Project usage scope" + [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md) Consequences amendment.
+
+Expected zero post-retirement; persistent firing across 3-of-5 sessions indicates undocumented project usage and the contract should be revisited (file Issue, amend ADR 0056). Single-session firing on a one-off retired-surface invocation: identify the call site and either remove it or amend the contract — both routes go through ADR adjudication, not silent acceptance.
 
 ### `mempalace_hnsw_divergence`
 

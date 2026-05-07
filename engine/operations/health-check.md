@@ -155,6 +155,18 @@ The four traditional category buckets (Fit / Gaps / Dead-Weight / Bloat) are *or
 
 The leading prompt-question for each posture is **adversarially framed** per [ADR 0057](../adr/0057-adversarial-stance-for-health-check-audits.md) — argue against the status quo, surface what's silently ignored, and only preserve with affirmative case. Each posture's recommendations route through the report's User adjudication subsection (per the user-buffered execution principle); the audit *surfaces*, the user *adjudicates*, downstream sessions execute approved actions per [ADR 0048](../adr/0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md).
 
+### Forward-fit map (dual-temporal-frame discipline; per [Issue #44](https://github.com/StarshipSuperjam/paideia/issues/44) and [ADR 0057](../adr/0057-adversarial-stance-for-health-check-audits.md))
+
+**Sibling to Fit posture, applied alongside it.** The S-0086 MemPalace adversarial review surfaced a load-bearing pattern lesson (captured in `paideia/lessons` at S-0086 close): adversarial audits of internal subsystems must weigh BOTH historical fit AND fit-to-CONTINUE; either alone produces a muddled or too-charitable verdict. Retrospective alone is too easy on inertia ("it's been around, sessions cite it, leave it"); prospective alone is too easy on future-optimism ("we're going to use it more, just wait"). Together they constrain the verdict precisely.
+
+The S-0086 audit's most decisive output was its **forward-fit map** — for each upcoming phase / committed-future-need, the system under audit was named **load-bearing**, **candidate-among-substrates**, or **no-role**. Mapping forward state needs to candidate substrates (Postgres + pgvector, MemPalace, ADR + ENGINE_LOG, STATE.md, new) made the scale-back verdict precise: load-bearing core preserved, dead-weight perimeter retired.
+
+**Apply the forward-fit map to any audit of an internal subsystem** — any artifact whose value depends on continued use. Not just MemPalace; the same shape works against validators, registries, ops docs, build-readiness gates, and ADR contracts.
+
+**Required output:** alongside (not instead of) the historical-evidence reading, the audit names what's load-bearing forward, what's a candidate but not committed, and what has no role. The dual-frame produces the most decisive recommendations when historical and forward signals point opposite directions — exactly the cases where retrospective-only or prospective-only would underdetermine the verdict.
+
+The Fit posture below uses the forward-fit map as one of its inputs.
+
 ### Fit posture
 
 **Adversarial prompt:** *what machinery is silently ignored, what telemetry is being treated as load-bearing without anyone acting on it, and what category is firing 30+ times per session that no one reads?*

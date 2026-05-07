@@ -2499,7 +2499,7 @@ def validate_mempalace_adoption() -> ValidationResult:
     ``engine/session/current_mempalace.jsonl`` — the per-session telemetry
     appended by the PostToolUse hook on every ``mcp__mempalace__*`` call).
 
-    Three categories:
+    Categories:
 
     - ``mempalace_boot_query_skipped`` (soft-warn) — fires when no
       ``mempalace_search`` call recorded during the session.
@@ -2508,6 +2508,14 @@ def validate_mempalace_adoption() -> ValidationResult:
     - ``mempalace_diary_write_skipped`` (HARD-FAIL) — fires when no
       ``mempalace_diary_write`` call recorded AND no acknowledgement token
       in ``outcome_summary``. Hard-fail blocks the session close.
+    - ``mempalace_retired_surface_used`` (soft-warn; added at S-0087 per
+      ADR 0056 Consequences amendment) — fires when ``kg_calls > 0`` OR
+      ``tunnel_calls > 0``. The KG family (``mempalace_kg_*``) and tunnel
+      family (``mempalace_*_tunnels``, ``mempalace_traverse``) were
+      retired from project use at S-0087; this soft-warn is defense-in-depth
+      against scope regression. MCP-side per-tool filtering is not yet
+      feasible at the harness layer, so discipline + soft-warn detection is
+      the load-bearing surface against scope drift.
 
     Acknowledgement-token escape hatch: if ``outcome_summary`` contains the
     substring ``mempalace_unavailable_acknowledged:`` (followed by a
@@ -2551,6 +2559,8 @@ def validate_mempalace_adoption() -> ValidationResult:
     search_calls = int(activity.get("search_calls", 0))
     diary_read_calls = int(activity.get("diary_read_calls", 0))
     diary_write_calls = int(activity.get("diary_write_calls", 0))
+    kg_calls = int(activity.get("kg_calls", 0))
+    tunnel_calls = int(activity.get("tunnel_calls", 0))
 
     if search_calls == 0:
         r.soft_warn(
@@ -2594,6 +2604,28 @@ def validate_mempalace_adoption() -> ValidationResult:
                 "with a one-line reason (MCP server unreachable, no work to "
                 "reflect on, etc.) and re-run validate.py --final-check."
             )
+
+    if kg_calls > 0 or tunnel_calls > 0:
+        # Single soft-warn naming both call types when both fire, per the
+        # rollup-shape addition at S-0087 (ADR 0056 Consequences amendment).
+        invocations: list[str] = []
+        if kg_calls > 0:
+            invocations.append(f"kg_calls={kg_calls}")
+        if tunnel_calls > 0:
+            invocations.append(f"tunnel_calls={tunnel_calls}")
+        invocation_summary = ", ".join(invocations)
+        r.soft_warn(
+            "mempalace_retired_surface_used",
+            f"Retired-surface invocation detected: {invocation_summary}. "
+            "The KG family (mempalace_kg_*) and tunnel family "
+            "(mempalace_*_tunnels, mempalace_traverse) were retired from "
+            "project use at S-0087 per ADR 0056 Consequences amendment + "
+            "engine/operations/mempalace-operations.md 'Project usage scope'. "
+            "If the invocation was intentional and scope should expand, file "
+            "an Issue and amend ADR 0056. Otherwise, the call site is the "
+            "regression to fix. Persistent firing across 3+ of last 5 sessions "
+            "indicates undocumented project usage — revisit the contract.",
+        )
 
     return r
 

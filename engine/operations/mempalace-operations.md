@@ -14,7 +14,9 @@ Two layers of decision recording (per CLAUDE.md): ADRs are the contract, MemPala
 
 ## Project usage scope
 
-MemPalace ships a broad surface (~19 MCP tools, plus a knowledge graph, per-agent diary, and cross-wing tunnels). This project does not use all of it. Naming the scope explicitly so sessions don't follow the generic protocol message MemPalace's `mempalace_status` tool emits:
+MemPalace ships a broad surface (~19 MCP tools, plus a knowledge graph, per-agent diary, and cross-wing tunnels). This project does not use all of it. Naming the scope explicitly so sessions don't follow the generic protocol message MemPalace's `mempalace_status` tool emits.
+
+**Scope is scoped, not exploratory** (per the S-0086 adversarial review at [`engine/docs/audits/mempalace-adversarial-review-S-0086.md`](../docs/audits/mempalace-adversarial-review-S-0086.md), captured contractually in [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md)'s S-0086-audit Consequences amendment). The audit's scale-back verdict committed the project to a load-bearing core (search + add_drawer + diary read/write + read-only inspection + Stop/PreCompact hooks) and declared the dead-weight perimeter (KG, tunnels, AAAK-for-project-drawers, mined ops-doc drawers, orphaned per-worktree wings) explicitly out of scope. This section is the operational form of that contract; the **Mechanical adoption checks** section below names the `mempalace_retired_surface_used` soft-warn that detects regressions against this scope.
 
 **What this project uses:**
 
@@ -24,11 +26,13 @@ MemPalace ships a broad surface (~19 MCP tools, plus a knowledge graph, per-agen
 - **`mempalace_status` / `mempalace_list_drawers` / `mempalace_get_drawer` / `mempalace_list_rooms` / `mempalace_list_wings`** — read-only inspection. Used during audits and ad-hoc queries.
 - **Stop and PreCompact capture hooks** — auto-capture conversation chunks via `mempalace-hook-wrapper.sh` (per the Capture section below). Captured drawers default-tag `work` for build sessions, `exploration` for default-mode sessions.
 
-**What this project does NOT use:**
+**What this project does NOT use** (retired at S-0087 per ADR 0056 Consequences amendment; cleanup execution tracked at Issue [#42](https://github.com/StarshipSuperjam/paideia/issues/42) and detection-side at Issue [#45](https://github.com/StarshipSuperjam/paideia/issues/45)):
 
-- **Knowledge graph** (`mempalace_kg_query` / `mempalace_kg_add` / `mempalace_kg_invalidate` / `mempalace_kg_stats` / `mempalace_kg_timeline`). Reason: the project encodes structural facts and temporal validity in ADRs (`Status: Superseded by ADR NNNN`, `Date: YYYY-MM-DD`), in `STATE.md` (current pointer), in `engine/operations/cross-references.md` (engine-side dependency map), and in `product/docs/CROSS_REFERENCES.md` (product-side). A KG layer would duplicate without adding query power the project actually needs. Re-evaluate if the project ever wants temporal queries of the form *"show me everything that depended on ADR 0017 before it was superseded"* — answerable today only by grep + reading.
-- **Tunnels** (`mempalace_find_tunnels` / `mempalace_list_tunnels` / `mempalace_create_tunnel` / `mempalace_delete_tunnel` / `mempalace_traverse`). Reason: tunnels link rooms across wings; project content lands across multiple worktree-derived wings (per the wing-naming behavior described in Known issues below) plus the historical `paideia` wing and the diary wing (`wing_claude`). Re-evaluate when (if) a second project shares this MemPalace install or when the upstream wing-naming behavior is reconciled with the documented intent.
-- **AAAK compressed dialect for project drawers** (`mempalace_get_aaak_spec`). Reason: Paideia drawers are conversational verbatim; AAAK's compression is for memory across thousands of drawers per agent (the diary wing may eventually use AAAK; project drawers do not).
+- **Knowledge graph** (`mempalace_kg_query` / `mempalace_kg_add` / `mempalace_kg_invalidate` / `mempalace_kg_stats` / `mempalace_kg_timeline`). Reason: the project encodes structural facts and temporal validity in ADRs (`Status: Superseded by ADR NNNN`, `Date: YYYY-MM-DD`), in `STATE.md` (current pointer), in `engine/operations/cross-references.md` (engine-side dependency map), and in `product/docs/CROSS_REFERENCES.md` (product-side). A KG layer would duplicate without adding query power the project actually needs. The S-0086 audit confirmed zero forward-fit dependencies (Phase 6/7/DEC.1 all specify Postgres + pgvector for runtime structural state). Re-evaluate if the project ever wants temporal queries of the form *"show me everything that depended on ADR 0017 before it was superseded"* — answerable today only by grep + reading.
+- **Tunnels** (`mempalace_find_tunnels` / `mempalace_list_tunnels` / `mempalace_create_tunnel` / `mempalace_delete_tunnel` / `mempalace_traverse`). Reason: tunnels link rooms across wings; project content lands across multiple worktree-derived wings (per the wing-naming behavior described in Known issues below) plus the historical `paideia` wing and the diary wing (`wing_claude`). Single-project install with no cross-wing-linking use case. Re-evaluate when (if) a second project shares this MemPalace install.
+- **AAAK compressed dialect for project drawers** (`mempalace_get_aaak_spec`; the AAAK-spec material `mempalace_status` returns at every call). Reason: Paideia project drawers are conversational verbatim; AAAK's compression is for memory across thousands of drawers per agent and pays cognitive cost for one use site only when applied to project drawers. **Diary carve-out preserved:** `wing_claude` diary entries continue to use AAAK; that's a single-wing scope where the compression earns its weight.
+
+**Detection-side defense:** the `mempalace_retired_surface_used` soft-warn (per the **Mechanical adoption checks** section below) fires at session shutdown if any KG or tunnel tool was invoked. Defense-in-depth — MCP-server-side per-tool filtering is not yet feasible at the harness layer (the MCP server registers the full tool surface; per-tool filtering would require a custom wrapper), so discipline + soft-warn detection is the load-bearing surface against scope regression.
 
 **`agent_name` for the diary:** `claude` — matches MemPalace's own AAAK examples and writes diary entries into a `wing_claude` wing distinct from project-content wings. The diary is the AI's continuity layer across sessions; keeping it in its own wing means project-content drawers and reflection drawers don't compete in semantic search.
 
@@ -146,10 +150,11 @@ The MemPalace MCP server exposes ~19 tools. Highest-frequency ones:
 
 - `mempalace_search` — semantic search across drawers; returns verbatim content with similarity scores. Use short keyword queries (max 250 chars). Filter with `wing` / `room` for scoped recall.
 - `mempalace_list_rooms` / `mempalace_list_wings` / `mempalace_list_drawers` — directory listings.
-- `mempalace_kg_query` — knowledge-graph traversal across closets.
 - `mempalace_diary_read` — reads the per-day session diary.
 - `mempalace_add_drawer` — manual capture (use sparingly; the hooks handle most cases).
 - `mempalace_status` — palace overview.
+
+KG and tunnel tools are out of scope per the **Project usage scope** section above — invoking them fires the `mempalace_retired_surface_used` soft-warn at shutdown.
 
 Tag conventions (`exploration` / `decision` / `work`) live in [`mempalace-tagging-conventions.md`](mempalace-tagging-conventions.md).
 
@@ -192,6 +197,8 @@ S-0078 mechanizes the three deliberate uses end-to-end:
   "add_drawer_calls": 2,
   "status_calls": 0,
   "list_drawers_calls": 0,
+  "kg_calls": 0,
+  "tunnel_calls": 0,
   "other_calls": 0,
   "total_calls": 7,
   "first_call_ts": "...",
@@ -199,9 +206,11 @@ S-0078 mechanizes the three deliberate uses end-to-end:
 }
 ```
 
+The `kg_calls` and `tunnel_calls` buckets were added at S-0087 (ADR 0056 Consequences amendment); see **Project usage scope** above and the `mempalace_retired_surface_used` audit category below.
+
 The field carries forward into the archive. Future health checks query archives via `jq` for "which sessions used MemPalace?" — structured data, not prose grep. The structural-fields audit ([`audit_archive_structured_fields.py`](../tools/audit_archive_structured_fields.py)) requires `mempalace_activity` on every archive ≥ S-0078.
 
-**Audit layer.** `validate.py --final-check` (gated CLI flag; only invoked at shutdown step 1) reads `mempalace_activity` and emits three categories:
+**Audit layer.** `validate.py --final-check` (gated CLI flag; only invoked at shutdown step 1) reads `mempalace_activity` and emits these categories:
 
 | Category | Severity | Trigger |
 |---|---|---|
@@ -209,6 +218,7 @@ The field carries forward into the archive. Future health checks query archives 
 | `mempalace_diary_read_skipped` | soft-warn | `diary_read_calls == 0` |
 | `mempalace_diary_write_skipped` | **hard-fail** | `diary_write_calls == 0` AND no acknowledgement-token in `outcome_summary` |
 | `mempalace_diary_write_acknowledged_skip` | soft-warn | `diary_write_calls == 0` AND `mempalace_unavailable_acknowledged: <reason>` is in `outcome_summary` |
+| `mempalace_retired_surface_used` | soft-warn | `kg_calls > 0` OR `tunnel_calls > 0` (added at S-0087 per ADR 0056 Consequences amendment; defense-in-depth against the retirement contract in **Project usage scope** above) |
 
 **Severity rationale.** Boot query and diary read fail more gracefully (re-invokable mid-session; cost is "context not retrieved" not "data lost"). Diary write is the only first-person reflection layer — once a session closes without it, the reflection is irretrievable except via expensive transcript-crawl. Hard-fail there forces the issue while it's still cheap.
 
@@ -222,4 +232,5 @@ The field carries forward into the archive. Future health checks query archives 
 
 - [`mempalace-tagging-conventions.md`](mempalace-tagging-conventions.md) — when to apply which tag, and where each tag's drawers go (room-targeting conventions added at S-0032).
 - `HANDOFF.md` (top-level) — historical record of the MemPalace setup decisions made in S-0001.
-- [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md) — the contract layer for the mechanical adoption checks added at S-0078 (closes Issues #27 and #20).
+- [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md) — the contract layer for the mechanical adoption checks added at S-0078 (closes Issues #27 and #20); the S-0087 Consequences amendment records the **Project usage scope** scale-back verdict.
+- [`engine/docs/audits/mempalace-adversarial-review-S-0086.md`](../docs/audits/mempalace-adversarial-review-S-0086.md) — the audit whose scale-back verdict the S-0087 amendment records.
