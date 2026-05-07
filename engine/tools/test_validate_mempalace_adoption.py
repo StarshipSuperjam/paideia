@@ -887,3 +887,109 @@ def test_legacy_activity_without_kg_tunnel_fields_no_warn(tmp_path: Path) -> Non
         result = validate.validate_mempalace_adoption()
         assert len(result.hard_fails) == 0
         assert "mempalace_retired_surface_used" not in result.soft_warns
+
+
+# ---------------------------------------------------------------------------
+# mempalace_zero_citations_after_search (S-0093 / ADR 0056 amendment, Issue #39)
+# ---------------------------------------------------------------------------
+
+
+class TestZeroCitationsAfterSearch:
+    """Closed-loop check: search ran but no observable behavior change."""
+
+    def _write(self, tmp_path: Path, activity: dict[str, object]) -> None:
+        (tmp_path / "engine" / "session").mkdir(parents=True, exist_ok=True)
+        (tmp_path / "engine" / "session" / "current.json").write_text(
+            json.dumps(
+                {
+                    "id": "S-0093",
+                    "mode": "interactive",
+                    "mempalace_activity": activity,
+                }
+            )
+        )
+
+    def test_search_with_zero_citations_fires(self, tmp_path: Path) -> None:
+        activity = _make_activity(
+            search_calls=3, diary_read_calls=1, diary_write_calls=1
+        )
+        activity["mempalace_citations"] = {
+            "drawer_id_refs": 0,
+            "session_archive_refs": 0,
+            "tag_named_refs": 0,
+            "total": 0,
+        }
+        self._write(tmp_path, activity)
+        with _patch_repo_root_to(tmp_path):
+            result = validate.validate_mempalace_adoption()
+            assert len(result.hard_fails) == 0
+            assert "mempalace_zero_citations_after_search" in result.soft_warns
+
+    def test_no_search_no_citations_does_not_fire(self, tmp_path: Path) -> None:
+        """search_calls == 0 covered by mempalace_boot_query_skipped — vacuous case."""
+        activity = _make_activity(
+            search_calls=0, diary_read_calls=1, diary_write_calls=1
+        )
+        activity["mempalace_citations"] = {
+            "drawer_id_refs": 0,
+            "session_archive_refs": 0,
+            "tag_named_refs": 0,
+            "total": 0,
+        }
+        self._write(tmp_path, activity)
+        with _patch_repo_root_to(tmp_path):
+            result = validate.validate_mempalace_adoption()
+            assert "mempalace_zero_citations_after_search" not in result.soft_warns
+
+    def test_search_with_citations_does_not_fire(self, tmp_path: Path) -> None:
+        activity = _make_activity(
+            search_calls=3, diary_read_calls=1, diary_write_calls=1
+        )
+        activity["mempalace_citations"] = {
+            "drawer_id_refs": 0,
+            "session_archive_refs": 4,
+            "tag_named_refs": 1,
+            "total": 5,
+        }
+        self._write(tmp_path, activity)
+        with _patch_repo_root_to(tmp_path):
+            result = validate.validate_mempalace_adoption()
+            assert "mempalace_zero_citations_after_search" not in result.soft_warns
+
+    def test_missing_citations_block_treated_as_zero(self, tmp_path: Path) -> None:
+        """Defensive: scan tool didn't run / pre-S-0093 archive shape."""
+        activity = _make_activity(
+            search_calls=3, diary_read_calls=1, diary_write_calls=1
+        )
+        # No mempalace_citations key at all.
+        self._write(tmp_path, activity)
+        with _patch_repo_root_to(tmp_path):
+            result = validate.validate_mempalace_adoption()
+            assert "mempalace_zero_citations_after_search" in result.soft_warns
+
+    def test_malformed_citations_block_treated_as_zero(self, tmp_path: Path) -> None:
+        activity = _make_activity(
+            search_calls=2, diary_read_calls=1, diary_write_calls=1
+        )
+        activity["mempalace_citations"] = "not-a-dict"
+        self._write(tmp_path, activity)
+        with _patch_repo_root_to(tmp_path):
+            result = validate.validate_mempalace_adoption()
+            assert "mempalace_zero_citations_after_search" in result.soft_warns
+
+    def test_warn_body_names_search_calls(self, tmp_path: Path) -> None:
+        activity = _make_activity(
+            search_calls=5, diary_read_calls=1, diary_write_calls=1
+        )
+        activity["mempalace_citations"] = {
+            "drawer_id_refs": 0,
+            "session_archive_refs": 0,
+            "tag_named_refs": 0,
+            "total": 0,
+        }
+        self._write(tmp_path, activity)
+        with _patch_repo_root_to(tmp_path):
+            result = validate.validate_mempalace_adoption()
+            bodies = result.soft_warns["mempalace_zero_citations_after_search"]
+            assert any("search_calls=5" in b for b in bodies)
+            assert any("mempalace_citations.total=0" in b for b in bodies)

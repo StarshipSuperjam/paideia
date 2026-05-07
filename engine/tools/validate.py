@@ -2795,6 +2795,14 @@ def validate_mempalace_adoption() -> ValidationResult:
       against scope regression. MCP-side per-tool filtering is not yet
       feasible at the harness layer, so discipline + soft-warn detection is
       the load-bearing surface against scope drift.
+    - ``mempalace_zero_citations_after_search`` (soft-warn; added at S-0093
+      per ADR 0056 amendment, Issue #39) — closed-loop check on boot-search
+      effectiveness. Fires when ``search_calls > 0`` AND
+      ``mempalace_activity.mempalace_citations.total == 0``. The citations
+      block is written by ``scan_mempalace_citations.py`` at shutdown.
+      Persistent firing per ADR 0042's 3-of-5 surface signals the boot-
+      search formulations aren't surfacing drawers the session would cite,
+      OR retrieved drawers aren't being woven into authored artifacts.
 
     Per S-0091 the engine-vs-routine LOUD-vs-standard body
     differentiation is dropped for substrate-availability soft-warns
@@ -3041,6 +3049,52 @@ def validate_mempalace_adoption() -> ValidationResult:
             "regression to fix. Persistent firing across 3+ of last 5 sessions "
             "indicates undocumented project usage — revisit the contract.",
         )
+
+    # Per S-0093 (ADR 0056 amendment, Issue #39). Closed-loop check:
+    # search_calls captures call FREQUENCY but says nothing about whether
+    # the returned drawers actually informed authored artifacts. The
+    # nested mempalace_citations block (written by
+    # scan_mempalace_citations.py at shutdown) counts drawer_id /
+    # S-NNNN-archive / tag-named references in outcome_summary + diary +
+    # commit messages. Soft-warn fires when search ran but produced no
+    # observable behavior change. Persistent firing (3-of-5 per ADR 0042)
+    # signals retrieved drawers aren't being woven into authored work —
+    # revisit boot-search formulations or escalate per soft-warn-lifecycle.md.
+    #
+    # Gated on session id >= S-0093: pre-S-0093 archives lack the
+    # mempalace_citations block by design (the scan tool didn't exist yet).
+    # The audit only applies forward.
+    session_id_raw = current.get("id")
+    citations_required = False
+    if isinstance(session_id_raw, str):
+        m = re.match(r"^S-(\d{4})$", session_id_raw.strip())
+        if m is not None and int(m.group(1)) >= 93:
+            citations_required = True
+
+    if citations_required:
+        citations_raw = activity.get("mempalace_citations")
+        citations: dict[str, Any] = (
+            citations_raw if isinstance(citations_raw, dict) else {}
+        )
+        citations_total = int(citations.get("total", 0))
+        if search_calls > 0 and citations_total == 0:
+            r.soft_warn(
+                "mempalace_zero_citations_after_search",
+                f"search_calls={search_calls} but mempalace_citations.total=0. "
+                "The session ran MemPalace boot search but no drawer IDs, "
+                "S-NNNN archive references, or tag-named drawer references "
+                "(`per pushback drawer`, `per lesson drawer`, `per decision "
+                "drawer`) appear in outcome_summary, the session's diary entry, "
+                "or commit messages. Retrieval happened; observable behavior "
+                "change did not. Per ADR 0056 (S-0093 amendment, Issue #39): "
+                "verify the boot-search formulations are surfacing drawers "
+                "that bear on the work, and that retrieved drawers are being "
+                "cited in authored artifacts when they inform the session. "
+                "Persistent firing across 3+ of last 5 sessions per ADR 0042 "
+                "lifecycle indicates the boot-search effectiveness gap — tune "
+                "the formulation set in engine/tools/mempalace_boot_search.py "
+                "or escalate per engine/operations/soft-warn-lifecycle.md.",
+            )
 
     return r
 
