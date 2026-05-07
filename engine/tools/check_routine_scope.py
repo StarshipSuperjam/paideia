@@ -103,6 +103,14 @@ OPERATIONAL_ALLOWLIST: tuple[str, ...] = (
     "engine/session/auto_target.json",
     "engine/session/archive/S-*.json",
     "engine/session/register_state.json",
+    # Per ADR 0056 (S-0091 routine-protection refinement). Routine sessions
+    # whose mempalace diary write is skipped at close append an entry here
+    # so the next boot can surface the deferred-diary count + IDs. This
+    # write happens inside validate.py --final-check at shutdown step 1,
+    # and the closing-commit must include the index update or the entry
+    # is lost. Operational allowlist makes the write commit-able from
+    # any routine task regardless of the active scope_lock.
+    "engine/session/diary_pending_index.json",
     "engine/ENGINE_LOG.md",
     "HANDOFF.md",
 )

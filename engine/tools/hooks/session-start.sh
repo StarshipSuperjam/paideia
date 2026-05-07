@@ -525,6 +525,67 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Pending mempalace diary writes (per ADR 0056, S-0091 routine-protection
+# refinement)
+# ---------------------------------------------------------------------------
+#
+# Routine sessions whose mempalace diary write is skipped at close
+# append an entry to engine/session/diary_pending_index.json instead of
+# hard-failing (S-0091 routine protection: never block the routine line
+# on mempalace MCP availability). Surface the count + session IDs at
+# every subsequent boot until the user reconnects MCP and runs the
+# deferred-diary recovery procedure (engine/operations/routine-mode-
+# operations.md "Deferred diary recovery").
+#
+# Best-effort: malformed or missing index emits a one-line note and the
+# boot proceeds.
+
+PENDING_DIARY_INDEX="$REPO_ROOT/engine/session/diary_pending_index.json"
+if [ -f "$PENDING_DIARY_INDEX" ] && [ -x "$(command -v python3)" ]; then
+    PENDING_OUTPUT=$(python3 - <<EOF 2>/dev/null
+import json, sys
+try:
+    data = json.load(open("$PENDING_DIARY_INDEX"))
+    pending = data.get("pending", [])
+    if not isinstance(pending, list):
+        sys.exit(0)
+    if not pending:
+        sys.exit(0)
+    ids = [str(e.get("session_id", "?")) for e in pending if isinstance(e, dict)]
+    print(f"{len(ids)}|{','.join(ids)}")
+except (json.JSONDecodeError, OSError):
+    sys.exit(0)
+EOF
+)
+    if [ -n "$PENDING_OUTPUT" ]; then
+        PENDING_COUNT="${PENDING_OUTPUT%%|*}"
+        PENDING_IDS="${PENDING_OUTPUT#*|}"
+        {
+            echo ""
+            echo "============================================================"
+            echo "[session-start] Pending mempalace diary writes: $PENDING_COUNT ($PENDING_IDS)"
+            echo "============================================================"
+            echo "  Routine session(s) closed without a diary write because"
+            echo "  the mempalace MCP substrate was unavailable. The diary"
+            echo "  entries are deferrable, not lost — the recovery"
+            echo "  procedure is at:"
+            echo "    engine/operations/routine-mode-operations.md"
+            echo "    'Deferred diary recovery'"
+            echo ""
+            echo "  When MCP is reconnected (typically restart Claude"
+            echo "  Desktop), open an interactive session, point at the"
+            echo "  pending index, and process each entry: read the"
+            echo "  archived session, author a diary entry from the"
+            echo "  outcome_summary + work_done + mempalace_activity"
+            echo "  fields, call mempalace_diary_write, remove the entry."
+            echo "============================================================"
+            echo ""
+        } >&2
+        log_ok "pending-diary=$PENDING_COUNT"
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 # Issues backlog visibility (per ADR 0048)
 # ---------------------------------------------------------------------------
 #

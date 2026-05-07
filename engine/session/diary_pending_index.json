@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "description": "Index of routine-mode sessions whose mempalace diary write was skipped at close. Per ADR 0056 (S-0091 routine-protection refinement): routine sessions never hard-fail on mempalace MCP availability — they record an entry here instead. The boot-time SessionStart hook surfaces the count + session IDs so the user knows which sessions still owe a deferred diary write. After the user reconnects MCP, the recovery procedure (engine/operations/routine-mode-operations.md \"Deferred diary recovery\") reads each pending archive, authors the deferred diary entry from the structured fields, calls mempalace_diary_write, and removes the entry here.",
+  "format": "Each entry names the session_id, ISO-8601 close timestamp, the reason the diary was skipped (substrate-down / no-token-no-diary / etc), a short outcome_summary excerpt for the recovery session to orient against, and the archive path. Entries are appended at routine-session close by validate.py --final-check; entries are removed by the recovery procedure after a successful diary_write lands.",
+  "pending": []
+}

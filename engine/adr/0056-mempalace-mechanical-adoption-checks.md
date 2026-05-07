@@ -202,6 +202,45 @@ S-0089's `mempalace_diary_write_skipped_invalid_token` HARD-FAIL was over-correc
 
 **Cross-references:** S-0089 archive (the over-correction this softens); user clarification at S-0089 close ("I just need to know when it happens. I don't want that to kill routine sessions"); validate.py `validate_mempalace_adoption()` body shape.
 
+### Amendment — S-0091 (close the no-token-no-diary hard-fail in routine mode + LOUD body uniformity + pending-diary index)
+
+User pushback at S-0090 close: *"I want every engine session to warn me clearly whenever MCP to mempalace drops. I don't want it to stop the work from happening, but I don't want the mention to be lost in the noise of the session. … For routine sessions I don't want any hard failures of mempalace MCP access because that holds up the whole line of routine sessions. However, I have to know that happened clearly in the session text so that when I review I can reconnect MCP and tell the session to do their diary entry later."*
+
+S-0090 left two gaps relative to that requirement:
+
+1. **The no-token-no-diary path still hard-failed in routine mode.** When the AI in a routine session failed to write the diary AND failed to add the acknowledgement token (e.g. MCP dropped mid-session and the skill body's token-write branch didn't fire), `mempalace_diary_write_skipped` blocked the close — exactly the routine-line-halting scenario the user rules out.
+2. **Routine archive bodies were "standard one-line"** for the substrate-availability soft-warns (substrate_at_close, acknowledged_skip, substrate_intermittent). Routine archives are reviewed by the user *more* carefully than engine session output (engine sessions are interactive; the user is in the loop). A buried one-line entry in `outcome_summary_soft_warns` is exactly the visibility failure mode the S-0088 "obvious, not buried" pushback was against.
+
+**S-0091 changes:**
+
+- **New soft-warn category `mempalace_diary_write_skipped_routine`** (routine mode only). Predicate is identical to the original `mempalace_diary_write_skipped` hard-fail (no diary write AND no token), but routine mode emits a soft-warn with a LOUD `⚠️ ROUTINE DIARY DEFERRED — DO NOT BURY THIS` body and appends an entry to a new index file at `engine/session/diary_pending_index.json`.
+- **Engine retains the `mempalace_diary_write_skipped` hard-fail.** The asymmetry is justified by the unattended-vs-interactive difference: engine sessions have an immediate fix path (write the diary now, or write the token + reason); the hard-fail catches AI laziness in skipping the only first-person reflection layer. Routine mode's exemption does NOT generalize.
+- **LOUD body uniformly for substrate-availability soft-warns** (substrate_at_close, acknowledged_skip, substrate_intermittent, diary_write_skipped_routine). The S-0089/S-0090 engine/routine differentiation is dropped — archive review is the routine-side visibility surface, and the `⚠️ … DO NOT BURY THIS` prefix costs nothing extra in routine archives while serving the user's "clearly in session text" requirement directly.
+- **New pending-diary index** at `engine/session/diary_pending_index.json`. Schema: `{"schema_version": 1, "pending": [{"session_id": str, "closed_ts": str, "reason": str, "outcome_summary_excerpt": str (≤200 chars), "archive_path": str}]}`. Mutable, committed to git (like `register_state.json`). Operational allowlist entry in [`engine/tools/check_routine_scope.py`](../tools/check_routine_scope.py) `OPERATIONAL_ALLOWLIST` so routine-mode commits can write to it regardless of the active task's `scope_lock.allowed_paths`.
+- **Boot-time surface in `engine/tools/hooks/session-start.sh`.** When the index is non-empty, emits a LOUD attention block listing the count + session IDs at every subsequent session boot until the user processes the index.
+- **Recovery procedure** documented at `engine/operations/routine-mode-operations.md` "Deferred diary recovery": user reconnects MCP (typically Claude Desktop reboot), opens an interactive session, points at the index, AI reads each pending archive, authors a diary entry from the archived `outcome_summary` + `work_done` + `mempalace_activity` fields, calls `mempalace_diary_write`, and removes the entry from the index.
+
+**Coverage table** (post-S-0091):
+
+| Path | Engine | Routine | Closes? |
+|---|---|---|---|
+| Boot-probe substrate down | LOUD stderr | LOUD stderr | Yes |
+| Substrate down at close (independent) | LOUD ⚠️ soft-warn | LOUD ⚠️ soft-warn | Yes |
+| No diary + token + substrate-down | LOUD ⚠️ acknowledged_skip soft-warn | LOUD ⚠️ acknowledged_skip soft-warn | Yes |
+| No diary + token + substrate-alive (intermittent) | LOUD ⚠️ substrate_intermittent soft-warn | LOUD ⚠️ substrate_intermittent soft-warn | Yes |
+| **No diary + no token** | **HARD-FAIL** (interactive fix immediate) | **LOUD ⚠️ skipped_routine soft-warn + index entry** | Engine: **NO**. Routine: **Yes** |
+
+**Pushback-rule observation.** The S-0089 → S-0090 → S-0091 sequence is a third consecutive contract refinement on the same ADR within ten sessions. Each refinement was user-driven and necessary; each refinement also had a structural lesson the prior session could have anticipated. The diary entry for S-0090 named the lesson explicitly: *"any contract-tightening should evaluate against routine-overnight scenario before landing | hard-fail is acceptable only when AI-discipline alone can satisfy it."* S-0091 is that lesson applied to the residual hard-fail S-0090 left standing.
+
+**Out of scope** (S-0091 deliberate non-changes):
+
+- No new slash command for the recovery procedure. Documented manual procedure suffices; a `/resume-deferred-diary` command can be a follow-up Issue if ergonomics warrant.
+- No prepared-diary-text persistence. The recovering session reconstructs from the archive's structured fields rather than from a saved-text field. Adequate fidelity, no skill-side modifications.
+- No retroactive archive mutation for sessions that closed pre-S-0091 with skipped diaries. Past archives stay as-is; the index starts empty.
+- No change to the boot-time substrate health probe (already LOUD across modes per [ADR 0045](0045-shared-state-integrity-discipline.md)).
+
+**Cross-references:** S-0090 archive (the residual hard-fail this closes); user pushback at S-0090 close ("I'm not confident that this solves my concern…"); plan file `~/.claude/plans/i-m-not-satisfied-with-modular-flute.md`; [`engine/tools/validate.py`](../tools/validate.py) `validate_mempalace_adoption()` body shape; [`engine/operations/routine-mode-operations.md`](../operations/routine-mode-operations.md) "Deferred diary recovery" section.
+
 ### Pushback rule (per CLAUDE.md)
 
 The user's framing ("I need to know how to recover the lost memories") raised a separate concern about retroactive recovery of diary entries / decision drawers / pushback drawers / lesson drawers from the S-0032 → S-0077 window. That work is bounded as Part B of the approved plan and explicitly deferred to S-0079+ (see plan file at `~/.claude/plans/use-of-mempalace-by-velvety-pebble.md`); the recovery audit script and transcript-crawl executor are not part of S-0078's scope. Mechanization first stops the bleeding; recovery is bounded historical cleanup that fits cleanly in a separate session.

@@ -304,6 +304,38 @@ If a routine session deadlocks despite Auto-mode configuration:
 
 Considered: a `validate.py` soft-warn that fires when `auto_target.json` is present (routine-mode work staged/active) AND the routine config introspectively shows Default rather than Auto. Investigation surfaced no introspection path for permission mode — Claude Code Routines do not currently expose their mode to running code (no `$CLAUDE_PERMISSION_MODE` or equivalent env var; ADR 0051 §"Permission-mode posture" treats Default as fixed for the foundation). Detection from inside the project is therefore infeasible. The operational rule lives in this doc; the user is the gate when configuring the routine.
 
+## Deferred diary recovery (per ADR 0056, S-0091 routine-protection refinement)
+
+Routine sessions never hard-fail on mempalace MCP availability. When a routine session closes without a `mempalace_diary_write` call AND without an `mempalace_unavailable_acknowledged:` token in `outcome_summary`, the validator emits a soft-warn `mempalace_diary_write_skipped_routine` (LOUD body) and appends an entry to [`engine/session/diary_pending_index.json`](../session/diary_pending_index.json). The session closes cleanly; the diary entry is deferred, not lost.
+
+**Boot-time surface.** Every subsequent session boot reads the index and emits a LOUD attention block when it is non-empty, listing the count and session IDs. The block stays up at every boot until the user processes the index.
+
+**Recovery procedure** (manual, interactive — do not attempt from inside a routine session):
+
+1. **Reconnect the MCP substrate.** The user's known fix is restarting Claude Desktop; verify with `mempalace status` (CLI) or by checking that `mcp__mempalace__*` tools are present in the next session's tool surface.
+
+2. **Open an interactive session** via `/start-engine` or by typing "Start Engine". This claims a build slot like any other interactive session — the recovery work is small and counts as a real session.
+
+3. **Read the pending index** at `engine/session/diary_pending_index.json`. Each entry names a `session_id`, `closed_ts`, `reason`, `outcome_summary_excerpt`, and `archive_path`.
+
+4. **For each pending entry**, in order:
+   - Read the archived session at `archive_path` (e.g. `engine/session/archive/S-0123.json`). Focus on `outcome_summary`, `scope_delivery`, `work_done` (if present), and `mempalace_activity`. These are sufficient to reconstruct what the session would have written if MCP had been live.
+   - Author a diary entry in AAAK format from those fields. The entry should be in the third-person-by-attribution form (the recovery session is not the original session, but the diary entry should attribute the work to the original `session_id`). Pattern: `SESSION:S-NNNN|<date>|<mode>.<topic>|recovered-via-S-MMMM|<work summary> | WHAT.SURPRISED.ME:(reconstruction) | <forward note>`. The recovery session writes its own diary entry separately for its own work — these are two different writes, not one combined entry.
+   - Call `mempalace_diary_write` with the original session's identifier in the entry body (the AAAK `SESSION:` field) but with `agent_name="claude"` and the reconstructed entry as the content. The write lands in the standard `wing_claude` diary.
+   - Once the write succeeds, remove that entry from `pending` in `diary_pending_index.json`.
+
+5. **Commit the index update** with a `chore(session):` or `fix(mempalace):` commit message that names which sessions' diaries were recovered. Push as part of the recovery session's normal lifecycle.
+
+**Failure modes:**
+
+- *MCP still down at recovery time.* Don't proceed with reconstruction; reboot Claude Desktop again, verify substrate alive (`mempalace status`), and retry. The index entries are non-volatile until you remove them.
+- *Original archive missing.* Should not occur — archives are committed to git; if it does, the index entry's `archive_path` no longer resolves and the user should remove the orphaned entry manually with a one-line commit message naming the cause. This is a defect signal worth filing as an Issue.
+- *Diary write fails mid-batch.* Process the index in order; if one entry fails, leave it in place and proceed with the next. The retry pattern is restart-from-failure, not retry-the-batch.
+
+**Why no slash command.** A documented manual procedure suffices for the deferred-diary case — the workflow is simple (read archive, author entry, write, edit JSON), the cadence is rare (only when MCP drops mid-routine), and the recovery session needs the operator's judgment to author quality reconstructions. If the workflow becomes frequent enough that ergonomics matter, file an Issue and consider a `/resume-deferred-diary` command in a follow-up.
+
+**Why reconstruction rather than persisted-text recovery.** The skill body could persist the prepared diary text to a sidecar file when the diary write fails. S-0091 chose reconstruction-from-archive instead because (a) no skill-body modifications are required (lower coupling), (b) the archive's structured fields are sufficient fidelity for the diary's purpose (first-person reflection on what surprised the AI / what was deferred / where judgment was uncertain), and (c) reconstruction sometimes produces a *better* diary than the in-flight version because the recovery session reads the archive cold and notices what the original session had stopped seeing.
+
 ## Troubleshooting
 
 **Routine fires but always exits "not in routine mode."**

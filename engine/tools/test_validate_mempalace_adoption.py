@@ -1,4 +1,4 @@
-"""Tests for validate.validate_mempalace_adoption — ADR 0056 / S-0078; S-0089 amendment."""
+"""Tests for validate.validate_mempalace_adoption — ADR 0056 / S-0078; S-0089 / S-0090 / S-0091 amendments."""
 
 from __future__ import annotations
 
@@ -70,8 +70,19 @@ def _write_current(
 
 
 def _patch_repo_root_to(tmp_path: Path) -> "mock._patch[Path]":
-    """Patch validate.REPO_ROOT to a tmp_path layout containing engine/session/."""
+    """Patch validate.REPO_ROOT to a tmp_path layout containing engine/session/.
+
+    Also seeds an empty `diary_pending_index.json` so the S-0091 routine
+    no-token-no-diary path can append without crashing on a missing file.
+    Tests that need to inspect the index after the routine-mode soft-warn
+    path runs read the seeded file's pending list directly.
+    """
     (tmp_path / "engine" / "session").mkdir(parents=True, exist_ok=True)
+    index_path = tmp_path / "engine" / "session" / "diary_pending_index.json"
+    if not index_path.exists():
+        index_path.write_text(
+            json.dumps({"schema_version": 1, "pending": []}, indent=2) + "\n"
+        )
     return mock.patch.object(validate, "REPO_ROOT", tmp_path)
 
 
@@ -287,17 +298,20 @@ class TestSubstrateTokenTightening:
             # close while token claims unavailable).
             assert "mempalace_diary_write_acknowledged_skip" not in result.soft_warns
 
-    def test_token_substrate_intermittent_routine_standard_body(
+    def test_token_substrate_intermittent_routine_loud_body(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Routine + token + substrate alive → standard soft-warn (no LOUD); routine closes cleanly.
+        """Routine + token + substrate alive → LOUD soft-warn; routine closes cleanly.
 
-        Per S-0090 (user clarification: "I don't want that to kill routine
-        sessions running overnight or while I'm AFK"). A routine running
-        overnight that hits intermittent MCP — substrate down when AI
-        tried to write diary, alive at close — gets a clean close path.
-        Visibility preserved via standard one-line soft-warn in archive
-        review.
+        Per S-0091 (user pushback at S-0090 close: "I have to know that
+        happened clearly in the session text so that when I review I can
+        reconnect MCP and tell the session to do their diary entry
+        later"). Archive review is the routine-side visibility surface;
+        the LOUD body costs nothing extra in routine archives while
+        serving the user's "clearly in session text" requirement
+        directly. Pre-S-0091 the routine body was standard one-line; the
+        S-0091 refinement makes it LOUD across both modes. Routine
+        close is still NOT blocked (S-0090 routine-protection holds).
         """
         monkeypatch.setattr(validate, "_check_mempalace_substrate_alive", lambda: True)
         self._make_session(
@@ -320,12 +334,10 @@ class TestSubstrateTokenTightening:
             body = result.soft_warns[
                 "mempalace_diary_write_skipped_substrate_intermittent"
             ][0]
-            # Routine body is standard one-line — no LOUD prefix.
-            assert not body.startswith("⚠️")
-            assert "MCP INTERMITTENT" not in body
-            # But still clearly identifies the substrate-alive contradiction
-            # for archive review.
-            assert "intermittent MCP" in body
+            # S-0091: LOUD body uniformly across modes.
+            assert body.startswith("⚠️")
+            assert "MCP INTERMITTENT" in body
+            assert "DO NOT BURY THIS" in body
 
     def test_token_valid_when_substrate_down(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -363,10 +375,10 @@ class TestSubstrateTokenTightening:
             assert body.startswith("⚠️")
             assert "DO NOT BURY THIS" in body
 
-    def test_routine_session_acknowledged_skip_uses_standard_body(
+    def test_routine_session_acknowledged_skip_uses_loud_body(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Routine sessions get a one-line standard body (unattended; no LOUD)."""
+        """Routine sessions get the LOUD body too (S-0091 — archive review visibility)."""
         monkeypatch.setattr(validate, "_check_mempalace_substrate_alive", lambda: False)
         self._make_session(
             tmp_path,
@@ -379,7 +391,9 @@ class TestSubstrateTokenTightening:
         with _patch_repo_root_to(tmp_path):
             result = validate.validate_mempalace_adoption()
             body = result.soft_warns["mempalace_diary_write_acknowledged_skip"][0]
-            assert not body.startswith("⚠️")
+            assert body.startswith("⚠️")
+            assert "DIARY WRITE SKIPPED" in body
+            assert "DO NOT BURY THIS" in body
 
     def test_substrate_at_close_fires_independently_of_diary_state(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -423,10 +437,10 @@ class TestSubstrateTokenTightening:
             assert body.startswith("⚠️")
             assert "DO NOT BURY THIS" in body
 
-    def test_substrate_at_close_routine_standard_body(
+    def test_substrate_at_close_routine_loud_body(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Substrate down + routine mode → substrate_at_close body is standard."""
+        """Substrate down + routine mode → substrate_at_close body is LOUD too (S-0091)."""
         monkeypatch.setattr(validate, "_check_mempalace_substrate_alive", lambda: False)
         self._make_session(
             tmp_path, diary_write_calls=1, mode="routine", outcome_summary="x"
@@ -435,22 +449,213 @@ class TestSubstrateTokenTightening:
         with _patch_repo_root_to(tmp_path):
             result = validate.validate_mempalace_adoption()
             body = result.soft_warns["mempalace_substrate_at_close"][0]
-            assert not body.startswith("⚠️")
-            assert "MemPalace substrate is unreachable" in body
+            assert body.startswith("⚠️")
+            assert "MEMPALACE SUBSTRATE DOWN" in body
+            assert "DO NOT BURY THIS" in body
 
-    def test_no_diary_no_token_substrate_alive_hard_fails(
+    def test_engine_no_diary_no_token_substrate_alive_hard_fails(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """No diary write + no token + substrate alive → existing hard-fail still fires."""
+        """Engine: no diary + no token + substrate alive → hard-fail (unchanged at S-0091)."""
         monkeypatch.setattr(validate, "_check_mempalace_substrate_alive", lambda: True)
-        self._make_session(tmp_path, outcome_summary="No reflection here.")
+        self._make_session(
+            tmp_path, mode="interactive", outcome_summary="No reflection here."
+        )
 
         with _patch_repo_root_to(tmp_path):
             result = validate.validate_mempalace_adoption()
             assert len(result.hard_fails) == 1
             assert "mempalace_diary_write_skipped" in result.hard_fails[0]
-            # The S-0089 message references the tightened contract.
-            assert "S-0089 tightening" in result.hard_fails[0]
+            # Engine asymmetry referenced in the message.
+            assert "engine session" in result.hard_fails[0]
+
+
+class TestRoutineProtectionS0091:
+    """ADR 0056 S-0091 routine-protection: no-token-no-diary in routine mode
+    → soft-warn `mempalace_diary_write_skipped_routine` + index entry; engine
+    retains hard-fail."""
+
+    def _make_session(
+        self,
+        tmp_path: Path,
+        *,
+        mode: str = "routine",
+        diary_write_calls: int = 0,
+        outcome_summary: str = "",
+        session_id: str = "S-0091",
+    ) -> None:
+        (tmp_path / "engine" / "session").mkdir(parents=True, exist_ok=True)
+        (tmp_path / "engine" / "session" / "current.json").write_text(
+            json.dumps(
+                {
+                    "id": session_id,
+                    "mode": mode,
+                    "mempalace_activity": _make_activity(
+                        search_calls=1,
+                        diary_read_calls=1,
+                        diary_write_calls=diary_write_calls,
+                    ),
+                    "outcome_summary": outcome_summary,
+                }
+            )
+        )
+
+    def test_routine_no_diary_no_token_emits_soft_warn_not_hard_fail(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Routine + no diary + no token → soft-warn (NOT hard-fail), close proceeds."""
+        monkeypatch.setattr(validate, "_check_mempalace_substrate_alive", lambda: True)
+        self._make_session(
+            tmp_path, mode="routine", outcome_summary="Routine task done."
+        )
+
+        with _patch_repo_root_to(tmp_path):
+            result = validate.validate_mempalace_adoption()
+            # Critical: routine close is NOT blocked. This is the S-0091
+            # routine-protection guarantee — hard-fail removed for routine.
+            assert len(result.hard_fails) == 0
+            assert "mempalace_diary_write_skipped_routine" in result.soft_warns
+            # Existing engine hard-fail category does NOT fire in routine mode.
+            assert "mempalace_diary_write_skipped" not in result.soft_warns
+
+    def test_routine_no_diary_no_token_uses_loud_body(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The S-0091 routine soft-warn body is LOUD (archive review visibility)."""
+        monkeypatch.setattr(validate, "_check_mempalace_substrate_alive", lambda: True)
+        self._make_session(tmp_path, mode="routine", outcome_summary="x")
+
+        with _patch_repo_root_to(tmp_path):
+            result = validate.validate_mempalace_adoption()
+            body = result.soft_warns["mempalace_diary_write_skipped_routine"][0]
+            assert body.startswith("⚠️")
+            assert "ROUTINE DIARY DEFERRED" in body
+            assert "DO NOT BURY THIS" in body
+            # The body points at the recovery procedure.
+            assert "diary_pending_index.json" in body
+            assert "Deferred diary recovery" in body
+
+    def test_routine_no_diary_no_token_appends_to_pending_index(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The S-0091 routine soft-warn appends an entry to the pending index."""
+        monkeypatch.setattr(validate, "_check_mempalace_substrate_alive", lambda: True)
+        self._make_session(
+            tmp_path,
+            mode="routine",
+            outcome_summary="Some routine task work that didn't get diary'd.",
+            session_id="S-0123",
+        )
+
+        with _patch_repo_root_to(tmp_path):
+            validate.validate_mempalace_adoption()
+            index = json.loads(
+                (
+                    tmp_path / "engine" / "session" / "diary_pending_index.json"
+                ).read_text()
+            )
+            assert isinstance(index["pending"], list)
+            assert len(index["pending"]) == 1
+            entry = index["pending"][0]
+            assert entry["session_id"] == "S-0123"
+            assert entry["archive_path"] == "engine/session/archive/S-0123.json"
+            assert "outcome_summary_excerpt" in entry
+            assert entry["outcome_summary_excerpt"].startswith("Some routine task")
+            assert "Routine session closed" in entry["reason"]
+            assert "closed_ts" in entry
+
+    def test_routine_index_append_idempotent_within_session(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Re-running validate_mempalace_adoption in the same session does not
+        duplicate the index entry."""
+        monkeypatch.setattr(validate, "_check_mempalace_substrate_alive", lambda: True)
+        self._make_session(tmp_path, mode="routine", session_id="S-0124")
+
+        with _patch_repo_root_to(tmp_path):
+            validate.validate_mempalace_adoption()
+            validate.validate_mempalace_adoption()
+            validate.validate_mempalace_adoption()
+            index = json.loads(
+                (
+                    tmp_path / "engine" / "session" / "diary_pending_index.json"
+                ).read_text()
+            )
+            ids = [e["session_id"] for e in index["pending"]]
+            assert ids.count("S-0124") == 1
+
+    def test_routine_index_missing_does_not_crash_validator(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Index file missing → soft-warn still fires, validator does not crash."""
+        monkeypatch.setattr(validate, "_check_mempalace_substrate_alive", lambda: True)
+        self._make_session(tmp_path, mode="routine", session_id="S-0125")
+        # Note: _patch_repo_root_to seeds the index by default; remove it to
+        # exercise the missing-file branch.
+
+        with _patch_repo_root_to(tmp_path):
+            (tmp_path / "engine" / "session" / "diary_pending_index.json").unlink()
+            result = validate.validate_mempalace_adoption()
+            # Soft-warn still fires even though the append failed.
+            assert "mempalace_diary_write_skipped_routine" in result.soft_warns
+            assert len(result.hard_fails) == 0
+
+    def test_routine_index_malformed_does_not_crash_validator(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Malformed index → soft-warn still fires, no crash, no append."""
+        monkeypatch.setattr(validate, "_check_mempalace_substrate_alive", lambda: True)
+        self._make_session(tmp_path, mode="routine", session_id="S-0126")
+
+        with _patch_repo_root_to(tmp_path):
+            (tmp_path / "engine" / "session" / "diary_pending_index.json").write_text(
+                '["not a dict"]'
+            )
+            result = validate.validate_mempalace_adoption()
+            # Soft-warn still fires even though the append refused.
+            assert "mempalace_diary_write_skipped_routine" in result.soft_warns
+            assert len(result.hard_fails) == 0
+
+    def test_routine_with_token_does_not_fire_skipped_routine_warn(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Routine + token (substrate down) → acknowledged_skip path, NOT
+        skipped_routine. The S-0091 routine soft-warn is for the no-token
+        case specifically."""
+        monkeypatch.setattr(validate, "_check_mempalace_substrate_alive", lambda: False)
+        self._make_session(
+            tmp_path,
+            mode="routine",
+            outcome_summary="x. mempalace_unavailable_acknowledged: substrate down.",
+        )
+
+        with _patch_repo_root_to(tmp_path):
+            result = validate.validate_mempalace_adoption()
+            assert "mempalace_diary_write_acknowledged_skip" in result.soft_warns
+            assert "mempalace_diary_write_skipped_routine" not in result.soft_warns
+
+    def test_routine_with_diary_writes_nothing_to_index(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Routine that wrote the diary properly → no index entry; clean close."""
+        monkeypatch.setattr(validate, "_check_mempalace_substrate_alive", lambda: True)
+        self._make_session(
+            tmp_path,
+            mode="routine",
+            diary_write_calls=1,
+            outcome_summary="Clean routine close.",
+        )
+
+        with _patch_repo_root_to(tmp_path):
+            result = validate.validate_mempalace_adoption()
+            assert len(result.hard_fails) == 0
+            assert "mempalace_diary_write_skipped_routine" not in result.soft_warns
+            index = json.loads(
+                (
+                    tmp_path / "engine" / "session" / "diary_pending_index.json"
+                ).read_text()
+            )
+            assert index["pending"] == []
 
 
 class TestCheckMempalaceSubstrateAlive:
