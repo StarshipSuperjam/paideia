@@ -1,0 +1,13 @@
+{
+  "id": "S-0091",
+  "mode": "interactive",
+  "started_at": "2026-05-07T20:32:36Z",
+  "status": "in_progress",
+  "working_on": "ADR 0056 routine-protection refinement: convert no-token+no-diary hard-fail to mode-aware soft-warn for routine mode; uniform LOUD bodies across modes for mempalace-availability surfaces; pending-diary index for deferred recovery.",
+  "declared_scope": "Close the remaining hard-fail gap in ADR 0056's mempalace-availability contract. Engine sessions retain hard-fail; routine sessions get a new soft-warn `mempalace_diary_write_skipped_routine` and an entry in a new `engine/session/diary_pending_index.json`. Drop the engine/routine LOUD-vs-standard body differentiation for substrate-availability soft-warns — apply LOUD body uniformly because archive review is the routine-side visibility surface. Document the deferred-diary recovery procedure. phase: NA-engine-apparatus",
+  "outcome_summary": null,
+  "scope_delivery": null,
+  "approved_plan": "/Users/shanekidd/.claude/plans/i-m-not-satisfied-with-modular-flute.md",
+  "branch": "claude/zealous-shaw-236026",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/zealous-shaw-236026"
+}
