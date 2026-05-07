@@ -297,6 +297,57 @@ The S-0087/S-0088 burial pattern remains structurally hard to repeat because all
 
 **Coverage.** All session types — interactive build (`/start-engine`) AND routine (`/start-routine`). Default-mode (exploration, non-build) sessions are exempt because they have no formal slot or shutdown sequence.
 
+### Boot-search effectiveness orchestrator (per ADR 0056 S-0093 amendment, Issue #38)
+
+The S-0078 mechanism enforces *call frequency* (did `mempalace_search` happen at boot?). It does not enforce *effectiveness* (did the call surface drawers that bear on the session's work?). A session that searches the literal phrase from `engine/STATE.md`'s next-session work item, gets nothing relevant, and proceeds passes the `mempalace_boot_query_skipped` soft-warn but realizes none of the value the boot search was meant to deliver.
+
+[`engine/tools/mempalace_boot_search.py`](../tools/mempalace_boot_search.py) closes the gap by mechanizing three formulations of the work-item phrase:
+
+- **literal** — phrase verbatim, normalized.
+- **conceptual** — top-N substantive keywords joined; drops connectives so the vector embedding lands at a different semantic point.
+- **adjacent** — literal phrase suffixed with `lessons pushback`; orients the search toward past-failure-recovery drawers.
+
+The orchestrator calls `mempalace.mcp_server.tool_search` with `min_similarity=0.6` (configurable via `--similarity-threshold`), filters returned drawers, and writes an idempotent `## Prior context (MemPalace boot search)` section into `engine/session/current_plan.md` listing each surviving drawer's wing/room, source, similarity, and a one-line excerpt. Re-running replaces the section in place.
+
+**Telemetry shim.** Because the orchestrator imports `tool_search` directly (not via the MCP route), the PostToolUse hook does not fire. The orchestrator appends one JSONL line per formulation to `current_mempalace.jsonl` mimicking the hook output shape (`tool: "mcp__mempalace__mempalace_search"`, `args_summary: "boot-search:<label>:<query>"`) so `search_calls` increments correctly. Substrate-unreachable paths skip the shim (the call didn't actually fire).
+
+**Mode resolution.** Work-item phrase resolved in order: `current.json.working_on` → `auto_target.json` first pending task `name` (routine) → `STATE.md` "Next session work item" block (pre-claim).
+
+Invoked at session-build-lifecycle SKILL step 3 (engine) and routine-mode-lifecycle SKILL step 5.5 (routine).
+
+### Drawer-citation telemetry (per ADR 0056 S-0093 amendment, Issue #39)
+
+The S-0078 mechanism captures whether MemPalace was *used* (call counts). It does not capture whether returned drawers actually *informed authored artifacts*. Without that signal, "MemPalace is being used" is observable but "MemPalace is being useful" is not.
+
+[`engine/tools/scan_mempalace_citations.py`](../tools/scan_mempalace_citations.py) runs at shutdown after the diary write and after `outcome_summary` is filled. Scans three sources for citation patterns:
+
+| Source | Read via |
+|---|---|
+| `outcome_summary` | `engine/session/current.json` |
+| Today's diary entry | `mempalace.mcp_server.tool_diary_read(agent_name="claude", last_n=3)` matched on date |
+| Commit messages | `git log <eager-claim-sha>..HEAD --format=%B` |
+
+Three patterns:
+
+- `DRAWER_ID_PATTERN`: `\bdrawer_[a-z][a-z0-9_]*_[a-f0-9]{16,}\b` — chromadb-internal drawer IDs.
+- `SESSION_ARCHIVE_PATTERN`: `(per|from|at|in|see)\s+S-NNNN` and `S-NNNN's <noun>`.
+- `TAG_NAMED_PATTERN`: `per (pushback|lesson|decision) drawer`.
+
+Per-source dedup; cross-source sums. Writes a nested `mempalace_citations` block under the existing `mempalace_activity` field:
+
+```json
+"mempalace_citations": {
+  "drawer_id_refs": int,
+  "session_archive_refs": int,
+  "tag_named_refs": int,
+  "total": int
+}
+```
+
+Rides the existing `REQUIRED_ARCHIVE_FIELDS` row in [`audit_archive_structured_fields.py`](../tools/audit_archive_structured_fields.py) — no new audit row.
+
+**New audit category — `mempalace_zero_citations_after_search`** (soft-warn). Fires when `mempalace_activity.search_calls > 0 AND mempalace_activity.mempalace_citations.total == 0`. Gated on session id ≥ S-0093 (pre-S-0093 archives lack the citations block by design). Persistent firing per ADR 0042's 3-of-5 surface signals retrieval happened but observable behavior change did not — the boot-search formulations aren't surfacing drawers the session would cite, OR retrieved drawers aren't being woven into authored artifacts. Either way, the formulation set or AI discipline is the regression.
+
 ## See also
 
 - [`mempalace-tagging-conventions.md`](mempalace-tagging-conventions.md) — when to apply which tag, and where each tag's drawers go (room-targeting conventions added at S-0032).

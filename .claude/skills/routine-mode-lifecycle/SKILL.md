@@ -52,11 +52,13 @@ Count routine-mode session archives matching the active `target_id` in `engine/s
 
 Walk tasks in order. Pick the first whose `status == pending` AND every task id in `depends_on` has `status == complete`. None found (all remaining `blocked` or unsatisfied dependencies) → write HANDOFF "no eligible task in `<target_id>`" → exit 0 without claiming.
 
-### 5.5. MemPalace boot query (per ADR 0056, S-0078)
+### 5.5. MemPalace boot query (per ADR 0056, S-0078; orchestrated S-0093)
 
-Call `mempalace_search` with terms derived from the picked task's `name` plus `scope_lock.allowed_paths` basenames. Surface anything bearing on the task in the plan rationale (step 6). Skip silently on first failure if MemPalace MCP is unreachable — the soft-warn at shutdown catches persistent skips.
+Run `python3 engine/tools/mempalace_boot_search.py` at this step. The orchestrator resolves the work-item phrase from `auto_target.json`'s active task `name`, runs three formulations (literal / conceptual / adjacent) through `mempalace.mcp_server.tool_search` with `min_similarity=0.6`, filters returned drawers, writes an idempotent `## Prior context (MemPalace boot search)` section into `engine/session/current_plan.md`, and appends one JSONL telemetry line per formulation to `current_mempalace.jsonl` so `search_calls` increments correctly. Substrate-unreachable paths emit a "MemPalace substrate unreachable at boot" notice and skip the telemetry shim.
 
-**Mechanically backstopped by `mempalace_boot_query_skipped` soft-warn.** The PostToolUse hook at `engine/tools/hooks/post-mempalace-tool-use.sh` records the call to `engine/session/current_mempalace.jsonl`; `validate.py --final-check` at shutdown step 7 emits the soft-warn if no `mempalace_search` call landed.
+The plan body authored at step 6 should reference drawers from the orchestrator's section that bear on the task. Citations in plan rationale or commit messages satisfy the closed-loop `mempalace_zero_citations_after_search` audit at shutdown.
+
+**Mechanically backstopped by `mempalace_boot_query_skipped` soft-warn.** `validate.py --final-check` at shutdown step 7 emits the soft-warn if no `mempalace_search` call landed (orchestrator + AI-driven combined).
 
 ### 5.6. MemPalace diary read (per ADR 0056, S-0078)
 

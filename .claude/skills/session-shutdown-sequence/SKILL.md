@@ -213,6 +213,12 @@ All known soft-warn categories appear in the block, even with zero counts; absen
 
 **Aggregation procedure:** filter `validate-history.jsonl` to entries with this session's `session_id` (or by timestamp window if any are tagged "outside-session"); for each category appearing in any entry, take the max count.
 
+### 8b. Scan drawer citations (per ADR 0056 S-0093 amendment, Issue #39)
+
+After step 8 fills `outcome_summary` AND step 7 wrote the diary entry, run `python3 engine/tools/scan_mempalace_citations.py`. The tool scans `outcome_summary`, today's diary entry (via `mempalace.mcp_server.tool_diary_read`), and commit messages from `git log <eager-claim-sha>..HEAD --format=%B` for three citation patterns (drawer IDs, S-NNNN archive references, tag-named references). Writes the nested `mempalace_citations` block under the existing `mempalace_activity` field in `engine/session/current.json`. Idempotent — re-running overwrites the block.
+
+The closing commit's pre-commit hook re-runs `validate.py --final-check`; the new audit category `mempalace_zero_citations_after_search` reads the citations block written by this step. If `mempalace_activity.search_calls > 0` AND `mempalace_activity.mempalace_citations.total == 0`, the soft-warn fires. Gated on session id ≥ S-0093.
+
 ### 9. Archive the claim
 
 ```bash

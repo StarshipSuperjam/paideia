@@ -241,6 +241,46 @@ S-0090 left two gaps relative to that requirement:
 
 **Cross-references:** S-0090 archive (the residual hard-fail this closes); user pushback at S-0090 close ("I'm not confident that this solves my concern…"); plan file `~/.claude/plans/i-m-not-satisfied-with-modular-flute.md`; [`engine/tools/validate.py`](../tools/validate.py) `validate_mempalace_adoption()` body shape; [`engine/operations/routine-mode-operations.md`](../operations/routine-mode-operations.md) "Deferred diary recovery" section.
 
+### Amendment — S-0093 (boot-search effectiveness + drawer-citation telemetry)
+
+The S-0078 mechanism enforces *call frequency* — that boot search and diary read/write happen. It does not enforce *value* — that retrieval phrasing is good enough to surface relevant drawers, that returned drawers actually inform the session's authoring. Two issues filed at the S-0086 audit follow-up window ([Issue #38](https://github.com/StarshipSuperjam/paideia/issues/38), [Issue #39](https://github.com/StarshipSuperjam/paideia/issues/39)) name the gap from both ends. The S-0093 amendment closes both in one cohesive extension of the existing four-layer apparatus.
+
+**Issue #38 — boot-search orchestrator.** [`engine/tools/mempalace_boot_search.py`](../tools/mempalace_boot_search.py) runs at boot for both `/start-engine` (interactive) and `/start-routine` sessions. Three formulations of the work-item phrase:
+
+- **literal** — phrase verbatim, normalized (lowercased, punctuation stripped, ≤250 chars).
+- **conceptual** — top-N substantive keywords joined; drops connectives so the vector embedding lands at a different point in semantic space.
+- **adjacent** — literal phrase suffixed with `lessons pushback`; orients toward past-failure-recovery drawers.
+
+Calls `mempalace.mcp_server.tool_search` directly (importing the upstream MCP-tool function rather than shelling out — avoids text-output parsing and uses the native `min_similarity=0.6` parameter). Writes an idempotent `## Prior context (MemPalace boot search)` section into [`engine/session/current_plan.md`](../session/current_plan.md) listing surviving drawers with `wing/room`, source, similarity, and a one-line excerpt. Re-running replaces the section in place (regex-bounded by section heading + next H2 or EOF).
+
+**Telemetry shim.** The orchestrator appends one JSONL line per formulation to `engine/session/current_mempalace.jsonl` mimicking the PostToolUse hook output (`tool: "mcp__mempalace__mempalace_search"`, `args_summary: "boot-search:<label>:<query>"`). The PostToolUse hook only fires on `mcp__mempalace__*` MCP tool calls — calling `tool_search` from a python tool via library import doesn't trigger it. Without the shim, a session whose ONLY boot search is via the orchestrator would still trip `mempalace_boot_query_skipped` because `search_calls` would remain zero. Shim writes are gated on substrate-reachable; substrate-unreachable paths emit a "MemPalace substrate unreachable at boot" section + skip the shim.
+
+**Mode resolution.** Work-item phrase resolution order: (1) `current.json.working_on` (eager-claim seed; preferred); (2) `auto_target.json` first pending task `name` (routine pre-claim); (3) `STATE.md` "Next session work item" block (interactive pre-claim).
+
+**Issue #39 — drawer-citation telemetry.** [`engine/tools/scan_mempalace_citations.py`](../tools/scan_mempalace_citations.py) is a sibling shutdown tool that runs after diary write and after `outcome_summary` is filled. Scans three sources for citation patterns: `outcome_summary`, today's diary entry (via `tool_diary_read(agent_name="claude", last_n=3)`, matched on date), and commit messages from `git log <eager-claim-sha>..HEAD --format=%B`. Pattern set:
+
+- `DRAWER_ID_PATTERN`: `\bdrawer_[a-z][a-z0-9_]*_[a-f0-9]{16,}\b` — chromadb-internal drawer IDs.
+- `SESSION_ARCHIVE_PATTERN`: `(per|from|at|in|see)\s+S-NNNN` and `S-NNNN's <noun>`.
+- `TAG_NAMED_PATTERN`: `per (pushback|lesson|decision) drawer`.
+
+Per-source dedup (a drawer ID counted once per source); cross-source sums (the same drawer ID appearing in `outcome_summary` AND diary AND git log counts three times). The nested `mempalace_citations` block writes under the existing `mempalace_activity` field — rides the existing `REQUIRED_ARCHIVE_FIELDS` row in `audit_archive_structured_fields.py` per Layer 4 parameterization. No new audit row needed.
+
+**New soft-warn — `mempalace_zero_citations_after_search`.** Added to `validate_mempalace_adoption()`. Fires when `mempalace_activity.search_calls > 0 AND mempalace_activity.mempalace_citations.total == 0`. Gated on session id ≥ S-0093 — pre-S-0093 archives lack the citations block by design and would fire spuriously. Body cites this amendment + ADR 0042 lifecycle. Persistent firing (3-of-5 sessions) signals the boot-search formulations aren't surfacing drawers the session would cite OR retrieved drawers aren't being woven into authored artifacts; either way, the formulation set or AI discipline is the regression to investigate.
+
+**Coverage table** (post-S-0093):
+
+| Path | Engine | Routine |
+|---|---|---|
+| Boot orchestrator (`mempalace_boot_search.py`) | invoked at session-build-lifecycle SKILL step 3 | invoked at routine-mode-lifecycle SKILL step 5.5 |
+| Three formulations + similarity ≥0.6 + telemetry shim | uniform | uniform |
+| `## Prior context` section in `current_plan.md` | written at boot | written at boot |
+| Citation scanner (`scan_mempalace_citations.py`) | runs at shutdown post-diary-write | runs at shutdown post-diary-write |
+| `mempalace_zero_citations_after_search` soft-warn | fires in both modes (search > 0 AND total == 0) | fires in both modes |
+
+**Cascade analysis (per ADR 0041).** Additive only — no supersession. The S-0078 four-layer contract remains the load-bearing apparatus. The S-0087 KG/tunnels retirement and S-0089/S-0090/S-0091 escape-hatch refinements remain untouched. The new orchestrator participates in Layer 1 (telemetry shim writes the same JSONL shape the PostToolUse hook writes); the new scanner participates in Layer 2 (rolls up structured field at shutdown like `scan_mempalace_activity.py`); the new soft-warn participates in Layer 3 (audit category in `validate.py --final-check`). Layer 4 parameterization is unchanged because the citations block is nested under `mempalace_activity`. Existing audit categories all continue to fire on the same predicates.
+
+**Cross-references:** [Issue #38](https://github.com/StarshipSuperjam/paideia/issues/38), [Issue #39](https://github.com/StarshipSuperjam/paideia/issues/39); plan file `~/.claude/plans/transient-dazzling-backus.md`; [`engine/tools/mempalace_boot_search.py`](../tools/mempalace_boot_search.py); [`engine/tools/scan_mempalace_citations.py`](../tools/scan_mempalace_citations.py); [`engine/tools/validate.py`](../tools/validate.py) `validate_mempalace_adoption()` body shape (new `mempalace_zero_citations_after_search` branch); the campaign plan at `~/.claude/plans/i-want-to-delay-sparkling-shell.md` (C4 row).
+
 ### Pushback rule (per CLAUDE.md)
 
 The user's framing ("I need to know how to recover the lost memories") raised a separate concern about retroactive recovery of diary entries / decision drawers / pushback drawers / lesson drawers from the S-0032 → S-0077 window. That work is bounded as Part B of the approved plan and explicitly deferred to S-0079+ (see plan file at `~/.claude/plans/use-of-mempalace-by-velvety-pebble.md`); the recovery audit script and transcript-crawl executor are not part of S-0078's scope. Mechanization first stops the bleeding; recovery is bounded historical cleanup that fits cleanly in a separate session.
@@ -278,3 +318,7 @@ Considered and rejected. Wrapping every MCP tool call would be invasive (every t
 - [Issue #27](https://github.com/StarshipSuperjam/paideia/issues/27) — closes.
 - [Issue #20](https://github.com/StarshipSuperjam/paideia/issues/20) — closes.
 - [Issue #43](https://github.com/StarshipSuperjam/paideia/issues/43) — S-0087 amendment + ops-doc updates.
+- [Issue #38](https://github.com/StarshipSuperjam/paideia/issues/38) — S-0093 amendment (boot-search effectiveness orchestrator).
+- [Issue #39](https://github.com/StarshipSuperjam/paideia/issues/39) — S-0093 amendment (drawer-citation telemetry).
+- [`engine/tools/mempalace_boot_search.py`](../tools/mempalace_boot_search.py) — Issue #38 deliverable.
+- [`engine/tools/scan_mempalace_citations.py`](../tools/scan_mempalace_citations.py) — Issue #39 deliverable.

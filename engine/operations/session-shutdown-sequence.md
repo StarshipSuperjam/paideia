@@ -246,6 +246,14 @@ All known soft-warn categories appear in the block, even with zero counts; absen
 4. Per ADR 0056 (S-0078), the three `mempalace_*_skipped` categories come from `validate.py --final-check` — they are part of the validate-history.jsonl entries from step 1, not separate session-state. The aggregation procedure picks them up automatically along with all other validator categories.
 5. Ensure every known category from the catalog appears with at least 0; absent keys carry the documented "category didn't exist" semantic.
 
+### 8b. Scan drawer citations (per ADR 0056 S-0093 amendment, Issue #39)
+
+After `outcome_summary` is filled at step 8 AND the diary write completed at step 7, run [`engine/tools/scan_mempalace_citations.py`](../tools/scan_mempalace_citations.py) from the repo root. The tool scans `outcome_summary`, today's diary entry (via `mempalace.mcp_server.tool_diary_read`), and commit messages from `git log <eager-claim-sha>..HEAD --format=%B` for three citation patterns (drawer IDs, S-NNNN archive references, tag-named references — see [`mempalace-operations.md`](mempalace-operations.md) "Drawer-citation telemetry"). Writes the nested `mempalace_citations` block under the existing `mempalace_activity` field in `engine/session/current.json`.
+
+The tool is idempotent — re-running overwrites the block. Substrate-unreachable paths (mempalace import fails) yield empty diary text but the scan still runs against `outcome_summary` + git log; pre-S-0093 archives are unaffected because the new `mempalace_zero_citations_after_search` audit category is gated on session id ≥ S-0093.
+
+The closing commit's pre-commit hook re-runs `validate.py --final-check`; the new audit category reads the citations block written by this step. If `mempalace_activity.search_calls > 0` AND `mempalace_activity.mempalace_citations.total == 0`, the soft-warn `mempalace_zero_citations_after_search` fires — observable signal that the boot search ran but the session didn't cite any retrieved drawers in authored artifacts. Persistent firing per ADR 0042's 3-of-5 surface signals the boot-search formulations need tuning OR retrieved drawers aren't being woven into authored work.
+
 ### 9. Archive the claim
 
 ```bash

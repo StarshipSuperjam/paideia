@@ -10,6 +10,8 @@ Cascade discipline ([ADR 0041](../adr/0041-cascade-analysis-discipline.md)) adds
 
 MemPalace mechanical adoption (ADR 0056, S-0078) adds two more soft-warn categories — `mempalace_boot_query_skipped` and `mempalace_diary_read_skipped` — plus the `mempalace_diary_write_acknowledged_skip` downgrade-from-hard-fail variant. They use the same archive canon and 3-of-5 boot surface as every other category. The previous `diary_skipped` (manually-recorded) is renamed to `mempalace_diary_write_skipped` (mechanically-detected from `mempalace_activity` telemetry); historical archives migrated via `engine/tools/migrate_diary_skipped_archive_field.py`. The hard-fail companion (`mempalace_diary_write_skipped`) is enforced at session shutdown by `validate.py --final-check`.
 
+The S-0093 amendment to ADR 0056 (Issues [#38](https://github.com/StarshipSuperjam/paideia/issues/38) + [#39](https://github.com/StarshipSuperjam/paideia/issues/39)) adds one more category: `mempalace_zero_citations_after_search` — the closed-loop counterpart to `mempalace_boot_query_skipped`. Fires when boot search happened but the citation scan at shutdown found zero drawer references in `outcome_summary`/diary/commit messages. Same archive canon, same 3-of-5 boot surface. See [`tools-validate-interpretation.md`](tools-validate-interpretation.md) `mempalace_zero_citations_after_search` for interpretation and tuning paths.
+
 ## Source of truth
 
 The trend canon is the committed `engine/session/archive/S-NNNN.json` field `outcome_summary.soft_warns` — a structured `{category: count}` block written at session shutdown alongside the prose `outcome_summary`. This file is committed; it survives worktree rotation and fresh clones.
