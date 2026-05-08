@@ -264,6 +264,26 @@ The seven categories ADR 0016 contracts. All seven register in `checks_run` even
 - **A new hard-fail in CI on a commit that passed locally** — clock skew on `validate-history.jsonl` writes is fine to ignore; everything else is a real divergence to investigate.
 - **Validator runtime > 3s** — Phase 4 graph audit budget is 3s on a 100-node test seed. If the structural-only checks (Phase 0+) start exceeding ~500ms, they've grown beyond their scope.
 
+## Informational-only-accepted classifications
+
+Some soft-warn categories are documented as "fires by design and the user does not act on each fire" — distinct from the persistent-warn annotation pattern below (which is about expected-firing-under-named-conditions). An informational-only-accepted category fires whenever its predicate matches; the signal serves passive observability or trend-watching at audit time but does not require per-fire action.
+
+The classification is documented per category in this section so the validator's pipeline visibly distinguishes intent. Re-classification routes through user adjudication at health-check audits; the audit's "Affirmative retire candidates" section is the canonical surface where re-classification is proposed and adjudicated.
+
+The first two classifications land at the S-0098 adjudication of S-0097's audit (per [ADR 0057](../adr/0057-adversarial-stance-for-health-check-audits.md) Retire candidate B). At audit-window-acted-on rates of 1 commit and 2 commits respectively across S-0078 → S-0096 (despite firing in 5 and 4 archives), the two MemPalace-skip categories below were near-zero-acted-on; the user adjudicated re-classify-not-retire to preserve the passive-observability signal that some sessions don't query MemPalace at boot or read the diary, while clarifying that no per-fire action is required.
+
+### `mempalace_boot_query_skipped` (informational-only-accepted, S-0098)
+
+**Why classified informational-only:** the category surfaces a MemPalace-adoption gap (no `mempalace_search` call in the session) for cross-session trend visibility. Per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md) the warn ships to make adoption observable; the warn's value is in audit-time aggregation across N sessions rather than mid-session correction. Individual sessions that legitimately do no MemPalace boot search (rare maintenance work, short hot-fix sessions) leave the warn intact without triggering remediation.
+
+**What still warrants action:** persistent firing across 3-of-5 sessions per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md) is the audit-time surface that asks whether the boot-search apparatus is delivering enough value to be exercised. Cross-reference with `mempalace_zero_citations_after_search` to distinguish "boot search not happening" from "boot search happening but not informing the work."
+
+### `mempalace_diary_read_skipped` (informational-only-accepted, S-0098)
+
+**Why classified informational-only:** sibling to `mempalace_boot_query_skipped`. The category surfaces a MemPalace-adoption gap (no `mempalace_diary_read` call) for cross-session trend visibility. Same passive-observability rationale per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md). The diary-read skip is correctable in-session by invoking `mempalace_diary_read` once via the MCP tool with `agent_name="claude" last_n=3`, but the absence of the call within a single session is not a per-session-action signal.
+
+**What still warrants action:** persistent firing across 3-of-5 sessions per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md) is the audit-time surface. Combined persistent firing with `mempalace_boot_query_skipped` is signal that the project's MemPalace consumption discipline (boot-search + diary-read at session start) is structurally lapsing rather than per-session lapsing.
+
 ## Persistent-warn annotation
 
 When the escalation criterion ([`soft-warn-lifecycle.md`](soft-warn-lifecycle.md), 10 consecutive archives) lands on "accept and annotate," the category gets an entry below explaining why the persistence is expected and what condition would resolve it. The boot surface respects the annotation by suppressing the surface for sessions that match the named condition.
