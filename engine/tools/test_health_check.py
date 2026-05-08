@@ -52,7 +52,22 @@ from health_check import (  # noqa: E402
     audit_mempalace,
     detect_cadence,
     detect_last_check,
+    emit_accumulated_pushbacks_and_lessons,
+    emit_affirmative_retire_candidates,
+    emit_bloat,
+    emit_cadence_calibration,
+    emit_cold_context_probe,
+    emit_fit,
+    emit_forward_fit_map,
+    emit_freshness_probes_run,
+    emit_gaps,
+    emit_infrastructure_without_function,
+    emit_non_obvious_findings,
+    emit_operative_diagnostic_applied,
+    emit_preamble,
     emit_report,
+    emit_summary,
+    emit_user_adjudication,
     list_archives,
     main,
     read_archive,
@@ -731,21 +746,278 @@ def test_render_section_empty() -> None:
 
 
 def test_render_report_structure(synthetic_repo: Path) -> None:
+    """render_report emits the 14-body-section TEMPLATE.md shape, in order.
+
+    Per ADR 0057 + Issue #53 (closed at S-0102): the script's contract is
+    to produce the canonical 14-section adversarial-stance shape from
+    docs/health-checks/TEMPLATE.md. Each section header must appear in
+    order; data sections must include their findings; scaffolding
+    sections must include their placeholder markers; the User adjudication
+    section must be left blank on arrival per ADR 0057 element 1.
+    """
     report = HealthCheckReport(session_id="S-0030")
     report.fit.add("F1")
     report.gaps.add("G1")
     report.dead_weight.add("D1")
     report.bloat.add("B1")
+    report.mempalace.add("M1")
     rendered = render_report(report)
+
+    # Preamble.
     assert "# Health Check S-0030" in rendered
-    assert "## Fit" in rendered
-    assert "## Gaps" in rendered
-    assert "## Dead weight" in rendered
-    assert "## Bloat" in rendered
-    assert "## Cadence calibration" in rendered
-    assert "## Summary" in rendered
+    assert "engine/adr/0022-periodic-project-health-checks.md" in rendered, (
+        "preamble must cite ADR 0022"
+    )
+    assert (
+        "engine/adr/0057-adversarial-stance-for-health-check-audits.md" in rendered
+    ), "preamble must cite ADR 0057"
+    assert "conversational by default" in rendered
+
+    # All 14 body sections present, in TEMPLATE.md order.
+    expected_headers_in_order = [
+        "## Freshness probes run",
+        "## Operative diagnostic applied",
+        "## Forward-fit map",
+        "## Non-obvious finding(s)",
+        "## Fit",
+        "## Gaps",
+        "## Infrastructure-without-function (dead weight)",
+        "## Bloat",
+        "## Accumulated pushbacks and lessons",
+        "## Affirmative retire candidates",
+        "## Cold-context probe",
+        "## User adjudication",
+        "## Cadence calibration",
+        "## Summary",
+    ]
+    last_index = -1
+    for header in expected_headers_in_order:
+        idx = rendered.find(header)
+        assert idx != -1, f"missing section header: {header!r}"
+        assert idx > last_index, (
+            f"section {header!r} appears out of TEMPLATE.md order "
+            f"(idx={idx} <= last_index={last_index})"
+        )
+        last_index = idx
+
+    # Data findings flow into their sections.
     assert "F1" in rendered and "G1" in rendered
     assert "D1" in rendered and "B1" in rendered
+    assert "M1" in rendered, "audit_mempalace findings flow into Accumulated section"
+
+    # Old shape has been retired.
+    assert "## Dead weight\n" not in rendered, (
+        "old 'Dead weight' header must be retired in favor of "
+        "'Infrastructure-without-function (dead weight)'"
+    )
+    assert "## MemPalace\n" not in rendered, (
+        "old standalone 'MemPalace' section folds into "
+        "'Accumulated pushbacks and lessons'"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Per-section emitter unit tests (added at S-0102 per Issue #53)
+#
+# Each new emit_*() function from health_check.py gets at least one test
+# verifying the section header + adversarial-prompt / scaffolding content
+# its TEMPLATE.md row commits to. Data emitters (Fit / Gaps /
+# Infrastructure-without-function / Bloat) get with-data + empty-data
+# coverage; scaffolding emitters get structural-presence coverage.
+# ---------------------------------------------------------------------------
+
+
+def test_emit_preamble_with_last_check_computes_delta() -> None:
+    report = HealthCheckReport(session_id="S-0102", cadence=20, last_check="S-0097")
+    out = emit_preamble(report)
+    assert "# Health Check S-0102" in out
+    assert "**Cadence:** every 20 sessions." in out
+    assert "Last check: S-0097 (Δ = 5)." in out
+    assert "user-buffered execution" in out
+
+
+def test_emit_preamble_without_last_check() -> None:
+    report = HealthCheckReport(session_id="S-0102", cadence=20, last_check=None)
+    out = emit_preamble(report)
+    assert "Last check: none (first check)." in out
+    assert "Δ = " not in out
+
+
+def test_emit_preamble_handles_malformed_session_id_gracefully() -> None:
+    """Malformed session ids skip delta computation rather than raising."""
+    report = HealthCheckReport(session_id="S-XYZX", cadence=10, last_check="S-0097")
+    out = emit_preamble(report)
+    assert "Last check: S-0097." in out
+    assert "Δ = " not in out
+
+
+def test_emit_freshness_probes_run_lists_five_systems() -> None:
+    out = emit_freshness_probes_run()
+    assert out.startswith("## Freshness probes run")
+    assert "stats-as-proxy-for-function" in out
+    for system in (
+        "**MemPalace.**",
+        "**Validator.**",
+        "**Supabase.**",
+        "**Hooks.**",
+        "**Registries.**",
+    ):
+        assert system in out, (
+            f"freshness probes section missing system bullet: {system!r}"
+        )
+    assert "<observation" in out, "section must carry placeholder for AI population"
+
+
+def test_emit_operative_diagnostic_applied_carries_scaffolding() -> None:
+    out = emit_operative_diagnostic_applied()
+    assert out.startswith("## Operative diagnostic applied")
+    assert "dead-weight scanner output" in out
+    assert "<observations>" in out
+
+
+def test_emit_forward_fit_map_carries_scaffolding_table() -> None:
+    out = emit_forward_fit_map()
+    assert out.startswith("## Forward-fit map")
+    assert "dual-temporal-frame" in out
+    assert "Load-bearing forward" in out
+    assert "Candidate-among-substrates" in out
+    assert "| Forward state need |" in out, "scaffolding table header must be present"
+    assert "<upcoming phase or OQ>" in out, (
+        "scaffolding row placeholder must be present"
+    )
+
+
+def test_emit_non_obvious_findings_carries_first_finding_scaffold() -> None:
+    out = emit_non_obvious_findings()
+    assert out.startswith("## Non-obvious finding(s)")
+    assert "≥1 required" in out
+    assert "### Non-obvious finding A — <title>" in out
+
+
+def test_emit_fit_with_data_carries_findings_and_adversarial_prompt() -> None:
+    findings = CategoryFindings()
+    findings.add("FIT-OBSERVATION-XYZ", "FIT-ACTION-XYZ")
+    out = emit_fit(findings)
+    assert out.startswith("## Fit")
+    assert "**Adversarial prompt:**" in out
+    assert "silently ignored" in out
+    assert "FIT-OBSERVATION-XYZ" in out
+    assert "FIT-ACTION-XYZ" in out
+
+
+def test_emit_fit_empty_data_renders_no_findings_line() -> None:
+    out = emit_fit(CategoryFindings())
+    assert out.startswith("## Fit")
+    assert "**Adversarial prompt:**" in out
+    assert "no findings. no action." in out
+
+
+def test_emit_gaps_with_data_carries_findings_and_adversarial_prompt() -> None:
+    findings = CategoryFindings()
+    findings.add("GAP-OBSERVATION-XYZ", "GAP-ACTION-XYZ")
+    out = emit_gaps(findings)
+    assert out.startswith("## Gaps")
+    assert "new collaborator joined the project tomorrow" in out
+    assert "GAP-OBSERVATION-XYZ" in out
+
+
+def test_emit_infrastructure_without_function_uses_renamed_header() -> None:
+    findings = CategoryFindings()
+    findings.add("DW-OBSERVATION-XYZ", "DW-ACTION-XYZ")
+    out = emit_infrastructure_without_function(findings)
+    assert out.startswith("## Infrastructure-without-function (dead weight)")
+    assert "argue this candidate's retirement" in out
+    assert "DW-OBSERVATION-XYZ" in out
+    assert "## Dead weight\n" not in out, "old header retired"
+
+
+def test_emit_bloat_with_data_carries_findings_and_adversarial_prompt() -> None:
+    findings = CategoryFindings()
+    findings.add("BLOAT-OBSERVATION-XYZ", "BLOAT-ACTION-XYZ")
+    out = emit_bloat(findings)
+    assert out.startswith("## Bloat")
+    assert "halve in size" in out
+    assert "BLOAT-OBSERVATION-XYZ" in out
+
+
+def test_emit_accumulated_pushbacks_and_lessons_with_mempalace_data() -> None:
+    findings = CategoryFindings()
+    findings.add("MEMPALACE-OBSERVATION-XYZ", "MEMPALACE-ACTION-XYZ")
+    out = emit_accumulated_pushbacks_and_lessons(findings)
+    assert out.startswith("## Accumulated pushbacks and lessons")
+    assert "Mechanical observations from `audit_mempalace()`:" in out
+    assert "MEMPALACE-OBSERVATION-XYZ" in out
+    assert "### Pushback clusters" in out
+    assert "### Lesson clusters" in out
+
+
+def test_emit_accumulated_pushbacks_and_lessons_without_mempalace_data() -> None:
+    """Empty audit_mempalace findings still yield scaffolding for AI clustering."""
+    out = emit_accumulated_pushbacks_and_lessons(CategoryFindings())
+    assert out.startswith("## Accumulated pushbacks and lessons")
+    assert "Mechanical observations from `audit_mempalace()`:" not in out
+    assert "### Pushback clusters" in out
+    assert "### Lesson clusters" in out
+
+
+def test_emit_affirmative_retire_candidates_carries_both_alternatives() -> None:
+    """Section scaffolds both Retire-candidate-A and No-retire-candidates paths."""
+    out = emit_affirmative_retire_candidates()
+    assert out.startswith("## Affirmative retire candidates")
+    assert "### Retire candidate A — <title>" in out
+    assert "### No retire candidates this audit" in out
+    assert "adversarially scrutinizing" in out
+
+
+def test_emit_cold_context_probe_carries_random_pick_procedure() -> None:
+    out = emit_cold_context_probe()
+    assert out.startswith("## Cold-context probe")
+    assert "**Artifact selected (random):**" in out
+    assert "**Cold-read findings:**" in out
+    assert "shuf -n 1" in out
+
+
+def test_emit_user_adjudication_blank_on_arrival_with_lanes_listed() -> None:
+    """Per ADR 0057 element 1: section is blank-on-arrival but the four
+    routing lanes (inline / STATE / Issue / tension) are listed."""
+    out = emit_user_adjudication()
+    assert out.startswith("## User adjudication")
+    assert "Left blank on arrival" in out
+    assert "<populated post-audit by the user>" in out
+    assert "Inline trivial cleanup" in out
+    assert "Next-session work item" in out
+    assert "New GitHub Issue" in out
+    assert "New tension" in out
+
+
+def test_emit_cadence_calibration_emits_report_cadence() -> None:
+    report = HealthCheckReport(session_id="S-0102", cadence=20)
+    out = emit_cadence_calibration(report)
+    assert out.startswith("## Cadence calibration")
+    assert "every 20 sessions" not in out, (
+        "phrasing-check guard: cadence prose uses 'current cadence (N sessions)' shape"
+    )
+    assert "current cadence (20 sessions)" in out
+    assert "<keep at 20 | raise to M | lower to M>" in out
+
+
+def test_emit_summary_carries_observation_count_footer() -> None:
+    report = HealthCheckReport(session_id="S-0102")
+    report.fit.add("F1")
+    report.gaps.add("G1")
+    report.gaps.add("G2")
+    report.dead_weight.add("D1")
+    report.bloat.add("B1")
+    report.mempalace.add("M1")
+    out = emit_summary(report)
+    assert out.startswith("## Summary")
+    assert "_Mechanical-data baseline (script-emitted): 6 observation(s)" in out
+
+
+def test_emit_summary_zero_observations_is_clean() -> None:
+    report = HealthCheckReport(session_id="S-0102")
+    out = emit_summary(report)
+    assert "0 observation(s)" in out
 
 
 def test_emit_report_writes_file(synthetic_repo: Path) -> None:
@@ -1316,13 +1588,19 @@ def test_audit_mempalace_diary_high_skip_rate(
     assert any("Diary skip rate: 3/4" in obs and "75%" in obs for obs in obs_texts)
 
 
-def test_render_report_includes_mempalace_section(
+def test_render_report_audit_mempalace_data_flows_into_accumulated_section(
     synthetic_repo: Path,
 ) -> None:
+    """audit_mempalace observations flow into the Accumulated pushbacks and
+    lessons section per the S-0102 refactor (Issue #53). The old standalone
+    ## MemPalace section is retired in favor of folding mempalace data
+    under TEMPLATE.md's pushback/lesson section per ADR 0057."""
     report = HealthCheckReport(session_id="S-0033")
     report.mempalace.add("MemPalace stub finding", "test action")
     rendered = render_report(report)
-    assert "## MemPalace" in rendered
+    assert "## Accumulated pushbacks and lessons" in rendered
+    assert "Mechanical observations from `audit_mempalace()`:" in rendered
     assert "MemPalace stub finding" in rendered
-    # Section intro from render_report.
-    assert "Is the project's semantic-memory layer in healthy use?" in rendered
+    # Old standalone section is retired.
+    assert "## MemPalace\n" not in rendered
+    assert "Is the project's semantic-memory layer in healthy use?" not in rendered

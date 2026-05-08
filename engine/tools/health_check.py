@@ -1468,44 +1468,397 @@ def render_section(title: str, findings: CategoryFindings, intro: str) -> str:
     return f"## {title}\n\n> {intro}\n\n{body}\n"
 
 
-def render_report(report: HealthCheckReport) -> str:
-    """Render the full report as markdown matching docs/health-checks/TEMPLATE.md.
+# ---------------------------------------------------------------------------
+# Per-section emitters (one per docs/health-checks/TEMPLATE.md section,
+# in TEMPLATE.md order, per ADR 0057 contract; refactor landed at S-0102
+# per Issue #53).
+#
+# Three classes of emitter:
+#
+# - Data emitters (Fit / Gaps / Infrastructure-without-function / Bloat)
+#   wrap audit_*()-collected CategoryFindings with the section's
+#   adversarial prompt and reuse render_section() for bullet rendering.
+#
+# - Scaffolding emitters (Operative diagnostic / Forward-fit map /
+#   Non-obvious finding(s) / Affirmative retire candidates /
+#   Cold-context probe / User adjudication) emit the section header,
+#   the intro blockquote (verbatim from TEMPLATE.md), and a placeholder
+#   marker (e.g., `<observations>`, an empty 1-row table) for the
+#   audit AI to populate at audit-time. Per ADR 0057 user-buffered
+#   execution, User adjudication is left blank on arrival.
+#
+# - Mechanical / mixed emitters (Preamble / Freshness probes run /
+#   Accumulated pushbacks and lessons / Cadence calibration / Summary)
+#   produce some mechanical content (metadata, drawer counts, cadence
+#   prose) and may carry placeholders for AI-judgment portions.
+# ---------------------------------------------------------------------------
 
-    Composes the four section bodies plus the cadence-calibration block
-    and the summary paragraph. The summary is computed from total
-    finding counts.
+
+def emit_preamble(report: HealthCheckReport) -> str:
+    """Render the report preamble — title, authoring blockquote, cadence line.
+
+    Per docs/health-checks/TEMPLATE.md lines 1-7. The Last-check delta is
+    computed as the integer difference of session ids when both are valid
+    S-NNNN strings; absent (no parenthetical) when either id is malformed.
     """
     today_str = today()  # ADR 0058 — date-only display surface
-    last_check_clause = (
-        f"Last check: {report.last_check}." if report.last_check else "First check."
+    if report.last_check:
+        delta_text = ""
+        try:
+            current_n = int(report.session_id.removeprefix("S-"))
+            prior_n = int(report.last_check.removeprefix("S-"))
+            delta_text = f" (Δ = {current_n - prior_n})"
+        except ValueError:
+            delta_text = ""
+        last_check_clause = f"Last check: {report.last_check}{delta_text}."
+    else:
+        last_check_clause = "Last check: none (first check)."
+
+    return (
+        f"# Health Check {report.session_id} — {today_str}\n\n"
+        f"> Authored by {report.session_id} against the cadence trigger "
+        f"(or on-demand). Per [ADR 0022]"
+        f"(../../engine/adr/0022-periodic-project-health-checks.md) and "
+        f"[ADR 0057]"
+        f"(../../engine/adr/0057-adversarial-stance-for-health-check-audits.md). "
+        f"Producing script: "
+        f"`python3 engine/tools/health_check.py --session {report.session_id}`. "
+        f"Operational surface: [`engine/operations/health-check.md`]"
+        f"(../../engine/operations/health-check.md).\n>\n"
+        f"> **The audit is conversational by default — surface findings + "
+        f"guidance suggestions to the user; the user adjudicates; downstream "
+        f"sessions execute approved actions.** "
+        f'The "User adjudication" subsection below is left **blank on arrival** '
+        f"by the audit author. Do not pre-fill it. (Per ADR 0057 user-buffered "
+        f"execution.)\n\n"
+        f"**Cadence:** every {report.cadence} sessions. {last_check_clause}\n"
     )
 
-    fit_md = render_section(
-        "Fit",
-        report.fit,
-        "Does the machinery match what the project is actually producing?",
-    )
-    gaps_md = render_section(
-        "Gaps",
-        report.gaps,
-        "What's missing that should be there?",
-    )
-    dead_weight_md = render_section(
-        "Dead weight",
-        report.dead_weight,
-        "What's in the repo that no longer earns its keep?",
-    )
-    bloat_md = render_section(
-        "Bloat",
-        report.bloat,
-        "What's grown past its purpose?",
-    )
-    mempalace_md = render_section(
-        "MemPalace",
-        report.mempalace,
-        "Is the project's semantic-memory layer in healthy use?",
+
+def emit_freshness_probes_run() -> str:
+    """Emit the Freshness probes run section — TEMPLATE.md scaffolding.
+
+    Per docs/health-checks/TEMPLATE.md lines 9-17 and ADR 0057 element 3
+    (stats-as-proxy-for-function): each external system gets a fresh
+    content probe at audit-time. The script supplies the section
+    scaffolding; the audit AI runs the probes and replaces the
+    `<observation>` placeholders.
+    """
+    return (
+        "## Freshness probes run\n\n"
+        "> Per [ADR 0057]"
+        "(../../engine/adr/0057-adversarial-stance-for-health-check-audits.md) "
+        "stats-as-proxy-for-function. Each external system the audit "
+        "references gets a fresh content probe at audit-time. Counts and "
+        "existence checks alone do not satisfy this section.\n\n"
+        "- **MemPalace.** `mempalace search` against ≥3 representative recent "
+        "terms (derived from last sessions' `working_on` / `outcome_summary`). "
+        "Result: <observation about content quality, not just drawer count>.\n"
+        "- **Validator.** Acted-on rate of soft-warns across the audit window "
+        "(`git log --grep` per persistent category vs. archive "
+        "`outcome_summary_soft_warns` deltas). Result: <observation>.\n"
+        "- **Supabase.** Most-recent migration's empirical effect (sample row "
+        "counts, predicate distribution, schema shape vs. contract header). "
+        "Result: <observation>.\n"
+        "- **Hooks.** `.claude/logs/*-hook.log` tail across the audit window — "
+        "verify recent fires show `OK exit=0`. Result: <observation per hook>.\n"
+        "- **Registries.** Capture rate per register (`tensions.md`, "
+        "dead-weight scanner output, `auto_target.json`, `HANDOFF.md`) — "
+        "`git log --since` + content read. Result: <observation per register>.\n"
     )
 
+
+def emit_operative_diagnostic_applied() -> str:
+    """Emit the Operative diagnostic applied section — scaffolding for AI judgment.
+
+    Per docs/health-checks/TEMPLATE.md lines 19-23. The dead-weight scanner
+    output goes here as evidence; the audit's *judgment* of candidates
+    against "is this thing doing the work it was created to do, or is it
+    plumbing waiting for a function that never arrived?" is what makes
+    this section non-trivial.
+    """
+    return (
+        "## Operative diagnostic applied\n\n"
+        "> Brief restatement: which files / categories / rules surfaced as "
+        'candidates against "is this thing doing the work it was created to '
+        'do, or is it plumbing waiting for a function that never arrived?" '
+        "The dead-weight scanner output "
+        "([`engine/health_check/dead_weight_candidates_S-NNNN.md`]"
+        "(../../engine/health_check/dead_weight_candidates_S-NNNN.md)) goes "
+        "here as evidence; the audit's judgment is what makes this section "
+        "non-trivial.\n\n"
+        "<observations>\n"
+    )
+
+
+def emit_forward_fit_map() -> str:
+    """Emit the Forward-fit map section — scaffolding 1-row table for AI population.
+
+    Per docs/health-checks/TEMPLATE.md lines 25-41. ADR 0057 dual-temporal-frame
+    discipline (Issue #44 + S-0086 audit lesson). Adversarial audits weigh
+    BOTH historical fit AND fit-to-CONTINUE.
+    """
+    return (
+        "## Forward-fit map\n\n"
+        "> Required alongside historical-evidence reading per the "
+        "dual-temporal-frame discipline ([`engine/operations/health-check.md`]"
+        '(../../engine/operations/health-check.md) "Forward-fit map" + '
+        "[Issue #44](https://github.com/StarshipSuperjam/paideia/issues/44) + "
+        "S-0086 audit lesson). Adversarial audits weigh BOTH historical fit "
+        "AND fit-to-CONTINUE; either alone produces a muddled or "
+        "too-charitable verdict. Apply to any internal subsystem under audit "
+        "(or any artifact whose value depends on continued use).\n\n"
+        "For each upcoming phase / committed-future-need, name the "
+        "system-under-audit's role:\n\n"
+        "- **Load-bearing forward** — system is committed to play a specific "
+        "role in the next phase or open-question settlement.\n"
+        "- **Candidate-among-substrates** — system *could* play a role; "
+        "alternatives exist; commitment not yet made.\n"
+        "- **No role** — forward state needs are met by other substrates; "
+        "system has no called-out role.\n\n"
+        "Map state-needs to candidate substrates (Postgres + pgvector / "
+        "MemPalace / ADR + ENGINE_LOG / STATE.md / new). The forward-fit map "
+        "informs every retire/preserve/scale-back recommendation alongside "
+        "the historical-evidence section that follows.\n\n"
+        "| Forward state need | System-under-audit role | "
+        "Alternative substrate |\n"
+        "|---|---|---|\n"
+        "| <upcoming phase or OQ> | <load-bearing / candidate / no-role> | "
+        "<Postgres / ADR / etc.> |\n\n"
+        "<Add rows per upcoming phase / OQ / committed-future-need. The "
+        "dual-frame produces the most decisive recommendations when "
+        "historical and forward signals point opposite directions.>\n"
+    )
+
+
+def emit_non_obvious_findings() -> str:
+    """Emit the Non-obvious finding(s) section — scaffolding for AI judgment.
+
+    Per docs/health-checks/TEMPLATE.md lines 43-49. ≥1 required per the
+    operative diagnostic; the audit's own observation that no mechanical
+    scanner would catch.
+    """
+    return (
+        "## Non-obvious finding(s)\n\n"
+        "> ≥1 required, per [`engine/operations/health-check.md`]"
+        "(../../engine/operations/health-check.md). Not on any mechanical "
+        "scanner's output. The audit's own observation — what the AI/user "
+        "noticed that no rule would catch.\n\n"
+        "### Non-obvious finding A — <title>\n\n"
+        "<observation + recommendation, routed through User adjudication "
+        "below>\n"
+    )
+
+
+def emit_fit(findings: CategoryFindings) -> str:
+    """Emit the Fit section — adversarial prompt + audit_fit() data.
+
+    Per docs/health-checks/TEMPLATE.md lines 51-59. Adversarial prompt per
+    ADR 0057 element 2.
+    """
+    intro = (
+        "**Adversarial prompt:** *what machinery is silently ignored, what "
+        "telemetry is being treated as load-bearing without anyone acting on "
+        "it, and what category is firing 30+ times per session that no one "
+        "reads?*"
+    )
+    return render_section("Fit", findings, intro)
+
+
+def emit_gaps(findings: CategoryFindings) -> str:
+    """Emit the Gaps section — adversarial prompt + audit_gaps() data.
+
+    Per docs/health-checks/TEMPLATE.md lines 61-70. audit_gaps() integrates
+    audit_orphan_ok_list() per S-0099 (Issue #51); its findings flow
+    through this emitter unchanged.
+    """
+    intro = (
+        "**Adversarial prompt:** *if a new collaborator joined the project "
+        "tomorrow and tried to do work, what would they discover is missing "
+        "only by tripping over it?*"
+    )
+    return render_section("Gaps", findings, intro)
+
+
+def emit_infrastructure_without_function(findings: CategoryFindings) -> str:
+    """Emit the Infrastructure-without-function (dead weight) section.
+
+    Per docs/health-checks/TEMPLATE.md lines 72-82. Adversarial prompt per
+    ADR 0057 element 2; disposition labels per element 4 (recommend retire
+    / convert / preserve-with-affirmative-case). Header rename only —
+    audit_dead_weight() data feeds unchanged.
+    """
+    intro = (
+        "**Adversarial prompt:** *argue this candidate's retirement. What's "
+        "the affirmative case for keeping it? If the case is "
+        '"inbound references" alone, the references are themselves '
+        "candidates for retirement.*"
+    )
+    return render_section(
+        "Infrastructure-without-function (dead weight)", findings, intro
+    )
+
+
+def emit_bloat(findings: CategoryFindings) -> str:
+    """Emit the Bloat section — adversarial prompt + audit_bloat() data.
+
+    Per docs/health-checks/TEMPLATE.md lines 84-92.
+    """
+    intro = (
+        "**Adversarial prompt:** *if the project's machinery were forced to "
+        "halve in size, what would go first?*"
+    )
+    return render_section("Bloat", findings, intro)
+
+
+def emit_accumulated_pushbacks_and_lessons(findings: CategoryFindings) -> str:
+    """Emit the Accumulated pushbacks and lessons section.
+
+    Per docs/health-checks/TEMPLATE.md lines 94-106 and ADR 0057 element 3
+    + Issue #36: the audit reads `pushback`-tagged and `lesson`-tagged
+    drawer content (not just count) since `last_audit_session`. The script
+    surfaces audit_mempalace's mechanical observations (drawer counts via
+    the S-0099 content-prefix-extension); cluster prose is AI-judgment
+    work surfaced via scaffolding.
+    """
+    out: list[str] = ["## Accumulated pushbacks and lessons\n\n"]
+    out.append(
+        "> Per [Issue #36]"
+        "(https://github.com/StarshipSuperjam/paideia/issues/36) and "
+        "[ADR 0057]"
+        "(../../engine/adr/0057-adversarial-stance-for-health-check-audits.md). "
+        "The audit reads `pushback`-tagged and `lesson`-tagged drawer content "
+        "(not just count) since `last_audit_session`, surfaces clusters, "
+        "recommends posture rules for mechanization when clusters appear.\n"
+    )
+    if findings.observations:
+        out.append("\nMechanical observations from `audit_mempalace()`:\n\n")
+        bullets: list[str] = []
+        for observation, action in findings.observations:
+            obs = observation.rstrip(".")
+            bullets.append(f"- {obs}. {action}.")
+        out.append("\n".join(bullets) + "\n")
+    out.append(
+        "\n### Pushback clusters\n\n"
+        "<For each cluster of pushbacks against the same risk-class, name "
+        "the cluster and recommend whether the posture rule should be "
+        "mechanized (new ADR, validator soft-warn, hook gate). If zero "
+        "clusters or zero captures, name the signal explicitly — was the "
+        "posture not exercised, or is the capture surface failing silently?>\n\n"
+        "### Lesson clusters\n\n"
+        "<Same shape: cluster of lessons against the same workflow → "
+        "recommendation for ops-doc update, validator addition, or new "
+        "ADR.>\n"
+    )
+    return "".join(out)
+
+
+def emit_affirmative_retire_candidates() -> str:
+    """Emit the Affirmative retire candidates section — scaffolding for AI judgment.
+
+    Per docs/health-checks/TEMPLATE.md lines 108-120 and ADR 0057 element 4:
+    ≥1 retire-candidate-with-reasoning OR an explicit "no retire candidates
+    this audit" subsection adversarially scrutinizing its own claim.
+    """
+    return (
+        "## Affirmative retire candidates\n\n"
+        "> Per [ADR 0057]"
+        "(../../engine/adr/0057-adversarial-stance-for-health-check-audits.md): "
+        '≥1 retire-candidate-with-reasoning OR an explicit "no retire '
+        'candidates this audit" subsection adversarially scrutinizing its own '
+        "claim. Recommendations route through User adjudication below.\n\n"
+        "### Retire candidate A — <title>\n\n"
+        "<artifact + affirmative argument for retirement + what would be "
+        "lost>\n\n"
+        "<OR, if no candidates surfaced:>\n\n"
+        "### No retire candidates this audit\n\n"
+        '<Adversarial scrutiny of the claim: "I argue no retire candidates '
+        'because X; if X were false, Y would be a candidate.">\n'
+    )
+
+
+def emit_cold_context_probe() -> str:
+    """Emit the Cold-context probe section — scaffolding for AI judgment.
+
+    Per docs/health-checks/TEMPLATE.md lines 122-130 and ADR 0057 element 5:
+    audit reads ≥1 randomly-selected artifact as if it had no project
+    context.
+    """
+    return (
+        "## Cold-context probe\n\n"
+        "> Per [ADR 0057]"
+        "(../../engine/adr/0057-adversarial-stance-for-health-check-audits.md): "
+        "the audit reads ≥1 randomly-selected artifact as if it had no project "
+        "context. Surfaces compound drift in artifacts the warm-context audit "
+        "can't see.\n\n"
+        "**Artifact selected (random):** <path>. <Random-pick procedure: "
+        "e.g., `find` filter + `shuf -n 1` against operations docs, ADRs, "
+        "registers, build-plan chunks, hook scripts.>\n\n"
+        "**Cold-read findings:** Do cross-references resolve? Does the prose "
+        "tell a future cold consumer how to *use* this artifact? Does the "
+        "artifact name a sibling that no longer exists? Does it carry a rule "
+        "whose successor superseded it without a back-reference?\n\n"
+        "<observations + recommendations>\n"
+    )
+
+
+def emit_user_adjudication() -> str:
+    """Emit the User adjudication section — left blank on arrival.
+
+    Per docs/health-checks/TEMPLATE.md lines 132-142 and ADR 0057 element 1
+    (user-buffered execution). The user (or the next interactive session)
+    populates this subsection with accept/reject/modify dispositions. The
+    script ships the placeholder marker so audit recommendations are
+    *surfaced*, not *executed*.
+    """
+    return (
+        "## User adjudication\n\n"
+        "> **Left blank on arrival.** Per [ADR 0057]"
+        "(../../engine/adr/0057-adversarial-stance-for-health-check-audits.md) "
+        "user-buffered execution. The user (or the next interactive session "
+        "that picks up the audit's recommendations) populates this subsection "
+        "with accept/reject/modify dispositions per recommendation. The audit "
+        "closes with recommendations *surfaced*, not *executed*.\n>\n"
+        "> Recommendations route to one of four execution lanes per [ADR 0048]"
+        "(../../engine/adr/0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md):\n"
+        "> - **Inline trivial cleanup** (typos, broken cross-refs noticed in "
+        "passing) — only for fix-in-context items, NOT adversarial "
+        "recommendations.\n"
+        "> - **Next-session work item in `engine/STATE.md`** — large items "
+        "requiring substantial scope.\n"
+        "> - **New GitHub Issue** with `health-check-finding` label — default "
+        "lane for adversarial recommendations.\n"
+        "> - **New tension in `product/docs/tensions.md`** — if not yet "
+        "actionable.\n\n"
+        "<populated post-audit by the user>\n"
+    )
+
+
+def emit_cadence_calibration(report: HealthCheckReport) -> str:
+    """Emit the Cadence calibration section — TEMPLATE.md prose with the report's cadence.
+
+    Per docs/health-checks/TEMPLATE.md lines 144-152.
+    """
+    return (
+        "## Cadence calibration\n\n"
+        f"Is the current cadence ({report.cadence} sessions) right for "
+        "current project velocity?\n\n"
+        "- If consistently no-action: raise (e.g., 10 → 20).\n"
+        "- If consistently large action lists: lower (e.g., 10 → 5).\n"
+        "- During phase transitions: consider one-off audit at the boundary, "
+        "independent of the cadence.\n\n"
+        f"This audit's recommendation: <keep at {report.cadence} | raise to "
+        "M | lower to M> — routed through User adjudication above.\n"
+    )
+
+
+def emit_summary(report: HealthCheckReport) -> str:
+    """Emit the Summary section — scaffolding + observation-count footer.
+
+    Per docs/health-checks/TEMPLATE.md lines 154-156. The script appends
+    the mechanical observation count from the data sections as an aid;
+    the AI fills the narrative.
+    """
     total_findings = (
         len(report.fit.observations)
         + len(report.gaps.observations)
@@ -1513,37 +1866,52 @@ def render_report(report: HealthCheckReport) -> str:
         + len(report.bloat.observations)
         + len(report.mempalace.observations)
     )
-    summary = (
-        f"Audit ran against the structured-data window. {total_findings} observation(s) "
-        "across the five categories. Triage findings into the three response paths per "
-        "engine/operations/health-check.md."
+    return (
+        "## Summary\n\n"
+        "<One paragraph: what the project's discipline looks like now vs. "
+        "last check, and what's queued for next session as a result of this "
+        "audit's recommendations once user adjudication completes.>\n\n"
+        f"_Mechanical-data baseline (script-emitted): {total_findings} "
+        "observation(s) across the data sections (Fit / Gaps / "
+        "Infrastructure-without-function / Bloat / Accumulated "
+        "pushbacks-and-lessons mechanical bullets)._\n"
     )
 
+
+def render_report(report: HealthCheckReport) -> str:
+    """Render the full report as markdown matching docs/health-checks/TEMPLATE.md.
+
+    Chains the per-section emitters in TEMPLATE.md order. The script's
+    contract: produce the canonical 14-body-section shape per ADR 0057
+    (engine/adr/0057-adversarial-stance-for-health-check-audits.md). The
+    audit AI's contract at audit-time: replace `<observation>` /
+    `<observations>` placeholders with content-probe findings + adversarial
+    judgment per the section's adversarial prompt.
+
+    Per Issue #53 (closed at S-0102): refactor moved prose-emission from
+    the prior 5-section ad-hoc layout (Fit / Gaps / Dead weight / Bloat /
+    MemPalace + Cadence + Summary) to the 14-body-section TEMPLATE.md
+    shape. The audit_*() data-gathering functions are unchanged; their
+    outputs feed the four data-section emitters (emit_fit / emit_gaps /
+    emit_infrastructure_without_function / emit_bloat) plus
+    emit_accumulated_pushbacks_and_lessons.
+    """
     return (
-        f"# Health Check {report.session_id} — {today_str}\n\n"
-        f"> Authored by {report.session_id} against the cadence trigger. "
-        f"Per [ADR 0022](../../engine/adr/0022-periodic-project-health-checks.md). "
-        f"Producing script: `python3 engine/tools/health_check.py "
-        f"--session {report.session_id}`.\n\n"
-        f"**Cadence:** every {report.cadence} sessions. {last_check_clause}\n\n"
-        f"{fit_md}\n"
-        f"{gaps_md}\n"
-        f"{dead_weight_md}\n"
-        f"{bloat_md}\n"
-        f"{mempalace_md}\n"
-        f"## Cadence calibration\n\n"
-        f"Is the current cadence ({report.cadence} sessions) right for current project velocity?\n\n"
-        f"- If consistently no-action: raise (e.g., 10 → 20 → 30).\n"
-        f"- If consistently large action lists: lower (e.g., 10 → 5).\n"
-        f"- During phase transitions: consider one-off audit at the boundary.\n"
-        f"- The cadence was tightened from 30 → 10 at S-0033 because the S-0032 "
-        f"MemPalace audit surfaced enough silent failures that 30 was too sparse "
-        f"(per ADR 0022 Consequences amendment). Raise back when audits show "
-        f"consistent low-action.\n\n"
-        f"This audit's recommendation: keep at {report.cadence} (override after "
-        f"reading the five sections).\n\n"
-        f"## Summary\n\n"
-        f"{summary}\n"
+        f"{emit_preamble(report)}\n"
+        f"{emit_freshness_probes_run()}\n"
+        f"{emit_operative_diagnostic_applied()}\n"
+        f"{emit_forward_fit_map()}\n"
+        f"{emit_non_obvious_findings()}\n"
+        f"{emit_fit(report.fit)}\n"
+        f"{emit_gaps(report.gaps)}\n"
+        f"{emit_infrastructure_without_function(report.dead_weight)}\n"
+        f"{emit_bloat(report.bloat)}\n"
+        f"{emit_accumulated_pushbacks_and_lessons(report.mempalace)}\n"
+        f"{emit_affirmative_retire_candidates()}\n"
+        f"{emit_cold_context_probe()}\n"
+        f"{emit_user_adjudication()}\n"
+        f"{emit_cadence_calibration(report)}\n"
+        f"{emit_summary(report)}"
     )
 
 
