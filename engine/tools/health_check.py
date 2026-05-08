@@ -1140,9 +1140,23 @@ def audit_mempalace(archives: list[Path]) -> CategoryFindings:
     # Adoption counts for `pushback` and `lesson` tags. The CLI search
     # returns full drawer bodies; raw match counts include false
     # positives (operations docs that *describe* the tags but aren't
-    # tag-applied themselves). Filter to drawers whose body carries a
-    # `Tags:` line that includes the bare tag word — same heuristic as
-    # the post-adr-write hook's `decision`-tag check (per ADR 0043).
+    # tag-applied themselves). Two counting paths for the bifurcated
+    # storage convention clarified at S-0098 in
+    # mempalace-tagging-conventions.md:
+    #
+    # 1. Tags-line match: drawer body carries a `Tags:` line that
+    #    includes the bare tag word (legacy convention; same heuristic
+    #    as the post-adr-write hook's `decision`-tag check per ADR 0043).
+    # 2. Content-prefix match: drawer body starts a line with
+    #    `[<tag>]` (case-insensitive, optional leading whitespace).
+    #    This catches drawers that lead their content with `[pushback]`
+    #    or `[lesson]` rather than carrying the tag as metadata.
+    #
+    # A block matching BOTH counts once (per Issue #55 acceptance
+    # criterion 4). Without this extension audit_mempalace() reported
+    # "0 drawers tagged pushback" at S-0097 despite 3 substantive
+    # `[pushback]`-prefixed drawers in paideia/problems (S-0005,
+    # S-0048, S-0071).
     for tag in ("pushback", "lesson"):
         search_text = _run_mempalace(
             binary, "search", tag, "--wing", "paideia", "--results", "50"
@@ -1154,14 +1168,23 @@ def audit_mempalace(archives: list[Path]) -> CategoryFindings:
             )
             continue
         # Each result is bracketed by a "[N] paideia / <room>" header.
-        # Split on those headers and inspect each block's body for a
-        # `Tags:` line containing the tag.
+        # Split on those headers and inspect each block's body for
+        # either a Tags-line match or a [<tag>]-content-prefix line.
         blocks = re.split(
             r"^\s*\[\d+\]\s+paideia\s*/\s*\w+", search_text, flags=re.MULTILINE
         )
         tag_pattern = re.compile(rf"\*?\*?Tags:\*?\*?[^\n]*\b{re.escape(tag)}\b")
-        tagged_blocks = [b for b in blocks if tag_pattern.search(b)]
-        tagged_count = len(tagged_blocks)
+        prefix_pattern = re.compile(
+            rf"^\s*\[{re.escape(tag)}\]", re.IGNORECASE | re.MULTILINE
+        )
+        tag_block_indices = {i for i, b in enumerate(blocks) if tag_pattern.search(b)}
+        prefix_block_indices = {
+            i for i, b in enumerate(blocks) if prefix_pattern.search(b)
+        }
+        combined_indices = tag_block_indices | prefix_block_indices
+        tagged_count = len(combined_indices)
+        tag_only_count = len(tag_block_indices)
+        prefix_only_count = len(prefix_block_indices)
         if tagged_count == 0:
             findings.add(
                 f"No drawers tagged `{tag}` found in MemPalace",
@@ -1171,7 +1194,10 @@ def audit_mempalace(archives: list[Path]) -> CategoryFindings:
             )
         else:
             findings.add(
-                f"`{tag}`-tagged drawers in MemPalace: {tagged_count} confirmed by Tags-line match",
+                f"`{tag}`-tagged drawers in MemPalace: {tagged_count} confirmed "
+                f"(via Tags-line match: {tag_only_count}; "
+                f"via [{tag}]-content-prefix match: {prefix_only_count}; "
+                "deduplicated)",
                 "no action",
             )
 

@@ -871,6 +871,162 @@ def test_audit_mempalace_tag_filter_excludes_false_positives(
     assert any("`pushback`-tagged drawers in MemPalace: 1" in obs for obs in obs_texts)
 
 
+def test_audit_mempalace_content_prefix_match_counted(
+    synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Issue #55: drawers leading their content with `[pushback]` count.
+
+    No Tags-line on this drawer; the convention is the content prefix.
+    Pre-S-0099 audit_mempalace() reported 0 here despite the substantive
+    drawer; this test asserts the new content-prefix path catches it.
+    """
+    search_output = (
+        "  [1] paideia / problems\n"
+        "    [pushback] AI authored 'correctable in any future session'.\n"
+        "    User pushback: 'What session will pick up that JSON edit?'\n"
+        "\n"
+    )
+
+    def fake_run(binary: str, *args: str) -> str | None:
+        if args == ("status",):
+            return "  WING: paideia\n    ROOM: problems    1 drawers\n"
+        if "pushback" in args:
+            return search_output
+        return ""
+
+    write_adr(synthetic_repo, engine=True, num="0001", status="Accepted")
+    monkeypatch.setattr(
+        health_check, "_resolve_mempalace_binary", lambda: "/fake/mempalace"
+    )
+    monkeypatch.setattr(health_check, "_run_mempalace", fake_run)
+    findings = audit_mempalace([])
+    obs_texts = [obs for obs, _ in findings.observations]
+    assert any("`pushback`-tagged drawers in MemPalace: 1" in obs for obs in obs_texts)
+    assert any("[pushback]-content-prefix match: 1" in obs for obs in obs_texts)
+
+
+def test_audit_mempalace_both_forms_deduplicated(
+    synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A drawer carrying BOTH Tags-line AND content-prefix counts once."""
+    search_output = (
+        "  [1] paideia / problems\n"
+        "    [pushback] User pushback content.\n"
+        "    Tags: pushback, decision\n"
+        "\n"
+    )
+
+    def fake_run(binary: str, *args: str) -> str | None:
+        if args == ("status",):
+            return "  WING: paideia\n    ROOM: problems    1 drawers\n"
+        if "pushback" in args:
+            return search_output
+        return ""
+
+    write_adr(synthetic_repo, engine=True, num="0001", status="Accepted")
+    monkeypatch.setattr(
+        health_check, "_resolve_mempalace_binary", lambda: "/fake/mempalace"
+    )
+    monkeypatch.setattr(health_check, "_run_mempalace", fake_run)
+    findings = audit_mempalace([])
+    obs_texts = [obs for obs, _ in findings.observations]
+    assert any("`pushback`-tagged drawers in MemPalace: 1" in obs for obs in obs_texts)
+
+
+def test_audit_mempalace_prefix_match_case_insensitive_and_whitespace(
+    synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """[PUSHBACK] (uppercase) and `   [pushback]` (whitespace) both count."""
+    search_output = (
+        "  [1] paideia / problems\n"
+        "    [PUSHBACK] Uppercase variant.\n"
+        "\n"
+        "  [2] paideia / problems\n"
+        "       [pushback] Leading-whitespace variant.\n"
+        "\n"
+    )
+
+    def fake_run(binary: str, *args: str) -> str | None:
+        if args == ("status",):
+            return "  WING: paideia\n    ROOM: problems    2 drawers\n"
+        if "pushback" in args:
+            return search_output
+        return ""
+
+    write_adr(synthetic_repo, engine=True, num="0001", status="Accepted")
+    monkeypatch.setattr(
+        health_check, "_resolve_mempalace_binary", lambda: "/fake/mempalace"
+    )
+    monkeypatch.setattr(health_check, "_run_mempalace", fake_run)
+    findings = audit_mempalace([])
+    obs_texts = [obs for obs, _ in findings.observations]
+    assert any("`pushback`-tagged drawers in MemPalace: 2" in obs for obs in obs_texts)
+
+
+def test_audit_mempalace_lesson_tag_extension_parallel_to_pushback(
+    synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The same bifurcated counting applies to the lesson convention."""
+    pushback_search = "  [1] paideia / problems\n    [pushback] real pushback.\n\n"
+    lesson_search = (
+        "  [1] paideia / lessons\n"
+        "    [lesson] real lesson content.\n"
+        "    Tags: lesson, project\n"
+        "\n"
+        "  [2] paideia / lessons\n"
+        "    [LESSON] uppercase lesson without Tags-line.\n"
+        "\n"
+    )
+
+    def fake_run(binary: str, *args: str) -> str | None:
+        if args == ("status",):
+            return "  WING: paideia\n    ROOM: lessons    2 drawers\n"
+        if "pushback" in args:
+            return pushback_search
+        if "lesson" in args:
+            return lesson_search
+        return ""
+
+    write_adr(synthetic_repo, engine=True, num="0001", status="Accepted")
+    monkeypatch.setattr(
+        health_check, "_resolve_mempalace_binary", lambda: "/fake/mempalace"
+    )
+    monkeypatch.setattr(health_check, "_run_mempalace", fake_run)
+    findings = audit_mempalace([])
+    obs_texts = [obs for obs, _ in findings.observations]
+    assert any("`lesson`-tagged drawers in MemPalace: 2" in obs for obs in obs_texts)
+
+
+def test_audit_mempalace_neither_form_excluded(
+    synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A block mentioning `pushback` mid-body without Tags-line or prefix
+    is not counted — the false-positive guard from the original heuristic
+    is preserved alongside the new content-prefix path."""
+    search_output = (
+        "  [1] paideia / general\n"
+        "    Some operations doc that describes the pushback convention\n"
+        "    in a paragraph but never tags or prefixes itself.\n"
+        "\n"
+    )
+
+    def fake_run(binary: str, *args: str) -> str | None:
+        if args == ("status",):
+            return "  WING: paideia\n    ROOM: general    1 drawers\n"
+        if "pushback" in args:
+            return search_output
+        return ""
+
+    write_adr(synthetic_repo, engine=True, num="0001", status="Accepted")
+    monkeypatch.setattr(
+        health_check, "_resolve_mempalace_binary", lambda: "/fake/mempalace"
+    )
+    monkeypatch.setattr(health_check, "_run_mempalace", fake_run)
+    findings = audit_mempalace([])
+    obs_texts = [obs for obs, _ in findings.observations]
+    assert any("No drawers tagged `pushback`" in obs for obs in obs_texts)
+
+
 def test_audit_mempalace_diary_calibration_when_no_field_present(
     synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
