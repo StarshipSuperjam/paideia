@@ -3110,6 +3110,8 @@ _TIMESTAMP_HELPER_BYPASS_ALLOWLIST = frozenset(
         "timestamps.py",  # the helper module itself defines the canonical shapes
         "apply_migration.py",  # legacy supabase schema_migrations.version contract
         "probe_push_gate.py",  # branch-name-safe compact-time form (no colons)
+        "audit_mempalace_attribution.py",  # palace-storage naive local-time shape
+        "scan_mempalace_citations.py",  # palace-storage naive local-date shape
     }
 )
 

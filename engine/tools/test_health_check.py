@@ -410,6 +410,49 @@ def test_audit_bloat_session_duration_trend(synthetic_repo: Path) -> None:
     assert any("session duration" in obs for obs, _ in findings.observations)
 
 
+def test_audit_bloat_duration_trend_handles_legacy_plus_offset(
+    synthetic_repo: Path,
+) -> None:
+    """Verifies the helper-routed duration parse (ADR 0058 / Issue #33)
+    survives mixed Z-suffix and legacy +00:00 archive shapes — the
+    smoking-gun fix at health_check.py:960-961 removed the bare
+    .replace("Z", "+00:00") gymnastics in favor of timestamps.parse()."""
+    archive_dir = synthetic_repo / "engine" / "session" / "archive"
+    # One archive in canonical Z-suffix shape.
+    (archive_dir / "S-0001.json").write_text(
+        json.dumps(
+            {
+                "id": "S-0001",
+                "started_at": "2026-05-01T10:00:00Z",
+                "closed_at": "2026-05-01T11:30:00Z",
+                "status": "closed",
+                "outcome_summary": "z-shape",
+            }
+        )
+    )
+    # One archive in legacy Python .isoformat() shape (+00:00 offset).
+    (archive_dir / "S-0002.json").write_text(
+        json.dumps(
+            {
+                "id": "S-0002",
+                "started_at": "2026-05-02T10:00:00.123456+00:00",
+                "closed_at": "2026-05-02T11:30:00.654321+00:00",
+                "status": "closed",
+                "outcome_summary": "plus-offset-shape",
+            }
+        )
+    )
+    findings = audit_bloat()
+    # Both archives must be parseable and contribute to the duration trend.
+    duration_observations = [
+        obs for obs, _ in findings.observations if "session duration" in obs
+    ]
+    assert duration_observations, (
+        "duration-trend observation should fire across both shapes; "
+        "if helper migration broke parsing, this assertion would fail."
+    )
+
+
 # ---------------------------------------------------------------------------
 # Report emission
 # ---------------------------------------------------------------------------

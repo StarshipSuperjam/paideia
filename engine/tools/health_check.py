@@ -124,8 +124,11 @@ import sys
 from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from timestamps import parse, today  # noqa: E402  # ADR 0058
 
 
 # ---------------------------------------------------------------------------
@@ -957,8 +960,10 @@ def audit_bloat() -> CategoryFindings:
         if not (isinstance(started, str) and isinstance(closed, str)):
             continue
         try:
-            t0 = datetime.fromisoformat(started.replace("Z", "+00:00"))
-            t1 = datetime.fromisoformat(closed.replace("Z", "+00:00"))
+            # Smoking-gun fix per ADR 0058 — the helper concentrates the
+            # legacy-shape knowledge that this site previously hand-rolled.
+            t0 = parse(started)
+            t1 = parse(closed)
         except ValueError:
             continue
         delta_minutes = (t1 - t0).total_seconds() / 60.0
@@ -1245,7 +1250,7 @@ def render_report(report: HealthCheckReport) -> str:
     and the summary paragraph. The summary is computed from total
     finding counts.
     """
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today_str = today()  # ADR 0058 — date-only display surface
     last_check_clause = (
         f"Last check: {report.last_check}." if report.last_check else "First check."
     )
@@ -1290,7 +1295,7 @@ def render_report(report: HealthCheckReport) -> str:
     )
 
     return (
-        f"# Health Check {report.session_id} — {today}\n\n"
+        f"# Health Check {report.session_id} — {today_str}\n\n"
         f"> Authored by {report.session_id} against the cadence trigger. "
         f"Per [ADR 0022](../../engine/adr/0022-periodic-project-health-checks.md). "
         f"Producing script: `python3 engine/tools/health_check.py "

@@ -175,14 +175,20 @@ def fetch_today_diary(agent_name: str = "claude") -> str:
         return ""
     if not isinstance(result, dict):
         return ""
-    today = _dt.date.today().isoformat()
+    # NOT routed through timestamps.today() per ADR 0058 — MemPalace diary
+    # entries carry palace-naive local-date semantics (palace storage is
+    # naive local time per audit_mempalace_attribution.py:_parse_palace_dt).
+    # Matching against UTC date would silently miss entries written at
+    # local times near the UTC date boundary. The file is allowlisted in
+    # validate.py's _TIMESTAMP_HELPER_BYPASS_ALLOWLIST for this reason.
+    today_str = _dt.date.today().isoformat()
     entries = result.get("entries")
     if not isinstance(entries, list):
         return ""
     for entry in entries:
         if not isinstance(entry, dict):
             continue
-        if entry.get("date") == today:
+        if entry.get("date") == today_str:
             content = entry.get("content")
             if isinstance(content, str):
                 return content

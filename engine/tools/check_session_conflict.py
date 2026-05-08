@@ -41,6 +41,10 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from timestamps import parse  # noqa: E402  # ADR 0058
+
 DEFAULT_RECENT_WINDOW_SECONDS = 3600
 DEFAULT_STALE_WINDOW_SECONDS = 86400
 
@@ -58,10 +62,8 @@ def parse_started_at(s: str) -> datetime | None:
     if not s:
         return None
     s = s.strip()
-    if s.endswith("Z"):
-        s = s[:-1] + "+00:00"
     try:
-        return datetime.fromisoformat(s)
+        return parse(s)  # ADR 0058 — tolerant of Z and +00:00 shapes
     except (ValueError, TypeError):
         return None
 

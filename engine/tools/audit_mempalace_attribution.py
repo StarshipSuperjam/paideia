@@ -102,6 +102,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from timestamps import parse  # noqa: E402  # ADR 0058
+
 DEFAULT_PALACE = Path.home() / ".mempalace" / "palace" / "chroma.sqlite3"
 DEFAULT_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_ARCHIVE_DIR = DEFAULT_REPO_ROOT / "engine" / "session" / "archive"
@@ -277,9 +281,8 @@ def _parse_archive_dt(s: str) -> datetime | None:
     """Parse an archive timestamp (UTC). Returns timezone-aware datetime."""
     if not s:
         return None
-    raw = s.replace("Z", "+00:00")
     try:
-        dt = datetime.fromisoformat(raw)
+        dt = parse(s)  # ADR 0058 — tolerant of Z and +00:00 archive shapes
     except ValueError:
         return None
     if dt.tzinfo is None:
@@ -294,6 +297,16 @@ def _parse_palace_dt(filed_at: str) -> datetime | None:
     against the user's local clock. Convert to UTC by attaching the
     process-local timezone (which matches the original write context: the
     same user, same machine).
+
+    NOT routed through ``timestamps.parse()`` per ADR 0058 — that helper's
+    contract is for canonical UTC-emitted strings (Z-suffix, +00:00, or
+    compact-time). Palace-storage strings are NAIVE local time, a
+    different concern. ``audit_mempalace_attribution.py`` is allowlisted
+    in validate.py's _TIMESTAMP_HELPER_BYPASS_ALLOWLIST so the
+    timestamp_helper_bypass soft-warn does not fire on this site (the
+    cost of allowlisting the whole file is that line 282's helper
+    routing is also silenced — but line 282 IS routed through parse()
+    above for cleanliness).
     """
     if not filed_at:
         return None

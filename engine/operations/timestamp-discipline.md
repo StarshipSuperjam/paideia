@@ -42,11 +42,16 @@ The format is shared; the implementation is per-runtime. Forcing hooks to shell 
 
 If a future hook needs sub-second precision, it shells into the Python helper at that emit site only — but no current hook needs it, and macOS BSD `date` has no portable sub-second support, so the question is moot for the existing hook surface.
 
-## Allowlist: `apply_migration.py:302`
+## Allowlists
 
-`engine/tools/apply_migration.py`'s migration-version emission uses `%Y%m%d%H%M%S` (compact, no separators). This is the format Supabase's `schema_migrations.version` column expects; touching it would require a coordinated migration of historical version values.
+The validator's `timestamp_helper_bypass` soft-warn excludes four file paths in `engine/tools/`. Each entry has a one-line rationale stored in `validate.py`'s `_TIMESTAMP_HELPER_BYPASS_ALLOWLIST` and a longer inline comment at the offending callsite that names the contract being preserved.
 
-Per Issue #33's explicit scope statement, the migration-version format is allowlisted as a legacy supabase contract. The `validate.py` `timestamp_helper_bypass` soft-warn excludes `apply_migration.py` by path. An inline comment at the emit site cross-references ADR 0058 so a future reader doesn't re-litigate.
+- **`apply_migration.py`** — migration-version emission `strftime("%Y%m%d%H%M%S")`. The format Supabase's `schema_migrations.version` column expects; touching it would require a coordinated migration of historical version values.
+- **`probe_push_gate.py`** — branch-name timestamp `strftime("%Y%m%dT%H%M%SZ")`. Git's check-ref-format rejects colons in branch names; the canonical Z-suffix form `2026-05-08T12:34:56Z` would fail at branch creation. The compact-time form is the correct legacy shape for filename-safe contexts. The `parse()` helper accepts this form on read-back via the compact-time regex branch.
+- **`audit_mempalace_attribution.py`** — `_parse_palace_dt(filed_at)` parses naive local-time strings written by MemPalace's storage layer (no timezone marker). Different concern from canonical UTC-emitted strings; `parse()` returns tz-aware UTC, which would silently misattribute palace-storage timestamps. The same file's `_parse_archive_dt` IS routed through `parse()` for cleanliness; allowlisting silences both, and the inline comments document the intent.
+- **`scan_mempalace_citations.py`** — `fetch_today_diary` matches palace diary `date` fields keyed by naive local date. Matching against UTC date would silently miss entries written near the UTC date boundary. Same semantic as `_parse_palace_dt` above, applied at the date level.
+
+A future legacy contract (a new external system's stored timestamp shape, a new filename-safe constraint) adds a fifth entry to the allowlist with an inline comment naming what the helper would break if applied. The pattern is: allowlist with rationale, never silence by suppression.
 
 ## Non-goal: `time.time()` for stopwatch math
 
