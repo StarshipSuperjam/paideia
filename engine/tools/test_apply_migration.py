@@ -25,11 +25,14 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from apply_migration import (  # noqa: E402
+    PostconditionAssertionParseError,
     _migration_name_from_file,
     apply_migration_body,
     check_already_applied,
     main,
+    parse_postcondition_assertions,
     record_in_schema_migrations,
+    verify_postconditions,
     verify_shape,
 )
 
@@ -445,3 +448,474 @@ def test_main_full_success_path(
 def test_migration_name_from_file_strips_extension() -> None:
     p = Path("/x/y/0042_seed_test_part1.sql")
     assert _migration_name_from_file(p) == "0042_seed_test_part1"
+
+
+# ---------------------------------------------------------------------------
+# Layer 2.5 — Postcondition assertion parser + verifier (S-0094 / Issue #23)
+# ---------------------------------------------------------------------------
+
+
+def _make_psycopg_stub_with_fetchone_seq(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    fetchone_returns: list[Any],
+    execute_raises_on_index: dict[int, Exception] | None = None,
+) -> list[tuple[str, tuple[Any, ...]]]:
+    """Stub variant where fetchone returns a different value per call.
+
+    Each cur.execute() advances the index; cur.fetchone() returns the
+    next item from `fetchone_returns`. If the index runs past the list,
+    fetchone returns None. Optional per-index execute_raises injects an
+    exception on the Nth execute() (0-based), useful for SQL-error tests.
+    """
+    captured: list[tuple[str, tuple[Any, ...]]] = []
+    state = {"idx": 0}
+    raises = execute_raises_on_index or {}
+
+    class _Cur:
+        def execute(self, sql: str, params: tuple[Any, ...] | None = None) -> None:
+            captured.append((sql, params or ()))
+            current = state["idx"]
+            if current in raises:
+                state["idx"] = current + 1
+                raise raises[current]
+            state["idx"] = current + 1
+
+        def fetchone(self) -> Any:
+            # fetchone() reads the value associated with the most-recent
+            # execute(). state["idx"] has already advanced, so look back one.
+            i = state["idx"] - 1
+            if 0 <= i < len(fetchone_returns):
+                return fetchone_returns[i]
+            return None
+
+        def __enter__(self) -> _Cur:
+            return self
+
+        def __exit__(self, *_: Any) -> None:
+            pass
+
+    class _Conn:
+        def cursor(self) -> _Cur:
+            return _Cur()
+
+        def __enter__(self) -> _Conn:
+            return self
+
+        def __exit__(self, *_: Any) -> None:
+            pass
+
+    import importlib.machinery  # noqa: PLC0415
+
+    psycopg_stub = type(sys)("psycopg")
+    psycopg_stub.__spec__ = importlib.machinery.ModuleSpec("psycopg", loader=None)
+    psycopg_stub.Error = _StubError  # type: ignore[attr-defined]
+    psycopg_stub.OperationalError = _StubOperationalError  # type: ignore[attr-defined]
+    psycopg_stub.connect = lambda *_args, **_kwargs: _Conn()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "psycopg", psycopg_stub)
+    return captured
+
+
+def _make_well_formed_migration_with_assertions(
+    repo: Path,
+    name: str = "0042_seed_test_part1.sql",
+    assertion_lines: list[str] | None = None,
+) -> Path:
+    """Create a well-formed migration with a Postcondition-Assertions block."""
+    migrations_dir = repo / "product" / "seed-graph" / "migrations"
+    migrations_dir.mkdir(parents=True, exist_ok=True)
+    migration_path = migrations_dir / name
+    if assertion_lines is None:
+        assertion_lines = ["SELECT 1 :: 1", "SELECT 2 :: 2"]
+    block = "\n".join(f"--   {line}" for line in assertion_lines)
+    migration_path.write_text(
+        f"-- Migration: {name.removesuffix('.sql')}\n"
+        f"-- Purpose: test\n"
+        f"-- Postconditions:\n"
+        f"--   * graph_version = 99 after apply.\n"
+        f"-- Postcondition-Assertions:\n"
+        f"{block}\n"
+        f"\n"
+        f"BEGIN;\n"
+        f"\n"
+        f"UPDATE settings SET graph_version = 99 WHERE id = 1;\n"
+        f"\n"
+        f"COMMIT;\n"
+    )
+    return migration_path
+
+
+# ---- parser tests --------------------------------------------------------
+
+
+def test_parse_assertions_returns_none_when_header_absent() -> None:
+    sql = (
+        "-- Migration: foo\n"
+        "-- Postconditions:\n"
+        "--   * graph_version = 99\n"
+        "BEGIN;\n"
+        "UPDATE settings SET graph_version = 99 WHERE id = 1;\n"
+        "COMMIT;\n"
+    )
+    assert parse_postcondition_assertions(sql) is None
+
+
+def test_parse_assertions_returns_empty_list_when_block_has_no_double_colon() -> None:
+    sql = (
+        "-- Migration: foo\n"
+        "-- Postcondition-Assertions:\n"
+        "--   (no assertions yet)\n"
+        "BEGIN;\nCOMMIT;\n"
+    )
+    assert parse_postcondition_assertions(sql) == []
+
+
+def test_parse_assertions_well_formed_returns_tuples() -> None:
+    sql = (
+        "-- Postcondition-Assertions:\n"
+        "--   SELECT count(*) FROM nodes WHERE graph_version_added=2 :: 28\n"
+        "--   SELECT count(*) FROM edges WHERE graph_version_added=2 :: 34\n"
+        "--   SELECT graph_version FROM settings :: 2\n"
+        "BEGIN;\nCOMMIT;\n"
+    )
+    result = parse_postcondition_assertions(sql)
+    assert result == [
+        ("SELECT count(*) FROM nodes WHERE graph_version_added=2", 28),
+        ("SELECT count(*) FROM edges WHERE graph_version_added=2", 34),
+        ("SELECT graph_version FROM settings", 2),
+    ]
+
+
+def test_parse_assertions_skips_prose_lines_inside_block() -> None:
+    sql = (
+        "-- Postcondition-Assertions:\n"
+        "--   (the next assertion checks the node count)\n"
+        "--   SELECT count(*) FROM nodes :: 28\n"
+        "--   (and the next checks edges)\n"
+        "--   SELECT count(*) FROM edges :: 34\n"
+        "BEGIN;\nCOMMIT;\n"
+    )
+    result = parse_postcondition_assertions(sql)
+    assert result == [
+        ("SELECT count(*) FROM nodes", 28),
+        ("SELECT count(*) FROM edges", 34),
+    ]
+
+
+def test_parse_assertions_block_terminates_at_first_non_dash_line() -> None:
+    sql = (
+        "-- Postcondition-Assertions:\n"
+        "--   SELECT 1 :: 1\n"
+        "\n"
+        "BEGIN;\n"
+        "--   SELECT 999 :: 999\n"
+        "COMMIT;\n"
+    )
+    result = parse_postcondition_assertions(sql)
+    # Empty line continues per impl; the BEGIN; (non-dash) terminates.
+    # The line below BEGIN; is inside the body and not parsed as an assertion.
+    assert result == [("SELECT 1", 1)]
+
+
+def test_parse_assertions_rejects_non_integer_expected_value() -> None:
+    sql = (
+        "-- Postcondition-Assertions:\n"
+        "--   SELECT 'foo' :: not_an_integer\n"
+        "BEGIN;\nCOMMIT;\n"
+    )
+    with pytest.raises(PostconditionAssertionParseError, match="not an integer"):
+        parse_postcondition_assertions(sql)
+
+
+def test_parse_assertions_rejects_empty_select_before_separator() -> None:
+    sql = "-- Postcondition-Assertions:\n--   :: 28\nBEGIN;\nCOMMIT;\n"
+    with pytest.raises(PostconditionAssertionParseError, match="empty SELECT"):
+        parse_postcondition_assertions(sql)
+
+
+# ---- verifier tests ------------------------------------------------------
+
+
+def test_verify_postconditions_empty_list_returns_true_no_db() -> None:
+    # Empty assertions skips the DB connect entirely.
+    ok, failures = verify_postconditions("postgresql://stub", [])
+    assert ok is True
+    assert failures == []
+
+
+def test_verify_postconditions_all_pass(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _make_psycopg_stub_with_fetchone_seq(
+        monkeypatch, fetchone_returns=[(28,), (34,), (2,)]
+    )
+    assertions = [
+        ("SELECT count(*) FROM nodes", 28),
+        ("SELECT count(*) FROM edges", 34),
+        ("SELECT graph_version FROM settings", 2),
+    ]
+    ok, failures = verify_postconditions("postgresql://stub", assertions)
+    assert ok is True
+    assert failures == []
+
+
+def test_verify_postconditions_one_fails_returns_failure_message(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _make_psycopg_stub_with_fetchone_seq(
+        monkeypatch, fetchone_returns=[(28,), (33,), (2,)]
+    )
+    assertions = [
+        ("SELECT count(*) FROM nodes", 28),
+        ("SELECT count(*) FROM edges", 34),
+        ("SELECT graph_version FROM settings", 2),
+    ]
+    ok, failures = verify_postconditions("postgresql://stub", assertions)
+    assert ok is False
+    assert len(failures) == 1
+    assert "actual=33" in failures[0]
+    assert "expected=34" in failures[0]
+
+
+def test_verify_postconditions_multiple_failures_all_reported(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _make_psycopg_stub_with_fetchone_seq(
+        monkeypatch, fetchone_returns=[(27,), (33,), (1,)]
+    )
+    assertions = [
+        ("SELECT count(*) FROM nodes", 28),
+        ("SELECT count(*) FROM edges", 34),
+        ("SELECT graph_version FROM settings", 2),
+    ]
+    ok, failures = verify_postconditions("postgresql://stub", assertions)
+    assert ok is False
+    assert len(failures) == 3
+    assert any("actual=27" in f for f in failures)
+    assert any("actual=33" in f for f in failures)
+    assert any("actual=1" in f for f in failures)
+
+
+def test_verify_postconditions_zero_rows_treated_as_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _make_psycopg_stub_with_fetchone_seq(monkeypatch, fetchone_returns=[None])
+    ok, failures = verify_postconditions(
+        "postgresql://stub", [("SELECT count(*) FROM empty_table", 5)]
+    )
+    assert ok is False
+    assert "zero rows" in failures[0]
+
+
+def test_verify_postconditions_non_integer_value_treated_as_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _make_psycopg_stub_with_fetchone_seq(
+        monkeypatch, fetchone_returns=[("not_an_int",)]
+    )
+    ok, failures = verify_postconditions(
+        "postgresql://stub", [("SELECT label FROM nodes WHERE id='x'", 5)]
+    )
+    assert ok is False
+    assert "non-integer" in failures[0]
+
+
+def test_verify_postconditions_sql_error_propagates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _make_psycopg_stub_with_fetchone_seq(
+        monkeypatch,
+        fetchone_returns=[],
+        execute_raises_on_index={0: _StubError("syntax error at 'SELEC'")},
+    )
+    with pytest.raises(_StubError, match="syntax error"):
+        verify_postconditions(
+            "postgresql://stub",
+            [("SELEC count(*) FROM nodes", 28)],  # typo
+        )
+
+
+def test_verify_postconditions_connection_failure_propagates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _make_psycopg_stub(
+        monkeypatch, connect_raises=_StubOperationalError("connection refused")
+    )
+    with pytest.raises(_StubOperationalError, match="connection refused"):
+        verify_postconditions("postgresql://stub", [("SELECT count(*) FROM nodes", 28)])
+
+
+# ---- main() integration tests -------------------------------------------
+
+
+def test_main_warns_when_no_assertions_block_and_returns_0(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Migration without -- Postcondition-Assertions: header → soft-warn + exit 0."""
+    migration = _make_well_formed_migration(tmp_path)  # no assertions block
+    monkeypatch.setenv("SUPABASE_DB_URL", "postgresql://stub")
+    _make_psycopg_stub(monkeypatch, fetchone_return=None)
+    rc = main(["--migration-file", str(migration), "--repo-root", str(tmp_path)])
+    assert rc == 0
+    captured = capsys.readouterr()
+    assert "WARNING" in captured.err
+    assert "no '-- Postcondition-Assertions:' block" in captured.err
+    assert "applied" in captured.err
+    assert "cleanly" in captured.err
+
+
+def test_main_assertions_pass_full_success_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Full success: shape OK → not yet applied → body apply → record →
+    Layer 2.5 verify (passes) → exit 0."""
+    migration = _make_well_formed_migration_with_assertions(
+        tmp_path,
+        assertion_lines=[
+            "SELECT count(*) FROM nodes :: 28",
+            "SELECT graph_version FROM settings :: 2",
+        ],
+    )
+    monkeypatch.setenv("SUPABASE_DB_URL", "postgresql://stub")
+    # SQL call sequence:
+    #   0: SELECT 1 FROM schema_migrations (already-applied check) → None
+    #   1: migration body (no fetchone needed)
+    #   2: INSERT INTO schema_migrations (no fetchone needed)
+    #   3: assertion 1 → (28,)
+    #   4: assertion 2 → (2,)
+    captured_sql = _make_psycopg_stub_with_fetchone_seq(
+        monkeypatch, fetchone_returns=[None, None, None, (28,), (2,)]
+    )
+    rc = main(["--migration-file", str(migration), "--repo-root", str(tmp_path)])
+    assert rc == 0
+    out = capsys.readouterr()
+    assert "postconditions verified" in out.err
+    assert "2 assertion(s) passed" in out.err
+    assert "applied" in out.err
+    assert "cleanly" in out.err
+    # 5 SQL calls: already-applied check + body + INSERT + 2 assertions.
+    assert len(captured_sql) == 5
+    assert "INSERT INTO supabase_migrations.schema_migrations" in captured_sql[2][0]
+    assert "FROM nodes" in captured_sql[3][0]
+    assert "FROM settings" in captured_sql[4][0]
+
+
+def test_main_assertions_fail_returns_8_and_records_in_schema_migrations(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """One assertion fails → schema_migrations IS recorded, exit 8."""
+    migration = _make_well_formed_migration_with_assertions(
+        tmp_path,
+        assertion_lines=[
+            "SELECT count(*) FROM nodes :: 28",
+            "SELECT graph_version FROM settings :: 2",
+        ],
+    )
+    monkeypatch.setenv("SUPABASE_DB_URL", "postgresql://stub")
+    # Same call sequence as the pass test, but assertion 1 returns 27 (off by 1).
+    captured_sql = _make_psycopg_stub_with_fetchone_seq(
+        monkeypatch, fetchone_returns=[None, None, None, (27,), (2,)]
+    )
+    rc = main(["--migration-file", str(migration), "--repo-root", str(tmp_path)])
+    assert rc == 8
+    out = capsys.readouterr()
+    assert "POSTCONDITION FAILURE" in out.err
+    assert "actual=27" in out.err
+    assert "expected=28" in out.err
+    assert "MANUAL ADJUDICATION" in out.err
+    # Critical: schema_migrations was still recorded (call index 2).
+    assert "INSERT INTO supabase_migrations.schema_migrations" in captured_sql[2][0]
+
+
+def test_main_multiple_assertion_failures_all_listed_in_stderr(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    migration = _make_well_formed_migration_with_assertions(
+        tmp_path,
+        assertion_lines=[
+            "SELECT count(*) FROM nodes :: 28",
+            "SELECT count(*) FROM edges :: 34",
+            "SELECT graph_version FROM settings :: 2",
+        ],
+    )
+    monkeypatch.setenv("SUPABASE_DB_URL", "postgresql://stub")
+    _make_psycopg_stub_with_fetchone_seq(
+        monkeypatch, fetchone_returns=[None, None, None, (27,), (33,), (1,)]
+    )
+    rc = main(["--migration-file", str(migration), "--repo-root", str(tmp_path)])
+    assert rc == 8
+    out = capsys.readouterr()
+    assert "actual=27" in out.err
+    assert "actual=33" in out.err
+    assert "actual=1" in out.err
+    assert "3 assertion(s) failed" in out.err
+
+
+def test_main_returns_3_when_assertion_query_raises_sql_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Malformed SELECT in the assertions block → exit 3 (author error)."""
+    migration = _make_well_formed_migration_with_assertions(
+        tmp_path,
+        assertion_lines=["SELEC count(*) FROM nodes :: 28"],  # typo
+    )
+    monkeypatch.setenv("SUPABASE_DB_URL", "postgresql://stub")
+    # Indices 0/1/2 = check, body, INSERT (succeed); index 3 = assertion
+    # (raises). The body and INSERT succeed first; the error fires on the
+    # 4th execute() call (index 3) — the assertion query.
+    _make_psycopg_stub_with_fetchone_seq(
+        monkeypatch,
+        fetchone_returns=[None, None, None, None],
+        execute_raises_on_index={3: _StubError("syntax error at 'SELEC'")},
+    )
+    rc = main(["--migration-file", str(migration), "--repo-root", str(tmp_path)])
+    assert rc == 3
+    out = capsys.readouterr()
+    assert "POSTCONDITION VERIFICATION ERROR" in out.err
+    assert "_StubError" in out.err
+
+
+def test_main_rejects_malformed_assertions_block_at_shape_time(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Non-integer expected value is caught at verify_shape (exit 2)."""
+    migration = _make_well_formed_migration_with_assertions(
+        tmp_path, assertion_lines=["SELECT 1 :: not_a_number"]
+    )
+    rc = main(
+        ["--migration-file", str(migration), "--repo-root", str(tmp_path), "--dry-run"]
+    )
+    assert rc == 2
+    captured = capsys.readouterr()
+    assert "REFUSED" in captured.err
+    assert "not an integer" in captured.err
+
+
+def test_main_assertions_block_under_routine_scope_lock(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Confirms scope_lock unaffected by assertions block — the migration
+    file still falls under the active task's allowed_paths regardless of
+    assertion content (assertions live in the same file as the body)."""
+    migration = _make_well_formed_migration_with_assertions(tmp_path)
+    _make_routine_session_state(
+        tmp_path, allowed_paths=["product/seed-graph/migrations/0042_*.sql"]
+    )
+    rc = main(
+        ["--migration-file", str(migration), "--repo-root", str(tmp_path), "--dry-run"]
+    )
+    assert rc == 0
+    out = capsys.readouterr()
+    assert "shape verified" in out.err
