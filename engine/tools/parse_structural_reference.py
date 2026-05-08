@@ -132,9 +132,12 @@ import re
 import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from timestamps import emit  # noqa: E402  # ADR 0058
 
 PARSER_VERSION = "0.1.0"
 
@@ -755,7 +758,7 @@ def emit_focusing_brief(
         source_path=adapter_output.source_path,
         document_type=adapter_output.document_type,
         parser_version=PARSER_VERSION,
-        generated_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        generated_at=emit(),  # ADR 0058 canonical
         entries=entries,
     )
 

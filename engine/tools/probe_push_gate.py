@@ -55,7 +55,17 @@ def _run_git(args: list[str], repo: Path) -> subprocess.CompletedProcess[str]:
 
 
 def _utc_timestamp() -> str:
-    """Compact UTC timestamp suitable for branch names: YYYYMMDDTHHMMSSZ."""
+    """Compact UTC timestamp suitable for branch names: YYYYMMDDTHHMMSSZ.
+
+    NOT routed through engine/tools/timestamps.py per ADR 0058 because the
+    canonical %Y-%m-%dT%H:%M:%SZ form contains colons, which Git's
+    check-ref-format rejects in branch names. The compact form is the
+    correct legacy shape for filename-safe contexts; ``probe_push_gate.py``
+    is allowlisted in validate.py's _TIMESTAMP_HELPER_BYPASS_ALLOWLIST so
+    the timestamp_helper_bypass soft-warn does not fire here. The
+    ``parse()`` helper accepts this form on read-back via the
+    compact-time regex branch.
+    """
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 

@@ -76,12 +76,15 @@ Cross-references
 from __future__ import annotations
 
 import argparse
-import datetime as _dt
 import json
 import re
 import sys
 from pathlib import Path
 from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from timestamps import emit  # noqa: E402  # ADR 0058
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CURRENT_PATH = REPO_ROOT / "engine" / "session" / "current.json"
@@ -446,7 +449,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     formulations = generate_formulations(work_item)
-    ts = _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    ts = emit()  # ADR 0058 canonical
 
     formulations_results: list[tuple[str, str, list[dict[str, Any]]]] = []
     substrate_unreachable = False

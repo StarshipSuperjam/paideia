@@ -69,8 +69,11 @@ import json
 import os
 import sys
 import time
-from datetime import datetime, timezone
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from timestamps import emit  # noqa: E402  # ADR 0058
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_LOCK_PATH = REPO_ROOT / ".claude" / "routine.lock"
@@ -108,7 +111,7 @@ def acquire(lock_path: Path, stale_after: int = DEFAULT_STALE_AFTER) -> bool:
     payload = json.dumps(
         {
             "pid": os.getpid(),
-            "started_at": datetime.now(timezone.utc).isoformat(),
+            "started_at": emit(),  # ADR 0058 canonical
         }
     )
 
