@@ -72,6 +72,7 @@ Each class below names: when it gets authored, the contract that governs it, and
 | [`mempalace_mechanical_adoption_first_exercise.md`](mempalace_mechanical_adoption_first_exercise.md) | S-0078 (per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md)) | T1-B pending — closes at next routine fire post-S-0078 with non-zero `diary_write_calls` in archived `mempalace_activity` | Pre-first-exercise |
 | [`routine_lifecycle_push_first_exercise.md`](routine_lifecycle_push_first_exercise.md) | S-0061 (per [ADR 0054](../adr/0054-lifecycle-push-wrapping-against-default-branch-push-gate.md)) | First exercise landed at S-0062 routine eager-claim push | Closed |
 | [`adversarial_stance_first_exercise.md`](adversarial_stance_first_exercise.md) | S-0085 (per [ADR 0057](../adr/0057-adversarial-stance-for-health-check-audits.md)) | T1-A through T1-E pending — close at next cadence-fired audit (S-0087 by recommended sequencing) | Pre-first-exercise |
+| [`apply_migration_postcondition_first_exercise.md`](apply_migration_postcondition_first_exercise.md) | S-0094 (per [ADR 0039](../adr/0039-universal-expression-contract-across-ai-authoring-patterns.md) + [ADR 0055](../adr/0055-apply-migration-wrapping-against-production-reads-gate.md) Consequences amendments — Layer 2.5 postcondition verification) | T1-A pending — closes at next routine fire post-S-0094 OR next interactive `--force` re-apply of an annotated seed | Pre-first-exercise |
 
 ### 6. Apparatus-improvement reports — engine-apparatus retrospectives
 

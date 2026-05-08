@@ -83,6 +83,43 @@ python3 engine/tools/validate.py --sql-gates --files product/seed-graph/migratio
 
 The `--sql-gates` flag is mutually exclusive with `--code-gates` and the default repo-structure run; each invocation does one thing.
 
+## Layer 2.5 — Empirical postcondition verification (post-apply, pre-record)
+
+Layers 1–2 verify what the SQL *says*. Layer 3 reads the SQL against its contract block. **None of these query the live DB after the migration commits.** A migration body that says `INSERT INTO nodes ... 28 rows` is signed off if the body claims 28 inserts; the DB might have 27 (or 24, or 0) due to silent FK drops, `ON CONFLICT DO NOTHING`, CHECK constraints rejected and continued, or trigger logic mutating row counts. The drift stays invisible until a downstream session queries the table and finds the gap, possibly many sessions later, after compounding damage.
+
+Layer 2.5 closes that gap. Per [ADR 0039](../adr/0039-universal-expression-contract-across-ai-authoring-patterns.md) Consequences amendment landed at S-0094 (Issue [#23](https://github.com/StarshipSuperjam/paideia/issues/23)), every migration's contract block carries an inline `-- Postcondition-Assertions:` block following the prose `-- Postconditions:` field. Each assertion line is `--   <SELECT returning one integer> :: <expected integer>`. After [`engine/tools/apply_migration.py`](../tools/apply_migration.py) commits the body and records the row in `supabase_migrations.schema_migrations`, every assertion runs against the live DB. Mismatches surface new exit code 8 with all failures listed (not just the first), explicit MANUAL ADJUDICATION guidance, and a cross-reference to this section.
+
+### Authoring rules
+
+- Every new migration carries a `-- Postcondition-Assertions:` block. Migrations without one apply cleanly (apply_migration emits a soft-warn `WARNING: no '-- Postcondition-Assertions:' block declared; skipping Layer 2.5 verification` and exits 0) for backward compatibility, but new authoring is expected to include the block.
+- The assertions copy the integers from the prose `-- Postconditions:` field into machine-readable form. Common shapes for the seed-graph corpus (15 examples in `product/seed-graph/migrations/`):
+
+  ```
+  -- Postcondition-Assertions:
+  --   (one-line prose preamble explaining what these check)
+  --   SELECT count(*)::int FROM public.nodes WHERE graph_version_added = N AND '<dom>' = ANY(domain) :: <expected nodes>
+  --   SELECT count(*)::int FROM public.edges WHERE graph_version_added = N AND edge_type = 'pedagogical_prerequisite' :: <expected edges>
+  --   SELECT graph_version FROM public.settings WHERE id = 1 :: N
+  ```
+
+- Each assertion's SELECT must return a single integer in a single row. Returning a non-integer (e.g., a TEXT column), zero rows, or multiple columns counts as a failure with a descriptive message.
+- The block ends at the next contract section header (e.g., `-- Invariants:`, `-- Rollback:`) or the first non-`--` line. Lines without `::` inside the block are treated as inline prose and skipped — authors may interleave explanation.
+- Malformed grammar (a non-integer to the right of `::`, an empty SELECT to the left) is caught at shape-verification time (exit 2) before any DB connection — the migration never runs against the live DB.
+
+### Exit-code semantics
+
+- **Exit 8** — body applied, schema_migrations recorded, one or more assertions failed. The schema state is post-apply but does NOT match the contract. Manual adjudication: identify whether (a) the assertion SQL is wrong, (b) the prose `-- Postconditions:` block is wrong, or (c) the migration body silently misbehaved. Re-running the migration after fixing would refuse with exit 6 unless `--force`.
+- **Exit 3** — assertion query itself raised a SQL error (typo in SELECT, table not found). Treats author-error in assertion SQL the same as author-error in body SQL. The body has already committed; recovery is to fix the assertion grammar in a follow-up commit and re-run with `--force`.
+- **Exit 4** — connection failure during the assertion phase (network drop, server restart). Same recovery as any other connection-loss exit 4.
+
+### Why exit 8 still records in schema_migrations
+
+The body has committed; the DB schema is post-apply regardless of the assertion outcome. Skipping the schema_migrations record would mean a re-fire either refuses with exit 6 ("already applied") OR re-executes the body and FK-collides on the now-existing rows. Recording matches reality (the migration *did* apply); the assertion mismatch is a contract-drift signal for the operator, not a recording fault. Exit 8 is distinct from exit 7 (recording fault) so the operator knows where to look.
+
+### Cross-reference: Layer 2.5 vs. Layer 3
+
+Layer 2.5 is empirical (queries the live DB). Layer 3 is text-only (reads the migration file in cold context). They are complementary: assertions catch silent-skip drift between contract claims and live state; cold-review catches premise drift between contract claims and migration body. A passing assertion does not imply the contract is well-conceived; a passing cold-review does not imply the body actually wrote what it said. Both layers are required.
+
 ## Layer 3 — Cold-context review pass
 
 At session shutdown, if the session modified tracked SQL under `product/seed-graph/migrations/`, the shutdown sequence launches a sub-agent review pass with no session context. The agent reads each modified migration file's contract block, then reads the migration body, then reports whether the body matches its contract and whether the migration honors this document's discipline. Findings land in [`../session/current.json`](../session/current.json)'s `outcome_summary` before archive.
@@ -122,7 +159,22 @@ For each migration file in the diff:
    - Idempotency: CREATE TABLE IF NOT EXISTS or migration-ordering
      enforcement.
 
-3. Report per-file. For each file, either: "matches contract" with one
+3. Read the `-- Postcondition-Assertions:` block (if present). Verify
+   that each assertion line empirically exercises a claim the prose
+   `-- Postconditions:` field makes — assertions that don't correspond
+   to a prose claim signal contract-vs-assertion drift, as do prose
+   claims with no matching assertion. If the migration applied
+   successfully (exit 0), Layer 2.5 already verified the assertions
+   passed against the live DB; you may defer to "Layer 2.5 verified
+   the row counts" for claims expressed as integer assertions, and
+   focus your reading on body-vs-contract premise drift the assertions
+   cannot catch (e.g., "all edges are within-domain" is a structural
+   claim assertions can approximate but not fully verify). If the
+   migration is missing a `-- Postcondition-Assertions:` block
+   entirely, flag it as a follow-up authoring task — new migrations
+   are expected to include the block per Layer 2.5.
+
+4. Report per-file. For each file, either: "matches contract" with one
    sentence summarizing the match, or a list of specific contract-vs-body
    mismatches. Cite contract claim and SQL line for each mismatch.
 

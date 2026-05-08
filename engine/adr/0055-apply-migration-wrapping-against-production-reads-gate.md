@@ -71,6 +71,7 @@ Exit codes by failure cause so the caller (Skill body, future hooks) can act dif
 | 5 | Generic DB error | Halt; user adjudication needed |
 | 6 | Migration name already in schema_migrations | Use `--force` only after manual review |
 | 7 | Apply succeeded but schema_migrations INSERT failed | Manual recovery — INSERT the row directly OR revert + reapply with `--force` |
+| 8 | Apply + record succeeded; one or more declared postcondition assertions failed | Manual adjudication — see Layer 2.5 amendment below |
 
 ### Test coverage — `engine/tools/test_apply_migration.py`
 
@@ -147,6 +148,30 @@ The wrapper qualifies as a *novel cross-cutting mechanism* under ADR 0053's trig
 - [ADR 0044](0044-skill-conversion-recipe-vs-reference.md) — doc-then-skill flow; ops doc updated before Skill body.
 - [Issue #18](https://github.com/StarshipSuperjam/paideia/issues/18) — the regression report this ADR resolves.
 - [Issue #19](https://github.com/StarshipSuperjam/paideia/issues/19) — separate cleanup fix landed in the same S-0064 session (check_target.py adr_status duplicate-id disambiguation).
+
+## Consequences amendment — S-0094 (Issue #23 — Layer 2.5 postcondition verification)
+
+**Trigger.** [Issue #23](https://github.com/StarshipSuperjam/paideia/issues/23): the wrapper records every applied migration in `supabase_migrations.schema_migrations` but does not empirically verify that the migration's contract-declared postconditions match live DB state. A subtle bug producing silent row-skip (FK violation rolled back inside `DO $$`, ON CONFLICT DO NOTHING swallowing duplicates, CHECK rejected and continued, trigger logic mutating row counts) commits successfully and is recorded as applied; the drift stays invisible until a downstream session queries the table.
+
+**Decision.** The wrapper gains a Layer 2.5 step (per [ADR 0039](0039-universal-expression-contract-across-ai-authoring-patterns.md) Consequences amendment landed in the same session). Three new surfaces in [`engine/tools/apply_migration.py`](../tools/apply_migration.py):
+
+- `parse_postcondition_assertions(sql_text) -> list[tuple[str, int]] | None` — parses the inline `-- Postcondition-Assertions:` block from the contract header. Each line: `--   <SELECT returning one integer> :: <expected integer>`. The block ends at the next contract section header (e.g., `-- Invariants:`, `-- Rollback:`) or the first non-`--` line. Returns `None` when the header is absent (sentinel for backward-compat); `[]` when the header is present but contains no `::` lines (sentinel for "explicit no-assertions"); a list of tuples otherwise.
+- `verify_postconditions(db_url, assertions) -> tuple[bool, list[str]]` — runs each assertion against the live DB via the same psycopg pattern; returns all failures (not just the first) for diagnostic clarity.
+- `verify_shape()` early-detects malformed assertion grammar (non-integer expected, empty SELECT) at shape time and returns exit 2, so grammar errors never reach the apply step.
+
+**Insertion in `main()`**: between `record_in_schema_migrations` and the final success print. The body has already committed; the schema_migrations row is written; only then do assertions run. **On failure, schema_migrations is still recorded** — the body is post-apply regardless of assertion outcome; skipping the record means a re-fire either refuses with exit 6 or FK-collides on now-existing rows. Recording matches reality; the assertion mismatch is a contract-drift signal for the operator.
+
+**New exit code 8** — distinct in kind from exit 7 (recording fault). Code 7 = "we lost track of what we applied"; code 8 = "what we applied does not match the contract". Caller-side recovery for code 8: identify whether (a) the assertion SQL is wrong, (b) the prose `-- Postconditions:` block is wrong, or (c) the migration body silently misbehaved, then author a follow-up commit fixing the side that's wrong.
+
+**Refusal mode for missing block**: soft-warn (stderr line `WARNING: no '-- Postcondition-Assertions:' block declared; skipping Layer 2.5 verification`) + exit 0. Hard-fail would block all 15 unannotated Phase 5 seeds in-flight; soft-warn surfaces the missing block in routine logs, monotonic pressure to annotate. Combined with the in-session annotation strategy below, the soft-warn is transient — once all 15 are annotated, no migration in the corpus triggers it; new migrations missing the block stand out cleanly.
+
+**Retroactive annotation of all 15 Phase 5 seeds.** Per the CLAUDE.md `feedback_no_pilot_wait_and_see.md` rule (annotate-only-future migrations IS a pilot — the mechanism never exercises against the real corpus until net-new authoring occurs). Each annotation copies the prose `-- Postconditions:` integers into machine-readable form. `0060_seed_crossbridges_part1.sql` annotated first as the highest-risk file (71 cross-domain edges depending on 14 prior-migration FKs, no ON CONFLICT — exactly the silent-skip class Issue #23 names).
+
+**Test coverage**: 23 new tests in `engine/tools/test_apply_migration.py` (parser grammar / verifier semantics / main integration / scope_lock unaffected). Final suite: 47 tests, all green. New helper `_make_psycopg_stub_with_fetchone_seq` returns different values per query so multi-assertion paths are exercisable.
+
+**Trigger criterion evaluation (per ADR 0053)**: this amendment qualifies as a *novel cross-cutting mechanism* under criterion #4 (Consequences span ≥ 5 surfaces). Surfaces: tool change + tests + ADR 0055 amendment + ADR 0039 amendment + migration-discipline.md Layer 2.5 section + expression-contract-instantiation.md row update + CLAUDE.md bullet + 15 seed annotations + new build_readiness file = 23+. New first-exercise readiness note at [`engine/build_readiness/apply_migration_postcondition_first_exercise.md`](../build_readiness/apply_migration_postcondition_first_exercise.md). T1-A (load-bearing): the next routine fire applying a migration through the wrapper observes either exit 0 with `postconditions verified: N assertion(s) passed.` in stderr OR exit 8 with assertion-failure detail. T1-A does NOT require an intentionally-failing test migration in-session because the dev DB is shared apparatus and contaminating its `schema_migrations` audit trail with deliberate-failure rows is undesirable; the live exercise comes from the natural next routine-mode apply.
+
+**Cross-reference: ADR 0039 amendment.** The structural decision to introduce Layer 2.5 (rather than extend Layer 2) lives in [ADR 0039](0039-universal-expression-contract-across-ai-authoring-patterns.md)'s Consequences amendment landed in the same session. ADR 0055 records the apply-migration-specific implementation; ADR 0039 records the cross-pattern framing.
 - [`engine/operations/seed-chunked-authoring.md`](../operations/seed-chunked-authoring.md) — Layer 1 ops doc with the new wrapper invocation in step 6.
 - [`engine/tools/apply_migration.py`](../tools/apply_migration.py) — the wrapper.
 - [`engine/tools/test_apply_migration.py`](../tools/test_apply_migration.py) — test suite.
