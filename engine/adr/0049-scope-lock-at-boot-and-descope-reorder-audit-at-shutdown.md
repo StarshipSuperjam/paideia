@@ -78,6 +78,48 @@ The `SessionStart` hook ([`engine/tools/hooks/session-start.sh`](../tools/hooks/
 
 ## Consequences
 
+### Amendment (S-0100) — Decision 6 added: defer-handle field
+
+Pushback Cluster A from the [S-0097 health-check audit](../../docs/health-checks/S-0097.md) (the formal first exercise of [ADR 0057](0057-adversarial-stance-for-health-check-audits.md)) surfaced a recurrent pattern: at session close, when a post-close issue is discovered, the AI authors a forward-looking note that conveys awareness without committing to a fix. Two canonical instances captured as `[pushback]`-prefixed drawers in `paideia/problems`: S-0071's *"correctable in any future session via a JSON edit"* and S-0048's *"preserved for manual review"*. Both share the anti-pattern: deferral language that masks lack-of-resolution. The note feels like discipline ("I noticed it") but is functionally identical to silence ("nobody will pick it up"). The S-0071 instance fired AFTER the standing memory `feedback_defer_indefinitely_is_pointless.md` was written — posture-rule discipline alone did not catch the lapse.
+
+S-0098 user adjudication picked the structured archive-field requirement formulation over a brittle keyword-scan-only soft-warn. The structured-field formulation anchors on a positive contract (must declare the handle) rather than a negative contract (must not use these words). False positives become "you forgot to declare" rather than "your prose is fine but tripped a regex." The choice is captured in MemPalace `paideia/decisions` (S-0098 adjudication drawer).
+
+**Decision 6:** New field `next_session_handle: str | None` on [`engine/session/current.json`](../session/current.json) and the archive. Eager-claim writes `null`; shutdown step 7b fills via explicit prompt asked at every shutdown (same discipline as Decision 2's scope-delivery prompt — judgment-alone produced zero captures across eight sessions in the S-0041 audit; explicit prompting is the load-bearing surface). Three valid values: `"#<num>"` (Issue reference), `"S-<NNNN>"` (session reference, either an existing archive OR the next-claim slot), `null` (explicit "no defer" when hedge phrasing in `outcome_summary` is intentional forward-pointer prose).
+
+[`engine/tools/validate.py`](../tools/validate.py) gains `validate_outcome_summary_unhandled_defer()` gated to `--final-check`, emitting four soft-warn categories per the disposition table:
+
+| Hedge match in outcome_summary? | next_session_handle value | Action |
+|--------------------------------|--------------------------|--------|
+| No | (any) | No-op |
+| Yes | key absent from JSON | `outcome_summary_unhandled_defer` (primary positive) |
+| Yes | `null` | No-op (explicit "no defer") |
+| Yes | `"#<num>"` verified exists | No-op |
+| Yes | `"#<num>"` definitively missing | `next_session_handle_unknown_issue` |
+| Yes | `"#<num>"` unverifiable (offline / gh missing / timeout) | No-op (offline-graceful) |
+| Yes | `"S-<NNNN>"` archive exists OR matches next_id | No-op |
+| Yes | `"S-<NNNN>"` matches neither | `next_session_handle_unknown_session` |
+| Yes | other string / non-string non-null | `next_session_handle_malformed` |
+
+Hedge regex set (case-insensitive, whitespace-tolerant; conservative starting set per Issue #54, expand if false negatives surface in the first 5 sessions): `future session`, `next session will`, `correctable in any`, `preserved for manual review`, `picked up by`, `defer indefinitely`, `revisit when`.
+
+Issue verification uses `gh issue view <num> --json state` with a 5-second timeout. Best-effort + offline-graceful: only definitive `Could not resolve to an Issue` / `no issue or pr` stderr responses fire `next_session_handle_unknown_issue`. `gh` not installed, network failure, auth issues, timeouts all suppress to keep the validator usable offline. Per Issue #54 design intent: catch typos and stale references when online; don't block offline work.
+
+Session verification: an `S-<NNNN>` value is valid if either `engine/session/archive/S-<NNNN>.json` exists OR `S-<NNNN>` matches the next-claim slot in `register_state.json` (a session ID promised but not yet claimed). Anything else fires `next_session_handle_unknown_session`.
+
+**Deliverables (lands at S-0100):**
+- `engine/tools/validate.py` — new `validate_outcome_summary_unhandled_defer()` function + main-dispatch wire-up (alongside `validate_mempalace_adoption()` under the existing `args.final_check` branch). 26 new pytests at `engine/tools/test_validate_outcome_summary_unhandled_defer.py`.
+- `engine/tools/audit_archive_structured_fields.py` — `REQUIRED_ARCHIVE_FIELDS` row for `next_session_handle` (since S-0100, shape `str_or_null`); `shape_check()` extension to support the new shape token (None and str both valid). 7 new pytests at `engine/tools/test_audit_archive_structured_fields.py`.
+- `engine/operations/session-build-lifecycle.md` + `.claude/skills/session-build-lifecycle/SKILL.md` — schema block addition (`next_session_handle: null` initialized at eager-claim).
+- `engine/operations/session-shutdown-sequence.md` + `.claude/skills/session-shutdown-sequence/SKILL.md` — new step 7b prompt + `outcome_summary_soft_warns` example block extended with the four new categories.
+- `engine/operations/tools-validate-interpretation.md` — four new category entries (one primary + three diagnostic verification).
+- This Amendment block.
+
+The S-0100 archive is the first post-amendment session structurally bound to the new field. Pre-S-0100 archives are unaffected; the audit's `applicable_fields()` filter handles the vintage gating automatically (the same mechanism that's let `outcome_summary_soft_warns` (since S-0055), `mode` (since S-0048), and `mempalace_activity` (since S-0078) coexist with older archives).
+
+**Companion validator surface count delta:** adds one new validator check function (`validate_outcome_summary_unhandled_defer`) emitting four soft-warn categories. Adds one new structured-field row to `REQUIRED_ARCHIVE_FIELDS`. Adds one new shape token (`str_or_null`) to the audit's shape vocabulary.
+
+Decisions 1, 2, 4, and 5 of this ADR (declared_scope at boot, scope-delivery audit at shutdown, multi-session scope-erosion signal, build-readiness gate clause) are unaffected by this amendment and remain Accepted. Decision 3 remains retired per the S-0083 amendment below.
+
 ### Amendment (S-0083) — Decision 3 (session-end context telemetry) retired
 
 The telemetry-capture portion of this ADR (decision 3 above; deliverables `scan_context_telemetry.py`, the three archive fields, and the health-check Session-load trend section) is **retired** at S-0083 per Issues [#21](https://github.com/StarshipSuperjam/paideia/issues/21) and [#32](https://github.com/StarshipSuperjam/paideia/issues/32). Empirical justification per Issue #32: the Session-load trend section ran in the S-0052, S-0065, and S-0077 audits and produced **zero behavioral signal** across all three (S-0052 absorbed by triage of the >1.0 fluke; S-0065 had 62% None capture rate filed as Issue #21; S-0077 produced "low and stable; no bundling-recommendation change"). The capture itself fluctuated non-deterministically across routine-mode sessions (Issue #21 reframed at S-0077), undermining cross-session comparability. The defensive surface area required to keep the metric from being misread as live in-session pressure (Issue #11 inline-fix at S-0052; CLAUDE.md "Posture vs machinery" bullets; the at-read-site cumulative-vs-live framing) outweighed the metric's contribution to actionable decisions.

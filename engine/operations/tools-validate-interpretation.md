@@ -238,6 +238,38 @@ The shutdown audit step (added in [`session-shutdown-sequence.md`](session-shutd
 
 Recoverable — the warn is informational at the artifact level. The recoverable action is at the *next* session's planning: tighten scope, split the work, or address the systemic descoping-pressure pattern.
 
+### `outcome_summary_unhandled_defer`
+
+A session's `outcome_summary` contains hedge-pattern phrasing referring to deferred work, but `next_session_handle` is absent from the JSON entirely. Active from S-0100 onward per [ADR 0049 Decision 6 (S-0100 amendment)](../adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md) / [Issue #54](https://github.com/StarshipSuperjam/paideia/issues/54). Closes Pushback Cluster A from the S-0097 audit.
+
+Hedge regex set (case-insensitive, whitespace-tolerant; conservative starting set, expand if false negatives surface): `future session`, `next session will`, `correctable in any`, `preserved for manual review`, `picked up by`, `defer indefinitely`, `revisit when`. The shutdown step 7b prompt (added in [`session-shutdown-sequence.md`](session-shutdown-sequence.md) per ADR 0049 Decision 6) explicitly asks the AI for the handle whenever hedge phrasing is being authored.
+
+Recoverable — declare `next_session_handle` as one of: `"#<num>"` (Issue reference), `"S-<NNNN>"` (session reference), or explicit `null` (when the phrasing is intentional forward-pointer prose, not a deferral). The structured-field requirement anchors on a positive contract ("must declare the handle") rather than a negative one ("must not use these words"). False positives become "you forgot to declare" rather than "your prose tripped a regex."
+
+### `next_session_handle_unknown_issue`
+
+`next_session_handle` is `"#<num>"` but `gh issue view <num> --json state` reports the GitHub Issue does not exist (definitive `Could not resolve to an Issue` / `no issue or pr` stderr response). Active from S-0100 onward per [ADR 0049 Decision 6](../adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md) / Issue #54. Diagnostic verification category — sibling to `outcome_summary_unhandled_defer`.
+
+Verification is best-effort + offline-graceful: `gh` not installed, network failure, auth issues, timeouts all suppress the warn (don't false-positive). Only definitive "not found" responses fire. The validator stays usable offline; the warn catches typos and stale references when online.
+
+Recoverable — fix the typo, file the missing Issue, or change the handle to `null` if the deferral is no longer applicable.
+
+### `next_session_handle_unknown_session`
+
+`next_session_handle` is `"S-<NNNN>"` but no archive exists at `engine/session/archive/S-<NNNN>.json` AND the session ID does not match the next-claim slot in `register_state.json` `next_id`. Active from S-0100 onward per [ADR 0049 Decision 6](../adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md) / Issue #54.
+
+A valid session handle references either an existing archived session OR the very next claim slot (so a session can promise "S-NNNN will pick this up" only if S-NNNN is imminent). Anything else fires.
+
+Recoverable — fix the digit typo, point to an existing archive, declare the handle as the next-claim slot, or change to `null` if the session reference was speculative rather than committed.
+
+### `next_session_handle_malformed`
+
+`next_session_handle` is a non-null value that doesn't match either `^#\d+$` or `^S-\d{4}$`. Includes both string-but-wrong-shape (e.g., `"see-the-other-doc"`, `"S-99"` not 4-digit) and non-string non-null types (e.g., int, list, dict). Active from S-0100 onward per [ADR 0049 Decision 6](../adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md) / Issue #54.
+
+Note: shape errors at the JSON-type level (non-string non-null) ALSO trigger `audit_archive_structured_fields.py`'s hard-fail at closing-commit time via the `str_or_null` shape check. The soft-warn here is the in-flight surface during the session — it fires under `validate.py --final-check` before the archive ritual. The hard-fail catches the same case at the audit-archive layer as defense-in-depth.
+
+Recoverable — change the value to one of the three valid forms (`"#<num>"`, `"S-<NNNN>"`, or `null`), or remove the hedge-pattern phrasing from `outcome_summary` if the prose was unintentional.
+
 ### `timestamp_helper_bypass`
 
 A `Call` node in `engine/tools/**/*.py` (excluding `test_*.py` and the four allowlisted files) invokes `.isoformat(...)`, `.strftime(...)`, or `.fromisoformat(...)` directly. Per [ADR 0058](../adr/0058-canonical-timestamp-format-and-helper.md) + [`timestamp-discipline.md`](timestamp-discipline.md), all timestamp emission and parsing in the engine subtree routes through `engine/tools/timestamps.py` (`emit` / `emit_micros` / `parse` / `today`) so format knowledge concentrates in one place.

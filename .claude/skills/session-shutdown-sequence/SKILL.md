@@ -184,6 +184,27 @@ Write a structured answer to `engine/session/current.json`:
 
 `delivered: false` triggers the `scope_delivery_non_yes` soft-warn at the close-commit's validate.py run, regardless of `user_confirmed_changes`. The warn is signal for cross-session aggregation, not punishment. The persistent-warn surface escalates 3-of-5 firings into the boot-time multi-session erosion signal in `session-start.sh`.
 
+### 7b. Defer-handle audit (per ADR 0049 Decision 6, S-0100 amendment / Issue #54)
+
+After scope-delivery, before outcome_summary, the AI is prompted explicitly with the literal text:
+
+> *Did your `outcome_summary` use any hedge-shaped phrasing — references to "future session", "next session will", "revisit when", "deferred indefinitely", or similar? If yes, declare `next_session_handle` as either an Issue number (`#NN`), a specific session ID (`S-NNNN`), or explicit `null` (when the phrasing is intentional forward-pointer prose, not a deferral).*
+
+Write the answer to `engine/session/current.json` as the `next_session_handle` field:
+
+```json
+"next_session_handle": "#54"
+```
+
+Three valid values:
+- `"#<num>"` — GitHub Issue number tracking the deferred fix.
+- `"S-<NNNN>"` — specific scheduled session that picks up the work (4-digit pad). Either an existing archive OR the next-claim slot.
+- `null` — explicit "no defer" when hedge phrasing in `outcome_summary` is intentional forward-pointer prose.
+
+The `validate_outcome_summary_unhandled_defer` audit at `--final-check` enforces the contract per the disposition table in [`engine/operations/tools-validate-interpretation.md`](../../../engine/operations/tools-validate-interpretation.md). Closes Pushback Cluster A from the S-0097 audit (the user adjudicated structured-field formulation over keyword-scan-only at S-0098 — anchors on a positive contract "must declare the handle" rather than a negative "must not use these words").
+
+The prompt is asked at every shutdown — same discipline as 7a. Judgment-alone produced zero captures across eight sessions in the S-0041 audit; explicit prompting is the load-bearing surface.
+
 ### 8. Fill `outcome_summary` and `outcome_summary_soft_warns`
 
 `outcome_summary` is ~50 words of prose. What got done, anything noteworthy for the next session, what tradeoffs surfaced. Honest summaries beat flattering ones — health-check trend analysis and the next session's boot procedure both depend on them.
@@ -205,7 +226,11 @@ Write a structured answer to `engine/session/current.json`:
   "repo_config_health": 0,
   "mempalace_boot_query_skipped": 0,
   "mempalace_diary_read_skipped": 0,
-  "mempalace_diary_write_skipped": 0
+  "mempalace_diary_write_skipped": 0,
+  "outcome_summary_unhandled_defer": 0,
+  "next_session_handle_unknown_issue": 0,
+  "next_session_handle_unknown_session": 0,
+  "next_session_handle_malformed": 0
 }
 ```
 

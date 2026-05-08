@@ -187,6 +187,24 @@ The `user_confirmed_changes` flag is captured for future audit but does not affe
 
 The prompt is asked at every shutdown — not a heuristic for the AI to apply by judgment alone. Same discipline as the `pushback`/`lesson` capture check above (S-0041 audit measured judgment-alone produced zero captures across eight sessions; explicit prompt is the load-bearing surface).
 
+### 7b. Defer-handle audit (per ADR 0049 Decision 6, S-0100 amendment / Issue #54)
+
+After the scope-delivery audit at 7a, before `outcome_summary` fill at step 8, the AI is prompted explicitly with the literal text:
+
+> *Did your `outcome_summary` use any hedge-shaped phrasing — references to "future session", "next session will", "revisit when", "deferred indefinitely", or similar? If yes, declare `next_session_handle` as either an Issue number (`#NN`), a specific session ID (`S-NNNN`), or explicit `null` (when the phrasing is intentional forward-pointer prose, not a deferral).*
+
+The answer is written to `engine/session/current.json` as the `next_session_handle` field. Three valid values:
+
+- `"#<num>"` — GitHub Issue number tracking the deferred fix.
+- `"S-<NNNN>"` — specific scheduled session that picks up the work (4-digit pad). Either an existing archive OR the next-claim slot in `register_state.json`.
+- `null` — explicit "no defer" when hedge phrasing in `outcome_summary` is intentional forward-pointer prose (e.g., "the next routine session will resume from the same target" — true statement, not a deferral).
+
+The `validate_outcome_summary_unhandled_defer` audit at `--final-check` enforces the contract per the disposition table in [`tools-validate-interpretation.md`](tools-validate-interpretation.md). The primary positive category `outcome_summary_unhandled_defer` fires when hedge prose appears with the field absent from the JSON entirely (the "you forgot to declare" case). Three verification categories diagnose handle errors: `next_session_handle_unknown_issue` (Issue verified missing via `gh issue view`), `next_session_handle_unknown_session` (session ID matches no archive and is not the next-claim slot), `next_session_handle_malformed` (string doesn't match `#<num>` or `S-<NNNN>`).
+
+Closes Pushback Cluster A from the S-0097 audit. The user adjudicated structured-field formulation over keyword-scan-only at S-0098 — anchors on a positive contract ("must declare the handle") rather than a negative one ("must not use these words"). False positives become "you forgot to declare" rather than "your prose tripped a regex." Two canonical instances captured as `[pushback]`-prefixed drawers in `paideia/problems` (S-0071 "correctable in any future session via a JSON edit"; S-0048 "preserved for manual review").
+
+The prompt is asked at every shutdown — same discipline as 7a; explicit prompting is the load-bearing surface for both deferral mechanisms.
+
 ### 8. Fill `session/current.json` `outcome_summary` and `outcome_summary_soft_warns`
 
 `outcome_summary` is ~50 words of prose. What got done, anything noteworthy for the next session, what tradeoffs surfaced. Example shape:
@@ -232,7 +250,11 @@ Shape:
   "mempalace_diary_write_skipped_substrate_intermittent": 0,
   "mempalace_diary_write_acknowledged_skip": 0,
   "mempalace_substrate_at_close": 0,
-  "mempalace_retired_surface_used": 0
+  "mempalace_retired_surface_used": 0,
+  "outcome_summary_unhandled_defer": 0,
+  "next_session_handle_unknown_issue": 0,
+  "next_session_handle_unknown_session": 0,
+  "next_session_handle_malformed": 0
 }
 ```
 
