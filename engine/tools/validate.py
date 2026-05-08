@@ -3099,6 +3099,240 @@ def validate_mempalace_adoption() -> ValidationResult:
 
 
 # ---------------------------------------------------------------------------
+# Outcome-summary unhandled-defer detection (ADR 0049 Decision 6 / Issue #54)
+# ---------------------------------------------------------------------------
+
+# Hedge phrases drawn from the canonical S-0071 / S-0048 pushback instances
+# captured as `[pushback]`-prefixed drawers in `paideia/problems`. Conservative
+# starting set per Issue #54; expand if false negatives surface in the first
+# 5 sessions. Patterns are matched case-insensitive and whitespace-tolerant.
+_OUTCOME_SUMMARY_HEDGE_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(p, re.IGNORECASE)
+    for p in (
+        r"\bfuture\s+session\b",
+        r"\bnext\s+session\s+will\b",
+        r"\bcorrectable\s+in\s+any\b",
+        r"\bpreserved\s+for\s+manual\s+review\b",
+        r"\bpicked\s+up\s+by\b",
+        r"\bdefer\s+indefinitely\b",
+        r"\brevisit\s+when\b",
+    )
+)
+
+# Handle-string patterns. `#NN` matches Issue references (1+ digits); `S-NNNN`
+# matches the canonical 4-digit session id.
+_HANDLE_ISSUE_PATTERN = re.compile(r"^#(\d+)$")
+_HANDLE_SESSION_PATTERN = re.compile(r"^S-(\d{4})$")
+
+
+def _verify_issue_exists(issue_num: str) -> str | None:
+    """Best-effort `gh issue view` check; returns None on success or unverifiable.
+
+    Returns:
+        - None on exit-0 (issue exists OR gh unavailable / network error /
+          auth issue — anything that isn't a definitive "not found").
+        - "not found" string on exit-1 with stderr matching the GitHub
+          "Could not resolve to an Issue" / "not found" / "no issue or PR"
+          shape — these are the only definitive negatives we treat as
+          actionable. Any other error path suppresses to keep the validator
+          offline-graceful per Issue #54's spirit ("don't block offline work").
+
+    Spawned via `subprocess.run` with a 5-second timeout. The validator
+    never raises on subprocess failure; verification is best-effort.
+    """
+    try:
+        result = subprocess.run(
+            ["gh", "issue", "view", issue_num, "--json", "state"],
+            capture_output=True,
+            text=True,
+            timeout=5.0,
+            check=False,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return None
+    if result.returncode == 0:
+        return None
+    err_lower = (result.stderr or "").lower()
+    if "could not resolve" in err_lower or "no issue or pr" in err_lower:
+        return "not found"
+    if "not found" in err_lower and "issue" in err_lower:
+        return "not found"
+    return None
+
+
+def validate_outcome_summary_unhandled_defer() -> ValidationResult:
+    """Soft-warn defer-hedge prose without a declared handle per ADR 0049 Decision 6.
+
+    Closes Issue #54 (Pushback Cluster A from the S-0097 audit). Two
+    canonical instances captured as `[pushback]`-prefixed drawers in
+    `paideia/problems`: S-0071 ("correctable in any future session via a
+    JSON edit") and S-0048 ("preserved for manual review"). Both share the
+    anti-pattern: deferral language that masks lack-of-resolution. The user
+    adjudicated at S-0098 between brittle keyword-scan-only and structured
+    archive-field requirement formulations, picking the latter. This audit
+    operationalizes the structured-field approach.
+
+    Reads engine/session/current.json's `outcome_summary` (string) and
+    `next_session_handle` (str | None) fields. The `outcome_summary` is
+    only populated at shutdown step 8, so mid-session pre-commit
+    invocations are no-ops (the audit returns clean when `outcome_summary`
+    is None).
+
+    Disposition table (one positive primary category + three verification
+    categories so failures are diagnosable):
+
+        Hedge match in outcome_summary?  next_session_handle value      Action
+        --------------------------------  -----------------------------  ------
+        No                                (any)                          No-op
+        Yes                               key absent from JSON           outcome_summary_unhandled_defer
+        Yes                               null                           No-op (explicit "no defer")
+        Yes                               "#<num>" + verified exists      No-op
+        Yes                               "#<num>" + verified missing     next_session_handle_unknown_issue
+        Yes                               "#<num>" + unverifiable        No-op (offline-graceful)
+        Yes                               "S-<NNNN>" + archive exists    No-op
+        Yes                               "S-<NNNN>" + matches next_id   No-op (next-claim-slot)
+        Yes                               "S-<NNNN>" + neither           next_session_handle_unknown_session
+        Yes                               other string                   next_session_handle_malformed
+
+    Hedge regex set is conservative (7 patterns from Issue #54) — expand
+    if false negatives surface in the first 5 sessions. Patterns are
+    case-insensitive and whitespace-tolerant.
+
+    Issue verification uses `gh issue view` with a 5-second timeout;
+    suppresses on `gh` not installed, network failure, auth issue, or any
+    non-definitive negative. Only the explicit "Could not resolve to an
+    Issue" / "no issue or pr" responses fire the unknown-issue category.
+    Per Issue #54 design intent: catch typos / stale references when
+    online, don't block offline work.
+
+    Session verification: an `S-<NNNN>` value is valid if either
+    engine/session/archive/S-<NNNN>.json exists OR S-<NNNN> matches the
+    next-claim slot in register_state.json (a session ID promised but not
+    yet claimed). Anything else fires next_session_handle_unknown_session.
+
+    Default-mode (exploration, non-build) sessions are exempt: when
+    current.json is absent there is no formal session to audit.
+
+    Gated by the `--final-check` CLI flag — pre-commit hook invocations
+    (no flag) skip this validator so mid-session commits don't nag. The
+    shutdown SKILL invokes `validate.py --final-check` at step 7 after
+    `outcome_summary` and `next_session_handle` have been populated by the
+    shutdown sequence's step 7b prompt + step 8 fill.
+    """
+    r = ValidationResult()
+    r.add_check("validate_outcome_summary_unhandled_defer")
+
+    current_path = REPO_ROOT / "engine" / "session" / "current.json"
+    if not current_path.is_file():
+        return r
+
+    try:
+        current = json.loads(current_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return r
+
+    outcome_summary = current.get("outcome_summary")
+    if not isinstance(outcome_summary, str) or not outcome_summary.strip():
+        # Mid-session safety: outcome_summary is null until shutdown step 8.
+        return r
+
+    matched_patterns = [
+        p.pattern for p in _OUTCOME_SUMMARY_HEDGE_PATTERNS if p.search(outcome_summary)
+    ]
+    if not matched_patterns:
+        return r
+
+    has_handle_key = "next_session_handle" in current
+    handle_value = current.get("next_session_handle")
+
+    if not has_handle_key:
+        r.soft_warn(
+            "outcome_summary_unhandled_defer",
+            f"outcome_summary contains hedge-pattern phrasing "
+            f"({', '.join(matched_patterns)}) but next_session_handle is "
+            "absent from current.json. Per ADR 0049 Decision 6 (S-0100 "
+            "amendment) / Issue #54, declare the handle as either "
+            "'#<num>' (Issue), 'S-<NNNN>' (session), or null (when the "
+            "phrasing is intentional forward-pointer prose, not a "
+            "deferral). The structured-field requirement closes Pushback "
+            "Cluster A from the S-0097 audit — defer-hedge language without "
+            "a paired commitment is functionally identical to silence.",
+        )
+        return r
+
+    if handle_value is None:
+        return r
+
+    if not isinstance(handle_value, str):
+        r.soft_warn(
+            "next_session_handle_malformed",
+            f"next_session_handle has bad shape: expected str or null, got "
+            f"{type(handle_value).__name__}. The audit_archive_structured_fields "
+            "shape audit will hard-fail at closing-commit time; this soft-warn "
+            "is the in-flight surface during the session.",
+        )
+        return r
+
+    handle = handle_value.strip()
+
+    issue_match = _HANDLE_ISSUE_PATTERN.match(handle)
+    session_match = _HANDLE_SESSION_PATTERN.match(handle)
+
+    if issue_match is not None:
+        verdict = _verify_issue_exists(issue_match.group(1))
+        if verdict == "not found":
+            r.soft_warn(
+                "next_session_handle_unknown_issue",
+                f"next_session_handle={handle!r} but `gh issue view "
+                f"{issue_match.group(1)}` reports the Issue does not exist. "
+                "Either the Issue was closed/deleted or the number is a "
+                "typo. Verify and update the handle, or change to null if "
+                "the deferral is no longer applicable.",
+            )
+        return r
+
+    if session_match is not None:
+        session_num = int(session_match.group(1))
+        archive_path = (
+            REPO_ROOT / "engine" / "session" / "archive" / f"S-{session_num:04d}.json"
+        )
+        register_path = REPO_ROOT / "engine" / "session" / "register_state.json"
+        next_id_int: int | None = None
+        if register_path.is_file():
+            try:
+                register = json.loads(register_path.read_text(encoding="utf-8"))
+                next_id_raw = register.get("next_id")
+                if isinstance(next_id_raw, str) and next_id_raw.isdigit():
+                    next_id_int = int(next_id_raw)
+            except (json.JSONDecodeError, OSError):
+                pass
+        if archive_path.is_file():
+            return r
+        if next_id_int is not None and session_num == next_id_int:
+            return r
+        r.soft_warn(
+            "next_session_handle_unknown_session",
+            f"next_session_handle={handle!r} but no archive exists at "
+            f"engine/session/archive/S-{session_num:04d}.json AND the "
+            "session ID does not match the next-claim slot in "
+            f"register_state.json (next_id={next_id_int!r}). The handle "
+            "must reference either an existing archived session or the "
+            "very next claim slot.",
+        )
+        return r
+
+    r.soft_warn(
+        "next_session_handle_malformed",
+        f"next_session_handle={handle!r} does not match the required "
+        "shape. Valid forms: '#<num>' (Issue reference), 'S-<NNNN>' "
+        "(session reference, 4-digit), or null. Update the value to one "
+        "of these, or remove the hedge-pattern phrasing from "
+        "outcome_summary if the prose was unintentional.",
+    )
+    return r
+
+
+# ---------------------------------------------------------------------------
 # Timestamp helper bypass detection (ADR 0058 / Issue #33)
 # ---------------------------------------------------------------------------
 
@@ -3369,11 +3603,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--final-check",
         action="store_true",
-        help="Include MemPalace adoption checks (boot-query / diary-read "
-        "soft-warns; diary-write hard-fail with acknowledgement-token "
-        "escape hatch) per ADR 0056 (S-0078). Invoked by the shutdown "
-        "SKILL at step 7 after scan_mempalace_activity.py has written the "
-        "mempalace_activity field. Pre-commit hook does NOT pass this flag "
+        help="Include shutdown-time audits that read fields populated only "
+        "at shutdown. (1) MemPalace adoption checks (boot-query / "
+        "diary-read soft-warns; diary-write hard-fail with "
+        "acknowledgement-token escape hatch) per ADR 0056 (S-0078). "
+        "(2) Outcome-summary unhandled-defer detection per ADR 0049 "
+        "Decision 6 (S-0100, Issue #54) — fires when outcome_summary "
+        "contains hedge-pattern prose without a declared "
+        "next_session_handle. Invoked by the shutdown SKILL at step 7 "
+        "after scan_mempalace_activity.py and the step 7b/8 prompts have "
+        "populated their fields. Pre-commit hook does NOT pass this flag "
         "so mid-session commits are not nagged.",
     )
     args = parser.parse_args(argv)
@@ -3399,6 +3638,7 @@ def main(argv: list[str] | None = None) -> int:
         overall.merge(validate_graph())
         if args.final_check:
             overall.merge(validate_mempalace_adoption())
+            overall.merge(validate_outcome_summary_unhandled_defer())
 
     duration_ms = (time.monotonic() - start) * 1000
 
