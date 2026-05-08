@@ -130,6 +130,12 @@ REQUIRED_ARCHIVE_FIELDS: list[dict[str, str]] = [
         "shape": "dict",
         "adr": "ADR 0056 (S-0078)",
     },
+    {
+        "field": "next_session_handle",
+        "since_session": "S-0100",
+        "shape": "str_or_null",
+        "adr": "ADR 0049 Decision 6 (S-0100 amendment)",
+    },
 ]
 
 
@@ -144,7 +150,21 @@ def parse_session_id(session_str: str | None) -> int | None:
 
 
 def shape_check(value: Any, expected: str) -> str | None:
-    """Return error string if value's shape doesn't match expected, else None."""
+    """Return error string if value's shape doesn't match expected, else None.
+
+    The `str_or_null` shape (S-0100) accepts either a string or None — the
+    only nullable shape token. Used by `next_session_handle` per ADR 0049
+    Decision 6, where null is a load-bearing semantic ("explicit no defer")
+    distinct from missing (which still hard-fails as a forgotten field).
+    Other shape tokens reject None at the top of the function so a missing
+    placeholder doesn't pass the audit silently.
+    """
+    if expected == "str_or_null":
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            return f"expected str or null, got {type(value).__name__}"
+        return None
     if value is None:
         return "value is null"
     if expected == "dict":

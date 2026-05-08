@@ -96,13 +96,14 @@ c. Write `engine/session/current.json`:
   "declared_scope": "<1-3 sentences naming what this session commits to deliver. Optionally end with `phase: <id>` matching a build_plan/MANIFEST.md identifier (e.g., `phase: P_3` or `phase: 4.5`); use `phase: NA-...` for operational/engine-apparatus work.>",
   "outcome_summary": null,
   "scope_delivery": null,
+  "next_session_handle": null,
   "approved_plan": "<path or null>",
   "branch": "<current git branch>",
   "worktree": "<absolute path>"
 }
 ```
 
-The `declared_scope` field is required from S-0042 onward per [ADR 0049](../../../engine/adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md). The validator's `empty_declared_scope` soft-warn fires every commit until the field is populated; `phase_mismatch_declared_scope` fires when a `phase:` token doesn't match the build-plan manifest. The `scope_delivery` field starts `null` (in-flight) and is filled at shutdown.
+The `declared_scope` field is required from S-0042 onward per [ADR 0049](../../../engine/adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md). The validator's `empty_declared_scope` soft-warn fires every commit until the field is populated; `phase_mismatch_declared_scope` fires when a `phase:` token doesn't match the build-plan manifest. The `scope_delivery` field starts `null` (in-flight) and is filled at shutdown. The `next_session_handle` field is required from S-0100 onward per [ADR 0049 Decision 6](../../../engine/adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md), starts `null` (in-flight), and is filled at shutdown step 7b when `outcome_summary` carries hedge-pattern prose about deferred work.
 
 d. Stage both files. Commit:
 

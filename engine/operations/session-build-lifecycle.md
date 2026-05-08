@@ -80,6 +80,7 @@ Atomic slot reservation. Run before any substantive work edits.
      "declared_scope": "<1-3 sentences naming what this session commits to deliver. Optionally end with `phase: <id>` matching a build_plan/MANIFEST.md identifier (e.g., `phase: P_3` or `phase: 4.5`); use `phase: NA-...` for operational/engine-apparatus work that doesn't map to a build-plan phase.>",
      "outcome_summary": null,
      "scope_delivery": null,
+     "next_session_handle": null,
      "approved_plan": "<path or null>",
      "branch": "<current git branch>",
      "worktree": "<absolute path>"
@@ -89,6 +90,8 @@ Atomic slot reservation. Run before any substantive work edits.
    The `declared_scope` field is required from S-0042 onward per [ADR 0049](../adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md). The validator's `empty_declared_scope` soft-warn fires every commit until the field is populated; the `phase_mismatch_declared_scope` soft-warn fires when a `phase:` token doesn't match the build-plan manifest. Both checks are scope-discipline backstops — the field is the boot-time declaration that the shutdown-time scope-delivery audit will compare against.
 
    The `scope_delivery` field starts as `null` (in-flight) and is populated at shutdown with `{"delivered": bool, "user_confirmed_changes": bool, "explanation": str}` per the shutdown-sequence audit step.
+
+   The `next_session_handle` field is required from S-0100 onward per [ADR 0049 Decision 6 (S-0100 amendment)](../adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md). Initialized `null` at eager-claim. Filled at shutdown step 7b: when `outcome_summary` contains hedge-pattern phrasing referring to deferred work (e.g., "future session will pick up X"), the field declares either an Issue number (`"#<num>"`) or a specific session ID (`"S-<NNNN>"`) that owns the deferred fix. Explicit `null` at shutdown means "any hedge phrasing in `outcome_summary` is intentional forward-pointer prose, not a deferral." The `validate_outcome_summary_unhandled_defer` check at `--final-check` fires the soft-warn `outcome_summary_unhandled_defer` when hedge-pattern prose appears with the field absent (forgot to declare); fires `next_session_handle_unknown_issue` / `next_session_handle_unknown_session` when verification finds a stale reference; fires `next_session_handle_malformed` when the value is a string but doesn't match `#<num>` or `S-<NNNN>`.
 
 4. Stage both files. Commit:
 

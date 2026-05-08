@@ -72,7 +72,7 @@ def test_required_fields_are_well_formed() -> None:
         assert "shape" in row
         assert "adr" in row
         assert parse_session_id(row["since_session"]) is not None
-        assert row["shape"] in ("dict", "str", "int", "list")
+        assert row["shape"] in ("dict", "str", "int", "list", "str_or_null")
 
 
 def test_parse_session_id_well_formed() -> None:
@@ -102,13 +102,23 @@ def test_applicable_fields_filters_by_session_vintage() -> None:
     assert "mode" in fields
     assert "outcome_summary_soft_warns" not in fields
     assert "mempalace_activity" not in fields
+    assert "next_session_handle" not in fields
 
-    # S-0078 (this session) — every current field is required
+    # S-0078 — first three fields required; next_session_handle (since S-0100) is not
     rows = applicable_fields(78)
     fields = {r["field"] for r in rows}
     assert "mode" in fields
     assert "outcome_summary_soft_warns" in fields
     assert "mempalace_activity" in fields
+    assert "next_session_handle" not in fields
+
+    # S-0100 onward — every current field is required including next_session_handle
+    rows = applicable_fields(100)
+    fields = {r["field"] for r in rows}
+    assert "mode" in fields
+    assert "outcome_summary_soft_warns" in fields
+    assert "mempalace_activity" in fields
+    assert "next_session_handle" in fields
 
 
 def test_applicable_fields_unknown_session_returns_all() -> None:
@@ -137,6 +147,31 @@ def test_shape_check_unknown_shape() -> None:
     err = shape_check({}, "tuple")
     assert err is not None
     assert "audit bug" in err
+
+
+# ----- str_or_null shape (S-0100, ADR 0049 Decision 6) ------------------------
+
+
+def test_shape_check_str_or_null_accepts_str() -> None:
+    """Standard string value passes."""
+    assert shape_check("#54", "str_or_null") is None
+    assert shape_check("S-0123", "str_or_null") is None
+    assert shape_check("", "str_or_null") is None  # empty string is shape-correct
+
+
+def test_shape_check_str_or_null_accepts_null() -> None:
+    """None is the load-bearing 'explicit no defer' semantic."""
+    assert shape_check(None, "str_or_null") is None
+
+
+def test_shape_check_str_or_null_rejects_other_types() -> None:
+    """Numbers, lists, dicts are not valid."""
+    assert shape_check(42, "str_or_null") is not None
+    assert shape_check([], "str_or_null") is not None
+    assert shape_check({"x": 1}, "str_or_null") is not None
+    err = shape_check(42, "str_or_null")
+    assert err is not None
+    assert "expected str or null" in err
 
 
 # ----- in-flight mode (default) -----------------------------------------------
@@ -240,6 +275,50 @@ def test_mode_wrong_type_hard_fails(
     err = capsys.readouterr().err
     assert "HARD-FAIL" in err
     assert "expected str" in err
+
+
+def test_next_session_handle_field_absent_hard_fails_at_s0100(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Missing `next_session_handle` on S-0100+ archive — Issue #54 closure."""
+    payload = make_full_payload(session_id="S-0100")
+    p = write_current(tmp_path, payload)
+    rc = main(["--current-path", str(p), "--repo-root", str(tmp_path)])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "HARD-FAIL" in err
+    assert "next_session_handle" in err
+    assert "missing" in err.lower()
+
+
+def test_next_session_handle_null_passes_at_s0100(tmp_path: Path) -> None:
+    """Explicit null is the load-bearing 'no defer' semantic; passes."""
+    payload = make_full_payload(session_id="S-0100", next_session_handle=None)
+    p = write_current(tmp_path, payload)
+    rc = main(["--current-path", str(p), "--repo-root", str(tmp_path)])
+    assert rc == 0
+
+
+def test_next_session_handle_string_passes_at_s0100(tmp_path: Path) -> None:
+    """An issue-handle string passes the shape audit."""
+    payload = make_full_payload(session_id="S-0100", next_session_handle="#54")
+    p = write_current(tmp_path, payload)
+    rc = main(["--current-path", str(p), "--repo-root", str(tmp_path)])
+    assert rc == 0
+
+
+def test_next_session_handle_wrong_type_hard_fails_at_s0100(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """An int (or any non-string non-null) is malformed at the shape layer."""
+    payload = make_full_payload(session_id="S-0100", next_session_handle=42)
+    p = write_current(tmp_path, payload)
+    rc = main(["--current-path", str(p), "--repo-root", str(tmp_path)])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "HARD-FAIL" in err
+    assert "next_session_handle" in err
+    assert "expected str or null" in err
 
 
 def test_old_session_skips_new_fields(tmp_path: Path) -> None:
