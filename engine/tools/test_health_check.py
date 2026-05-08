@@ -330,6 +330,264 @@ def test_audit_gaps_promised_deliverable_present(synthetic_repo: Path) -> None:
     assert not any("Consequences promise" in obs for obs, _ in findings.observations)
 
 
+def _write_adr_with_orphan_ok(
+    repo: Path,
+    *,
+    engine: bool,
+    num: str,
+    status: str,
+    orphan_ok_lines: list[str],
+) -> Path:
+    """Write an ADR file with one or more Orphan-OK annotations after Status."""
+    adr_dir = repo / ("engine" if engine else "product") / "adr"
+    path = adr_dir / f"{num}-test-{num}.md"
+    annotations = "\n".join(orphan_ok_lines)
+    path.write_text(
+        f"# ADR {num} — Test\n\n"
+        f"- **Status:** {status}\n"
+        f"- **Date:** 2026-05-01\n"
+        f"{annotations}\n\n"
+        f"## Context\n\nTest.\n\n## Decision\n\nTest.\n\n## Consequences\n\nTest.\n"
+    )
+    return path
+
+
+def _seed_state_md_with_phase(repo: Path, phase_num: int) -> None:
+    """Write a STATE.md with a Current-phase headline-table row."""
+    state_path = repo / "engine" / "STATE.md"
+    state_path.write_text(
+        "# Project State\n\n## Current\n\n"
+        "| Field | Value |\n|---|---|\n"
+        f"| **Current phase** | **Phase {phase_num} — Test phase.** |\n"
+    )
+
+
+def _seed_register_with_last_claimed(repo: Path, last_claimed: str | None) -> None:
+    """Write a register_state.json with the given last_claimed value."""
+    register_path = repo / "engine" / "session" / "register_state.json"
+    payload: dict[str, Any] = {
+        "next_id": "0099",
+        "current_status": "closed",
+    }
+    if last_claimed is not None:
+        payload["last_claimed"] = last_claimed
+    register_path.write_text(json.dumps(payload))
+
+
+def test_audit_orphan_ok_list_session_trigger_passed_surfaces_finding(
+    synthetic_repo: Path,
+) -> None:
+    """ADR with `revisit at S-0050`; current session S-0099 → stale finding."""
+    _seed_register_with_last_claimed(synthetic_repo, "S-0099")
+    _write_adr_with_orphan_ok(
+        synthetic_repo,
+        engine=True,
+        num="0040",
+        status="Accepted",
+        orphan_ok_lines=[
+            "- **Orphan-OK:** future Phase 6 grounding; revisit at S-0050"
+        ],
+    )
+    findings = health_check.audit_orphan_ok_list()
+    assert any("trigger `S-0050` has passed" in obs for obs, _ in findings.observations)
+    assert any("current session: S-0099" in obs for obs, _ in findings.observations)
+
+
+def test_audit_orphan_ok_list_session_trigger_not_yet_reached_no_finding(
+    synthetic_repo: Path,
+) -> None:
+    """ADR with `revisit at S-0150`; current session S-0099 → no finding."""
+    _seed_register_with_last_claimed(synthetic_repo, "S-0099")
+    _write_adr_with_orphan_ok(
+        synthetic_repo,
+        engine=True,
+        num="0040",
+        status="Accepted",
+        orphan_ok_lines=["- **Orphan-OK:** Phase 8 grounding; revisit at S-0150"],
+    )
+    findings = health_check.audit_orphan_ok_list()
+    assert findings.is_empty()
+
+
+def test_audit_orphan_ok_list_phase_trigger_passed_surfaces_finding(
+    synthetic_repo: Path,
+) -> None:
+    """`revisit at Phase 5` with current phase 5 → stale (>= triggers fire)."""
+    _seed_register_with_last_claimed(synthetic_repo, "S-0099")
+    _seed_state_md_with_phase(synthetic_repo, phase_num=5)
+    _write_adr_with_orphan_ok(
+        synthetic_repo,
+        engine=True,
+        num="0041",
+        status="Accepted",
+        orphan_ok_lines=["- **Orphan-OK:** decided in Phase 4; revisit at Phase 5"],
+    )
+    findings = health_check.audit_orphan_ok_list()
+    assert any(
+        "trigger `Phase 5` has been reached" in obs for obs, _ in findings.observations
+    )
+
+
+def test_audit_orphan_ok_list_phase_trigger_not_yet_reached_no_finding(
+    synthetic_repo: Path,
+) -> None:
+    """`revisit at Phase 8` with current phase 5 → no finding."""
+    _seed_register_with_last_claimed(synthetic_repo, "S-0099")
+    _seed_state_md_with_phase(synthetic_repo, phase_num=5)
+    _write_adr_with_orphan_ok(
+        synthetic_repo,
+        engine=True,
+        num="0041",
+        status="Accepted",
+        orphan_ok_lines=[
+            "- **Orphan-OK:** Phase 8 cost-cap grounding; revisit at Phase 8"
+        ],
+    )
+    findings = health_check.audit_orphan_ok_list()
+    assert findings.is_empty()
+
+
+def test_audit_orphan_ok_list_no_annotation_returns_empty(
+    synthetic_repo: Path,
+) -> None:
+    """Accepted ADR without Orphan-OK annotation → no findings."""
+    _seed_register_with_last_claimed(synthetic_repo, "S-0099")
+    write_adr(synthetic_repo, engine=True, num="0040", status="Accepted")
+    findings = health_check.audit_orphan_ok_list()
+    assert findings.is_empty()
+
+
+def test_audit_orphan_ok_list_non_accepted_adr_skipped(
+    synthetic_repo: Path,
+) -> None:
+    """ADR with Orphan-OK but Status != Accepted is skipped (Superseded etc.)."""
+    _seed_register_with_last_claimed(synthetic_repo, "S-0099")
+    _write_adr_with_orphan_ok(
+        synthetic_repo,
+        engine=True,
+        num="0040",
+        status="Superseded by ADR 0099",
+        orphan_ok_lines=["- **Orphan-OK:** old reason; revisit at S-0050"],
+    )
+    findings = health_check.audit_orphan_ok_list()
+    assert findings.is_empty()
+
+
+def test_audit_orphan_ok_list_malformed_trigger_surfaces_informational_finding(
+    synthetic_repo: Path,
+) -> None:
+    """A trigger that's neither S-NNNN nor Phase-N is surfaced as malformed."""
+    _seed_register_with_last_claimed(synthetic_repo, "S-0099")
+    _write_adr_with_orphan_ok(
+        synthetic_repo,
+        engine=True,
+        num="0040",
+        status="Accepted",
+        orphan_ok_lines=["- **Orphan-OK:** vague reason; revisit at someday"],
+    )
+    findings = health_check.audit_orphan_ok_list()
+    assert any(
+        "is neither S-NNNN nor Phase-N shape (malformed)" in obs
+        for obs, _ in findings.observations
+    )
+
+
+def test_audit_orphan_ok_list_register_missing_session_trigger_cannot_evaluate(
+    synthetic_repo: Path,
+) -> None:
+    """Without register_state.json, session-id triggers surface as informational."""
+    _write_adr_with_orphan_ok(
+        synthetic_repo,
+        engine=True,
+        num="0040",
+        status="Accepted",
+        orphan_ok_lines=["- **Orphan-OK:** test; revisit at S-0050"],
+    )
+    findings = health_check.audit_orphan_ok_list()
+    assert any(
+        "cannot be evaluated (register_state.json missing or last_claimed malformed)"
+        in obs
+        for obs, _ in findings.observations
+    )
+
+
+def test_audit_orphan_ok_list_state_missing_phase_trigger_cannot_evaluate(
+    synthetic_repo: Path,
+) -> None:
+    """Without STATE.md, phase triggers surface as informational findings."""
+    _seed_register_with_last_claimed(synthetic_repo, "S-0099")
+    # No STATE.md.
+    _write_adr_with_orphan_ok(
+        synthetic_repo,
+        engine=True,
+        num="0040",
+        status="Accepted",
+        orphan_ok_lines=["- **Orphan-OK:** test; revisit at Phase 6"],
+    )
+    findings = health_check.audit_orphan_ok_list()
+    assert any(
+        "cannot be evaluated (STATE.md Current-phase row not parseable)" in obs
+        for obs, _ in findings.observations
+    )
+
+
+def test_audit_orphan_ok_list_multiple_annotations_in_one_adr(
+    synthetic_repo: Path,
+) -> None:
+    """A single ADR with multiple Orphan-OK lines yields a finding per stale line."""
+    _seed_register_with_last_claimed(synthetic_repo, "S-0099")
+    _write_adr_with_orphan_ok(
+        synthetic_repo,
+        engine=True,
+        num="0040",
+        status="Accepted",
+        orphan_ok_lines=[
+            "- **Orphan-OK:** first reason; revisit at S-0050",
+            "- **Orphan-OK:** second reason; revisit at S-0150",
+        ],
+    )
+    findings = health_check.audit_orphan_ok_list()
+    # Only the first (S-0050, passed) is stale; the second (S-0150, not yet) isn't.
+    stale_count = sum(1 for obs, _ in findings.observations if "has passed" in obs)
+    assert stale_count == 1
+
+
+def test_audit_orphan_ok_list_integrated_into_audit_gaps(
+    synthetic_repo: Path,
+) -> None:
+    """audit_gaps() folds audit_orphan_ok_list() findings into Gaps observations."""
+    _seed_register_with_last_claimed(synthetic_repo, "S-0099")
+    _write_adr_with_orphan_ok(
+        synthetic_repo,
+        engine=True,
+        num="0040",
+        status="Accepted",
+        orphan_ok_lines=["- **Orphan-OK:** stale; revisit at S-0050"],
+    )
+    findings = audit_gaps()
+    assert any(
+        "Orphan-OK revisit-by trigger" in obs and "S-0050" in obs
+        for obs, _ in findings.observations
+    )
+
+
+def test_audit_orphan_ok_list_corpus_today_has_zero_findings(
+    synthetic_repo: Path,
+) -> None:
+    """Empirical baseline: with no ADRs carrying Orphan-OK, no findings emit.
+
+    Documents the pre-S-0099 corpus state that motivated this audit being
+    additive: zero existing annotations means the function is load-bearing
+    only when annotations begin to be authored. No false positives on first
+    deployment.
+    """
+    _seed_register_with_last_claimed(synthetic_repo, "S-0099")
+    write_adr(synthetic_repo, engine=True, num="0040", status="Accepted")
+    write_adr(synthetic_repo, engine=False, num="0050", status="Accepted")
+    findings = health_check.audit_orphan_ok_list()
+    assert findings.is_empty()
+
+
 def test_audit_gaps_promised_path_relative_to_adr_dir(synthetic_repo: Path) -> None:
     """Path resolution tries ADR-directory-relative when repo-root-relative fails."""
     write_archive(synthetic_repo, "S-0014")

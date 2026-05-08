@@ -670,11 +670,210 @@ def audit_gaps() -> CategoryFindings:
                 "phase has opened without consumption are gaps.",
             )
 
+    # Cascade-discipline.md commitment: orphan-OK list audit at health-check
+    # time. Mechanized at S-0099 per Issue #51 — the periodic-audit promise at
+    # cascade-discipline.md:88 is now backed by mechanism rather than posture.
+    orphan_ok_findings = audit_orphan_ok_list()
+    findings.observations.extend(orphan_ok_findings.observations)
+
     if findings.is_empty():
         findings.add(
             "No Gaps surfaced by mechanical audit.",
             "no action",
         )
+    return findings
+
+
+def _resolve_current_session_id() -> str | None:
+    """Return register_state.json's last_claimed S-NNNN, or None if unavailable.
+
+    Returns None when the register file is missing, malformed, or carries a
+    last_claimed value that is not a well-formed S-NNNN string. The orphan-OK
+    audit treats None as "session-id triggers cannot be evaluated" and surfaces
+    those triggers as informational findings rather than silently passing.
+    """
+    register_path = REPO_ROOT / "engine" / "session" / "register_state.json"
+    try:
+        register = json.loads(register_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+    last_claimed = register.get("last_claimed") if isinstance(register, dict) else None
+    if isinstance(last_claimed, str) and re.match(r"^S-\d{4}$", last_claimed):
+        return last_claimed
+    return None
+
+
+def _resolve_current_phase_num() -> int | None:
+    """Return the highest opened phase number per engine/STATE.md, or None.
+
+    Parses the Current-phase row of STATE.md's headline table. Returns None
+    when STATE.md is absent or the row cannot be parsed; the orphan-OK audit
+    treats None as "phase triggers cannot be evaluated" and surfaces those
+    triggers as informational findings.
+
+    A phase is the "current" phase whether it is open or closed — closed
+    phases have been reached. A trigger "revisit at Phase N" fires stale
+    when the current phase number is >= N.
+    """
+    state_path = REPO_ROOT / "engine" / "STATE.md"
+    try:
+        text = state_path.read_text()
+    except OSError:
+        return None
+    # Anchored to the headline-table "Current phase" row; the row's value cell
+    # leads with `**Phase N — <description> (closed; ...)` per STATE.md
+    # convention. The first match is canonical; downstream prose may mention
+    # other phase numbers (Phase 6 master plan, Phase 8 cost-cap, etc.).
+    match = re.search(
+        r"\*\*Current phase\*\*\s*\|\s*\*\*Phase\s+(\d+)",
+        text,
+    )
+    if not match:
+        return None
+    try:
+        return int(match.group(1))
+    except ValueError:
+        return None
+
+
+def audit_orphan_ok_list() -> CategoryFindings:
+    """Audit ADR `Orphan-OK:` annotations for stale revisit-by triggers.
+
+    Walks engine/adr/*.md and product/adr/*.md. For each Accepted ADR
+    carrying an `- **Orphan-OK:** <reason>; revisit at <trigger>` annotation
+    (per cascade-discipline.md convention), parses the trigger and surfaces
+    findings when:
+
+    - **Session-ID trigger** (`S-NNNN` shape): the trigger session has been
+      reached or passed (compared against register_state.json:last_claimed).
+    - **Phase trigger** (`Phase N` / `phase_N` shape): the named phase has
+      been reached or passed (compared against engine/STATE.md's Current
+      phase row).
+    - **Malformed trigger**: the trigger string is neither shape; surfaced
+      as an informational finding to nudge annotation repair.
+    - **Cannot evaluate**: when register_state.json or STATE.md isn't
+      parseable, surface an informational finding rather than silently
+      passing — the audit's purpose is to prevent silent staleness.
+
+    Cross-doc handshake closed: cascade-discipline.md line 88 commits the
+    periodic health check to this audit; pre-S-0099 the commitment was
+    posture-only and the S-0097 cold-context probe surfaced the gap.
+
+    Pre-condition:
+        ENGINE_ADR_DIR / PRODUCT_ADR_DIR exist on disk (or absent → empty
+        findings — fresh repos before any ADR has been authored).
+
+    Post-condition:
+        Returns CategoryFindings with one observation per stale or malformed
+        annotation. Empty findings when no Accepted ADR carries an
+        `Orphan-OK:` line.
+
+    Error modes:
+        - ADR file unreadable (OSError): skipped silently (consistent with
+          audit_gaps()'s existing OSError handling).
+        - register_state.json / STATE.md unreadable: surfaced as
+          "cannot evaluate" findings rather than raising.
+        - Annotation regex mismatch: not surfaced (only well-formed
+          annotations participate; malformed annotations that DO match the
+          basic shape but carry an unrecognized trigger surface separately).
+
+    Non-responsibilities:
+        - Does not modify ADR files. Author repair is an out-of-band action
+          surfaced by the finding's recommended action clause.
+        - Does not enforce a "stale annotation that has not been
+          re-annotated for >N cadence cycles" surface. cascade-discipline.md
+          line 90 names this as a future criterion; one finding per stale
+          annotation is sufficient for the first-exercise contract.
+    """
+    findings = CategoryFindings()
+
+    # Trigger captures rest-of-line so multi-word forms like `Phase 6` are
+    # caught alongside compact forms like `S-0050` or `phase_6`.
+    annotation_re = re.compile(
+        r"^\s*-\s*\*\*Orphan-OK:\*\*\s*(?P<reason>[^;]+);\s*"
+        r"revisit at\s+(?P<trigger>[^\n]+?)\s*$",
+        re.MULTILINE,
+    )
+    accepted_re = re.compile(
+        r"^\s*-?\s*\*\*Status:\*\*\s*Accepted",
+        re.MULTILINE | re.IGNORECASE,
+    )
+    session_trigger_re = re.compile(r"^S-(\d+)$")
+    phase_trigger_re = re.compile(r"^[Pp]hase[\s_-]*(\d+)$")
+
+    current_session_id = _resolve_current_session_id()
+    current_phase_num = _resolve_current_phase_num()
+    current_session_num: int | None = None
+    if current_session_id is not None:
+        try:
+            current_session_num = int(current_session_id.split("-")[1])
+        except (IndexError, ValueError):
+            current_session_num = None
+
+    for adr_dir in (ENGINE_ADR_DIR, PRODUCT_ADR_DIR):
+        if not adr_dir.is_dir():
+            continue
+        for adr_file in sorted(adr_dir.glob("[0-9][0-9][0-9][0-9]-*.md")):
+            try:
+                content = adr_file.read_text()
+            except OSError:
+                continue
+            if not accepted_re.search(content):
+                continue
+            for match in annotation_re.finditer(content):
+                trigger = match.group("trigger").strip().rstrip(",.;:")
+                reason = match.group("reason").strip()
+                rel = adr_file.relative_to(REPO_ROOT)
+
+                session_match = session_trigger_re.match(trigger)
+                if session_match:
+                    trigger_num = int(session_match.group(1))
+                    if current_session_num is None:
+                        findings.add(
+                            f"{rel}: Orphan-OK trigger `{trigger}` cannot be "
+                            "evaluated (register_state.json missing or "
+                            "last_claimed malformed)",
+                            "Investigate register_state.json; manual fallback "
+                            "to verify the trigger.",
+                        )
+                    elif current_session_num >= trigger_num:
+                        findings.add(
+                            f"{rel}: Orphan-OK revisit-by trigger `{trigger}` "
+                            f"has passed (current session: {current_session_id}). "
+                            f"Reason: {reason}",
+                            "Re-evaluate the ADR per cascade-discipline.md: "
+                            "either remove the annotation, update the trigger, "
+                            "or supersede/deprecate the ADR.",
+                        )
+                    continue
+
+                phase_match = phase_trigger_re.match(trigger)
+                if phase_match:
+                    trigger_phase = int(phase_match.group(1))
+                    if current_phase_num is None:
+                        findings.add(
+                            f"{rel}: Orphan-OK trigger `{trigger}` cannot be "
+                            "evaluated (STATE.md Current-phase row not parseable)",
+                            "Investigate STATE.md; manual fallback to verify "
+                            "the trigger.",
+                        )
+                    elif current_phase_num >= trigger_phase:
+                        findings.add(
+                            f"{rel}: Orphan-OK revisit-by trigger `{trigger}` "
+                            f"has been reached (current phase: "
+                            f"{current_phase_num}). Reason: {reason}",
+                            "Re-evaluate the ADR per cascade-discipline.md.",
+                        )
+                    continue
+
+                findings.add(
+                    f"{rel}: Orphan-OK trigger `{trigger}` is neither S-NNNN "
+                    "nor Phase-N shape (malformed)",
+                    "Repair the annotation per cascade-discipline.md "
+                    "convention: `- **Orphan-OK:** <reason>; revisit at "
+                    "<S-NNNN-or-Phase-N>`.",
+                )
+
     return findings
 
 
