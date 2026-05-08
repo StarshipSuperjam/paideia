@@ -238,6 +238,14 @@ The shutdown audit step (added in [`session-shutdown-sequence.md`](session-shutd
 
 Recoverable — the warn is informational at the artifact level. The recoverable action is at the *next* session's planning: tighten scope, split the work, or address the systemic descoping-pressure pattern.
 
+### `timestamp_helper_bypass`
+
+A `Call` node in `engine/tools/**/*.py` (excluding `test_*.py` and the four allowlisted files) invokes `.isoformat(...)`, `.strftime(...)`, or `.fromisoformat(...)` directly. Per [ADR 0058](../adr/0058-canonical-timestamp-format-and-helper.md) + [`timestamp-discipline.md`](timestamp-discipline.md), all timestamp emission and parsing in the engine subtree routes through `engine/tools/timestamps.py` (`emit` / `emit_micros` / `parse` / `today`) so format knowledge concentrates in one place.
+
+Recoverable: replace the bare call with the appropriate helper function, or — if the site has a legitimate non-canonical contract — add the file to `_TIMESTAMP_HELPER_BYPASS_ALLOWLIST` in `validate.py` with an inline comment naming what the helper would break if applied. The four current allowlist entries (`apply_migration.py`, `probe_push_gate.py`, `audit_mempalace_attribution.py`, `scan_mempalace_citations.py`) document the contract pattern.
+
+Persistent firing across multiple sessions per [`soft-warn-lifecycle.md`](soft-warn-lifecycle.md)'s 3-of-5-archives surface signals new ad-hoc emission slipping in — investigate the offending file and either route through the helper or extend the allowlist with rationale.
+
 ### Graph-audit soft-warns (S-0037 onward, active when SUPABASE_DB_URL is set)
 
 The seven categories ADR 0016 contracts. All seven register in `checks_run` even when zero findings fire, so cross-session telemetry distinguishes "category clean" from "category did not run" (the schema convention at [`session-shutdown-sequence.md`](session-shutdown-sequence.md)).

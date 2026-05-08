@@ -233,4 +233,6 @@ The same amendment-asymmetry pattern [ADR 0036](../adr/0036-expression-contract-
 - [`session-build-lifecycle.md`](session-build-lifecycle.md) — boot procedure; build-mode-only gate execution context.
 - [`tools-validate-interpretation.md`](tools-validate-interpretation.md) — hard-fail vs soft-warn semantics; the gate stack uses hard-fails uniformly.
 - [`adr-authoring.md`](adr-authoring.md) — when an ADR is warranted (module-level and cross-cutting decisions).
+- [`cascade-discipline.md`](cascade-discipline.md) — sibling sub-discipline within Python/engine: cascade-analysis pattern + manual procedures.
+- [`timestamp-discipline.md`](timestamp-discipline.md) — sibling sub-discipline within Python/engine per [ADR 0058](../adr/0058-canonical-timestamp-format-and-helper.md): canonical timestamp format and `engine/tools/timestamps.py` helper-routing for emission and parsing.
 - [`mempalace-tagging-conventions.md`](mempalace-tagging-conventions.md) — `decision` drawer conventions for the deliberation behind contract blocks.
