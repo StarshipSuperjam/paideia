@@ -280,7 +280,8 @@ Defaults work for most phases. Re-evaluate the cadence:
 - If health checks consistently produce no actionable findings — raise the cadence (e.g., 10 → 20 → 30).
 - If health checks consistently produce large finding lists — lower the cadence (e.g., 10 → 5).
 - During transitions between phases — consider a one-off audit at the boundary, independent of the regular cadence.
-- The cadence was tightened from 30 → 10 at S-0033 because the S-0032 MemPalace audit surfaced enough accumulated silent failures that the 30-session window was too sparse. Raise back when the project demonstrates more consistent execution (multiple consecutive cadence audits with minimal corrective action).
+- The cadence was tightened from 30 → 10 at S-0033 because the S-0032 MemPalace audit surfaced enough accumulated silent failures that the 30-session window was too sparse.
+- The cadence was raised from 10 → 20 at S-0097 (alongside the deferred cadence-fired audit that was the formal first exercise of [ADR 0057](../adr/0057-adversarial-stance-for-health-check-audits.md)) because routine sessions per [ADR 0051](../adr/0051-routine-mode-and-engine-loop.md) consume slots in 8–12-session batches executing similar tasks against a single target — slot-count under cadence-10 stopped tracking telemetry-variety once routines became a regular session shape. The raise lets each cadence window cover ≥1 routine batch plus several interactive sessions, producing a more diverse audit-input pool. Adjust further if subsequent audits show drift accumulating between checks (lower) or audits consistently producing no actionable findings (raise further). See [ADR 0022](../adr/0022-periodic-project-health-checks.md) S-0097 Consequences amendment for the full rationale; `health_check_cadence_history` in `engine/session/register_state.json` records the timeline with reasoning.
 
 ## See also
 

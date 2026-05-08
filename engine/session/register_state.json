@@ -4,7 +4,7 @@
   "next_id": "0098",
   "last_claimed": "S-0097",
   "current_status": "in_progress",
-  "health_check_cadence": 10,
+  "health_check_cadence": 20,
   "health_check_cadence_history": [
     {
       "cadence": 30,
@@ -15,8 +15,14 @@
     {
       "cadence": 10,
       "from_session": "S-0033",
-      "to_session": null,
+      "to_session": "S-0096",
       "reason": "S-0032 user direction: tighten to 10 because the S-0032 audit surfaced enough silent failures (broken auto-capture hook, inflated 1/42 metric, ADR-companion room-split) that 30-session intervals are too sparse. Raise back later when the project performs more consistently."
+    },
+    {
+      "cadence": 20,
+      "from_session": "S-0097",
+      "to_session": null,
+      "reason": "S-0097 user direction: raise from 10 to 20 because routine sessions (per ADR 0051) consume slots in 8–12-session batches executing similar tasks against a single target, producing largely-converged telemetry across the batch — cadence-10 was sized when slot-count tracked roughly with telemetry-variety (mostly heterogeneous interactive build sessions). A 20-session window better captures ≥1 routine batch plus several interactive sessions, producing a more diverse audit-input pool. Raise or lower further if subsequent audits show drift accumulating between checks (lower) or audits consistently producing no actionable findings (raise further)."
     }
   ],
   "last_audit_session": "S-0077",
