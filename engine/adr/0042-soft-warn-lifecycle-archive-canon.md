@@ -43,6 +43,28 @@ Trade-offs accepted:
 
 The `outcome_summary_soft_warns` field is additive to the existing schema; older session-archive readers (e.g., a future audit script written against the pre-S-0029 shape) continue to work and ignore the new field.
 
+### Amendment (S-0101) — Validator-pipeline classification map
+
+The S-0097 cadence-fired health-check audit (Non-obvious finding A) surfaced a meta-pattern not visible to the existing 3-of-5 boot surface: soft-warn categories quietly drift into "informational-only" status without explicit re-classification. A category that fires 5/30 with 1 commit-reference is implicitly demoted to noise — but the ADR's lifecycle has no closed loop for either retiring it or formally accepting it as informational-only. As routine batches under cadence-20 generate batch-converged telemetry, this drift accelerates: validator output gets noisier and audit prose has to do correspondingly more triage work.
+
+The S-0098 audit-closeout adjudication routed the finding through Issue #52 per [ADR 0057](0057-adversarial-stance-for-health-check-audits.md) user-buffered execution. The S-0101 sweep closes that Issue by extending [`engine/operations/tools-validate-interpretation.md`](../operations/tools-validate-interpretation.md) with a comprehensive **validator-pipeline classification map**: every soft-warn category emitted by `validate.py` lands in exactly one of five buckets — Actively-tracked (default), Persistent-warn annotation, Informational-only-accepted, Actively-tracked deferred re-audit (for fresh categories), or Retire-candidate flagged for next audit.
+
+The classification map is the canonical surface for validator-pipeline-intent visibility. It lives alongside (not in place of) the existing per-category prose in the "Soft-warns" section, the S-0077 persistent-warn annotations, and the S-0098 informational-only-accepted classifications. The relationship is: the map names the *intent*; the per-category sections name the *meaning*.
+
+**Threshold matrix** (calibration baseline, S-0101; subject to future tuning under this ADR's amendment discipline):
+
+- Actively-tracked: fired ≥1 in window AND has commit-references; OR fired 0 in window AND guards a structural invariant.
+- Persistent-warn annotation: fires structurally under named conditions; resolution condition documented; boot surface suppresses.
+- Informational-only-accepted: fired ≥3 in last 5 archives AND acted-on rate ≤2 commits in window — passive observability without per-fire action.
+- Actively-tracked, deferred re-audit: added to validator within last 5 archives; re-classify at next cadence audit.
+- Retire-candidate (flagged): fired 0/20 AND ≤1/100 AND no documented structural-invariant role.
+
+**Re-run methodology** is documented inline in [`tools-validate-interpretation.md`](../operations/tools-validate-interpretation.md) (3-line python for fire-rate + 1-line `git log --grep` for acted-on rate); no permanent helper tool — the analysis is mechanical enough to re-derive each cadence audit. Mechanize at the third re-run if friction recurs.
+
+**S-0101 sweep result**: 40 categories classified — 3 persistent-warn-annotated (S-0077 carry), 2 informational-only-accepted (S-0098 carry), 5 actively-tracked-deferred (4 from S-0100 + `timestamp_helper_bypass` from S-0095), 30 actively-tracked default, 0 retire-candidates. The S-0077 and S-0098 prior classifications survived the new threshold matrix unchanged (concordance check verification). Two ghost archive keys excluded by design: `graph_audit_skipped` (an `add_check`, not a `soft_warn`) and `mempalace_diary_write_skipped` (a hard-fail, not a soft-warn).
+
+**Re-classification cadence**: ADR 0057 user-buffered execution — re-classification routes through user adjudication at the next health-check audit (S-0117 projected). Fresh categories from S-0095/S-0100 re-evaluate then once ≥10 post-introduction archives accumulate.
+
 ## See also
 
 - [ADR 0022](0022-periodic-project-health-checks.md) — the periodic audit consumer this ADR's structured field unblocks.
