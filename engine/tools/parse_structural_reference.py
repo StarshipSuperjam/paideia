@@ -793,6 +793,12 @@ class PDFInputAdapter(InputAdapter):
                 outline_entries, elements, position_counter
             )
             self._emit_font_size_headings(pdf, elements, position_counter)
+            # Third-tier detector — fires only when outline tree is sparse
+            # (< 50 headings) AND font-size analysis didn't supply enough
+            # heading inventory to characterize the source. Source-agnostic
+            # by structural shape; anonymization filter applied at emit-
+            # time so publication-name-shaped runners cannot leak through.
+            self._emit_page_header_headings(pages_text, elements, position_counter)
             self._emit_text_pattern_headings(full_text, elements, position_counter)
             self._emit_link_annotation_anchors(pdf, elements, position_counter)
             self._emit_textual_crossref_anchors(full_text, elements, position_counter)
@@ -1089,6 +1095,153 @@ class PDFInputAdapter(InputAdapter):
             )
         )
         pos[0] += 1
+
+    @staticmethod
+    def _emit_page_header_headings(
+        pages_text: list[str],
+        elements: list[StructuralElement],
+        pos: list[int],
+    ) -> None:
+        """Emit headings derived from page-header runners.
+
+        Third-tier detector for the structural class characterized by body-
+        font entries with page-header runners as the only entry indicator
+        (entries do not stand out in the outline tree, do not stand out in
+        font-size analysis, but consistently appear in each page's first
+        non-empty line as "<first-entry-on-page> <last-entry-on-page>" or
+        a concatenated form). Per ADR 0047 decision 1 the path is source-
+        agnostic — gating decisions and shape predicates fire on structural
+        signals alone.
+
+        Anonymization filter (load-bearing per Issue #49 + Issue #48 cross-
+        deliverable invariant): page-header runners commonly carry the
+        publication name on alternating pages (standard typography). Lines
+        matching `is_publication_name_shaped()` are skipped entirely so
+        they cannot leak through to entry titles via the partitioning
+        path. Per-token re-check after splitting catches the case where
+        the whole-line match misses but a token preserves the
+        concatenated-shape signature.
+
+        Outline-count gating mirrors `_emit_font_size_headings()`: when
+        the outline tree already supplies ample heading inventory
+        (>= 50 entries, the same threshold), this path returns early
+        because the outline is authoritative.
+
+        Page-header-shape predicate: line is short (under 80 chars), all-
+        caps OR title-case, lacks terminal punctuation, distinct from
+        body content. Concatenated-token sources fall through to a case-
+        transition-based split helper.
+        """
+        outline_count = sum(1 for e in elements if e.kind == "heading")
+        if outline_count >= 50:
+            return
+        seen_text: set[str] = {e.text for e in elements if e.kind == "heading"}
+        for page_text in pages_text:
+            if not page_text:
+                continue
+            stripped_page = page_text.strip()
+            if not stripped_page:
+                continue
+            first_line = stripped_page.split("\n", 1)[0].strip()
+            if not first_line:
+                continue
+            if is_publication_name_shaped(first_line):
+                continue
+            if not PDFInputAdapter._is_page_header_shaped(first_line, page_text):
+                continue
+            tokens = first_line.split()
+            if len(tokens) == 1:
+                tokens = PDFInputAdapter._split_camel_concat(first_line)
+            tokens = [t.strip() for t in tokens if t.strip()]
+            if not tokens:
+                continue
+            if any(is_publication_name_shaped(t) for t in tokens):
+                continue
+            for token in tokens:
+                if len(token) < 2 or len(token) > 80:
+                    continue
+                if token in seen_text:
+                    continue
+                seen_text.add(token)
+                elements.append(
+                    StructuralElement(
+                        kind="heading",
+                        text=token,
+                        attributes={"level": "1"},
+                        position=pos[0],
+                    )
+                )
+                pos[0] += 1
+
+    @staticmethod
+    def _is_page_header_shaped(line: str, page_text: str) -> bool:
+        """Return True when line shape is consistent with a page-header runner.
+
+        Page-header runners are short, capitalized, free of terminal
+        sentence punctuation, and distinct from body content. The
+        predicate is recall-prioritized — it accepts any line that
+        could plausibly be a runner; downstream filtering (publication-
+        name structural patterns, partition-layer rejection) handles
+        false positives.
+        """
+        if not line:
+            return False
+        if len(line) > 80:
+            return False
+        if line[-1:] in {".", "?", "!", ","}:
+            return False
+        # Reject if the line is purely lowercase (sentence-case body lines).
+        # Allow all-uppercase OR mixed-case-with-uppercase-anywhere; reject
+        # purely-lowercase noise. Title-case detection is handled by the
+        # presence of any uppercase letter.
+        if not any(c.isupper() for c in line):
+            return False
+        # Reject pure digits / pure punctuation lines.
+        if not any(c.isalpha() for c in line):
+            return False
+        # Distinct from body content: the line should not appear verbatim
+        # later in the same page's body (which would suggest it is body
+        # text repeated rather than a header runner).
+        page_body = page_text.split("\n", 1)[1] if "\n" in page_text else ""
+        if page_body and line in page_body:
+            return False
+        return True
+
+    @staticmethod
+    def _split_camel_concat(text: str) -> list[str]:
+        """Split a concatenated-token string on case-transition boundaries.
+
+        Sources that strip whitespace from page-header runners produce
+        forms like "FoundationalismCoherentism" or "AbrabanelJudahabstractentity".
+        The split heuristic recovers tokens by inserting a boundary
+        wherever a lowercase character is followed by an uppercase, and
+        wherever an uppercase run transitions to a Title-cased word.
+
+        Returns the list of recovered tokens; falls back to [text] when
+        no case-transition boundary is found.
+        """
+        if not text:
+            return []
+        boundaries: list[int] = [0]
+        for i in range(1, len(text)):
+            prev = text[i - 1]
+            cur = text[i]
+            if prev.islower() and cur.isupper():
+                boundaries.append(i)
+            elif (
+                prev.isupper()
+                and cur.isupper()
+                and i + 1 < len(text)
+                and text[i + 1].islower()
+            ):
+                boundaries.append(i)
+        boundaries.append(len(text))
+        tokens: list[str] = []
+        for j in range(len(boundaries) - 1):
+            chunk = text[boundaries[j] : boundaries[j + 1]]
+            if chunk:
+                tokens.append(chunk)
+        return tokens or [text]
 
     @staticmethod
     def _emit_text_pattern_headings(
@@ -1754,10 +1907,30 @@ def extract_entries(
     Returns an empty list when no entry is detectable (no boundary
     headings AND the orchestrator's no-boundary fallback partition
     yields no detectable title).
+
+    Defense-in-depth anonymization filter (Issue #49 + Issue #48 cross-
+    deliverable invariant): partitions whose first heading text matches
+    `is_publication_name_shaped()` are dropped before becoming Entry
+    records. Catches publication-name leakage from any emit path
+    (outline, font-size, page-header, text-pattern) — not only the new
+    third-tier detector. Pairs with the emit-time filter in
+    `PDFInputAdapter._emit_page_header_headings()` and the title-detection
+    filter in `detect_title()` for layered protection of the
+    parametric-knowledge boundary committed in ADR 0047 decision 4.
     """
     partitions = partition_at_entry_boundaries(adapter_output, document_type_config)
     entries: list[Entry] = []
     for partition in partitions:
+        first_heading = next(
+            (e for e in partition if e.kind == "heading"),
+            None,
+        )
+        if (
+            first_heading is not None
+            and first_heading.text
+            and is_publication_name_shaped(first_heading.text)
+        ):
+            continue
         entry = extract_entry_from_partition(
             partition, adapter_output, document_type_config
         )

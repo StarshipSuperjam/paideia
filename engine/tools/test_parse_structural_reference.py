@@ -1308,6 +1308,72 @@ def _build_synthetic_pdf(
     return path
 
 
+def _build_body_font_page_header_pdf(
+    path: Path,
+    *,
+    page_runners: list[str],
+    body_font_size: int = 10,
+    book_section_outline: list[tuple[str, str]] | None = None,
+    body_phrase: str | None = None,
+) -> Path:
+    """Build a PDF for the body-font-entry / page-header-runner class.
+
+    Synthesizes:
+      - Optional small outline (book sections only — under threshold-50 so
+        the page-header tier is gated-in). Default: ["Cover", "Title Page",
+        "Index"]. Set to [] to omit outline entirely.
+      - Each page: page-header runner as the FIRST line at body font size
+        (no large headings). Body phrase below.
+      - body_phrase: optional sentence-case body content placed below
+        the runner. Used to verify body content is NOT filtered.
+
+    Per the source-identity discipline, all test publisher tokens used by
+    callers should be SYNTHETIC (Acme, Synthetic, FakeReference, etc.).
+    """
+    try:
+        from reportlab.lib.pagesizes import letter  # type: ignore[import-untyped,unused-ignore]
+        from reportlab.pdfgen import canvas as rl_canvas  # type: ignore[import-untyped,unused-ignore]
+    except ImportError:
+        pytest.skip("reportlab not available")
+
+    if book_section_outline is None:
+        book_section_outline = [
+            ("Cover", "cover"),
+            ("Title Page", "title-page"),
+            ("Index", "index"),
+        ]
+
+    c = rl_canvas.Canvas(str(path), pagesize=letter)
+    c.setTitle("")  # /Title metadata absent; structural detection drives titles
+
+    # Optional first page that anchors the outline bookmarks. Without a
+    # bookmarkPage call before addOutlineEntry, reportlab drops the entry.
+    if book_section_outline:
+        c.setFont("Helvetica", body_font_size)
+        c.drawString(72, 720, "Front matter")
+        for section_title, section_id in book_section_outline:
+            c.bookmarkPage(section_id)
+            c.addOutlineEntry(section_title, section_id, level=0)
+        c.showPage()
+
+    for runner in page_runners:
+        c.setFont("Helvetica", body_font_size)
+        # Runner sits at body font size — font-size analysis must NOT
+        # extract these. Place at top of page so it becomes the first
+        # line of pages_text per pypdfium2 reading order.
+        c.drawString(72, 740, runner)
+        if body_phrase is not None:
+            y = 720
+            for segment in body_phrase.split("\n"):
+                c.drawString(72, y, segment)
+                y -= 14
+        else:
+            c.drawString(72, 720, "Body content for the page below the runner line.")
+        c.showPage()
+    c.save()
+    return path
+
+
 # ---------------------------------------------------------------------------
 # TestPDFInputAdapter — exercises the multi-fallback PDF adapter against
 # reportlab-synthesized fixtures. Each test exercises one fallback layer.
@@ -1572,3 +1638,284 @@ class TestMultiEntryPartitioning:
             partition_elements, out, ENCYCLOPEDIA_CONFIG
         )
         assert result is None
+
+
+# ---------------------------------------------------------------------------
+# TestPageHeaderEntryIndicator — third-tier PDF detector for body-font/page-
+# header-runner class per Issue #48. Synthetic publisher tokens throughout.
+# ---------------------------------------------------------------------------
+
+
+class TestPageHeaderEntryIndicator:
+    def test_synthetic_body_font_pdf_emits_entries_via_page_header_path(
+        self, tmp_path: Path
+    ) -> None:
+        f = _build_body_font_page_header_pdf(
+            tmp_path / "x.pdf",
+            page_runners=[
+                "Foundationalism Coherentism",
+                "Coherentism Externalism",
+                "Externalism Internalism",
+            ],
+        )
+        out = PDFInputAdapter().extract(f, "encyclopedia")
+        heading_texts = [e.text for e in out.elements if e.kind == "heading"]
+        # Each runner contributes both tokens; tokens are deduped at emit-time.
+        assert "Foundationalism" in heading_texts
+        assert "Coherentism" in heading_texts
+        assert "Externalism" in heading_texts
+        assert "Internalism" in heading_texts
+
+    def test_page_header_path_gated_off_when_outline_count_above_50(
+        self, tmp_path: Path
+    ) -> None:
+        # Synthesize a PDF whose outline already supplies >= 50 headings so
+        # the page-header tier returns early. Page-header runners on body
+        # pages must not produce additional level-1 headings.
+        many_outline = [(f"OutlineEntry{i}", f"outline-{i}") for i in range(60)]
+        f = _build_body_font_page_header_pdf(
+            tmp_path / "x.pdf",
+            page_runners=["RunnerAlpha RunnerBeta"],
+            book_section_outline=many_outline,
+        )
+        out = PDFInputAdapter().extract(f, "encyclopedia")
+        heading_texts = [e.text for e in out.elements if e.kind == "heading"]
+        # Outline entries present.
+        assert any(t.startswith("OutlineEntry") for t in heading_texts)
+        # Page-header tokens NOT emitted because outline >= 50 short-circuits.
+        assert "RunnerAlpha" not in heading_texts
+        assert "RunnerBeta" not in heading_texts
+
+    def test_page_header_path_handles_concatenated_tokens(self, tmp_path: Path) -> None:
+        # Sources that strip whitespace from runners produce concatenated
+        # forms; the case-transition split helper must recover the tokens.
+        f = _build_body_font_page_header_pdf(
+            tmp_path / "x.pdf",
+            page_runners=["FoundationalismCoherentism"],
+        )
+        out = PDFInputAdapter().extract(f, "encyclopedia")
+        heading_texts = [e.text for e in out.elements if e.kind == "heading"]
+        assert "Foundationalism" in heading_texts
+        assert "Coherentism" in heading_texts
+
+    def test_is_page_header_shaped_rejects_body_lines(self) -> None:
+        adapter = PDFInputAdapter()
+        # Sentence-case body line with terminal punctuation — rejected.
+        assert not adapter._is_page_header_shaped(
+            "This is a regular body sentence.", ""
+        )
+
+    def test_is_page_header_shaped_rejects_terminal_punctuation(self) -> None:
+        adapter = PDFInputAdapter()
+        assert not adapter._is_page_header_shaped("This is a sentence.", "")
+        assert not adapter._is_page_header_shaped("Question?", "")
+        assert not adapter._is_page_header_shaped("Exclamation!", "")
+
+    def test_is_page_header_shaped_rejects_overly_long_lines(self) -> None:
+        adapter = PDFInputAdapter()
+        # Lines over 80 chars are unlikely to be runners (paragraph wrapped
+        # body content reaching the first-line position).
+        assert not adapter._is_page_header_shaped("A " * 50, "")
+
+    def test_is_page_header_shaped_rejects_pure_lowercase(self) -> None:
+        adapter = PDFInputAdapter()
+        assert not adapter._is_page_header_shaped("all lowercase no caps", "")
+
+    def test_is_page_header_shaped_accepts_title_case(self) -> None:
+        adapter = PDFInputAdapter()
+        assert adapter._is_page_header_shaped(
+            "Foundationalism Coherentism",
+            "Body content goes here without the runner",
+        )
+
+    def test_is_page_header_shaped_accepts_all_caps(self) -> None:
+        adapter = PDFInputAdapter()
+        assert adapter._is_page_header_shaped(
+            "FOUNDATIONALISM COHERENTISM",
+            "Body content here",
+        )
+
+    def test_split_camel_concat_recovers_tokens_at_lowercase_to_upper(
+        self,
+    ) -> None:
+        adapter = PDFInputAdapter()
+        assert adapter._split_camel_concat("FooBar") == ["Foo", "Bar"]
+        assert adapter._split_camel_concat("FoundationalismCoherentism") == [
+            "Foundationalism",
+            "Coherentism",
+        ]
+
+    def test_split_camel_concat_returns_singleton_when_no_boundary(self) -> None:
+        adapter = PDFInputAdapter()
+        # All-uppercase or all-lowercase have no case-transition boundary;
+        # fall through to the original string.
+        assert adapter._split_camel_concat("FOUNDATIONALISM") == ["FOUNDATIONALISM"]
+        assert adapter._split_camel_concat("foundationalism") == ["foundationalism"]
+        assert adapter._split_camel_concat("Foundationalism") == ["Foundationalism"]
+
+    def test_split_camel_concat_handles_uppercase_run_to_titlecase(self) -> None:
+        adapter = PDFInputAdapter()
+        # "ABCFoo" — uppercase run "ABC" transitions to a Title-cased word
+        # "Foo" at index 3 because text[2]='C' upper, text[3]='F' upper,
+        # text[4]='o' lower. Tokens: ["ABC", "Foo"].
+        result = adapter._split_camel_concat("ABCFoo")
+        assert result == ["ABC", "Foo"]
+
+    def test_split_camel_concat_empty_input(self) -> None:
+        adapter = PDFInputAdapter()
+        assert adapter._split_camel_concat("") == []
+
+
+# ---------------------------------------------------------------------------
+# TestPageHeaderAnonymizationInvariant — cross-deliverable invariant gate
+# (Issue #48 + Issue #49). Adversarial fixtures with synthetic publisher
+# tokens to exercise the publication-name filter at every layer.
+# ---------------------------------------------------------------------------
+
+
+class TestPageHeaderAnonymizationInvariant:
+    def test_publication_name_page_header_runner_filtered_out(
+        self, tmp_path: Path
+    ) -> None:
+        # When every page's first line is a publication name, zero level-1
+        # headings should be emitted by the page-header detector. The
+        # outline supplies its small set of book-section headings only.
+        f = _build_body_font_page_header_pdf(
+            tmp_path / "x.pdf",
+            page_runners=[
+                "The Acme Dictionary of Philosophy",
+                "The Acme Dictionary of Philosophy",
+                "The Acme Dictionary of Philosophy",
+            ],
+        )
+        out = PDFInputAdapter().extract(f, "encyclopedia")
+        heading_texts = [e.text for e in out.elements if e.kind == "heading"]
+        # No heading should carry the publication name (or its tokens).
+        for t in heading_texts:
+            assert not is_publication_name_shaped(t), t
+            assert "Acme" not in t or "Dictionary" not in t
+
+    def test_concatenated_publication_name_page_header_filtered_out(
+        self, tmp_path: Path
+    ) -> None:
+        f = _build_body_font_page_header_pdf(
+            tmp_path / "x.pdf",
+            page_runners=[
+                "TheAcmeDictionaryofPhilosophy",
+                "TheAcmeDictionaryofPhilosophy",
+            ],
+        )
+        out = PDFInputAdapter().extract(f, "encyclopedia")
+        heading_texts = [e.text for e in out.elements if e.kind == "heading"]
+        for t in heading_texts:
+            assert not is_publication_name_shaped(t), t
+
+    def test_alternating_publication_name_and_entry_pair_runners(
+        self, tmp_path: Path
+    ) -> None:
+        # Even pages carry the publication name (book-title typography);
+        # odd pages carry entry-pair runners. Only entry-pair tokens
+        # should survive the anonymization filter.
+        f = _build_body_font_page_header_pdf(
+            tmp_path / "x.pdf",
+            page_runners=[
+                "Foundationalism Coherentism",
+                "The Acme Dictionary of Philosophy",
+                "Externalism Internalism",
+                "The Acme Dictionary of Philosophy",
+                "Reliabilism Skepticism",
+                "The Acme Dictionary of Philosophy",
+            ],
+        )
+        out = PDFInputAdapter().extract(f, "encyclopedia")
+        heading_texts = [e.text for e in out.elements if e.kind == "heading"]
+        # Entry-pair tokens emitted.
+        for expected in [
+            "Foundationalism",
+            "Coherentism",
+            "Externalism",
+            "Internalism",
+            "Reliabilism",
+            "Skepticism",
+        ]:
+            assert expected in heading_texts, f"missing {expected}"
+        # Publication-name shape NOT in any heading.
+        for t in heading_texts:
+            assert not is_publication_name_shaped(t), t
+
+    def test_recursive_brief_grep_for_publication_name_shape(
+        self, tmp_path: Path
+    ) -> None:
+        # Full pipeline: synthesize, parse, emit brief, serialize. Recursive
+        # walk over the JSON dict asserts no string field at any depth
+        # matches PUBLICATION_NAME_PATTERN or PUBLICATION_NAME_PATTERN_CONCATENATED.
+        f = _build_body_font_page_header_pdf(
+            tmp_path / "x.pdf",
+            page_runners=[
+                "Foundationalism Coherentism",
+                "The Acme Dictionary of Philosophy",
+                "Externalism Internalism",
+            ],
+        )
+        adapter_output = PDFInputAdapter().extract(f, "encyclopedia")
+        entries = extract_entries(adapter_output, ENCYCLOPEDIA_CONFIG)
+        brief = emit_focusing_brief(adapter_output, entries)
+        parsed = json.loads(serialize_brief(brief))
+
+        leaks: list[tuple[str, str]] = []
+
+        def walk(obj: object, path: str) -> None:
+            if isinstance(obj, str):
+                if PUBLICATION_NAME_PATTERN.match(obj.strip()):
+                    leaks.append((path, obj))
+                if PUBLICATION_NAME_PATTERN_CONCATENATED.search(obj):
+                    leaks.append((path, obj))
+            elif isinstance(obj, dict):
+                for k, v in obj.items():
+                    walk(v, f"{path}.{k}")
+            elif isinstance(obj, list):
+                for i, v in enumerate(obj):
+                    walk(v, f"{path}[{i}]")
+
+        walk(parsed, "root")
+        assert leaks == [], f"publication-name shape leaked: {leaks}"
+
+    def test_legitimate_body_publisher_phrase_preserved(self, tmp_path: Path) -> None:
+        # Body-context phrase containing reference-type words should NOT be
+        # filtered — the structural pattern catches the editorial-convention
+        # title shape, not bare body mentions.
+        f = _build_body_font_page_header_pdf(
+            tmp_path / "x.pdf",
+            page_runners=["Foundationalism Coherentism"],
+            body_phrase=(
+                "Acme Platonism is a hypothetical movement in epistemology. "
+                "It draws on a compendium of arguments from earlier traditions."
+            ),
+        )
+        out = PDFInputAdapter().extract(f, "encyclopedia")
+        # The body phrase appears in full_text intact (the page-header
+        # detector touched only the first-line tokens).
+        assert "Acme Platonism" in out.full_text
+        assert "compendium of arguments" in out.full_text
+
+    def test_extract_entries_drops_partition_with_publication_name_first_heading(
+        self,
+    ) -> None:
+        # Defense-in-depth at the partition layer: even if a heading
+        # element with a publication-name shape arrives via some emit
+        # path, extract_entries drops the partition before producing
+        # an Entry record.
+        out = _make_output(
+            [
+                _heading(1, "Acme Encyclopedia of Philosophy", 0),
+                _paragraph("This partition should be dropped entirely.", 1),
+                _heading(1, "Foundationalism", 2),
+                _paragraph(
+                    "This partition is preserved (legitimate philosophy entry).",
+                    3,
+                ),
+            ]
+        )
+        entries = extract_entries(out, ENCYCLOPEDIA_CONFIG)
+        assert len(entries) == 1
+        assert entries[0].title == "Foundationalism"
