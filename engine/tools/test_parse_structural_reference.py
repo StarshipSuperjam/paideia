@@ -33,6 +33,9 @@ from parse_structural_reference import (  # noqa: E402
     DOCUMENT_TYPE_REGISTRY,
     ENCYCLOPEDIA_CONFIG,
     PARSER_VERSION,
+    PUBLICATION_NAME_PATTERN,
+    PUBLICATION_NAME_PATTERN_CONCATENATED,
+    PUBLICATION_NAME_SUFFIX_STRIPPER,
     AdapterOutput,
     Entry,
     FocusingBrief,
@@ -48,11 +51,13 @@ from parse_structural_reference import (  # noqa: E402
     emit_focusing_brief,
     extract_entries,
     extract_entry_from_partition,
+    is_publication_name_shaped,
     main,
     partition_at_entry_boundaries,
     select_adapter,
     serialize_brief,
     slugify_title,
+    strip_publication_name_suffix,
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -122,14 +127,19 @@ class TestModuleConstants:
         assert all(p.isdigit() for p in parts)
 
     def test_encyclopedia_config_carries_required_keys(self) -> None:
+        # `title_suffix_strip_patterns` was removed at S-0103 per Issue #49 —
+        # the structural PUBLICATION_NAME_SUFFIX_STRIPPER at module scope
+        # subsumes the previously-enumerated per-publisher patterns. See the
+        # source-identity anonymization block in parse_structural_reference.py
+        # and the TestPublicationNamePattern test class below.
         for key in (
             "entry_boundary",
             "cross_reference_patterns",
             "section_path_source",
             "minimum_word_count_for_full_entry",
-            "title_suffix_strip_patterns",
         ):
             assert key in ENCYCLOPEDIA_CONFIG
+        assert "title_suffix_strip_patterns" not in ENCYCLOPEDIA_CONFIG
 
     def test_document_type_registry_includes_encyclopedia(self) -> None:
         assert "encyclopedia" in DOCUMENT_TYPE_REGISTRY
@@ -547,7 +557,12 @@ class TestFocusingBrief:
         parsed = json.loads(serialized)
         assert parsed["entries"][0]["title"] == "Foo"
         assert parsed["entries"][0]["section_path"] is None
-        assert parsed["entries"][0]["source_url"] is None
+        # source_url stripped at serialization boundary per Issue #49 / S-0103
+        # so the downstream LLM cannot infer source identity from URL fields.
+        # The in-memory dataclass still carries the field for internal
+        # consumers (detect_entry_id slug derivation).
+        assert "source_url" not in parsed["entries"][0]
+        assert "source_path" not in parsed
         assert parsed["entries"][0]["extraction_confidence"] == 0.5
 
     def test_serialize_round_trips_unicode(self) -> None:
@@ -570,6 +585,279 @@ class TestFocusingBrief:
         )
         serialized = serialize_brief(brief)
         assert "Schopenhauer's Essence" in serialized
+
+
+# ---------------------------------------------------------------------------
+# TestSerializeBriefAnonymization — source-identity strip per Issue #49
+# ---------------------------------------------------------------------------
+#
+# These tests target the serialization-boundary anonymization that
+# preserves the ADR 0047 decision 4 parametric-knowledge boundary. The
+# in-memory dataclasses retain source_path and source_url for internal
+# consumers; the JSON output omits both so a downstream LLM consuming the
+# brief cannot infer the publisher and bias its triage.
+
+
+def _build_anonymization_test_brief() -> FocusingBrief:
+    """Construct a FocusingBrief with non-null source_path and per-entry source_url."""
+    return FocusingBrief(
+        source_path="/path/that/should/not/leak/source.html",
+        document_type="encyclopedia",
+        parser_version="0.1.0",
+        generated_at="2026-05-08T22:00:00Z",
+        entries=[
+            Entry(
+                title="Foundationalism",
+                entry_id="foundationalism",
+                cross_references=["coherentism"],
+                section_path="Epistemology",
+                word_count=300,
+                source_url="https://example.invalid/entries/foundationalism/",
+                extraction_confidence=0.8,
+            ),
+            Entry(
+                title="Coherentism",
+                entry_id="coherentism",
+                cross_references=["foundationalism"],
+                section_path="Epistemology",
+                word_count=250,
+                source_url="https://example.invalid/entries/coherentism/",
+                extraction_confidence=0.7,
+            ),
+        ],
+    )
+
+
+class TestSerializeBriefAnonymization:
+    def test_serialize_brief_strips_top_level_source_path(self) -> None:
+        brief = _build_anonymization_test_brief()
+        parsed = json.loads(serialize_brief(brief))
+        assert "source_path" not in parsed
+        # The other top-level fields remain.
+        assert parsed["document_type"] == "encyclopedia"
+        assert parsed["parser_version"] == "0.1.0"
+        assert parsed["generated_at"] == "2026-05-08T22:00:00Z"
+        assert len(parsed["entries"]) == 2
+
+    def test_serialize_brief_strips_per_entry_source_url(self) -> None:
+        brief = _build_anonymization_test_brief()
+        parsed = json.loads(serialize_brief(brief))
+        for entry in parsed["entries"]:
+            assert "source_url" not in entry
+            # Per-entry payload otherwise intact.
+            assert "title" in entry
+            assert "entry_id" in entry
+            assert "cross_references" in entry
+            assert "section_path" in entry
+            assert "word_count" in entry
+            assert "extraction_confidence" in entry
+
+    def test_serialize_brief_preserves_in_memory_dataclasses(self) -> None:
+        # The strip happens on the asdict() copy — the in-memory dataclasses
+        # remain unchanged because internal consumers (notably
+        # detect_entry_id's URL-slug derivation) still need the fields.
+        brief = _build_anonymization_test_brief()
+        _ = serialize_brief(brief)
+        assert brief.source_path == "/path/that/should/not/leak/source.html"
+        for entry in brief.entries:
+            assert entry.source_url is not None
+            assert entry.source_url.startswith("https://example.invalid/")
+
+    def test_serialize_brief_handles_brief_with_no_entries(self) -> None:
+        # Empty entries list is the common shape for sources that produced
+        # zero parseable entries; the top-level strip must still apply.
+        brief = FocusingBrief(
+            source_path="/empty.html",
+            document_type="encyclopedia",
+            parser_version="0.1.0",
+            generated_at="2026-05-08T22:00:00Z",
+            entries=[],
+        )
+        parsed = json.loads(serialize_brief(brief))
+        assert "source_path" not in parsed
+        assert parsed["entries"] == []
+
+    def test_serialize_brief_handles_entry_with_null_source_url(self) -> None:
+        # source_url is Optional in Entry; the strip must be safe against
+        # already-None values (PDF entries typically lack a source_url).
+        brief = FocusingBrief(
+            source_path="/x.pdf",
+            document_type="encyclopedia",
+            parser_version="0.1.0",
+            generated_at="2026-05-08T22:00:00Z",
+            entries=[
+                Entry(
+                    title="Foo",
+                    entry_id="foo",
+                    cross_references=[],
+                    section_path=None,
+                    word_count=10,
+                    source_url=None,
+                    extraction_confidence=0.5,
+                )
+            ],
+        )
+        parsed = json.loads(serialize_brief(brief))
+        assert "source_path" not in parsed
+        assert "source_url" not in parsed["entries"][0]
+
+
+# ---------------------------------------------------------------------------
+# TestPublicationNamePattern — structural source-identity detection (Issue #49)
+# ---------------------------------------------------------------------------
+#
+# These tests target the structural patterns and helpers that detect
+# publication-name shapes without enumerating publisher tokens. Test data
+# uses synthetic publisher tokens (Acme, Synthetic, FakeReference, etc.) —
+# the structural pattern fires on the editorial-convention shape, not on
+# the brand name. See the source-identity discipline in
+# parse_structural_reference.py's anonymization-block doc comment.
+
+
+class TestPublicationNamePattern:
+    @pytest.mark.parametrize(
+        "candidate",
+        [
+            "Acme Encyclopedia of Philosophy",
+            "Synthetic Dictionary of History",
+            "FakeReference Companion to Logic",
+            "MockPublisher Handbook of Linguistics",
+            "GenericSource Reference of Mathematics",
+            "PlaceholderName Compendium of Astronomy",
+            "The Great Acme Encyclopedia of Philosophy",
+            "ACME ENCYCLOPEDIA OF PHILOSOPHY",  # all-caps
+            "acme encyclopedia of philosophy",  # all-lowercase still matches IGNORECASE
+        ],
+    )
+    def test_publication_name_pattern_matches_canonical_shapes(
+        self, candidate: str
+    ) -> None:
+        assert PUBLICATION_NAME_PATTERN.match(candidate) is not None
+
+    @pytest.mark.parametrize(
+        "candidate",
+        [
+            "AcmeEncyclopediaofPhilosophy",
+            "SyntheticDictionaryofHistory",
+            "FakeReferenceCompaniontoLogic",
+            "MockPublisherHandbookofLinguistics",
+        ],
+    )
+    def test_publication_name_pattern_concatenated_matches_stripped_form(
+        self, candidate: str
+    ) -> None:
+        assert PUBLICATION_NAME_PATTERN_CONCATENATED.search(candidate) is not None
+
+    @pytest.mark.parametrize(
+        "candidate",
+        [
+            "Acme Platonism",
+            "Synthetic realism",
+            "foundationalism",
+            "Generic theory of knowledge",
+            "compendium of arguments",  # lowercase noun phrase, not a title
+            "encyclopedia",  # bare type token without preposition
+            "of philosophy",  # bare prepositional phrase without subject
+        ],
+    )
+    def test_publication_name_pattern_rejects_legitimate_entries(
+        self, candidate: str
+    ) -> None:
+        # The structural pattern requires the editorial-convention shape:
+        # a noun phrase + reference-work-type token + preposition + another
+        # noun phrase. Bare body-context mentions of any individual word
+        # do not match; this is the anti-false-positive guard for entries
+        # that happen to mention reference-type words in their body prose.
+        assert not is_publication_name_shaped(candidate), candidate
+
+    def test_strip_publication_name_suffix_strips_em_dash_separator(self) -> None:
+        result = strip_publication_name_suffix(
+            "Foundationalism — Acme Encyclopedia of Philosophy"
+        )
+        assert result == "Foundationalism"
+
+    def test_strip_publication_name_suffix_strips_hyphen_separator(self) -> None:
+        result = strip_publication_name_suffix(
+            "Foundationalism - Synthetic Dictionary of History"
+        )
+        assert result == "Foundationalism"
+
+    def test_strip_publication_name_suffix_strips_pipe_separator(self) -> None:
+        result = strip_publication_name_suffix(
+            "Foundationalism | FakeReference Companion to Logic"
+        )
+        assert result == "Foundationalism"
+
+    def test_strip_publication_name_suffix_strips_parenthesized_form(self) -> None:
+        # Subsumes the previous SEP-style enumerated pattern structurally —
+        # parens + publication-name shape + closing paren.
+        result = strip_publication_name_suffix(
+            "Foundationalism (MockPublisher Encyclopedia of Philosophy)"
+        )
+        assert result == "Foundationalism"
+
+    def test_strip_publication_name_suffix_strips_colon_separator(self) -> None:
+        result = strip_publication_name_suffix(
+            "Foundationalism : GenericSource Reference of Mathematics"
+        )
+        assert result == "Foundationalism"
+
+    def test_strip_publication_name_suffix_preserves_non_matching_titles(self) -> None:
+        assert strip_publication_name_suffix("Foundationalism") == "Foundationalism"
+        assert strip_publication_name_suffix("") == ""
+
+    def test_strip_publication_name_suffix_preserves_legitimate_em_dash_titles(
+        self,
+    ) -> None:
+        # Em-dash in title is common ("Foundationalism — A Brief History");
+        # only the publication-name SHAPE after a separator triggers strip.
+        assert (
+            strip_publication_name_suffix("Foundationalism — A Brief History")
+            == "Foundationalism — A Brief History"
+        )
+
+    def test_is_publication_name_shaped_helper_combines_both_patterns(self) -> None:
+        # whole-form shape
+        assert is_publication_name_shaped("Acme Encyclopedia of Philosophy")
+        # concatenated shape
+        assert is_publication_name_shaped("AcmeEncyclopediaofPhilosophy")
+        # negative
+        assert not is_publication_name_shaped("Foundationalism")
+        # empty
+        assert not is_publication_name_shaped("")
+
+    def test_publication_name_as_whole_title_returns_none_in_detect_title(self) -> None:
+        # When /Title metadata or first <title> is itself a publication name
+        # (single-entry export of a book), detect_title must reject it and
+        # fall through to the H1 chain.
+        out = _make_output(
+            [
+                _title("Acme Encyclopedia of Philosophy", 0),
+                _heading(1, "Foundationalism", 1),
+            ]
+        )
+        assert detect_title(out) == "Foundationalism"
+
+    def test_publication_name_as_h1_skipped_in_detect_title_fallback(self) -> None:
+        # When the first H1 is a publication name (rare but possible when
+        # an outline emits a book-cover heading), skip and continue.
+        out = _make_output(
+            [
+                _heading(1, "Synthetic Dictionary of History", 0),
+                _heading(1, "Causation", 1),
+            ]
+        )
+        assert detect_title(out) == "Causation"
+
+    def test_publication_name_suffix_stripper_is_compiled_regex(self) -> None:
+        # Smoke test that the constant exposed at module scope is the
+        # expected compiled pattern usable by external callers.
+        assert (
+            PUBLICATION_NAME_SUFFIX_STRIPPER.search(
+                "Foo — Acme Encyclopedia of Philosophy"
+            )
+            is not None
+        )
 
 
 # ---------------------------------------------------------------------------

@@ -78,7 +78,6 @@ Non-responsibilities:
 Output schema (FocusingBrief, JSON-serialized):
 
     {
-        "source_path": "<absolute or relative path to source>",
         "document_type": "encyclopedia" | "dictionary" | "textbook",
         "parser_version": "<PARSER_VERSION constant>",
         "generated_at": "<ISO-8601 UTC>",
@@ -89,11 +88,21 @@ Output schema (FocusingBrief, JSON-serialized):
                 "cross_references": ["<entry_id>", ...],
                 "section_path": "<topical category>" | null,
                 "word_count": <int>,
-                "source_url": "<URL>" | null,
                 "extraction_confidence": <float 0.0-1.0>
             }
         ]
     }
+
+Source identity is anonymized at the serialization boundary per ADR 0047
+decision 4 — the JSON omits top-level `source_path` and per-entry
+`source_url` so a downstream LLM consuming the brief cannot infer the
+publisher and bias its triage. The in-memory `FocusingBrief` and `Entry`
+dataclasses retain those fields for internal consumers (notably
+`detect_entry_id` slug derivation); only `serialize_brief()` strips them.
+Title detection additionally strips structurally-shaped publication-name
+suffixes via `strip_publication_name_suffix()` so titles arriving from
+`/Title` metadata or `<title>` tags don't carry the publication name
+into the brief.
 
 CLI invocation:
 
@@ -175,14 +184,14 @@ ENCYCLOPEDIA_CONFIG: dict[str, Any] = {
     ],
     "section_path_source": "first_section_heading",
     "minimum_word_count_for_full_entry": 200,
-    # Title-suffix patterns to strip from raw <title> text. SEP entries
-    # use "<Entry> (Stanford Encyclopedia of Philosophy)"; IEP uses
-    # "<Entry> | Internet Encyclopedia of Philosophy". Stripping yields
-    # cleaner entry titles for the focusing brief.
-    "title_suffix_strip_patterns": [
-        r"\s*\(Stanford Encyclopedia of Philosophy\)\s*$",
-        r"\s*\|\s*Internet Encyclopedia of Philosophy\s*$",
-    ],
+    # Title-suffix anonymization moved to the structural stripper at
+    # module scope (PUBLICATION_NAME_SUFFIX_STRIPPER + helpers below).
+    # The previous enumerated patterns (per-publisher suffixes) were
+    # subsumed at S-0103 per ADR 0047 decision 4: the structural pattern
+    # matches any "<X> Encyclopedia/Dictionary/Companion/Handbook/Reference/
+    # Compendium of/to <Y>" suffix without enumerating publisher names,
+    # preserving the parametric-knowledge boundary at the project's own
+    # config layer (no source-identity tokens embedded in code).
 }
 
 DOCUMENT_TYPE_REGISTRY: dict[str, dict[str, Any]] = {
@@ -232,6 +241,112 @@ PDF_TEXT_CROSSREF_PATTERNS = [
     r"→\s+([^.\n;:()]+)",
     r"\bCf\.\s+([^.\n;:()]+)",
 ]
+
+# --------------------------------------------------------------------------
+# Source-identity anonymization — structural patterns per ADR 0047 + Issue #49
+# --------------------------------------------------------------------------
+#
+# These patterns detect the editorial-convention shape that publishers use
+# to brand their reference works. The alternation tokens (Encyclopedia,
+# Dictionary, Companion, Handbook, Reference, Compendium) are descriptors
+# of reference-work TYPES — not publisher names. The patterns fire on the
+# structural shape, never on enumerated publisher tokens. This preserves
+# the ADR 0047 decision 4 parametric-knowledge boundary at the project's
+# own config / code layer: no source-identity tokens are embedded here.
+#
+# Three primitives:
+#
+# 1. PUBLICATION_NAME_PATTERN — matches a whole title that IS a publication
+#    name (e.g., the candidate "<Publisher> Encyclopedia of <Domain>"
+#    arriving from /Title metadata when the source was a single-entry
+#    export of a book). detect_title rejects matches and falls through to
+#    the heading chain.
+#
+# 2. PUBLICATION_NAME_PATTERN_CONCATENATED — sibling pattern that catches
+#    the same shape when source typography strips whitespace from page-
+#    header runners (the pattern ingests PDFs that emit "FoobarDictionaryof
+#    Philosophy"-style concatenated forms in their first-line page headers).
+#    Used by the heading-emit anonymization filter and by the partition-
+#    layer defense-in-depth filter.
+#
+# 3. PUBLICATION_NAME_SUFFIX_STRIPPER — strips a trailing publication-name
+#    suffix from a title (e.g., "Foundationalism — Acme Encyclopedia of
+#    Philosophy" -> "Foundationalism"). Subsumes the previously-enumerated
+#    per-publisher patterns in ENCYCLOPEDIA_CONFIG. Recognized separators:
+#    parentheses, pipes, hyphens, em-dashes, colons.
+
+_PUBLICATION_TYPE_TOKENS = (
+    r"(?:Encyclopedia|Dictionary|Companion|Handbook|Reference|Compendium)"
+)
+_PUBLICATION_PREPOSITION = r"(?:of|to)"
+
+PUBLICATION_NAME_PATTERN = re.compile(
+    rf"^(.+?)\s+{_PUBLICATION_TYPE_TOKENS}\s+{_PUBLICATION_PREPOSITION}\s+(.+)$",
+    re.IGNORECASE,
+)
+
+PUBLICATION_NAME_PATTERN_CONCATENATED = re.compile(
+    rf"{_PUBLICATION_TYPE_TOKENS}{_PUBLICATION_PREPOSITION}",
+    re.IGNORECASE,
+)
+
+PUBLICATION_NAME_SUFFIX_STRIPPER = re.compile(
+    rf"\s*[\(\|\-—:]+\s*[^()|\-—:]+?\s+{_PUBLICATION_TYPE_TOKENS}"
+    rf"\s+{_PUBLICATION_PREPOSITION}\s+[^()|]+\)?\s*$",
+    re.IGNORECASE,
+)
+
+
+def is_publication_name_shaped(text: str) -> bool:
+    """Return True when text matches the publication-name structural shape.
+
+    Tests against both the whole-line pattern (for properly-spaced
+    candidates) and the concatenated-form sibling (for sources whose
+    page-header runners or metadata strip whitespace). Either match
+    returns True.
+
+    The function is the gate used by:
+      - detect_title (rejects the candidate and falls through)
+      - PDFInputAdapter._emit_page_header_headings (skips the page)
+      - extract_entries via partition filter (drops the partition)
+
+    Anti-false-positive: matches the EDITORIAL-CONVENTION shape (a
+    capitalized noun phrase + reference-work type token + preposition +
+    another noun phrase). Bare body-context mentions like "Acme Platonism"
+    or "compendium of arguments" do not match because the structural
+    pattern requires the type token to be capitalized AND surrounded by
+    the editorial preposition shape; the lowercase "compendium of" form
+    is rejected by the title-shape regex.
+    """
+    if not text:
+        return False
+    if PUBLICATION_NAME_PATTERN.match(text.strip()):
+        return True
+    if PUBLICATION_NAME_PATTERN_CONCATENATED.search(text):
+        return True
+    return False
+
+
+def strip_publication_name_suffix(title: str) -> str:
+    """Return title with any trailing publication-name suffix removed.
+
+    Applies PUBLICATION_NAME_SUFFIX_STRIPPER against title; returns the
+    title with the matched suffix (and its preceding separator) stripped.
+    Returns the title unchanged when no match.
+
+    Examples:
+      "Foundationalism — Acme Encyclopedia of Philosophy" -> "Foundationalism"
+      "Foundationalism (Synthetic Encyclopedia of History)" -> "Foundationalism"
+      "Foundationalism | Generic Dictionary of Logic" -> "Foundationalism"
+      "Foundationalism" -> "Foundationalism"
+    """
+    if not title:
+        return title
+    match = PUBLICATION_NAME_SUFFIX_STRIPPER.search(title)
+    if match is None:
+        return title
+    return title[: match.start()].rstrip()
+
 
 # Lines repeated identically across at least N pages are treated as page
 # headers/footers and stripped from extracted text. 3 is conservative —
@@ -1288,21 +1403,32 @@ def detect_title(
     """Return the entry's primary title, or None if not detectable.
 
     Order of preference:
-      1. The first <title> element, with config-specified suffix patterns
-         stripped (SEP / IEP suffixes). A non-empty stripped result wins;
-         a result that strips to empty falls through.
+      1. The first <title> element, with structurally-detected
+         publication-name suffix stripped via
+         `strip_publication_name_suffix()` (e.g.,
+         "Foundationalism — Acme Encyclopedia of Philosophy" yields
+         "Foundationalism"). A non-empty stripped result wins; a result
+         that strips to empty (the title was a bare publication name)
+         falls through. A title that is itself a publication name
+         (no separable suffix; the entire candidate matches
+         `is_publication_name_shaped`) also falls through.
       2. The first <h1> heading.
       3. None when neither is present.
+
+    The publication-name detection is structural — see the
+    PUBLICATION_NAME_PATTERN family at module scope. The previous
+    enumerated SEP / IEP per-publisher suffix patterns in
+    ENCYCLOPEDIA_CONFIG were subsumed by the structural stripper at
+    S-0103 per ADR 0047 decision 4 (Issue #49) so the project's own
+    config layer holds the same parametric-knowledge boundary the brief
+    output does. The `document_type_config` argument is preserved for
+    interface compatibility with future per-type extensions.
     """
-    suffix_patterns: list[str] = []
-    if document_type_config is not None:
-        suffix_patterns = document_type_config.get("title_suffix_strip_patterns", [])
+    del document_type_config  # accepted for interface compatibility; unused
     for element in adapter_output.elements:
         if element.kind == "title" and element.text:
-            stripped = element.text
-            for pattern in suffix_patterns:
-                stripped = re.sub(pattern, "", stripped).strip()
-            if stripped:
+            stripped = strip_publication_name_suffix(element.text).strip()
+            if stripped and not is_publication_name_shaped(stripped):
                 return stripped
     for element in adapter_output.elements:
         if (
@@ -1310,6 +1436,8 @@ def detect_title(
             and element.attributes.get("level") == "1"
             and element.text
         ):
+            if is_publication_name_shaped(element.text):
+                continue
             return element.text
     return None
 
@@ -1652,8 +1780,29 @@ def emit_focusing_brief(
 
 
 def serialize_brief(brief: FocusingBrief) -> str:
-    """Serialize the FocusingBrief to a JSON string with stable ordering."""
-    return json.dumps(dataclasses.asdict(brief), indent=2, ensure_ascii=False)
+    """Serialize the FocusingBrief to a JSON string with stable ordering.
+
+    Source identity is anonymized at this boundary per ADR 0047 decision 4
+    so the downstream adversarial-triage LLM cannot infer the publisher and
+    bias its candidate evaluation. The strip targets:
+
+      - `source_path` at the top level
+      - `source_url` on every entry
+
+    The in-memory dataclasses are NOT mutated — internal consumers (notably
+    `detect_entry_id`'s URL-slug derivation) still need the fields. The
+    strip happens only on the dict copy produced by `dataclasses.asdict`.
+
+    The publication-name structural pattern that strips publisher
+    signatures from entry titles is applied earlier (in `detect_title`),
+    so titles arriving here are already anonymized; this function's
+    responsibility is the URL/path layer.
+    """
+    data = dataclasses.asdict(brief)
+    data.pop("source_path", None)
+    for entry_dict in data.get("entries", []):
+        entry_dict.pop("source_url", None)
+    return json.dumps(data, indent=2, ensure_ascii=False)
 
 
 # --------------------------------------------------------------------------
