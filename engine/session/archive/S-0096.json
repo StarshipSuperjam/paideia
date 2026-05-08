@@ -1,0 +1,41 @@
+{
+  "id": "S-0096",
+  "started_at": "2026-05-08T15:47:31Z",
+  "status": "closed",
+  "working_on": "Issue close-out campaign C7 — Issue #34 PDF input adapter for engine/tools/parse_structural_reference.py: PDFInputAdapter (source-agnostic, multi-fallback, pdfplumber-based) + multi-entry partitioning extension to extract_entries() + universal internal:<slug> cross-ref pattern; iterative validation against three real philosophy-reference PDFs (Routledge, Oxford, Cambridge) staged at ~/Documents/Claude_Files/temp/.",
+  "outcome_summary": "C7 closed Issue #34 by landing PDFInputAdapter (source-agnostic, multi-fallback) + multi-entry partitioning extension to extract_entries() + element-reorder pass + ENCYCLOPEDIA_CONFIG universal cross-ref pattern. pypdfium2 for bulk text (~30x faster than pdfplumber's pdfminer), pdfplumber for outline/chars/annotations/metadata. Discovered pdfminer's get_outlines() recursion-depth bug on 2041-entry Routledge outline; switched to pypdfium2.get_toc(). Three-source convergence validated against ~/Documents/Claude_Files/temp/ PDFs (never copied into repo): Routledge 2041 entries with 58% carrying cross-refs (mean conf 0.62) is the architecture's strong case; Cambridge 20 + Oxford 15 entries are sparse because their outlines enumerate book/letter sections only and entries are at body font size. The page-header-as-entry-indicator path that closes that gap is filed as Issue #48 — source-agnostic in shape (universal first-line-of-page detection) but architecturally distinct from the outline+font-size+text-pattern stack landed here. Tests: 19 new (TestPDFInputAdapter 11 + TestMultiEntryPartitioning 8) using reportlab-synthesized fixtures so no third-party PDF blobs land in git per ADR 0011/ADR 0046 licensing posture. 100 pytests pass; ruff + mypy --strict + ruff format clean. requirements.txt gains pdfplumber>=0.11.0 + pypdfium2>=4.0.0 + reportlab>=4.0.0 (test-only). ADR 0047 Consequences amended in-place. MemPalace decision drawer at paideia/decisions (drawer_paideia_decisions_1cd27849eab539e9c2af0f1f). Health-check audit deferral concludes; cadence-fired audit (formal first-exercise of ADR 0057, ~10 sessions overdue at slots_since=20 vs cadence=10) runs at S-0097.",
+  "approved_plan": "/Users/shanekidd/.claude/plans/i-want-to-build-rippling-simon.md",
+  "declared_scope": "Close Issue #34 by landing the PDF input adapter for parse_structural_reference.py per ADR 0047 decision 6. Three deliverables: (1) PDFInputAdapter class in engine/tools/parse_structural_reference.py — source-agnostic, no per-source branches, multi-layer fallback in every detector (title: metadata → first-page-largest-font; heading: outline → font-size buckets → text-pattern; cross-ref: link annotations + textual editorial markers, both emit canonical internal:<slug>); pdfplumber-based; raises ValueError for image-only PDFs; drops paragraph/list_item (no downstream consumer). (2) ENCYCLOPEDIA_CONFIG cross_reference_patterns gains one universal pattern ^internal:([a-z0-9][a-z0-9\\-]*)$. (3) extract_entries() multi-entry partitioning extension via partition_at_entry_boundaries() helper — SEP HTML still yields one Entry (regression bar); full-volume PDFs yield N entries. Iterative build loop validates source-agnosticism against three real PDFs at ~/Documents/Claude_Files/temp/ (Routledge, Oxford, Cambridge); three-source convergence is the bar. Tests in test_parse_structural_reference.py via reportlab-synthesized fixtures (no committed PDF blobs). requirements.txt gains pdfplumber + reportlab pins. ADR 0047 Consequences amendment recording the landing. Triage prompt template (ADR 0047 decision 5) explicitly OUT of scope; deferred to first-real-use as a separate session.",
+  "branch": "claude/practical-hoover-d8a2ff",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/practical-hoover-d8a2ff",
+  "mode": "engine",
+  "mempalace_activity": {
+    "search_calls": 2,
+    "diary_read_calls": 0,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 1,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 4,
+    "first_call_ts": "2026-05-08T14:46:58Z",
+    "last_call_ts": "2026-05-08T17:04:51Z",
+    "mempalace_citations": {
+      "drawer_id_refs": 0,
+      "session_archive_refs": 0,
+      "tag_named_refs": 0,
+      "total": 0
+    }
+  },
+  "closed_at": "2026-05-08T17:05:58Z",
+  "outcome_summary_soft_warns": {
+    "health_check_overdue": 1,
+    "adr_consequences_deliverable_audit": 1,
+    "issue_collision": 5,
+    "missing_rigor_score": 366,
+    "mempalace_diary_read_skipped": 1,
+    "timestamp_helper_bypass": 0
+  }
+}
