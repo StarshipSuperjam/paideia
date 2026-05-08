@@ -617,6 +617,25 @@ def test_parse_assertions_block_terminates_at_first_non_dash_line() -> None:
     assert result == [("SELECT 1", 1)]
 
 
+def test_parse_assertions_block_terminates_at_next_section_header() -> None:
+    """Real-world contract blocks have multiple `-- <Header>:` sections.
+    The parser must stop at the next section to avoid consuming `::`
+    that appears in subsequent prose (e.g., PostgreSQL casts in
+    Invariants/Rollback sections like `'15'::jsonb`)."""
+    sql = (
+        "-- Postcondition-Assertions:\n"
+        "--   SELECT count(*) FROM nodes :: 28\n"
+        "-- Invariants:\n"
+        "--   * graph_version = '15'::jsonb after the legacy COMMIT\n"
+        "--   * SELECT 999 :: 999  (this is prose, not an assertion)\n"
+        "-- Rollback:\n"
+        "--   UPDATE settings SET graph_version = '15'::jsonb;\n"
+        "BEGIN;\nCOMMIT;\n"
+    )
+    result = parse_postcondition_assertions(sql)
+    assert result == [("SELECT count(*) FROM nodes", 28)]
+
+
 def test_parse_assertions_rejects_non_integer_expected_value() -> None:
     sql = (
         "-- Postcondition-Assertions:\n"

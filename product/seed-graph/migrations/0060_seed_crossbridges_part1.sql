@@ -117,6 +117,14 @@
 --   * No new nodes inserted. No PREDICATE_MANIFEST.md registry rows
 --     added (only pedagogical_prerequisite is used; already in v1
 --     registry).
+-- Postcondition-Assertions:
+--   (Layer 2.5 per ADR 0039 amendment landed at S-0094 / Issue #23. The
+--   assertions below verify the prose Postconditions empirically against
+--   the live DB after the body commits — silent FK rollback, ON CONFLICT
+--   skip, or partial INSERT would surface as exit 8.)
+--   SELECT count(*)::int FROM public.edges WHERE graph_version_added = 16 AND edge_type = 'pedagogical_prerequisite' AND provenance = 'ai-seed' :: 71
+--   SELECT graph_version FROM public.settings WHERE id = 1 :: 16
+--   SELECT count(*)::int FROM public.nodes WHERE graph_version_added = 16 :: 0
 -- Invariants:
 --   * Every edge satisfies the schema FK: source_id and target_id
 --     reference public.nodes(id) values that one of the 14 prior

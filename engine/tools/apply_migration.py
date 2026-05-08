@@ -131,6 +131,12 @@ COMMIT_STMT_RE = re.compile(r"^COMMIT\s*;", re.MULTILINE)
 POSTCOND_ASSERTIONS_HEADER_RE = re.compile(
     r"^-- Postcondition-Assertions:\s*$", re.MULTILINE
 )
+# Any next section-header line ends the assertions block. Section headers
+# in the contract are conventional `-- <CapitalLetter><identifier>:` lines
+# (e.g., `-- Invariants:`, `-- Non-responsibilities:`, `-- Rollback:`).
+# This terminator prevents the parser from reading past the assertions
+# block into subsequent contract sections that may contain `::` in prose.
+NEXT_SECTION_HEADER_RE = re.compile(r"^--\s+[A-Z][A-Za-z\-]+:\s*$")
 
 
 class PostconditionAssertionParseError(ValueError):
@@ -322,7 +328,12 @@ def parse_postcondition_assertions(
       ``-- Postcondition-Assertions:`` (header line, exact match)
       followed by zero or more lines of the form
       ``--   <SELECT statement returning one integer> :: <expected int>``.
-      The block ends at the first non-``--`` line or end-of-file.
+      The block ends at:
+        - the first non-``--`` line (e.g., ``BEGIN;``), OR
+        - the next contract section-header line matching
+          ``^-- <CapitalLetter><identifier>:$`` (e.g., ``-- Invariants:``,
+          ``-- Rollback:``), OR
+        - end-of-file.
       Comment lines inside the block without ``::`` are skipped (so
       authors may interleave prose). Lines with ``::`` whose right side
       does not parse as an integer raise PostconditionAssertionParseError.
@@ -337,6 +348,11 @@ def parse_postcondition_assertions(
         if raw_line == "":
             continue
         if not raw_line.startswith("--"):
+            break
+        # Terminate at next section header to avoid reading past the
+        # assertions block into subsequent contract sections that may
+        # contain `::` (PostgreSQL cast operator) in their prose.
+        if NEXT_SECTION_HEADER_RE.match(raw_line):
             break
         body = raw_line[2:].lstrip()
         if "::" not in body:

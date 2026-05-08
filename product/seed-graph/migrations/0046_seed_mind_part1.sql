@@ -66,6 +66,14 @@
 --     nodes (mental_state, property_dualism, physicalism, functionalism)
 --     are within-mind and therefore in scope here.
 --   * settings.graph_version = 12.
+-- Postcondition-Assertions:
+--   (Layer 2.5 per ADR 0039 amendment landed at S-0094 / Issue #23.
+--   Empirical verification of the prose Postconditions above against
+--   the live DB after body apply. ON CONFLICT skip / partial INSERT /
+--   silent FK rollback would surface as exit 8.)
+--   SELECT count(*)::int FROM public.nodes WHERE graph_version_added = 12 AND 'mind' = ANY(domain) :: 27
+--   SELECT count(*)::int FROM public.edges WHERE graph_version_added = 12 AND edge_type = 'pedagogical_prerequisite' :: 35
+--   SELECT graph_version FROM public.settings WHERE id = 1 :: 12
 -- Invariants:
 --   * Node IDs are slugified TEXT, lowercase, underscore-delimited
 --     (architecture.md "Node Schema" + 0002_nodes.sql contract).

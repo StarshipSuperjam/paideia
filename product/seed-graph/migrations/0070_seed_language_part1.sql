@@ -72,6 +72,14 @@
 --     core (the cross-domain reaches identified above are real but live
 --     in P5-11).
 --   * settings.graph_version = 13.
+-- Postcondition-Assertions:
+--   (Layer 2.5 per ADR 0039 amendment landed at S-0094 / Issue #23.
+--   Empirical verification of the prose Postconditions above against
+--   the live DB after body apply. ON CONFLICT skip / partial INSERT /
+--   silent FK rollback would surface as exit 8.)
+--   SELECT count(*)::int FROM public.nodes WHERE graph_version_added = 13 AND 'language' = ANY(domain) :: 28
+--   SELECT count(*)::int FROM public.edges WHERE graph_version_added = 13 AND edge_type = 'pedagogical_prerequisite' :: 31
+--   SELECT graph_version FROM public.settings WHERE id = 1 :: 13
 -- Invariants:
 --   * Node IDs are slugified TEXT, lowercase, underscore-delimited
 --     (architecture.md "Node Schema" + 0002_nodes.sql contract).

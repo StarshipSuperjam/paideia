@@ -29,6 +29,14 @@
 --     target both tagged epistemology); cross-domain edges are P5-11's
 --     exclusive responsibility per phase_5.md T2-G #1.
 --   * settings.graph_version = 2.
+-- Postcondition-Assertions:
+--   (Layer 2.5 per ADR 0039 amendment landed at S-0094 / Issue #23.
+--   Empirical verification of the prose Postconditions above against
+--   the live DB after body apply. ON CONFLICT skip / partial INSERT /
+--   silent FK rollback would surface as exit 8.)
+--   SELECT count(*)::int FROM public.nodes WHERE graph_version_added = 2 AND 'epistemology' = ANY(domain) :: 28
+--   SELECT count(*)::int FROM public.edges WHERE graph_version_added = 2 AND edge_type = 'pedagogical_prerequisite' :: 34
+--   SELECT graph_version FROM public.settings WHERE id = 1 :: 2
 -- Invariants:
 --   * Node IDs are slugified TEXT, lowercase, underscore-delimited
 --     (architecture.md "Node Schema" + 0002_nodes.sql contract).

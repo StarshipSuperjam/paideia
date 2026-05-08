@@ -59,6 +59,14 @@
 --     within-domain (source and target both tagged ethics);
 --     cross-domain edges are P5-11's exclusive responsibility.
 --   * settings.graph_version = 7.
+-- Postcondition-Assertions:
+--   (Layer 2.5 per ADR 0039 amendment landed at S-0094 / Issue #23.
+--   Empirical verification of the prose Postconditions above against
+--   the live DB after body apply. ON CONFLICT skip / partial INSERT /
+--   silent FK rollback would surface as exit 8.)
+--   SELECT count(*)::int FROM public.nodes WHERE graph_version_added = 7 AND 'ethics' = ANY(domain) :: 28
+--   SELECT count(*)::int FROM public.edges WHERE graph_version_added = 7 AND edge_type = 'pedagogical_prerequisite' :: 34
+--   SELECT graph_version FROM public.settings WHERE id = 1 :: 7
 -- Invariants:
 --   * Node IDs are slugified TEXT, lowercase, underscore-delimited
 --     (architecture.md "Node Schema" + 0002_nodes.sql contract). The
