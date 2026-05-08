@@ -37,6 +37,7 @@ from parse_structural_reference import (  # noqa: E402
     Entry,
     FocusingBrief,
     HTMLInputAdapter,
+    PDFInputAdapter,
     StructuralElement,
     compute_extraction_confidence,
     detect_cross_references,
@@ -46,7 +47,9 @@ from parse_structural_reference import (  # noqa: E402
     detect_word_count,
     emit_focusing_brief,
     extract_entries,
+    extract_entry_from_partition,
     main,
+    partition_at_entry_boundaries,
     select_adapter,
     serialize_brief,
     slugify_title,
@@ -448,6 +451,12 @@ class TestExtractEntries:
         assert extract_entries(out, ENCYCLOPEDIA_CONFIG) == []
 
     def test_assembles_entry_from_full_signal(self) -> None:
+        # Word count is computed per-partition from element text per ADR 0047
+        # multi-entry partitioning landed at S-0096. The paragraph text drives
+        # word_count; the document-level full_text is no longer consulted by
+        # extract_entries because per-partition counts are more meaningful.
+        # 1500 chars / 5 = 300 words > 200-word full-entry threshold, so
+        # extraction_confidence still hits 1.0 when all five signals fire.
         out = _make_output(
             [
                 _title("Epistemology (Stanford Encyclopedia of Philosophy)", 0),
@@ -455,7 +464,7 @@ class TestExtractEntries:
                 _heading(2, "1. Cognitive Success", 2),
                 _anchor("../knowledge-analysis/", "analysis", 3),
                 _anchor("../justification-epistemic/", "justification", 4),
-                _paragraph("Body text" * 100, 5),
+                _paragraph("Body text " * 150, 5),
             ],
             source_path="/local/cache/epistemology.html",
             source_url="https://plato.stanford.edu/entries/epistemology/",
@@ -471,7 +480,9 @@ class TestExtractEntries:
             "justification-epistemic",
         ]
         assert e.section_path == "1. Cognitive Success"
-        assert e.word_count == 1000
+        # Per-partition word_count from element text (paragraph dominates):
+        # ~1500 / 5 ≈ 300 words.
+        assert 200 <= e.word_count <= 400
         assert e.source_url == "https://plato.stanford.edu/entries/epistemology/"
         assert e.extraction_confidence == 1.0
 
@@ -942,3 +953,334 @@ class TestMainEntryPoint:
                     "-",
                 ]
             )
+
+
+# ---------------------------------------------------------------------------
+# PDF synthesis helpers (reportlab) — keeps the licensing posture clean
+# (no committed third-party PDF blobs) and makes tests self-contained.
+# ---------------------------------------------------------------------------
+
+
+def _build_synthetic_pdf(
+    path: Path,
+    *,
+    entries: list[tuple[str, str]] | None = None,
+    title_metadata: str | None = "Synthetic Encyclopedia",
+    body_size: int = 10,
+    heading_size: int = 18,
+    add_outline: bool = True,
+    body_lines_per_entry: int = 4,
+    crossref_text: str | None = None,
+) -> Path:
+    """Build a small multi-entry encyclopedia-shaped PDF for testing.
+
+    The synthesized PDF carries:
+    - /Title metadata (None to omit)
+    - One outline entry per (entry_title, entry_id) tuple if add_outline=True
+    - One page per entry: heading at heading_size, body lines at body_size
+    - Optional crossref_text spliced into each entry's body for textual
+      cross-reference detection tests
+    """
+    try:
+        from reportlab.lib.pagesizes import letter  # type: ignore[import-untyped,unused-ignore]
+        from reportlab.pdfgen import canvas as rl_canvas  # type: ignore[import-untyped,unused-ignore]
+    except ImportError:
+        pytest.skip("reportlab not available")
+
+    if entries is None:
+        entries = [("Alpha", "alpha"), ("Beta", "beta"), ("Gamma", "gamma")]
+
+    c = rl_canvas.Canvas(str(path), pagesize=letter)
+    # reportlab defaults /Title to "untitled" when setTitle() is not called.
+    # When the test wants no metadata, set it to empty so the adapter's
+    # junk-filter (which rejects empty/short titles) falls through to the
+    # font-size heading fallback.
+    c.setTitle(title_metadata if title_metadata is not None else "")
+    for entry_title, entry_id in entries:
+        c.setFont("Helvetica-Bold", heading_size)
+        c.drawString(72, 720, entry_title)
+        c.setFont("Helvetica", body_size)
+        y = 700
+        for i in range(body_lines_per_entry):
+            c.drawString(72, y, f"This is body line {i + 1} of {entry_title}.")
+            y -= 14
+        if crossref_text is not None:
+            # Each \n-separated segment becomes its own drawString — reportlab
+            # drawString is single-line, so we splice the segments onto
+            # successive y positions so pypdfium2's text extractor returns
+            # them on separate lines.
+            for segment in crossref_text.split("\n"):
+                c.drawString(72, y, segment)
+                y -= 14
+        if add_outline:
+            c.bookmarkPage(entry_id)
+            c.addOutlineEntry(entry_title, entry_id, level=0)
+        c.showPage()
+    c.save()
+    return path
+
+
+# ---------------------------------------------------------------------------
+# TestPDFInputAdapter — exercises the multi-fallback PDF adapter against
+# reportlab-synthesized fixtures. Each test exercises one fallback layer.
+# ---------------------------------------------------------------------------
+
+
+class TestPDFInputAdapter:
+    def test_raises_filenotfound_for_missing_source(self, tmp_path: Path) -> None:
+        adapter = PDFInputAdapter()
+        with pytest.raises(FileNotFoundError):
+            adapter.extract(tmp_path / "missing.pdf", "encyclopedia")
+
+    def test_extracts_title_from_metadata(self, tmp_path: Path) -> None:
+        f = _build_synthetic_pdf(
+            tmp_path / "x.pdf",
+            title_metadata="My Test Encyclopedia",
+            entries=[("Alpha", "alpha")],
+        )
+        out = PDFInputAdapter().extract(f, "encyclopedia")
+        titles = [e for e in out.elements if e.kind == "title"]
+        assert len(titles) == 1
+        assert titles[0].text == "My Test Encyclopedia"
+
+    def test_falls_back_to_largest_font_when_metadata_absent(
+        self, tmp_path: Path
+    ) -> None:
+        f = _build_synthetic_pdf(
+            tmp_path / "x.pdf",
+            title_metadata=None,
+            entries=[("Foundationalism", "foundationalism")],
+        )
+        out = PDFInputAdapter().extract(f, "encyclopedia")
+        titles = [e for e in out.elements if e.kind == "title"]
+        # First-page largest-font run — synthetic PDF puts the heading at
+        # heading_size which is larger than body, so the title falls
+        # through to that text.
+        assert len(titles) == 1
+        assert "Foundationalism" in titles[0].text
+
+    def test_extracts_outline_headings_with_levels(self, tmp_path: Path) -> None:
+        f = _build_synthetic_pdf(
+            tmp_path / "x.pdf",
+            entries=[("Alpha", "alpha"), ("Beta", "beta"), ("Gamma", "gamma")],
+        )
+        out = PDFInputAdapter().extract(f, "encyclopedia")
+        headings = [e for e in out.elements if e.kind == "heading"]
+        # Outline entries are at level 0 in pypdfium2 → mapped to L1 here.
+        l1_titles = {h.text for h in headings if h.attributes.get("level") == "1"}
+        assert "Alpha" in l1_titles
+        assert "Beta" in l1_titles
+        assert "Gamma" in l1_titles
+
+    def test_extracts_textual_crossref_anchors(self, tmp_path: Path) -> None:
+        f = _build_synthetic_pdf(
+            tmp_path / "x.pdf",
+            entries=[("Alpha", "alpha")],
+            crossref_text="See also: Beta, Gamma, Delta.",
+        )
+        out = PDFInputAdapter().extract(f, "encyclopedia")
+        anchors = [e for e in out.elements if e.kind == "anchor"]
+        hrefs = {a.attributes.get("href") for a in anchors}
+        # All three "See also" targets should appear as canonical
+        # internal:<slug> hrefs.
+        assert "internal:beta" in hrefs
+        assert "internal:gamma" in hrefs
+        assert "internal:delta" in hrefs
+
+    def test_textual_crossref_splits_on_commas_and_and(self, tmp_path: Path) -> None:
+        f = _build_synthetic_pdf(
+            tmp_path / "x.pdf",
+            entries=[("Alpha", "alpha")],
+            crossref_text="See: foo, bar and baz.",
+        )
+        out = PDFInputAdapter().extract(f, "encyclopedia")
+        slugs = {a.attributes.get("href") for a in out.elements if a.kind == "anchor"}
+        assert "internal:foo" in slugs
+        assert "internal:bar" in slugs
+        assert "internal:baz" in slugs
+
+    def test_textual_crossref_rejects_numeric_and_positional_slugs(
+        self, tmp_path: Path
+    ) -> None:
+        f = _build_synthetic_pdf(
+            tmp_path / "x.pdf",
+            entries=[("Alpha", "alpha")],
+            crossref_text="See: above, 14, below, ibid.",
+        )
+        out = PDFInputAdapter().extract(f, "encyclopedia")
+        hrefs = {a.attributes.get("href") for a in out.elements if a.kind == "anchor"}
+        # Pure-numeric and editorial-positional slugs should NOT survive
+        # the crossref filter.
+        assert "internal:above" not in hrefs
+        assert "internal:below" not in hrefs
+        assert "internal:14" not in hrefs
+        assert "internal:ibid" not in hrefs
+
+    def test_full_text_concatenates_pages(self, tmp_path: Path) -> None:
+        f = _build_synthetic_pdf(
+            tmp_path / "x.pdf",
+            entries=[("Alpha", "alpha"), ("Beta", "beta")],
+        )
+        out = PDFInputAdapter().extract(f, "encyclopedia")
+        assert "Alpha" in out.full_text
+        assert "Beta" in out.full_text
+        assert "body line" in out.full_text
+
+    def test_propagates_document_type(self, tmp_path: Path) -> None:
+        f = _build_synthetic_pdf(tmp_path / "x.pdf", entries=[("Alpha", "alpha")])
+        out = PDFInputAdapter().extract(f, "encyclopedia")
+        assert out.document_type == "encyclopedia"
+
+    def test_returns_none_url_when_subject_metadata_absent(
+        self, tmp_path: Path
+    ) -> None:
+        f = _build_synthetic_pdf(tmp_path / "x.pdf", entries=[("Alpha", "alpha")])
+        out = PDFInputAdapter().extract(f, "encyclopedia")
+        assert out.source_url is None
+
+    def test_text_pattern_chapter_heading_caught(self, tmp_path: Path) -> None:
+        # Chapter regex requires short line + <=8 words. "Chapter 1: Intro"
+        # passes; "Chapter 14 of his Proslogion" should NOT.
+        f = _build_synthetic_pdf(
+            tmp_path / "x.pdf",
+            entries=[("Section A", "section-a")],
+            crossref_text="Chapter 1: Intro\nChapter 14 of his Proslogion in 1078",
+        )
+        out = PDFInputAdapter().extract(f, "encyclopedia")
+        heading_texts = {e.text for e in out.elements if e.kind == "heading"}
+        assert "Chapter 1: Intro" in heading_texts
+        # Body-prose Chapter mention should NOT be emitted as a heading.
+        assert "Chapter 14 of his Proslogion in 1078" not in heading_texts
+
+
+# ---------------------------------------------------------------------------
+# TestMultiEntryPartitioning — exercises partition_at_entry_boundaries() and
+# extract_entries()'s multi-entry path. The SEP integration tests above are
+# the load-bearing regression bar; these tests exercise the new code paths
+# directly with synthetic fixtures.
+# ---------------------------------------------------------------------------
+
+
+class TestMultiEntryPartitioning:
+    def test_partition_at_h1_boundaries_yields_n_partitions(self) -> None:
+        out = _make_output(
+            [
+                _heading(1, "Alpha", 0),
+                _paragraph("Alpha body", 1),
+                _heading(1, "Beta", 2),
+                _paragraph("Beta body", 3),
+                _heading(1, "Gamma", 4),
+            ]
+        )
+        partitions = partition_at_entry_boundaries(out, ENCYCLOPEDIA_CONFIG)
+        assert len(partitions) == 3
+        assert partitions[0][0].text == "Alpha"
+        assert partitions[1][0].text == "Beta"
+        assert partitions[2][0].text == "Gamma"
+
+    def test_zero_boundaries_yields_single_partition(self) -> None:
+        # No h1 headings; whole-document fallback partition kicks in.
+        out = _make_output(
+            [
+                _title("Whole doc title", 0),
+                _paragraph("body", 1),
+            ]
+        )
+        partitions = partition_at_entry_boundaries(out, ENCYCLOPEDIA_CONFIG)
+        assert len(partitions) == 1
+        # Fallback partition contains the title + paragraph.
+        assert any(e.kind == "title" for e in partitions[0])
+
+    def test_preamble_before_first_boundary_dropped(self) -> None:
+        out = _make_output(
+            [
+                _title("Preamble title", 0),
+                _heading(2, "Subheading before first h1", 1),
+                _heading(1, "First Entry", 2),
+                _paragraph("first body", 3),
+                _heading(1, "Second Entry", 4),
+            ]
+        )
+        partitions = partition_at_entry_boundaries(out, ENCYCLOPEDIA_CONFIG)
+        # Two partitions, preamble (title + h2) dropped.
+        assert len(partitions) == 2
+        assert partitions[0][0].text == "First Entry"
+        assert partitions[1][0].text == "Second Entry"
+        # The preamble title should NOT appear in any partition.
+        all_partition_texts = {e.text for p in partitions for e in p}
+        assert "Preamble title" not in all_partition_texts
+
+    def test_extract_entries_returns_n_entries_for_n_h1_doc(self) -> None:
+        out = _make_output(
+            [
+                _heading(1, "Alpha", 0),
+                _anchor("internal:beta", "Beta", 1),
+                _heading(1, "Beta", 2),
+                _anchor("internal:gamma", "Gamma", 3),
+                _heading(1, "Gamma", 4),
+            ]
+        )
+        entries = extract_entries(out, ENCYCLOPEDIA_CONFIG)
+        assert len(entries) == 3
+        assert [e.title for e in entries] == ["Alpha", "Beta", "Gamma"]
+
+    def test_extract_entries_returns_one_entry_for_zero_boundary_doc(self) -> None:
+        # Whole-document fallback: title element + no boundary headings.
+        out = _make_output(
+            [
+                _title("Sole Entry", 0),
+                _paragraph("body", 1),
+            ]
+        )
+        entries = extract_entries(out, ENCYCLOPEDIA_CONFIG)
+        assert len(entries) == 1
+        assert entries[0].title == "Sole Entry"
+
+    def test_partition_skipped_when_no_title_detectable(self) -> None:
+        # Whitespace-only heading text → partition exists but no title detectable
+        # → entry filtered out.
+        out = _make_output(
+            [
+                _heading(1, "  ", 0),
+                _anchor("internal:foo", "foo", 1),
+                _heading(1, "Real Entry", 2),
+                _anchor("internal:bar", "bar", 3),
+            ]
+        )
+        entries = extract_entries(out, ENCYCLOPEDIA_CONFIG)
+        # First partition's heading is whitespace; detect_title returns None
+        # under whitespace-only conditions; partition skipped per
+        # extract_entry_from_partition's None return.
+        titles = [e.title for e in entries]
+        assert "Real Entry" in titles
+
+    def test_per_partition_cross_references_distributed(self) -> None:
+        # Cross-references should land in their containing partition based on
+        # element list order — this is the fix for the Routledge bug where all
+        # anchors landed in the last partition before the reorder pass.
+        out = _make_output(
+            [
+                _heading(1, "First", 0),
+                _anchor("internal:first-ref", "first-ref", 1),
+                _heading(1, "Second", 2),
+                _anchor("internal:second-ref", "second-ref", 3),
+                _heading(1, "Third", 4),
+                _anchor("internal:third-ref", "third-ref", 5),
+            ]
+        )
+        entries = extract_entries(out, ENCYCLOPEDIA_CONFIG)
+        assert len(entries) == 3
+        assert entries[0].cross_references == ["first-ref"]
+        assert entries[1].cross_references == ["second-ref"]
+        assert entries[2].cross_references == ["third-ref"]
+
+    def test_extract_entry_from_partition_returns_none_without_title(self) -> None:
+        partition_elements = [
+            _anchor("internal:foo", "foo", 0),
+            _paragraph("body", 1),
+        ]
+        out = _make_output(partition_elements)
+        result = extract_entry_from_partition(
+            partition_elements, out, ENCYCLOPEDIA_CONFIG
+        )
+        assert result is None

@@ -244,6 +244,31 @@ PDF_PAGEHEADER_REPETITION_THRESHOLD = 3
 # almost always artifacts (empty strings, single chars), not editorial.
 PDF_TITLE_MIN_LENGTH = 3
 
+# Reject slugs that are pure-numeric or positional pointers — textual
+# cross-reference markers like "See: above" or "See also: 12, 14" are
+# editorial conveniences that slugify into useless graph signal. The
+# slug-quality filter rejects them at emission time so the brief carries
+# only candidate entry IDs the LLM might recognize.
+PDF_CROSSREF_SLUG_REJECT = frozenset(
+    {
+        "above",
+        "below",
+        "supra",
+        "infra",
+        "ibid",
+        "id",
+        "idem",
+        "loc",
+        "op",
+        "cit",
+        "ff",
+        "et",
+        "al",
+        "see",
+        "also",
+    }
+)
+
 # Page-count caps for the slow per-page operations. PDFInputAdapter walks
 # pages for char-level metadata (font-size analysis) and link annotations.
 # Encyclopedia-scale PDFs (Routledge: 9169 pages, Cambridge: 1210, Oxford:
@@ -659,6 +684,15 @@ class PDFInputAdapter(InputAdapter):
 
             source_url = self._extract_source_url(pdf)
 
+        # Reorder elements by document position. Heading and anchor emitters
+        # write to disjoint position ranges (headings first, anchors last)
+        # because they're invoked sequentially. That ordering would partition
+        # all cross-references into the last entry — every entry except the
+        # final one would have zero cross_references. Reordering by where
+        # each element appears in full_text restores source-order interleaving
+        # so partition_at_entry_boundaries() distributes cross-refs correctly.
+        elements = self._reorder_elements_by_full_text_offset(elements, full_text)
+
         return AdapterOutput(
             source_path=str(source_path),
             document_type=document_type,
@@ -964,15 +998,23 @@ class PDFInputAdapter(InputAdapter):
             if not ln or ln in existing_heading_texts:
                 continue
             # Real chapter headings are short and self-contained; body prose
-            # like "Article 17 points out the need of public discussion of..."
-            # matches the pattern syntactically but is mid-paragraph. Two
-            # filters: max 8 words AND max 80 chars. Together they catch
-            # legitimate "Chapter 14: The Prerequisites of Theory" (~6 words,
-            # ~38 chars) while rejecting prose runs.
+            # like "Article 17 points out the need..." or "Chapter 14 of his
+            # Proslogion in 1078" matches the pattern syntactically but is
+            # mid-paragraph. Three filters: <=8 words, <=80 chars, AND the
+            # word right after the chapter number is NOT a common prose
+            # connector. Together they catch "Chapter 14: The Prerequisites
+            # of Theory" (~6 words, ~38 chars, connector "The" follows ":")
+            # while rejecting prose runs.
             if (
                 len(ln) <= 80
                 and len(ln.split()) <= 8
                 and re.match(r"^(Chapter|Section|Part|Article)\s+[\dIVXLC]+\b", ln)
+                and not re.search(
+                    r"^(Chapter|Section|Part|Article)\s+[\dIVXLC]+\s+"
+                    r"(of|in|on|by|to|from|with|points|says|argues|holds|notes)\b",
+                    ln,
+                    re.IGNORECASE,
+                )
             ):
                 elements.append(
                     StructuralElement(
@@ -1053,22 +1095,132 @@ class PDFInputAdapter(InputAdapter):
         for pattern in PDF_TEXT_CROSSREF_PATTERNS:
             for match in re.finditer(pattern, full_text, re.IGNORECASE):
                 captured = match.group(1)
+                # Capture match start so the post-emission reorder pass can
+                # interleave anchors with headings by document position.
+                match_start = match.start()
                 for segment in re.split(r"\s*,\s*|\s+and\s+", captured):
                     segment = segment.strip()
                     if not segment:
                         continue
                     slug = slugify_title(segment)
-                    if not slug or len(slug) < 2:
+                    if not PDFInputAdapter._is_useful_crossref_slug(slug):
                         continue
                     elements.append(
                         StructuralElement(
                             kind="anchor",
                             text=segment,
-                            attributes={"href": f"internal:{slug}"},
+                            attributes={
+                                "href": f"internal:{slug}",
+                                "_text_offset": str(match_start),
+                            },
                             position=pos[0],
                         )
                     )
                     pos[0] += 1
+
+    @staticmethod
+    def _is_useful_crossref_slug(slug: str) -> bool:
+        """Return True if the slug looks like a candidate concept identifier.
+
+        Filters slugs that are pure-numeric, single-char, all-positional
+        ("above" / "below"), or in the editorial-convenience reject set
+        (PDF_CROSSREF_SLUG_REJECT). These end up in textual crossref captures
+        from "See: above" / "(see 14)" / similar editorial references that
+        carry no concept-identity signal.
+        """
+        if not slug or len(slug) < 2:
+            return False
+        if slug in PDF_CROSSREF_SLUG_REJECT:
+            return False
+        # Pure-numeric (after slugification, "14" stays "14", "12.3" → "12-3").
+        # Reject slugs whose alpha-removed form equals the slug — meaning no
+        # alphabetical content survives.
+        alpha_removed = re.sub(r"[a-z]", "", slug)
+        if alpha_removed == slug:
+            return False
+        return True
+
+    @staticmethod
+    def _reorder_elements_by_full_text_offset(
+        elements: list[StructuralElement], full_text: str
+    ) -> list[StructuralElement]:
+        """Sort elements by their first-occurrence offset in full_text.
+
+        Headings and anchors are emitted by separate phases that don't share
+        a position scale; without this pass, all anchors land at the end and
+        partition_at_entry_boundaries() concentrates them into the final
+        entry. The reorder uses:
+
+        - title element: offset 0 (always at the document start)
+        - heading element: first occurrence of e.text in full_text, scanned
+          forward from a monotonically-advancing pointer so consecutive
+          headings (which arrive in document order from outline / font-size
+          / text-pattern phases) stay in document order
+        - anchor element: the regex match.start() captured during textual
+          crossref emission; link-annotation anchors lack a full_text offset
+          and fall back to a placeholder near the end (acceptable because
+          link annotations were absent in all three S-0096 test PDFs and
+          the architecture treats the textual path as primary)
+        """
+        if not elements:
+            return elements
+
+        offsets: list[int] = []
+        heading_pointer = 0
+        for element in elements:
+            if element.kind == "title":
+                offsets.append(0)
+                continue
+            if element.kind == "heading":
+                if not element.text:
+                    offsets.append(heading_pointer)
+                    continue
+                idx = full_text.find(element.text, heading_pointer)
+                if idx == -1:
+                    # Heading text not found from current pointer onward;
+                    # fall back to a global search before giving up. If the
+                    # document orders match (typical for outline-driven
+                    # encyclopedias), this branch is rarely entered.
+                    idx = full_text.find(element.text)
+                    if idx == -1:
+                        offsets.append(heading_pointer)
+                        continue
+                offsets.append(idx)
+                heading_pointer = idx + len(element.text)
+                continue
+            if element.kind == "anchor":
+                offset_str = element.attributes.get("_text_offset", "")
+                try:
+                    offsets.append(int(offset_str))
+                except (TypeError, ValueError):
+                    offsets.append(len(full_text))
+                continue
+            offsets.append(heading_pointer)
+
+        # Stable sort preserves emission order within ties (e.g., multiple
+        # anchors at the same match.start() from a comma-separated list).
+        indexed = sorted(
+            enumerate(elements),
+            key=lambda pair: (offsets[pair[0]], pair[0]),
+        )
+        # Strip the internal _text_offset attribute and renumber positions
+        # so the returned elements match the public StructuralElement
+        # contract (positions are sequential ordinals; attributes carry
+        # only public keys like href / level).
+        cleaned: list[StructuralElement] = []
+        for new_pos, (_orig_idx, element) in enumerate(indexed):
+            attrs = {
+                k: v for k, v in element.attributes.items() if not k.startswith("_")
+            }
+            cleaned.append(
+                StructuralElement(
+                    kind=element.kind,
+                    text=element.text,
+                    attributes=attrs,
+                    position=new_pos,
+                )
+            )
+        return cleaned
 
     @staticmethod
     def _extract_source_url(pdf: Any) -> str | None:
@@ -1328,31 +1480,105 @@ def compute_extraction_confidence(
 # --------------------------------------------------------------------------
 
 
-def extract_entries(
+def partition_at_entry_boundaries(
     adapter_output: AdapterOutput, document_type_config: dict[str, Any]
-) -> list[Entry]:
-    """Compose the detectors and return Entry records.
+) -> list[list[StructuralElement]]:
+    """Partition adapter_output.elements at entry-boundary headings.
 
-    SEP-shaped sources carry one entry per page; this orchestrator
-    surfaces a single Entry per AdapterOutput. Future multi-entry source
-    formats (a textbook chapter with N defined-term entries) will extend
-    this to return a list of Entries by partitioning AdapterOutput at
-    entry-boundary headings.
+    The boundary signal is `document_type_config["entry_boundary"]`, which
+    encodes the heading "level" that delimits an entry. The HTML config
+    sets this to "h1"; the function maps that to level="1" on heading
+    elements. PDFInputAdapter emits outline-derived headings with the same
+    level scheme, so the same boundary contract works uniformly across
+    HTML and PDF.
 
-    Returns an empty list when no title can be detected (the entry-
-    boundary signal absent — nothing to surface).
+    Returns a list of element-lists, one per partition (= one per entry).
+    Edge cases:
+
+    - Elements before the first boundary heading attach to a "preamble"
+      partition that is dropped (matches the SEP HTML expectation that
+      content before <h1> is metadata/nav, not entry content).
+    - Zero boundary headings → entire document is one partition. This
+      preserves single-entry HTML behavior (test_extract_entries_returns_
+      one_entry_for_zero_boundary_doc regression bar).
+    - The title element (kind="title", before any heading) is preserved
+      in the preamble and dropped with it; per-partition title comes from
+      the partition's first heading via `detect_title`'s h1 fallback.
     """
-    title = detect_title(adapter_output, document_type_config)
+    boundary_level = _resolve_entry_boundary_level(
+        document_type_config.get("entry_boundary", "h1")
+    )
+    partitions: list[list[StructuralElement]] = []
+    current: list[StructuralElement] = []
+    started = False
+    for element in adapter_output.elements:
+        if (
+            element.kind == "heading"
+            and element.attributes.get("level") == boundary_level
+        ):
+            if started and current:
+                partitions.append(current)
+            current = [element]
+            started = True
+        else:
+            if started:
+                current.append(element)
+    if started and current:
+        partitions.append(current)
+    if not started and adapter_output.elements:
+        partitions.append(list(adapter_output.elements))
+    return partitions
+
+
+def _resolve_entry_boundary_level(boundary: str) -> str:
+    """Map an entry_boundary config value to a level attribute string.
+
+    The historical HTML config uses "h1" / "h2" forms; PDFInputAdapter
+    emits headings with attributes {"level": "1"}. This helper bridges
+    them so the partitioner stays agnostic to the config surface.
+    """
+    match = re.match(r"^h(\d+)$", boundary, re.IGNORECASE)
+    if match is not None:
+        return match.group(1)
+    return boundary
+
+
+def extract_entry_from_partition(
+    partition_elements: list[StructuralElement],
+    adapter_output: AdapterOutput,
+    document_type_config: dict[str, Any],
+) -> Entry | None:
+    """Run the detector pipeline against a single partition.
+
+    Returns None when no title detectable in the partition. Used by
+    extract_entries() in the multi-entry partitioning path; mirrors the
+    single-entry orchestrator body but operates on a scoped element list
+    rather than the full AdapterOutput.
+
+    word_count is computed from the partition's text (not the document-
+    wide full_text) so per-entry word counts in multi-entry sources are
+    meaningful. entry_id falls through URL-slug → source-path stem →
+    slugified title; for multi-entry PDFs the URL path is typically
+    absent and the slug derives from the partition's title.
+    """
+    partition_view = AdapterOutput(
+        source_path=adapter_output.source_path,
+        document_type=adapter_output.document_type,
+        elements=partition_elements,
+        source_url=adapter_output.source_url,
+        full_text=_partition_text(partition_elements),
+    )
+    title = detect_title(partition_view, document_type_config)
     if title is None:
-        return []
-    entry_id = detect_entry_id(adapter_output, title)
+        return None
+    entry_id = detect_entry_id(partition_view, title)
     cross_references = [
         ref
-        for ref in detect_cross_references(adapter_output, document_type_config)
+        for ref in detect_cross_references(partition_view, document_type_config)
         if ref != entry_id
     ]
-    section_path = detect_section_path(adapter_output)
-    word_count = detect_word_count(adapter_output)
+    section_path = detect_section_path(partition_view)
+    word_count = detect_word_count(partition_view)
     confidence = compute_extraction_confidence(
         title=title,
         entry_id=entry_id,
@@ -1361,17 +1587,55 @@ def extract_entries(
         word_count=word_count,
         document_type_config=document_type_config,
     )
-    return [
-        Entry(
-            title=title,
-            entry_id=entry_id,
-            cross_references=cross_references,
-            section_path=section_path,
-            word_count=word_count,
-            source_url=adapter_output.source_url,
-            extraction_confidence=confidence,
+    return Entry(
+        title=title,
+        entry_id=entry_id,
+        cross_references=cross_references,
+        section_path=section_path,
+        word_count=word_count,
+        source_url=partition_view.source_url,
+        extraction_confidence=confidence,
+    )
+
+
+def _partition_text(partition_elements: list[StructuralElement]) -> str:
+    """Join partition element texts for word-count estimation.
+
+    Used by extract_entry_from_partition() when computing per-entry
+    word counts. The joined text is approximate (the element list
+    contains headings + anchors + a title at most; body paragraphs
+    are not collected by either adapter), but coarse word counts
+    suffice for the brief's tiebreak signal per ADR 0047.
+    """
+    return " ".join(e.text for e in partition_elements if e.text)
+
+
+def extract_entries(
+    adapter_output: AdapterOutput, document_type_config: dict[str, Any]
+) -> list[Entry]:
+    """Compose the detectors and return Entry records.
+
+    Multi-entry partitioning landed at S-0096 per Issue #34: the
+    orchestrator partitions adapter_output.elements at entry-boundary
+    headings (per `document_type_config["entry_boundary"]`) and runs
+    the detector pipeline against each partition. Single-entry sources
+    (SEP HTML pages — one <h1> per page) yield exactly one Entry,
+    preserving pre-S-0096 behavior. Multi-entry sources (Routledge PDF —
+    2041 outline entries) yield N Entries.
+
+    Returns an empty list when no entry is detectable (no boundary
+    headings AND the orchestrator's no-boundary fallback partition
+    yields no detectable title).
+    """
+    partitions = partition_at_entry_boundaries(adapter_output, document_type_config)
+    entries: list[Entry] = []
+    for partition in partitions:
+        entry = extract_entry_from_partition(
+            partition, adapter_output, document_type_config
         )
-    ]
+        if entry is not None:
+            entries.append(entry)
+    return entries
 
 
 def emit_focusing_brief(
@@ -1466,12 +1730,23 @@ __all__ = [
     "DOCUMENT_TYPE_REGISTRY",
     "ADAPTER_REGISTRY",
     "CHARS_PER_WORD_APPROX",
+    "PDF_HEADING_FONT_BUCKET_COUNT",
+    "PDF_HEADING_FONT_MIN_BUCKET_CHARS",
+    "PDF_TEXT_CROSSREF_PATTERNS",
+    "PDF_PAGEHEADER_REPETITION_THRESHOLD",
+    "PDF_TITLE_MIN_LENGTH",
+    "PDF_CROSSREF_SLUG_REJECT",
+    "PDF_FONT_SAMPLE_PAGE_COUNT",
+    "PDF_FONT_SAMPLE_SKIP_FRONT",
+    "PDF_ANNOT_PAGE_CAP",
+    "PDF_FONT_EMIT_PAGE_CAP",
     "StructuralElement",
     "AdapterOutput",
     "Entry",
     "FocusingBrief",
     "InputAdapter",
     "HTMLInputAdapter",
+    "PDFInputAdapter",
     "select_adapter",
     "detect_title",
     "slugify_title",
@@ -1480,6 +1755,8 @@ __all__ = [
     "detect_section_path",
     "detect_word_count",
     "compute_extraction_confidence",
+    "partition_at_entry_boundaries",
+    "extract_entry_from_partition",
     "extract_entries",
     "emit_focusing_brief",
     "serialize_brief",
