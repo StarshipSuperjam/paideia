@@ -1,0 +1,17 @@
+{
+  "id": "S-0101",
+  "started_at": "2026-05-08T20:11:13Z",
+  "status": "in_progress",
+  "working_on": "Cleanup-batch session: close Issue #52 — soft-warn category re-classification audit (29 remaining categories from S-0098 deferral). Per ADR 0057 user-buffered execution + ADR 0042 lifecycle.",
+  "outcome_summary": null,
+  "outcome_summary_soft_warns": null,
+  "next_session_handle": null,
+  "approved_plan": "/Users/shanekidd/.claude/plans/enumerated-marinating-allen.md",
+  "branch": "claude/jolly-heyrovsky-4188fc",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/jolly-heyrovsky-4188fc",
+  "declared_scope": {
+    "issues": [52],
+    "phase": null,
+    "kind": "cleanup-batch"
+  }
+}
