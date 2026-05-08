@@ -29,9 +29,28 @@ chromadb>=0.5.0
 # per ADR 0047. BeautifulSoup4 is the HTML parser the HTMLInputAdapter uses to
 # normalize SEP- and IEP-shaped HTML into StructuralElement records. Lazy
 # import inside HTMLInputAdapter.extract() — non-parser engine tool runs
-# (validate.py, hooks) do not pay the import cost. Future PDF input adapter
-# will add `pypdf` or `pdfplumber` at the session that lands it.
+# (validate.py, hooks) do not pay the import cost.
 beautifulsoup4>=4.12.0
+
+# Phase 5+ — structural-reference parser PDF adapter per ADR 0047 decision 6
+# + Issue #34 (landed at S-0096). pdfplumber provides outline tree, char-level
+# metadata (font-size analysis), link annotations, and document metadata —
+# but its pdfminer-backed text extraction is too slow at encyclopedia scale.
+# pypdfium2 provides bulk text extraction at ~30x the speed (Routledge 9169
+# pages: ~75s vs many minutes), so PDFInputAdapter uses both: pypdfium2 for
+# full_text, pdfplumber for everything else. Both are lazy-imported inside
+# PDFInputAdapter.extract() — non-parser engine tool runs do not pay the cost.
+# pypdfium2 is also a transitive dep of pdfplumber, but pinned explicitly
+# here so its expected version is independent of pdfplumber's pin.
+pdfplumber>=0.11.0
+pypdfium2>=4.0.0
+
+# Test-only dep — engine/tools/test_parse_structural_reference.py uses
+# reportlab to synthesize PDF fixtures in-test (mirrors the SYNTHETIC_HTML
+# inline-string pattern for HTMLInputAdapter tests). Avoids committing
+# binary PDF fixtures and keeps the licensing posture clean: synthesized
+# PDFs are arbitrary content the test authors, not third-party prose.
+reportlab>=4.0.0
 
 # MemPalace — the project's semantic-memory store, MCP server, and Stop /
 # PreCompact hook capture. Per ADR 0050 (engine), mempalace runs from the

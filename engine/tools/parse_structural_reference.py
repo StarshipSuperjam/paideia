@@ -166,6 +166,12 @@ ENCYCLOPEDIA_CONFIG: dict[str, Any] = {
         r"^https?://plato\.stanford\.edu/entries/([a-z0-9][a-z0-9\-]*)/?(?:#.*)?$",
         # IEP cross-link convention: https://iep.utm.edu/<slug>/
         r"^https?://iep\.utm\.edu/([a-z0-9][a-z0-9\-]*)/?(?:#.*)?$",
+        # Canonical PDF-emitted form (added at S-0096 per ADR 0047 + Issue #34).
+        # PDFInputAdapter slugifies both link-annotation targets and textual
+        # editorial-marker cross-refs into "internal:<slug>" hrefs. The pattern
+        # is appended last so the more-specific HTML patterns above win when
+        # HTML hrefs happen to be slug-shaped.
+        r"^internal:([a-z0-9][a-z0-9\-]*)$",
     ],
     "section_path_source": "first_section_heading",
     "minimum_word_count_for_full_entry": 200,
@@ -188,6 +194,80 @@ DOCUMENT_TYPE_REGISTRY: dict[str, dict[str, Any]] = {
 # graph-shape signal the brief carries (the LLM does not consume
 # word_count for fine-grained decisions).
 CHARS_PER_WORD_APPROX = 5
+
+# --------------------------------------------------------------------------
+# PDFInputAdapter constants — source-agnostic posture per ADR 0047 + Issue #34
+# --------------------------------------------------------------------------
+#
+# These constants tune the multi-fallback heuristics PDFInputAdapter relies
+# on. None of them encode per-source assumptions; the values are calibrated
+# to span editorial conventions broadly shared across published reference
+# works (Routledge, Oxford, Cambridge, and similar). Per ADR 0047 decision 3
+# the adapter is recall-prioritized — false positives are absorbed by the
+# downstream LLM triage; the only structural failure is producing nothing.
+
+# Top-N font-size buckets become heading levels 1..N when the outline
+# fallback fires. 3 is enough to distinguish entry-level / section-level /
+# subsection-level for typical encyclopedia typography; the LLM filters
+# false-positive runs.
+PDF_HEADING_FONT_BUCKET_COUNT = 3
+
+# Minimum char count of a font-size bucket before it qualifies as a heading
+# bucket. Smaller buckets are likely typographic accents (drop-caps, single
+# emphasis runs) rather than systematic heading-level signals.
+PDF_HEADING_FONT_MIN_BUCKET_CHARS = 5
+
+# Universal editorial-convention regex patterns for textual cross-reference
+# detection. Editorial conventions broadly shared across reference works:
+# "See: X", "See also: A, B, C", parenthetical "(see X)", arrow "→ X",
+# scholarly "Cf. X". Patterns capture the cross-reference target text up
+# to terminal punctuation; the captured group is then comma-split and each
+# segment slugified. NO per-source patterns — this set must work across
+# any reference PDF format the user feeds in.
+PDF_TEXT_CROSSREF_PATTERNS = [
+    r"\bSee:\s+([^.\n;:()]+)",
+    r"\bSee also:\s+([^.\n;:()]+)",
+    r"\(see\s+([^).\n;:]+)\)",
+    r"\(see also\s+([^).\n;:]+)\)",
+    r"→\s+([^.\n;:()]+)",
+    r"\bCf\.\s+([^.\n;:()]+)",
+]
+
+# Lines repeated identically across at least N pages are treated as page
+# headers/footers and stripped from extracted text. 3 is conservative —
+# legitimate body text rarely repeats verbatim across 3+ pages, while
+# page boilerplate ("page N entry-name", copyright lines) is highly
+# recurrent. Recall-prioritized: when in doubt, leave in.
+PDF_PAGEHEADER_REPETITION_THRESHOLD = 3
+
+# Junk-filter floor for /Title metadata. Titles shorter than this are
+# almost always artifacts (empty strings, single chars), not editorial.
+PDF_TITLE_MIN_LENGTH = 3
+
+# Page-count caps for the slow per-page operations. PDFInputAdapter walks
+# pages for char-level metadata (font-size analysis) and link annotations.
+# Encyclopedia-scale PDFs (Routledge: 9169 pages, Cambridge: 1210, Oxford:
+# 1076) make unbounded walks prohibitively slow under pdfplumber's pdfminer
+# backend. The caps below are calibrated empirically: 30 sample pages
+# starting after the front-matter establishes a stable body-vs-heading
+# typography signal in well-edited reference works (which is what the
+# class-boundary in ADR 0046 selects for); 500 pages of annotation walk
+# captures editorial cross-link inventories that, in published volumes,
+# concentrate near the document's TOC/index rather than spreading evenly.
+# Both caps trade some recall for tractability — false negatives surface
+# as fewer cross-references in late-document entries, which the LLM triage
+# absorbs via its parametric-knowledge boundary per ADR 0047 decision 4.
+PDF_FONT_SAMPLE_PAGE_COUNT = 30
+PDF_FONT_SAMPLE_SKIP_FRONT = 10
+PDF_ANNOT_PAGE_CAP = 500
+
+# Hard cap on the per-page char walks during font-size heading emission.
+# Without this, encyclopedia-scale PDFs (Cambridge: 1210 pages, Oxford:
+# 1076 pages) take 3-5 minutes per extraction. The cap balances coverage
+# (most reference PDFs have entries within the first ~1500 content pages)
+# against iteration speed. Routledge avoids this entirely via the outline
+# short-circuit (outline_count >= 50 returns before font-size analysis runs).
+PDF_FONT_EMIT_PAGE_CAP = 500
 
 # --------------------------------------------------------------------------
 # Data structures
@@ -461,9 +541,553 @@ class HTMLInputAdapter(InputAdapter):
         )
 
 
+class PDFInputAdapter(InputAdapter):
+    """PDF input adapter — source-agnostic, multi-fallback per ADR 0047 + Issue #34.
+
+    Authored under the source-agnostic posture: no per-source code branches.
+    Every PDF the user feeds in is parsed by the same code path; per-source
+    idiosyncrasies (Routledge's outline-as-entry-inventory shape, Cambridge's
+    book-section-only outline + font-size-driven entries, Oxford's letter-
+    section outline + font-size-driven entries) are absorbed by multi-layer
+    fallbacks below, not by branching.
+
+    Detector contract (mirrors HTMLInputAdapter; only title/heading/anchor
+    element kinds are produced because the downstream detector layer at
+    lines 509+ consumes only those three):
+
+    - title elements: at most one. (1) /Title metadata if non-empty and
+      passes the junk-filter (>=PDF_TITLE_MIN_LENGTH chars, not all-digits).
+      (2) First-page largest-font contiguous text run.
+    - heading elements: union of three layers, recall-prioritized.
+      (1) Outline tree via pdf.doc.get_outlines() — yields (level, title)
+          tuples; emit one heading per outline entry with attributes.level
+          set to str(level). The outline fragments below the document root
+          are 1-indexed.
+      (2) Font-size buckets when outline is empty / shallow / single-level.
+          Bucket all chars by (rounded-size, fontname); rank descending by
+          char-count is wrong here — rank by SIZE (largest first); top-N
+          buckets become levels 1..N. Within each bucket, contiguous
+          per-page char runs become heading elements.
+      (3) Text-pattern heuristics layered on top: lines matching
+          ^(Chapter|Section|Part|Article)\\s+[\\dIVX]+ or all-caps single
+          lines 5..80 chars long get emitted as level-1 headings. Layer
+          (3) is purely additive over (1) + (2); duplicates are tolerated
+          because the downstream partition logic deduplicates by text.
+    - anchor elements: union of two paths, both emitting hrefs in the
+      canonical form internal:<slug>.
+      (a) Link annotations via page.annots — Link-subtype annotations
+          with URI or GoTo named-destination actions.
+      (b) Textual editorial-convention markers via PDF_TEXT_CROSSREF_PATTERNS
+          regex-scanned over full_text.
+      Both paths emit href="internal:<slug>" so the universal pattern
+      r"^internal:([a-z0-9][a-z0-9\\-]*)$" added to ENCYCLOPEDIA_CONFIG
+      picks up cross-references uniformly.
+    - source_url: pdf.metadata["Subject"] if URL-shaped; else None.
+    - full_text: concatenated page.extract_text() across all pages, with
+      page-header/footer stripping (lines repeated identically across
+      >=PDF_PAGEHEADER_REPETITION_THRESHOLD pages removed).
+
+    Failure modes:
+        - Source path missing: FileNotFoundError.
+        - Image-only / scanned PDF (zero text extracted): ValueError —
+          fail loud rather than silently produce a zero-entry brief.
+          OCR is the user's prep responsibility.
+        - Malformed PDF beyond pdfplumber recovery: ValueError.
+    """
+
+    def extract(self, source_path: Path, document_type: str) -> AdapterOutput:
+        if not source_path.exists():
+            raise FileNotFoundError(f"Source file does not exist: {source_path}")
+
+        try:
+            import pdfplumber  # type: ignore[import-not-found,unused-ignore]
+            import pypdfium2 as pdfium  # type: ignore[import-untyped,import-not-found,unused-ignore]
+        except ImportError as exc:
+            raise ImportError(
+                "pdfplumber and pypdfium2 are required for PDFInputAdapter; "
+                "run `pip install -r engine/tools/requirements.txt`"
+            ) from exc
+
+        # Bulk text extraction via pypdfium2 — empirically ~30x faster than
+        # pdfplumber's pdfminer-backed extract_text() at encyclopedia scale
+        # (Routledge 9169 pages: ~75s vs many minutes).
+        try:
+            pdfium_doc = pdfium.PdfDocument(source_path)
+        except Exception as exc:
+            raise ValueError(
+                f"Failed to open PDF {source_path} via pypdfium2: "
+                f"{type(exc).__name__}: {exc}"
+            ) from exc
+
+        try:
+            pages_text = self._extract_per_page_text_pypdfium(pdfium_doc)
+            outline_entries = self._collect_pypdfium_outline(pdfium_doc)
+        finally:
+            pdfium_doc.close()
+
+        pages_text = self._strip_repeating_page_boilerplate(pages_text)
+        full_text = " ".join(t for t in pages_text if t)
+
+        if not full_text.strip():
+            raise ValueError(
+                f"PDF {source_path} has no extractable text layer; "
+                "OCR required before parsing"
+            )
+
+        # Structural metadata (outline, chars, annotations, doc metadata)
+        # via pdfplumber — pypdfium2 doesn't expose these in the same way.
+        try:
+            pdf_ctx = pdfplumber.open(source_path)
+        except Exception as exc:
+            raise ValueError(
+                f"Failed to open PDF {source_path} via pdfplumber: "
+                f"{type(exc).__name__}: {exc}"
+            ) from exc
+
+        with pdf_ctx as pdf:
+            elements: list[StructuralElement] = []
+            position_counter = [0]
+
+            self._emit_title_element(pdf, elements, position_counter)
+            self._emit_outline_headings_from_toc(
+                outline_entries, elements, position_counter
+            )
+            self._emit_font_size_headings(pdf, elements, position_counter)
+            self._emit_text_pattern_headings(full_text, elements, position_counter)
+            self._emit_link_annotation_anchors(pdf, elements, position_counter)
+            self._emit_textual_crossref_anchors(full_text, elements, position_counter)
+
+            source_url = self._extract_source_url(pdf)
+
+        return AdapterOutput(
+            source_path=str(source_path),
+            document_type=document_type,
+            elements=elements,
+            source_url=source_url,
+            full_text=full_text,
+        )
+
+    @staticmethod
+    def _extract_per_page_text_pypdfium(pdfium_doc: Any) -> list[str]:
+        out: list[str] = []
+        for page in pdfium_doc:
+            try:
+                textpage = page.get_textpage()
+                text = textpage.get_text_range() or ""
+                textpage.close()
+            except Exception:
+                text = ""
+            finally:
+                page.close()
+            out.append(text)
+        return out
+
+    @staticmethod
+    def _collect_pypdfium_outline(pdfium_doc: Any) -> list[tuple[int, str]]:
+        """Return [(level, title), ...] from the PDF outline tree.
+
+        Uses pypdfium2's get_toc() which is non-recursive — pdfminer's
+        get_outlines() recurses sibling-by-sibling and blows the default
+        1000-deep recursion limit on encyclopedia-scale outlines (Routledge:
+        2041 entries). Levels are 0-indexed at the root in pypdfium2; we
+        bump by one so the heading-level model (1-indexed, 1..6) lines up
+        with HTML's h1..h6 abstraction.
+        """
+        out: list[tuple[int, str]] = []
+        try:
+            for bookmark in pdfium_doc.get_toc():
+                try:
+                    title = bookmark.get_title() or ""
+                except Exception:
+                    continue
+                level = max(1, min(6, int(getattr(bookmark, "level", 0)) + 1))
+                if title:
+                    out.append((level, title))
+        except Exception:
+            pass
+        return out
+
+    @staticmethod
+    def _strip_repeating_page_boilerplate(pages_text: list[str]) -> list[str]:
+        if len(pages_text) < PDF_PAGEHEADER_REPETITION_THRESHOLD:
+            return pages_text
+        line_page_counts: dict[str, int] = {}
+        per_page_lines: list[list[str]] = []
+        for txt in pages_text:
+            lines = [ln.strip() for ln in txt.split("\n") if ln.strip()]
+            per_page_lines.append(lines)
+            for ln in set(lines):
+                line_page_counts[ln] = line_page_counts.get(ln, 0) + 1
+        boilerplate = {
+            ln
+            for ln, count in line_page_counts.items()
+            if count >= PDF_PAGEHEADER_REPETITION_THRESHOLD
+        }
+        if not boilerplate:
+            return pages_text
+        cleaned: list[str] = []
+        for lines in per_page_lines:
+            kept = [ln for ln in lines if ln not in boilerplate]
+            cleaned.append("\n".join(kept))
+        return cleaned
+
+    @staticmethod
+    def _emit_title_element(
+        pdf: Any, elements: list[StructuralElement], pos: list[int]
+    ) -> None:
+        meta = pdf.metadata or {}
+        title_raw = meta.get("Title")
+        if isinstance(title_raw, bytes):
+            try:
+                title_raw = title_raw.decode("utf-8", errors="replace")
+            except Exception:
+                title_raw = ""
+        title_str = (title_raw or "").strip() if isinstance(title_raw, str) else ""
+        if (
+            title_str
+            and len(title_str) >= PDF_TITLE_MIN_LENGTH
+            and not title_str.isdigit()
+            and not re.search(r"\.(indd|docx|pdf|tex)$", title_str, re.IGNORECASE)
+        ):
+            elements.append(
+                StructuralElement(
+                    kind="title", text=title_str, attributes={}, position=pos[0]
+                )
+            )
+            pos[0] += 1
+            return
+
+        if not pdf.pages:
+            return
+        # Walk first few pages until we find one with chars — some PDFs
+        # have an image-only cover page, then content begins on later pages.
+        chars: list[Any] = []
+        for page in pdf.pages[:5]:
+            try:
+                page_chars = list(page.chars[:5000])
+            except Exception:
+                continue
+            if page_chars:
+                chars = page_chars
+                break
+        if not chars:
+            return
+        size_groups: dict[float, list[Any]] = {}
+        for ch in chars:
+            size = round(ch.get("size", 0), 1)
+            size_groups.setdefault(size, []).append(ch)
+        if not size_groups:
+            return
+        largest_size = max(size_groups.keys())
+        largest_chars = size_groups[largest_size]
+        text_run = "".join(ch.get("text", "") for ch in largest_chars[:200]).strip()
+        if text_run and len(text_run) >= PDF_TITLE_MIN_LENGTH:
+            elements.append(
+                StructuralElement(
+                    kind="title",
+                    text=text_run[:200],
+                    attributes={},
+                    position=pos[0],
+                )
+            )
+            pos[0] += 1
+
+    @staticmethod
+    def _emit_outline_headings_from_toc(
+        outline_entries: list[tuple[int, str]],
+        elements: list[StructuralElement],
+        pos: list[int],
+    ) -> None:
+        for level, title in outline_entries:
+            cleaned = title.strip()
+            cleaned = re.sub(
+                r"\.(pdf|html?|txt|docx?)$", "", cleaned, flags=re.IGNORECASE
+            )
+            cleaned = cleaned.strip()
+            if not cleaned:
+                continue
+            elements.append(
+                StructuralElement(
+                    kind="heading",
+                    text=cleaned,
+                    attributes={"level": str(level)},
+                    position=pos[0],
+                )
+            )
+            pos[0] += 1
+
+    @staticmethod
+    def _emit_font_size_headings(
+        pdf: Any, elements: list[StructuralElement], pos: list[int]
+    ) -> None:
+        # Skip font-size analysis when the outline already provides ample
+        # heading inventory. The threshold (50) is conservative: outlines with
+        # only book sections (Cambridge: 12 entries) still trigger font-size
+        # analysis to find the actual entry-level headings.
+        outline_count = sum(1 for e in elements if e.kind == "heading")
+        if outline_count >= 50:
+            return
+
+        # Phase 1: bucket fonts on a sample of pages — typography is consistent
+        # across well-edited reference works, so a sample suffices to identify
+        # which (rounded-size) buckets are heading-sized vs body-sized.
+        size_char_counts: dict[float, int] = {}
+        skip = PDF_FONT_SAMPLE_SKIP_FRONT
+        end = skip + PDF_FONT_SAMPLE_PAGE_COUNT
+        sample_pages = pdf.pages[skip:end] if len(pdf.pages) > end else pdf.pages[skip:]
+        if len(sample_pages) < 3:
+            sample_pages = pdf.pages[: min(len(pdf.pages), PDF_FONT_SAMPLE_PAGE_COUNT)]
+        for page in sample_pages:
+            try:
+                for ch in page.chars[:5000]:
+                    size = round(ch.get("size", 0), 1)
+                    size_char_counts[size] = size_char_counts.get(size, 0) + 1
+            except Exception:
+                continue
+        if not size_char_counts:
+            return
+
+        ranked_sizes = sorted(
+            (
+                s
+                for s, n in size_char_counts.items()
+                if n >= PDF_HEADING_FONT_MIN_BUCKET_CHARS
+            ),
+            reverse=True,
+        )
+        if len(ranked_sizes) <= 1:
+            return
+        body_size = max(size_char_counts.items(), key=lambda kv: kv[1])[0]
+        heading_sizes = [s for s in ranked_sizes if s > body_size][
+            :PDF_HEADING_FONT_BUCKET_COUNT
+        ]
+        if not heading_sizes:
+            return
+        size_to_level = {s: i + 1 for i, s in enumerate(heading_sizes)}
+
+        # Phase 2: emit headings by walking pages within the cap. Cambridge's
+        # entries start mid-volume; sample-only emission would miss them, so
+        # we walk further than the bucketing sample, but not unboundedly —
+        # encyclopedia-scale PDFs without per-source caps take 3-5 minutes.
+        # Routledge avoids this path entirely via the outline short-circuit.
+        emit_pages = (
+            pdf.pages[:PDF_FONT_EMIT_PAGE_CAP]
+            if len(pdf.pages) > PDF_FONT_EMIT_PAGE_CAP
+            else pdf.pages
+        )
+        for page in emit_pages:
+            try:
+                chars = page.chars
+            except Exception:
+                continue
+            current_run_chars: list[str] = []
+            current_run_size: float | None = None
+            for ch in chars:
+                size = round(ch.get("size", 0), 1)
+                text_ch = ch.get("text", "")
+                if size in size_to_level:
+                    if size != current_run_size and current_run_chars:
+                        PDFInputAdapter._flush_heading_run(
+                            current_run_chars,
+                            current_run_size,
+                            size_to_level,
+                            elements,
+                            pos,
+                        )
+                        current_run_chars = []
+                    current_run_size = size
+                    current_run_chars.append(text_ch)
+                else:
+                    if current_run_chars:
+                        PDFInputAdapter._flush_heading_run(
+                            current_run_chars,
+                            current_run_size,
+                            size_to_level,
+                            elements,
+                            pos,
+                        )
+                        current_run_chars = []
+                        current_run_size = None
+            if current_run_chars:
+                PDFInputAdapter._flush_heading_run(
+                    current_run_chars,
+                    current_run_size,
+                    size_to_level,
+                    elements,
+                    pos,
+                )
+
+    @staticmethod
+    def _flush_heading_run(
+        chars: list[str],
+        size: float | None,
+        size_to_level: dict[float, int],
+        elements: list[StructuralElement],
+        pos: list[int],
+    ) -> None:
+        if size is None or size not in size_to_level:
+            return
+        text = "".join(chars).strip()
+        if len(text) < 3 or len(text) > 200:
+            return
+        level = size_to_level[size]
+        elements.append(
+            StructuralElement(
+                kind="heading",
+                text=text,
+                attributes={"level": str(level)},
+                position=pos[0],
+            )
+        )
+        pos[0] += 1
+
+    @staticmethod
+    def _emit_text_pattern_headings(
+        full_text: str, elements: list[StructuralElement], pos: list[int]
+    ) -> None:
+        """Emit explicit Chapter / Section / Part / Article markers as headings.
+
+        Recall-prioritized but precision-bounded: only matches editorial
+        conventions that are unambiguously chapter markers. Earlier
+        iterations included an all-caps detector for "BIBLIOGRAPHY" /
+        "PRELIMINARIES" style headings, but that turned out to be noise-
+        dominant on real reference works — author bylines like "DANIEL B.
+        STEVENSON" or "BARRY HALLEN" are syntactically indistinguishable
+        from section headings without semantic knowledge. PDFs that
+        genuinely lack outline AND distinct font sizes for headings will
+        produce empty heading lists from this layer; the LLM triage's
+        parametric-knowledge boundary handles the recall gap.
+        """
+        existing_heading_texts = {e.text for e in elements if e.kind == "heading"}
+        for line in full_text.split("\n"):
+            ln = line.strip()
+            if not ln or ln in existing_heading_texts:
+                continue
+            # Real chapter headings are short and self-contained; body prose
+            # like "Article 17 points out the need of public discussion of..."
+            # matches the pattern syntactically but is mid-paragraph. Two
+            # filters: max 8 words AND max 80 chars. Together they catch
+            # legitimate "Chapter 14: The Prerequisites of Theory" (~6 words,
+            # ~38 chars) while rejecting prose runs.
+            if (
+                len(ln) <= 80
+                and len(ln.split()) <= 8
+                and re.match(r"^(Chapter|Section|Part|Article)\s+[\dIVXLC]+\b", ln)
+            ):
+                elements.append(
+                    StructuralElement(
+                        kind="heading",
+                        text=ln,
+                        attributes={"level": "1"},
+                        position=pos[0],
+                    )
+                )
+                pos[0] += 1
+
+    @staticmethod
+    def _emit_link_annotation_anchors(
+        pdf: Any, elements: list[StructuralElement], pos: list[int]
+    ) -> None:
+        cap = PDF_ANNOT_PAGE_CAP
+        pages_to_walk = pdf.pages[:cap] if len(pdf.pages) > cap else pdf.pages
+        for page in pages_to_walk:
+            try:
+                annots = page.annots or []
+            except Exception:
+                continue
+            for annot in annots:
+                data = annot.get("data") or {}
+                if data.get("Subtype") != "Link":
+                    continue
+                a_action = data.get("A") or {}
+                if not isinstance(a_action, dict):
+                    continue
+                slug: str | None = None
+                action_kind = a_action.get("S")
+                if action_kind == "URI":
+                    uri = a_action.get("URI", "")
+                    if isinstance(uri, bytes):
+                        try:
+                            uri = uri.decode("utf-8", errors="replace")
+                        except Exception:
+                            uri = ""
+                    if isinstance(uri, str) and uri.strip():
+                        url_match = re.search(
+                            r"/([a-z0-9][a-z0-9\-_]+)/?(?:#.*)?$",
+                            uri.rstrip("/"),
+                            re.IGNORECASE,
+                        )
+                        if url_match is not None:
+                            slug = slugify_title(url_match.group(1))
+                elif action_kind == "GoTo":
+                    dest = a_action.get("D")
+                    if isinstance(dest, bytes):
+                        try:
+                            dest = dest.decode("utf-8", errors="replace")
+                        except Exception:
+                            dest = ""
+                    if isinstance(dest, list) and dest:
+                        dest = dest[0]
+                        if isinstance(dest, bytes):
+                            try:
+                                dest = dest.decode("utf-8", errors="replace")
+                            except Exception:
+                                dest = ""
+                    if isinstance(dest, str) and dest.strip():
+                        slug = slugify_title(dest)
+                if slug:
+                    elements.append(
+                        StructuralElement(
+                            kind="anchor",
+                            text="",
+                            attributes={"href": f"internal:{slug}"},
+                            position=pos[0],
+                        )
+                    )
+                    pos[0] += 1
+
+    @staticmethod
+    def _emit_textual_crossref_anchors(
+        full_text: str, elements: list[StructuralElement], pos: list[int]
+    ) -> None:
+        for pattern in PDF_TEXT_CROSSREF_PATTERNS:
+            for match in re.finditer(pattern, full_text, re.IGNORECASE):
+                captured = match.group(1)
+                for segment in re.split(r"\s*,\s*|\s+and\s+", captured):
+                    segment = segment.strip()
+                    if not segment:
+                        continue
+                    slug = slugify_title(segment)
+                    if not slug or len(slug) < 2:
+                        continue
+                    elements.append(
+                        StructuralElement(
+                            kind="anchor",
+                            text=segment,
+                            attributes={"href": f"internal:{slug}"},
+                            position=pos[0],
+                        )
+                    )
+                    pos[0] += 1
+
+    @staticmethod
+    def _extract_source_url(pdf: Any) -> str | None:
+        meta = pdf.metadata or {}
+        subject = meta.get("Subject", "")
+        if isinstance(subject, bytes):
+            try:
+                subject = subject.decode("utf-8", errors="replace")
+            except Exception:
+                subject = ""
+        if isinstance(subject, str) and re.match(r"^https?://", subject.strip()):
+            return subject.strip()
+        return None
+
+
 ADAPTER_REGISTRY: dict[str, type[InputAdapter]] = {
     ".html": HTMLInputAdapter,
     ".htm": HTMLInputAdapter,
+    ".pdf": PDFInputAdapter,
 }
 
 

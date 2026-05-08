@@ -598,7 +598,9 @@ class TestSelectAdapter:
         assert isinstance(adapter, HTMLInputAdapter)
 
     def test_unknown_extension_raises_value_error(self, tmp_path: Path) -> None:
-        f = tmp_path / "x.pdf"
+        # .pdf added to ADAPTER_REGISTRY at S-0096 per Issue #34; use a
+        # genuinely-unknown extension to exercise the unknown-extension path.
+        f = tmp_path / "x.unknown"
         f.write_text("", encoding="utf-8")
         with pytest.raises(ValueError, match="No adapter registered"):
             select_adapter(f)
@@ -607,7 +609,7 @@ class TestSelectAdapter:
         f = tmp_path / "x.html"
         f.write_text("", encoding="utf-8")
         with pytest.raises(ValueError, match="No adapter registered"):
-            select_adapter(f, override="pdf")
+            select_adapter(f, override="unknown")
 
 
 # ---------------------------------------------------------------------------
