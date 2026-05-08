@@ -23,7 +23,9 @@ The operational surface ([`engine/operations/health-check.md`](../operations/hea
 | #3 — introduces a new state file the boot procedure reads | No (consumes existing `last_audit_session` from `register_state.json`) |
 | #4 — Consequences span ≥ 3 ops docs OR ≥ 5 tooling files | **Yes** (6 surfaces: ADR 0057, health-check.md, TEMPLATE.md, ADR 0040 See-also, ADR README, CLAUDE.md) |
 
-**Qualifies; first-exercise gate report needed before unattended use.** This report IS the gate report; the first-exercise session is the next cadence-fired audit (S-0087 by recommended sequencing per [`~/.claude/plans/i-need-a-plan-prancy-ripple.md`](https://github.com/StarshipSuperjam/paideia/issues/30) — campaign session S-E `apply_migration` postcondition verification, with cadence trigger firing concurrently at `slots_since == 10`).
+**Qualifies; first-exercise gate report needed before unattended use.** This report IS the gate report.
+
+**First exercise: S-0097** (deferred from the S-0087-projected slot for the issue close-out campaign; landed at S-0097 with `slots_since=20` overdue by 10). The audit is at [`docs/health-checks/S-0097.md`](../../docs/health-checks/S-0097.md). Concurrent in-session deliverable: cadence raise from 10 → 20 per [ADR 0022](../adr/0022-periodic-project-health-checks.md) S-0097 Consequences amendment.
 
 ## What success at first exercise looks like
 
@@ -40,11 +42,11 @@ The S-0087 audit lands a hand-authored report at `docs/health-checks/S-0087.md` 
 
 | ID | Finding | Status |
 |---|---|---|
-| T1-A | The audit AI must read MemPalace `pushback`/`lesson` drawer *content* (not just counts) at audit time | **Pending S-0087.** Closes when the audit produces a non-empty Accumulated-pushbacks-and-lessons subsection that quotes or summarizes drawer content; or, if zero captures, a subsection explicitly distinguishing posture-not-exercised from capture-surface-failure. |
-| T1-B | User adjudication subsection must arrive blank — audit cannot pre-fill | **Pending S-0087.** Closes when the audit's hand-authored report's User adjudication subsection is empty (or carries a placeholder like `<populated post-audit by the user>`) and is populated subsequently by the user. |
-| T1-C | Freshness probes must produce content findings, not cite cached stats | **Pending S-0087.** Closes when the Freshness-probes-run subsection's MemPalace / validator / Supabase / hooks / registries entries each describe a probe RUN (commands invoked, results observed) rather than referencing a count from a prior STATE.md row or audit report. |
-| T1-D | Cold-context probe randomly selects an artifact, not the audit's preferred target | **Pending S-0087.** Closes when the Cold-context-probe subsection names the random-pick procedure (the `find` filter and `shuf -n 1` invocation, or equivalent) used to select the artifact. |
-| T1-E | ≥1 retire-candidate or adversarially-scrutinized "no candidates" subsection | **Pending S-0087.** Closes when the Affirmative-retire-candidates subsection carries either ≥1 retire-candidate-with-reasoning OR a "no retire candidates this audit" subsection adversarially scrutinizing its own claim. |
+| T1-A | The audit AI must read MemPalace `pushback`/`lesson` drawer *content* (not just counts) at audit time | **Resolved at S-0097.** The S-0097 audit's "Accumulated pushbacks and lessons" section quotes verbatim from three substantive `[pushback]`-prefixed drawers (S-0005 callback_reference, S-0048 manual-review-framing, S-0071 defer-indefinitely-hedge) and surfaces Cluster A (defer-hedging at session close) with a recommendation for validator-side mechanization. The audit also distinguishes posture-not-exercised from capture-surface-failure for the lesson-drawers (3 tagged) by cross-referencing the hooks freshness probe (substrate healthy) against the campaign's procedural shape (low novel-discovery moments). |
+| T1-B | User adjudication subsection must arrive blank — audit cannot pre-fill | **Resolved at S-0097.** The S-0097 report's User-adjudication section carries the canonical placeholder `<populated post-audit by the user>` — eight findings/recommendations are surfaced in posture sections + retire-candidate subsections, all routed via "Routes through User adjudication" tail-lines, none disposed in-session. |
+| T1-C | Freshness probes must produce content findings, not cite cached stats | **Resolved at S-0097.** The S-0097 "Freshness probes run" section describes five RUN probes with commands invoked and results observed: five `mempalace_search` queries with similarity scores, validator acted-on-rate per category via `git log --grep` + archive `outcome_summary_soft_warns` deltas, hooks via `tail` of all five `.claude/logs/*.log` files (surfacing the new `env_pointer=missing-supabase-db-url` finding), registries via `git log --since=2026-04-25` + content reads. Supabase live probe explicitly deferred-to-routine with reasoning rather than cited from cached stats. |
+| T1-D | Cold-context probe randomly selects an artifact, not the audit's preferred target | **Resolved at S-0097.** The S-0097 "Cold-context probe" subsection names the random-pick command (`find engine/operations engine/adr docs/health-checks engine/build_readiness -name '*.md' -type f \| sort -R \| head -1`) — using `sort -R` as the macOS-friendly substitute for `shuf` (substantive note about Darwin tooling). Picked `engine/operations/cascade-discipline.md`; surfaced one cross-doc handshake gap (the orphan-OK list audit is committed-to but not mechanized). |
+| T1-E | ≥1 retire-candidate or adversarially-scrutinized "no candidates" subsection | **Resolved at S-0097.** The S-0097 "Affirmative retire candidates" section carries three retire candidates with affirmative arguments and what-would-be-lost analysis: (A) three legacy `dead_weight_candidates_S-NNNN.md` scanner outputs; (B) two MemPalace-skip soft-warn categories (re-class to `informational-only-accepted`, not full delete); (C) ADR 0049 unkept Consequences promise (in-place amendment). Each routes through User adjudication. |
 
 ## Tier 2 findings (settle in advance, document)
 
@@ -79,12 +81,14 @@ The recovery shape: ENGINE_LOG-tracked refinement to `health-check.md` and `TEMP
 
 This first-exercise readiness note closes when:
 
-1. The S-0087 audit (or any subsequent first-exercise audit if S-0087 is consumed by another priority) lands a hand-authored report at `docs/health-checks/S-NNNN.md` against the new TEMPLATE.md shape.
-2. T1-A through T1-E each move to "Resolved at S-NNNN" with the closure observation.
-3. ENGINE_LOG carries a `Changed` entry referencing the first-exercise audit and any refinements to `health-check.md` / `TEMPLATE.md` the exercise surfaced.
-4. The build_readiness/README.md table row for this report flips to `Closed`.
+1. The S-0087 audit (or any subsequent first-exercise audit if S-0087 is consumed by another priority) lands a hand-authored report at `docs/health-checks/S-NNNN.md` against the new TEMPLATE.md shape. — **Done at S-0097 ([docs/health-checks/S-0097.md](../../docs/health-checks/S-0097.md), 20-session audit window covering S-0078 → S-0096).**
+2. T1-A through T1-E each move to "Resolved at S-NNNN" with the closure observation. — **Done above (all five T1 rows resolved at S-0097 with closure observations citing audit-report sections).**
+3. ENGINE_LOG carries a `Changed` entry referencing the first-exercise audit and any refinements to `health-check.md` / `TEMPLATE.md` the exercise surfaced. — **Landed at S-0097 close (see [ENGINE_LOG.md](../ENGINE_LOG.md) `[Unreleased]`).**
+4. The build_readiness/README.md table row for this report flips to `Closed`. — **Landed at S-0097 close.**
 
-If the first exercise reveals ADR-warranting structure, the findings flow into an amendment to ADR 0057 (refinement) or a successor ADR (posture change).
+**Status: CLOSED at S-0097.**
+
+If the first exercise reveals ADR-warranting structure, the findings flow into an amendment to ADR 0057 (refinement) or a successor ADR (posture change). The S-0097 audit surfaced no ADR-warranting structural changes — the contract held. Two refinement-class observations (Non-obvious findings A and B in the audit report) route through User adjudication; both are documentation-class or category-re-class scope, not contract-amending. Consequence: ADR 0057 stands as authored.
 
 ## See also
 
