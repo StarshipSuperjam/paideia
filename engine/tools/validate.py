@@ -126,6 +126,7 @@ Module contracts referenced:
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import os
 import re
@@ -133,7 +134,6 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -144,6 +144,7 @@ from _venv_reexec import ensure_venv_python  # noqa: E402
 ensure_venv_python()  # re-exec under venv if psycopg is unavailable
 
 from scrub_env import scrubbed_env  # noqa: E402
+from timestamps import emit, emit_micros  # noqa: E402  # ADR 0058
 
 
 # ---------------------------------------------------------------------------
@@ -2728,9 +2729,7 @@ def _append_to_diary_pending_index(
         index["pending"].append(
             {
                 "session_id": session_id,
-                "closed_ts": datetime.now(timezone.utc)
-                .isoformat()
-                .replace("+00:00", "Z"),
+                "closed_ts": emit(),  # ADR 0058 canonical
                 "reason": reason,
                 "outcome_summary_excerpt": excerpt,
                 "archive_path": archive_path,
@@ -3099,6 +3098,125 @@ def validate_mempalace_adoption() -> ValidationResult:
     return r
 
 
+# ---------------------------------------------------------------------------
+# Timestamp helper bypass detection (ADR 0058 / Issue #33)
+# ---------------------------------------------------------------------------
+
+# Allowlisted source paths under engine/tools/ that may emit non-canonical
+# timestamps without firing timestamp_helper_bypass. Each entry must be
+# justified by an inline comment in the source file referencing ADR 0058.
+_TIMESTAMP_HELPER_BYPASS_ALLOWLIST = frozenset(
+    {
+        "timestamps.py",  # the helper module itself defines the canonical shapes
+        "apply_migration.py",  # legacy supabase schema_migrations.version contract
+    }
+)
+
+
+def validate_timestamp_helper_bypass() -> ValidationResult:
+    """Soft-warn ad-hoc timestamp emission outside engine/tools/timestamps.py per ADR 0058.
+
+    Walks each ``engine/tools/**/*.py`` source file with ``ast`` and
+    detects ``Call`` nodes whose ``func.attr`` is ``"isoformat"``,
+    ``"strftime"``, or ``"fromisoformat"``. Each detected callsite outside
+    the allowlist fires a ``timestamp_helper_bypass`` soft-warn with
+    file:line. The first two cover emit-site bypass; the third covers
+    parse-site bypass (per the discipline contract: every site that reads
+    a stored timestamp uses ``parse()``, not ``datetime.fromisoformat``
+    directly, so the helper is the single point that knows about legacy
+    shapes).
+
+    Allowlist (no warn):
+        - ``engine/tools/timestamps.py`` — the helper itself defines
+          canonical shapes via ``strftime`` against ``CANONICAL_FORMAT`` /
+          ``MICROS_FORMAT`` / ``DATE_FORMAT``.
+        - ``engine/tools/apply_migration.py`` — the migration-version
+          ``%Y%m%d%H%M%S`` shape is allowlisted as a legacy supabase
+          contract per ADR 0058 Decision element 5.
+
+    Excluded (no walk performed):
+        - ``test_*.py`` — test fixtures legitimately carry timestamp
+          string literals AND ``strftime``/``isoformat`` calls inside
+          synthetic data construction. AST detection cannot distinguish
+          a fixture string from a real emit site.
+
+    Out of scope for the AST walk:
+        - Shell scripts under ``engine/tools/hooks/*.sh`` — they emit
+          canonical second precision via ``date -u +"%Y-%m-%dT%H:%M:%SZ"``,
+          a separate runtime per ADR 0058 Decision element 4.
+        - Non-Python files anywhere in the tree.
+
+    Inputs: none (walks ``engine/tools/`` rooted at REPO_ROOT).
+    Outputs: ``ValidationResult`` carrying ``timestamp_helper_bypass``
+    soft-warn entries per offending callsite. Emits the
+    ``timestamp_helper_bypass`` check name into ``checks_run``.
+    Edge cases:
+        - Files with syntax errors (cannot be parsed) emit a soft-warn at
+          the file path; the walk continues for other files.
+        - Files outside the engine/tools/ root are not walked.
+    Non-responsibilities:
+        - Does not enforce a particular emit shape — that's ADR 0058's
+          contract layer. The check enforces *helper-routing*, leaving
+          shape correctness to the helper itself.
+        - Does not detect ``time.time()`` / ``time.monotonic()`` usage
+          (stopwatch math is out of scope per ADR 0058 Decision element 6).
+    """
+    r = ValidationResult()
+    r.add_check("timestamp_helper_bypass")
+
+    tools_root = REPO_ROOT / "engine" / "tools"
+    if not tools_root.is_dir():
+        return r
+
+    for py_path in sorted(tools_root.rglob("*.py")):
+        name = py_path.name
+        if name.startswith("test_"):
+            continue
+        if name in _TIMESTAMP_HELPER_BYPASS_ALLOWLIST:
+            continue
+        try:
+            source = py_path.read_text(encoding="utf-8")
+        except OSError as e:
+            r.soft_warn(
+                "timestamp_helper_bypass",
+                f"{py_path.relative_to(REPO_ROOT)}: read failed ({e}); "
+                "AST walk skipped, possible bypass not detected.",
+            )
+            continue
+        try:
+            tree = ast.parse(source, filename=str(py_path))
+        except SyntaxError as e:
+            r.soft_warn(
+                "timestamp_helper_bypass",
+                f"{py_path.relative_to(REPO_ROOT)}: parse failed ({e.msg} "
+                f"at line {e.lineno}); AST walk skipped, possible bypass "
+                "not detected.",
+            )
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            if not isinstance(func, ast.Attribute):
+                continue
+            if func.attr not in ("isoformat", "strftime", "fromisoformat"):
+                continue
+            r.soft_warn(
+                "timestamp_helper_bypass",
+                f"{py_path.relative_to(REPO_ROOT)}:{node.lineno}: "
+                f".{func.attr}(...) — ad-hoc timestamp emission. Per "
+                "ADR 0058 + engine/operations/timestamp-discipline.md, "
+                "route through engine/tools/timestamps.py "
+                "(emit / emit_micros / parse / today). If this site has "
+                "a legitimate non-canonical contract (e.g., a new legacy "
+                "external system), add the path to "
+                "_TIMESTAMP_HELPER_BYPASS_ALLOWLIST in validate.py with "
+                "an inline comment naming the contract being preserved.",
+            )
+
+    return r
+
+
 def session_id_from_current() -> str:
     """Return the in-progress session id, or 'outside-session' if none.
 
@@ -3274,6 +3392,7 @@ def main(argv: list[str] | None = None) -> int:
         overall.merge(validate_issue_collisions())
         overall.merge(validate_scope_discipline())
         overall.merge(validate_routine_mode())
+        overall.merge(validate_timestamp_helper_bypass())
         overall.merge(validate_graph())
         if args.final_check:
             overall.merge(validate_mempalace_adoption())
@@ -3296,9 +3415,10 @@ def main(argv: list[str] | None = None) -> int:
         for msg in msgs:
             print(f"[soft-warn:{cat}] {msg}", file=sys.stderr)
 
-    # Telemetry
+    # Telemetry — emit_micros() per ADR 0058 (microsecond precision matters here
+    # for same-second event ordering across rapid-fire validate runs).
     record = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": emit_micros(),
         "session_id": session_id_from_current(),
         "checks_run": overall.checks_run,
         "hard_fails": len(overall.hard_fails),
