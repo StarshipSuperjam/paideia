@@ -296,6 +296,103 @@ The seven categories ADR 0016 contracts. All seven register in `checks_run` even
 - **A new hard-fail in CI on a commit that passed locally** — clock skew on `validate-history.jsonl` writes is fine to ignore; everything else is a real divergence to investigate.
 - **Validator runtime > 3s** — Phase 4 graph audit budget is 3s on a 100-node test seed. If the structural-only checks (Phase 0+) start exceeding ~500ms, they've grown beyond their scope.
 
+## Validator-pipeline classification map
+
+Every soft-warn category emitted by `engine/tools/validate.py` lands in exactly one of five buckets per the S-0101 sweep (Issue #52 — closes Non-obvious finding A from the S-0097 audit). The buckets are:
+
+- **Actively-tracked (default)** — drift detector working as intended; per-fire action expected when the warn is non-trivial. Includes both categories that fire periodically (e.g., `adr_consequences_deliverable_audit` surfaces real ADR cleanup work) and silent guards that protect structural invariants (e.g., `cross_reference_broken` rarely fires because the project keeps cross-references current; the absence of fire is the system working).
+- **Persistent-warn annotation** — fires structurally under named conditions documented in this file's "Persistent-warn annotation" section; boot surface suppresses for matching sessions per the [`soft-warn-lifecycle.md`](soft-warn-lifecycle.md) annotation pattern.
+- **Informational-only-accepted** — fires by design; passive observability serves audit-time aggregation; per-session action not expected. Documented per category in the "Informational-only-accepted classifications" section.
+- **Actively-tracked, deferred re-audit** — added to the validator within the last ~5 archives; insufficient telemetry coverage to compute a stable fire-rate. Re-classify at the next cadence-fired audit (S-0117 projected). Documented per category in the "Actively-tracked, deferred re-audit" sub-section.
+- **Retire-candidate (flagged for next audit)** — fires 0 times in the cadence-20 window AND ≤1 time in the full archive corpus AND no documented structural-invariant role. Routes through user adjudication at the next health-check audit per [ADR 0057](../adr/0057-adversarial-stance-for-health-check-audits.md) user-buffered execution. Documented per category in the "Retire candidates flagged for next health-check audit" sub-section.
+
+**Re-run methodology** (the next cadence audit reproduces this sweep):
+
+```bash
+# Enumerate static-emission categories
+grep -oE 'r\.soft_warn\(\s*"[a-z_][a-z0-9_]*"' engine/tools/validate.py | \
+  grep -oE '"[a-z_][a-z0-9_]*"' | tr -d '"' | sort -u
+# Add dynamic-emission categories (probe loop at validate.py:687):
+#   chromadb_palace_health, repo_config_health
+```
+
+```python
+# Fire-rate per category over the cadence-20 window (S-NNNN-19 → S-NNNN, exclusive of audit slot)
+import json, glob
+files = sorted(glob.glob('engine/session/archive/S-*.json'))[-20:]
+def fire_rate(category):
+    return sum(1 for f in files
+               if (json.load(open(f)).get('outcome_summary_soft_warns') or {}).get(category, 0))
+```
+
+```bash
+# Acted-on rate per category (commits that name the category since the cadence-window's start date)
+git log --since=YYYY-MM-DD --grep=<category> --oneline | wc -l
+```
+
+The since-date matches the calendar span of the cadence-20 window. The `git log --grep` proxy captures both `Closes #NN` references and direct mentions in commit messages; imperfect but adequate signal at the audit-aggregate level.
+
+**Threshold matrix** (calibration baseline, S-0101; tune at S-0117 if friction surfaces):
+
+| Bucket | Predicate |
+|---|---|
+| **Actively-tracked (default)** | Fired ≥1 in window AND has ≥1 commit-references; OR fired 0 in window AND guards a structural invariant the validator pipeline must check |
+| **Persistent-warn annotation** | Fires structurally under named conditions; resolution condition documented; boot surface suppresses for matching sessions |
+| **Informational-only-accepted** | Fired ≥3 in last 5 archives AND acted-on rate ≤2 commits in window — passive observability without per-fire action expected |
+| **Actively-tracked, deferred re-audit** | Added to validator within last 5 archives — re-classify at next cadence audit once ≥10 archives accumulate |
+| **Retire-candidate (flagged)** | Fired 0/20 AND ≤1/100 AND no documented structural-invariant role |
+
+**Classification table — S-0101 sweep against the cadence-20 window (S-0081 → S-0100), git log since 2026-04-25:**
+
+| Category | Bucket | Fire/20 | Fire/100 | Commits | Invariant guarded / role |
+|---|---|---|---|---|---|
+| `missing_rigor_score` | Persistent-warn annotation (S-0077) | 20 | 51 | 31 | Phase 5 partial-seed pattern; Phase 6 rigor-calibration resolves |
+| `issue_collision` | Persistent-warn annotation (S-0077) | 17 | 51 | 33 | Open-Issue keyword overlap defense; ADR 0048 broad-keyword design |
+| `health_check_overdue` | Persistent-warn annotation (S-0077) | 10 | 17 | 22 | Cadence-trigger defense-in-depth; clears at audit close |
+| `mempalace_diary_read_skipped` | Informational-only-accepted (S-0098) | 5 | 5 | 2 | MemPalace adoption observability per ADR 0056 |
+| `mempalace_boot_query_skipped` | Informational-only-accepted (S-0098) | 4 | 4 | 3 | MemPalace adoption observability per ADR 0056 |
+| `adr_consequences_deliverable_audit` | Actively-tracked | 15 | 16 | 14 | Surfaces stale ADR Consequences-section deliverable promises per [ADR 0041](../adr/0041-cascade-analysis-discipline.md) cascade discipline; high acted-on rate |
+| `mempalace_diary_write_acknowledged_skip` | Actively-tracked | 2 | 2 | 2 | Substrate-unavailable acknowledged sessions per ADR 0056 escape hatch |
+| `empty_declared_scope` | Actively-tracked | 1 | 1 | 6 | ADR 0049 Decision 6 — eager-claim ritual must write `declared_scope` as 1-3 sentence string |
+| `adr_back_reference_orphan` | Actively-tracked | 0 | 1 | 4 | Cascade discipline — ADR back-reference orphans per ADR 0041 |
+| `routine_issue_spam` | Actively-tracked | 0 | 1 | 1 | Routine-mode anti-pattern per ADR 0051 |
+| `adr_index_inconsistent` | Actively-tracked | 0 | 0 | 2 | `adr/README.md` index sync vs file system |
+| `adr_missing_status` | Actively-tracked | 0 | 0 | 1 | ADR Status field per [`adr-authoring.md`](adr-authoring.md) |
+| `attribute_shape_inconsistency` | Actively-tracked | 0 | 0 | 1 | Phase 4+ graph audit per ADR 0016 |
+| `chromadb_palace_health` | Actively-tracked (dynamic) | 0 | 0 | 0 | Palace-probe failure path per ADR 0045; emitted via probe loop at `validate.py:687` |
+| `cross_reference_broken` | Actively-tracked | 0 | 0 | 6 | Cross-reference integrity in `docs/CROSS_REFERENCES.md` |
+| `engine_log_format` | Actively-tracked | 0 | 0 | 1 | `[Unreleased]` block presence in ENGINE_LOG.md |
+| `expected_future_file_missing` | Actively-tracked | 0 | 0 | 0 | Phase-staged file expectations per `EXPECTED_FROM_S0002` |
+| `mempalace_diary_write_skipped_routine` | Actively-tracked | 0 | 0 | 3 | Routine-mode no-token-no-diary soft-warn per S-0091 routine-protection |
+| `mempalace_diary_write_skipped_substrate_intermittent` | Actively-tracked | 0 | 0 | 1 | Substrate-down contradiction case per ADR 0056 amendment (S-0089) |
+| `mempalace_hnsw_divergence` | Actively-tracked | 0 | 0 | 2 | Palace HNSW vs SQLite divergence per ADR 0045 amendment (S-0084) |
+| `mempalace_retired_surface_used` | Actively-tracked | 0 | 0 | 3 | KG / tunnels usage defense per S-0087 retirement |
+| `mempalace_substrate_at_close` | Actively-tracked | 0 | 0 | 2 | Substrate-down at close defense per ADR 0056 amendment (S-0089) |
+| `mempalace_wing_count_growth` | Actively-tracked | 0 | 0 | 4 | Wing accumulation per Issue #46 (S-0088) |
+| `mempalace_zero_citations_after_search` | Actively-tracked | 0 | 0 | 3 | Closed-loop boot-search effectiveness per ADR 0056 amendment (S-0093) |
+| `orphan_leaf` | Actively-tracked | 0 | 0 | 1 | Phase 4+ graph audit — zero-degree pedagogical_prerequisite nodes |
+| `phase_mismatch_declared_scope` | Actively-tracked | 0 | 0 | 1 | declared_scope phase-token vs `build_plan/MANIFEST.md` per ADR 0049 |
+| `render_readiness_violation` | Actively-tracked | 0 | 0 | 1 | Phase 4+ graph audit — scaffolding tokens in node labels |
+| `repo_config_health` | Actively-tracked (dynamic) | 0 | 0 | 1 | Repo-probe failure path per ADR 0045; emitted via probe loop at `validate.py:687` |
+| `routine_no_target_reference` | Actively-tracked | 0 | 0 | 0 | Routine-mode T- token check per ADR 0051 |
+| `scope_delivery_non_yes` | Actively-tracked | 0 | 0 | 2 | ADR 0049 scope-delivery shape check |
+| `state_format` | Actively-tracked | 0 | 0 | 0 | "Current phase" field presence in STATE.md |
+| `superseded_adr_currency` | Actively-tracked | 0 | 0 | 3 | Cascade discipline — superseded-ADR citation currency per ADR 0041 |
+| `suspicious_cross_domain_ratio` | Actively-tracked | 0 | 0 | 2 | Phase 4+ graph audit — cross-domain inbound edge ratio threshold |
+| `synthetic_review_queue` | Actively-tracked | 0 | 0 | 1 | `confidence_level: SYNTHETIC` review-queue surface per ADR 0030 |
+| `undeclared_predicate` | Actively-tracked | 0 | 0 | 1 | Phase 4+ graph audit — edge.type vs PREDICATE_MANIFEST.md |
+| `timestamp_helper_bypass` | Actively-tracked, deferred (S-0095) | 0 | 0 | 8 | Canonical timestamp helper per ADR 0058; AST-walk soft-warn |
+| `outcome_summary_unhandled_defer` | Actively-tracked, deferred (S-0100) | 0 | 0 | 3 | ADR 0049 Decision 6 — outcome_summary hedge-pattern + missing handle |
+| `next_session_handle_unknown_issue` | Actively-tracked, deferred (S-0100) | 0 | 0 | 2 | ADR 0049 Decision 6 — handle references unknown Issue |
+| `next_session_handle_unknown_session` | Actively-tracked, deferred (S-0100) | 0 | 0 | 2 | ADR 0049 Decision 6 — handle references unknown session |
+| `next_session_handle_malformed` | Actively-tracked, deferred (S-0100) | 0 | 0 | 2 | ADR 0049 Decision 6 — handle malformed (not `#NN` or `S-NNNN`) |
+
+**Coverage check:** 40 rows above; 38 static-emission category strings (per `grep -oE 'r\.soft_warn\(\s*"[a-z_]+"' engine/tools/validate.py | sort -u`) plus 2 dynamic-emission categories (`chromadb_palace_health`, `repo_config_health`) emitted from the probe loop at `validate.py:687`. Two ghost keys appear in some historical archives (`graph_audit_skipped` is an `add_check` not a `soft_warn`; `mempalace_diary_write_skipped` is a hard-fail not a soft-warn) — both excluded from this map by design.
+
+**Concordance check (per S-0101 plan verification step 2):** the 3 S-0077 persistent-warn annotations and 2 S-0098 informational-only classifications survive the new threshold matrix unchanged. No category flipped relative to its prior assignment.
+
+**Retire-candidate finding:** zero categories meet the retire-candidate predicate. Every silent category guards an identifiable structural invariant in the current pipeline (cascade discipline, graph audit, MemPalace adoption, ADR-routing, cross-reference integrity, format checks, routine-mode protocol). The "Retire candidates flagged for next health-check audit" section below is therefore intentionally empty at this sweep.
+
 ## Informational-only-accepted classifications
 
 Some soft-warn categories are documented as "fires by design and the user does not act on each fire" — distinct from the persistent-warn annotation pattern below (which is about expected-firing-under-named-conditions). An informational-only-accepted category fires whenever its predicate matches; the signal serves passive observability or trend-watching at audit time but does not require per-fire action.
@@ -303,6 +400,8 @@ Some soft-warn categories are documented as "fires by design and the user does n
 The classification is documented per category in this section so the validator's pipeline visibly distinguishes intent. Re-classification routes through user adjudication at health-check audits; the audit's "Affirmative retire candidates" section is the canonical surface where re-classification is proposed and adjudicated.
 
 The first two classifications land at the S-0098 adjudication of S-0097's audit (per [ADR 0057](../adr/0057-adversarial-stance-for-health-check-audits.md) Retire candidate B). At audit-window-acted-on rates of 1 commit and 2 commits respectively across S-0078 → S-0096 (despite firing in 5 and 4 archives), the two MemPalace-skip categories below were near-zero-acted-on; the user adjudicated re-classify-not-retire to preserve the passive-observability signal that some sessions don't query MemPalace at boot or read the diary, while clarifying that no per-fire action is required.
+
+The S-0101 systematic sweep (per the classification map above) added no further categories to this bucket. The remaining audit-window-firing categories (`adr_consequences_deliverable_audit`, `mempalace_diary_write_acknowledged_skip`, `empty_declared_scope`) carry acted-on rates that confirm them as actively-tracked rather than informational-only.
 
 ### `mempalace_boot_query_skipped` (informational-only-accepted, S-0098)
 
@@ -345,6 +444,50 @@ The first three annotations land at the S-0077 audit (`docs/health-checks/S-0077
 **Resolution condition:** the Phase 6 self-correction backlog counter (per the Phase 5 closeout's "Forward pointers to Phase 6+" rigor-calibration deliverable) drains as Phase 6 routine sessions backfill `rigor_score_computed` against topology-bearing nodes. Does not require resolution to commit; structural per the architecture.md formula's expectation that topology data feeds the rigor score.
 
 **Why annotated rather than addressed:** addressing in Phase 5 was the wrong shape — the rigor score depends on neighborhood structure (inbound edges), and partial seeds during phase build-up genuinely cannot compute the score reliably. The Phase 5 closeout deferred the calibration to Phase 6 as a pre-decided architectural choice, not a slip.
+
+## Actively-tracked, deferred re-audit
+
+Categories added to the validator within the last ~5 archives carry insufficient telemetry coverage for a stable fire-rate computation. Per the S-0101 sweep, they are recorded here as actively-tracked with re-audit deferred to the next cadence-fired audit (S-0117 projected) — by which point ≥10 archives of post-introduction telemetry will be available and the threshold matrix can re-evaluate without false-negative bias.
+
+Until re-audit, the categories carry their as-shipped semantics from their introducing ADR / Issue. Sessions act on each fire per the per-category guidance in the "Soft-warns (signal, not blocker)" section above. The deferred-re-audit status only constrains the *re-classification* decision, not the per-fire response.
+
+### `timestamp_helper_bypass` (deferred re-audit; introduced S-0095)
+
+**Why deferred:** introduced at S-0095 per [ADR 0058](../adr/0058-canonical-timestamp-format-and-helper.md). The 5-archive coverage at S-0101 (S-0096 → S-0100) shows zero fires — but the AST-walk that detects bypass patterns may not be exercising any code paths in routine cleanup-batch sessions. Routine-mode Phase 5 sessions or new-tool-authoring sessions are likelier triggers; without those in the window, classification can't distinguish "guard works correctly" from "guard never runs against the relevant code path."
+
+**Re-audit at S-0117** once the window includes at least one routine-batch session OR a new-tool-authoring session.
+
+### `outcome_summary_unhandled_defer` (deferred re-audit; introduced S-0100)
+
+**Why deferred:** introduced at S-0100 per [ADR 0049](../adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md) Decision 6 (Issue #54). Gated to `--final-check`; fires when `outcome_summary` matches a hedge-pattern regex AND `next_session_handle` is null. Single-archive coverage at S-0101.
+
+**Re-audit at S-0117** once at least 10 archives carry post-introduction telemetry.
+
+### `next_session_handle_unknown_issue` (deferred re-audit; introduced S-0100)
+
+**Why deferred:** introduced at S-0100 per [ADR 0049](../adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md) Decision 6 (Issue #54). Fires when `next_session_handle` is set to `#NN` but `gh issue view NN` returns "not found" (offline-graceful). Single-archive coverage.
+
+**Re-audit at S-0117**.
+
+### `next_session_handle_unknown_session` (deferred re-audit; introduced S-0100)
+
+**Why deferred:** introduced at S-0100 per [ADR 0049](../adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md) Decision 6 (Issue #54). Fires when `next_session_handle` is set to `S-NNNN` but no archive matches AND the slot is not the next-claim slot. Single-archive coverage.
+
+**Re-audit at S-0117**.
+
+### `next_session_handle_malformed` (deferred re-audit; introduced S-0100)
+
+**Why deferred:** introduced at S-0100 per [ADR 0049](../adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md) Decision 6 (Issue #54). Fires when `next_session_handle` is set to a non-null string that doesn't match the `#<num>` or `S-<NNNN>` shape. Single-archive coverage.
+
+**Re-audit at S-0117**.
+
+## Retire candidates flagged for next health-check audit
+
+Categories meeting the retire-candidate predicate (fired 0/20 in cadence window AND ≤1/100 in full corpus AND no documented structural-invariant role) land here. Per [ADR 0057](../adr/0057-adversarial-stance-for-health-check-audits.md) user-buffered execution, retirement is recommended to the next cadence-fired audit's "Affirmative retire candidates" section, not executed inline; the audit author surfaces the recommendation, the user adjudicates, and the disposition routes through GitHub Issues per [ADR 0048](../adr/0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md).
+
+**S-0101 sweep finding:** zero retire-candidates. Every silent category in the classification map above guards an identifiable structural invariant in the current pipeline. The 23 silent-in-cadence-window categories cluster into seven invariant families: cascade discipline (`adr_back_reference_orphan`, `adr_index_inconsistent`, `adr_missing_status`, `superseded_adr_currency`); graph audit per ADR 0016 (`attribute_shape_inconsistency`, `orphan_leaf`, `render_readiness_violation`, `suspicious_cross_domain_ratio`, `synthetic_review_queue`, `undeclared_predicate`); MemPalace shared-state per ADR 0045 / ADR 0056 (`chromadb_palace_health`, `mempalace_diary_write_skipped_routine`, `mempalace_diary_write_skipped_substrate_intermittent`, `mempalace_hnsw_divergence`, `mempalace_retired_surface_used`, `mempalace_substrate_at_close`, `mempalace_wing_count_growth`, `mempalace_zero_citations_after_search`); cross-reference integrity (`cross_reference_broken`); format checks (`engine_log_format`, `state_format`); phase-staged file expectations (`expected_future_file_missing`); routine-mode protocol per ADR 0051 (`routine_issue_spam`, `routine_no_target_reference`); ADR 0049 scope discipline (`empty_declared_scope`, `phase_mismatch_declared_scope`, `scope_delivery_non_yes`); and dynamic-emission probe failures (`repo_config_health`).
+
+**Re-audit at S-0117** with the same predicate; if any silent category is then found to lack invariant cover (e.g., its referenced ADR has been superseded without amending the validator, or its consumer was retired), surface as retire-candidate at that audit.
 
 ## Telemetry
 
