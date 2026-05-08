@@ -245,7 +245,8 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# .env onboarding pointer (per Issue #7 / S-0048)
+# .env onboarding pointer (per Issue #7 / S-0048; parent-repo fallback per
+# Issue #50 / S-0099)
 # ---------------------------------------------------------------------------
 #
 # When auto_target.json is present (routine-mode is configured) AND .env is
@@ -254,6 +255,18 @@ fi
 # only — the hook always exits 0. Without SUPABASE_DB_URL, every Phase 5
 # routine fire bails cleanly per its own checks; the pointer just makes the
 # remediation discoverable.
+#
+# Worktree-aware resolution (Issue #50): inside a worktree, REPO_ROOT
+# resolves to the worktree path (per `git rev-parse --show-toplevel` at
+# line 58), but `.env` is gitignored so it does not propagate to worktrees.
+# When the worktree's .env is absent or lacks SUPABASE_DB_URL, fall back to
+# the parent main repo's .env. Resolution: `git rev-parse --git-common-dir`
+# returns the parent's .git directory (e.g., `/parent/.git`) from inside a
+# worktree; `dirname` of that gives the parent repo path. From a non-
+# worktree session, `--git-common-dir` returns `$REPO_ROOT/.git` so the
+# fallback path equals REPO_ROOT — same path, no behavior change. The LOUD
+# pointer fires only when NEITHER location carries the URL, preserving the
+# original Issue #7 / S-0048 contract.
 #
 # This is one-time-onboarding scaffolding. After the user runs setup_env.py
 # once, .env carries the URL forever (gitignored) and this pointer goes
@@ -266,6 +279,23 @@ if [ -f "$AUTO_TARGET_FILE" ]; then
     DB_URL_PRESENT=0
     if [ -f "$ENV_FILE" ] && grep -q '^SUPABASE_DB_URL=.\+' "$ENV_FILE" 2>/dev/null; then
         DB_URL_PRESENT=1
+    else
+        # Parent-repo fallback (worktree case). git rev-parse --git-common-dir
+        # returns /<parent>/.git from inside a worktree; dirname → parent.
+        # From a non-worktree session it returns $REPO_ROOT/.git → same path.
+        PARENT_GIT_DIR="$(git -C "$REPO_ROOT" rev-parse --git-common-dir 2>/dev/null)"
+        if [ -n "$PARENT_GIT_DIR" ]; then
+            case "$PARENT_GIT_DIR" in
+                /*) PARENT_REPO="$(dirname "$PARENT_GIT_DIR")" ;;
+                *)  PARENT_REPO="$(cd "$REPO_ROOT" 2>/dev/null && cd "$(dirname "$PARENT_GIT_DIR")" 2>/dev/null && pwd)" ;;
+            esac
+            if [ -n "$PARENT_REPO" ] && [ "$PARENT_REPO" != "$REPO_ROOT" ]; then
+                PARENT_ENV="$PARENT_REPO/.env"
+                if [ -f "$PARENT_ENV" ] && grep -q '^SUPABASE_DB_URL=.\+' "$PARENT_ENV" 2>/dev/null; then
+                    DB_URL_PRESENT=1
+                fi
+            fi
+        fi
     fi
     if [ "$DB_URL_PRESENT" -eq 0 ]; then
         {
