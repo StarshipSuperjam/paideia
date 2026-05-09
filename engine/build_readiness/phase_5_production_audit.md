@@ -77,20 +77,22 @@ SEP-ANCHORED PROMPT:
 4. Verdict + reasoning + confidence (same shape as edge verdict).
 ```
 
-### Optional empirical-fortification branch (added at S-0106 per ADR 0059)
+### Empirical-fortification branch (added at S-0106 per ADR 0059; tightened at S-0107)
 
-For verdicts whose **confidence is "medium"** AND **whose verdict implies a graph mutation** (reversed, weak/redundant, mis-typed: historical-not-pedagogical, mis-typed: thematic, granularity-mismatch on a node), the routine session SHOULD invoke the empirical-fortification branch using [`engine/tools/fetch_structural_reference.py`](../tools/fetch_structural_reference.py) per [ADR 0059](../adr/0059-audit-time-structural-reference-fetching.md). For high-confidence verdicts (parametric reasoning corroborated by a clear SEP framing) the branch is *not* used — the marginal cost of fetching does not justify the additional confidence gain.
+**Routine-mode prohibition (load-bearing): routine sessions MUST NOT invoke this branch** until the build-readiness gate at [`engine/build_readiness/fetch_structural_reference_first_exercise.md`](fetch_structural_reference_first_exercise.md) records T1-A through T1-D as resolved. The first exercise of the branch lands in an interactive session — typically the production-audit closeout per [ADR 0053](../adr/0053-mechanism-first-exercise-gate.md). Until the gate's Tier 1 findings close, the branch is interactive-only; routine fires continue parametric-only review per the per-edge / per-node prompt templates above. After the gate closes, routine fires landing post-closeout MAY use the branch on medium-confidence mutation-implying verdicts, with the cost-benefit triage in the next paragraph.
 
-The branch is OPTIONAL because:
+The branch is **mandatory** for the closeout when fortifying pre-S-0106 medium-confidence verdicts (the band of ~22 verdicts identified at S-0104 closeout — see "Forward pointers to closeout"). Inside that closeout, the branch is exercised for every medium-confidence + mutation-implying verdict; for high-confidence verdicts (parametric reasoning corroborated by clear SEP framing) the branch is **not** used, because the marginal cost of fetching does not justify the additional confidence gain. Low-confidence verdicts that don't imply a graph mutation are recorded as candidate findings without fortification (the closeout adjudicates whether to fortify or to leave as low-confidence in the audit record).
 
-- High-confidence parametric verdicts (sound, with clear SEP corroboration) don't need fortification; routine sessions skip the branch.
-- Low-confidence verdicts that don't imply a graph mutation are recorded as candidate findings without fortification (the closeout adjudicates whether to fortify or to leave as low-confidence in the audit record).
-- Medium-confidence verdicts that DO imply a graph mutation are exactly the band where the branch reduces false-positive graph mutations the closeout would otherwise have to triage.
+Cost-benefit triage (closeout AND post-closeout routines if any):
+
+- **High-confidence verdicts (sound, clear SEP corroboration)** — skip the branch.
+- **Low-confidence verdicts without graph mutation implication** — skip the branch.
+- **Medium-confidence verdicts with graph mutation implication (reversed, weak/redundant, mis-typed: historical-not-pedagogical, mis-typed: thematic, granularity-mismatch)** — use the branch.
 
 Procedure (per-verdict):
 
 ```
-EMPIRICAL-FORTIFICATION BRANCH (optional; medium-confidence + mutation-implying verdicts):
+EMPIRICAL-FORTIFICATION BRANCH (closeout-mandatory + post-gate-routine-permitted; medium-confidence + mutation-implying verdicts):
 
 1. Identify the canonical public Tier 4 URL for the source entry (per
    product/docs/content-strategy.md Tier 4 fetch-policy column). Routine
@@ -133,9 +135,9 @@ EMPIRICAL-FORTIFICATION BRANCH (optional; medium-confidence + mutation-implying 
    anywhere — it dies with the FetchSession's tmpdir on context exit.
 ```
 
-The first exercise of this branch lands in an interactive session per [ADR 0053](../adr/0053-mechanism-first-exercise-gate.md) — see [`engine/build_readiness/fetch_structural_reference_first_exercise.md`](fetch_structural_reference_first_exercise.md). Subsequent routine fires use the branch freely once the gate report's Tier 1 findings are resolved.
+**Pre-S-0106 evidence files (S-0104 cross-bridges, S-0105 epistemology) remain valid parametric-only baselines.** The closeout fortifies their medium-confidence + mutation-implying verdicts as a closeout deliverable per the "Forward pointers to closeout" section below — fortification is not retroactive at the routine layer. The 8 remaining subdomain audits + AUDIT-HT continue parametric-only at the routine layer; their medium-confidence + mutation-implying verdicts get fortified at the same closeout pass that handles S-0104 + S-0105.
 
-The pre-S-0106 audit cadence (S-0104, S-0105) used parametric reasoning only and did not invoke this branch; those evidence files remain valid as parametric-only baselines, and the closeout adjudication may revisit specific medium-confidence verdicts using this branch if the user judges the cost-benefit favorable.
+The first interactive exercise of the branch — the closeout itself — closes T1-A through T1-D in [`fetch_structural_reference_first_exercise.md`](fetch_structural_reference_first_exercise.md). Only after that closure do routine sessions become permitted to use the branch unattended. In practice, no routine session is expected to use the branch (the closeout is at the end of the routine block; no routine fires post-closeout for T-PHASE-5-AUDIT) — but the post-gate permission is documented for future audit work that may extend the routine block.
 
 ### Evidence file schema (fixed)
 
@@ -307,6 +309,16 @@ The closeout produces:
 - Possibly: a fresh ADR memo (philosophy of religion readmission criterion refinement)
 - Possibly: a new engine ADR formalizing the post-phase production-audit pattern (T3-F)
 - README index update (Issue #26 multi-class closure)
+
+**Empirical fortification of medium-confidence + mutation-implying verdicts (added at S-0107 per [ADR 0059](../adr/0059-audit-time-structural-reference-fetching.md)).** The closeout exercises [`engine/tools/fetch_structural_reference.py`](../tools/fetch_structural_reference.py) per the [§"Empirical-fortification branch"](#empirical-fortification-branch-added-at-s-0106-per-adr-0059-tightened-at-s-0107) section above, fortifying medium-confidence verdicts that imply graph mutations across the full evidence corpus. **In scope:**
+
+- **S-0104 cross-bridges (35.2% substantive-defect rate)**: the 8-edge reversal cluster in B (within-philosophy bridges) with 5 of 8 contradicted by the migration's own pedagogical-warrant prose; the 14 historical-not-pedagogical findings in A3 (history terminators); the 3 weak-edge findings (E-5, E-27, E-67); and any defensible-rated edge whose reasoning the closeout judges medium-confidence + mutation-implying.
+- **S-0105 epistemology (5.4% substantive-defect rate)**: the 1 reversed edge (E-13 problem_of_induction → pyrrhonian_skepticism); the 1 granularity-mismatch (N-8 bayesian_epistemology); and the 2 defensible edges (E-2, E-20) clustered around the frameworks-vs-motivations dialectical-ordering pattern.
+- **The 8 remaining subdomain audits + AUDIT-HT** (AUDIT-ETH / -MET / -MIN / -LOG / -LAN / -SCI / -POL / -AES / -SVC + AUDIT-HT): every medium-confidence + mutation-implying verdict accumulated across those evidence files.
+
+The closeout is the **first interactive exercise of fetch_structural_reference.py** per [ADR 0053](../adr/0053-mechanism-first-exercise-gate.md). T1-A through T1-D in [`fetch_structural_reference_first_exercise.md`](fetch_structural_reference_first_exercise.md) close at this exercise; the closeout's outcome_summary records the closure with the empirical numbers requested by the readiness note (fetch count against `plato.stanford.edu`; whether `AnonymizationViolation` fired and resolution if so; rate-limit + robots.txt + User-Agent posture observation; verdict-update tally — corroborated vs changed across the full medium-confidence band).
+
+The fortification pass is mandatory at the closeout (not optional) for verdicts in the medium-confidence + mutation-implying band. The cost-benefit triage in the §"Empirical-fortification branch" section above governs which verdicts qualify; once a verdict qualifies, fortification is not skipped on schedule grounds.
 
 **Naming note for the closeout report**: the closeout's final production-audit report should NOT overwrite this gate report. Two options the closeout adjudicates:
 
