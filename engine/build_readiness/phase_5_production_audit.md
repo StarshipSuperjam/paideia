@@ -77,6 +77,66 @@ SEP-ANCHORED PROMPT:
 4. Verdict + reasoning + confidence (same shape as edge verdict).
 ```
 
+### Optional empirical-fortification branch (added at S-0106 per ADR 0059)
+
+For verdicts whose **confidence is "medium"** AND **whose verdict implies a graph mutation** (reversed, weak/redundant, mis-typed: historical-not-pedagogical, mis-typed: thematic, granularity-mismatch on a node), the routine session SHOULD invoke the empirical-fortification branch using [`engine/tools/fetch_structural_reference.py`](../tools/fetch_structural_reference.py) per [ADR 0059](../adr/0059-audit-time-structural-reference-fetching.md). For high-confidence verdicts (parametric reasoning corroborated by a clear SEP framing) the branch is *not* used — the marginal cost of fetching does not justify the additional confidence gain.
+
+The branch is OPTIONAL because:
+
+- High-confidence parametric verdicts (sound, with clear SEP corroboration) don't need fortification; routine sessions skip the branch.
+- Low-confidence verdicts that don't imply a graph mutation are recorded as candidate findings without fortification (the closeout adjudicates whether to fortify or to leave as low-confidence in the audit record).
+- Medium-confidence verdicts that DO imply a graph mutation are exactly the band where the branch reduces false-positive graph mutations the closeout would otherwise have to triage.
+
+Procedure (per-verdict):
+
+```
+EMPIRICAL-FORTIFICATION BRANCH (optional; medium-confidence + mutation-implying verdicts):
+
+1. Identify the canonical public Tier 4 URL for the source entry (per
+   product/docs/content-strategy.md Tier 4 fetch-policy column). Routine
+   sessions running unattended use only Tier 4 hosts authorized as
+   "fetchable, polite, rate-limited."
+
+2. Within an audit-session FetchSession (ephemeral lifecycle), invoke
+   fetch_structural_reference.fetch_and_parse(url, "encyclopedia",
+   session=session). The session bounds budget to 20 fetches by default
+   and rate-limits to 2.0s per host; unattended sessions adjust via CLI
+   flags only when the audit's per-task scope justifies it.
+
+3. Read the resulting FocusingBrief — note that source-identity has been
+   stripped (the brief reads as "from a public reference work," not as
+   "from <publisher>"). The recursive-walk anonymization invariant
+   already gated the brief; if it had failed, the tool would have raised
+   AnonymizationViolation and the verdict path would HANDOFF.
+
+4. Compare structural framing against the parametric verdict:
+   - Cross-reference adjacency: does the entry link source→target as the
+     parametric verdict claims, or the other direction? Cross-reference
+     direction is direct evidence of the conceptual dependency the verdict
+     classifies.
+   - Section path: does the link sit under "Historical background" /
+     "Pre-modern" / "Origins" (suggesting historical_influence) vs
+     "Current theories" / "Contemporary debates" (suggesting
+     pedagogical_prerequisite)?
+   - Word-count and extraction confidence: high-mass linked entries vs
+     incidental mentions inform whether the relationship is structural
+     or peripheral.
+
+5. Update the verdict's confidence level (now "high" if the brief
+   corroborates) OR update the verdict itself (now "fortified-changed"
+   if the brief contradicts; record the original parametric verdict
+   alongside the post-fortification verdict for closeout adjudication).
+
+6. The evidence file's per-edge or per-node entry records both the
+   parametric verdict and the fortification result, including which
+   structural cues drove the change. The brief itself is NOT persisted
+   anywhere — it dies with the FetchSession's tmpdir on context exit.
+```
+
+The first exercise of this branch lands in an interactive session per [ADR 0053](../adr/0053-mechanism-first-exercise-gate.md) — see [`engine/build_readiness/fetch_structural_reference_first_exercise.md`](fetch_structural_reference_first_exercise.md). Subsequent routine fires use the branch freely once the gate report's Tier 1 findings are resolved.
+
+The pre-S-0106 audit cadence (S-0104, S-0105) used parametric reasoning only and did not invoke this branch; those evidence files remain valid as parametric-only baselines, and the closeout adjudication may revisit specific medium-confidence verdicts using this branch if the user judges the cost-benefit favorable.
+
 ### Evidence file schema (fixed)
 
 Each per-task evidence file under `engine/build_readiness/phase_5_production_audit_evidence/<task>.md` follows this shape:

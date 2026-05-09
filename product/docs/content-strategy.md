@@ -330,6 +330,28 @@ The five candidates are evaluated for graph-shape value distinct from content va
 - Access-warrant disposition: free public access; no acquisition cost
 - Verdict: **Tagged for Phase 5 consultation as a coverage cross-check** — when Phase 5 generative authoring proposes a concept inventory for a subdomain, cross-check the Wikipedia coverage to surface concepts the generative pass missed. Wikidata's structured cross-references are valuable for cross-domain edges (`006N`). Quality-grade per-article weighting matters; treat B-class-or-better articles as higher-trust signals than stub articles
 
+### Audit-time fetch-policy (added at S-0106 per ADR 0059)
+
+The five Tier 4 candidates above were originally evaluated for *seed-authoring* graph-shape extraction per [ADR 0046](../adr/0046-structural-reference-posture-extends-to-philosophy-reference-works.md). [ADR 0059](../../engine/adr/0059-audit-time-structural-reference-fetching.md) adds an *audit-time* use case (verdict fortification on medium-confidence parametric verdicts that imply graph mutations) and authorizes a paired URL-input tool at [`engine/tools/fetch_structural_reference.py`](../../engine/tools/fetch_structural_reference.py). Authoring-time posture above is unchanged; the per-source authorizations below cover audit-time fetching only.
+
+The policy is structured per host because the legal posture (public free access vs paywalled-with-DRM) and procedural posture (robots.txt presence, rate-limit etiquette) differ per source, not per-source-name-as-token. Adding a new host requires a content-strategy.md amendment in the consuming session, not a tool flag.
+
+| Source (host) | Audit-time fetch | Procedural posture | Notes |
+|---|---|---|---|
+| `plato.stanford.edu` (SEP) | Authorized | Polite User-Agent; robots.txt respected; rate-limit ≥ 2.0 s/host; max ~20 fetches per audit session | The publisher explicitly permits crawling for indexing per the existing posture above; one-off audit fortification fits transformative non-commercial fair use comfortably |
+| `iep.utm.edu` (IEP) | Authorized | Same as SEP | Free public access; non-commercial license posture matches the audit's non-commercial use |
+| `en.wikipedia.org` (Wikipedia) | Authorized | Same as SEP; respect Wikipedia's API rate-limit conventions when crawling article HTML | CC BY-SA 4.0; structural-skeleton extraction (cross-reference adjacency only, no prose) does not trigger share-alike obligations on derived audit verdicts |
+| `rep.routledge.com` (Routledge) | NOT authorized for audit-time fetching | Out of scope under [ADR 0059](../../engine/adr/0059-audit-time-structural-reference-fetching.md) | Paywalled; institutional-credential fetching is a distinct fair-use posture; pursuing this requires a per-source ADR in the consuming session, not a content-strategy.md amendment |
+| `oxfordreference.com` (Oxford Reference) | NOT authorized for audit-time fetching | Out of scope under [ADR 0059](../../engine/adr/0059-audit-time-structural-reference-fetching.md) | Paywalled; same reasoning as Routledge |
+
+The `TIER_4_FETCHABLE_HOSTS` constant in [`engine/tools/fetch_structural_reference.py`](../../engine/tools/fetch_structural_reference.py) is a sanity backstop on the policy table above — the constant lists only the public hosts. Modifications to either side require modifications to both in the same commit (the cross-references registration row in [`engine/operations/cross-references.md`](../../engine/operations/cross-references.md) names this dependency).
+
+**Out of scope explicitly:**
+
+- Standing-capability operation. Recurring crawlers that operate beyond one-off audit fortification require a separate ADR per [ADR 0059](../../engine/adr/0059-audit-time-structural-reference-fetching.md)'s deferred-future-ADR clause; the deferral is real, not a hedge — fair-use's aggregation factor shifts when one-off transforms into recurring.
+- Authoring-time fetching. The seed-authoring posture in [ADR 0046](../adr/0046-structural-reference-posture-extends-to-philosophy-reference-works.md) is unchanged; structural priors still come from acquired source files, not live fetches.
+- Per-source policy in code. The policy table above is the source-of-truth; the tool reads no per-source config beyond the `TIER_4_FETCHABLE_HOSTS` host-list backstop.
+
 ### Phase 5 consumer pointer
 
 Phase 5 seed-authoring sessions consult this survey at boot per [ROADMAP §5.2](../../ROADMAP.md) — Source approach. The per-tier verdicts above guide which sources each subdomain session reads first; per-candidate adoption decisions land as ADRs in the consuming session if they involve a non-trivial tradeoff (e.g., committing the project to a paid Routledge subscription for non-Western philosophy coverage). The survey is research and recording — adoption is contracted in-session at consumption time.
