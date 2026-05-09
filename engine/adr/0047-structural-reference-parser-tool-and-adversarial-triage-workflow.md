@@ -83,6 +83,17 @@ Two paired changes landed at S-0103, one bug fix and one feature, both targeting
 
 **Open future ADRs.** None forced. Likely future ADRs include: a follow-up if cross-source corroboration becomes warranted (per the reversibility note); a small operational ADR documenting the triage prompt template once it lands; a per-source acquisition ADR if a paywalled member of the ADR 0046 class is acquired for the first time. None of these are blocked on this ADR.
 
+### Amendment (S-0106) — paired URL-input tool for audit-time fetching
+
+[ADR 0059](0059-audit-time-structural-reference-fetching.md) lands at S-0106 a paired URL-input counterpart at `engine/tools/fetch_structural_reference.py` for *audit-time* (not authoring-time) consumption of public Tier 4 structural references. The two tools are scope-clean separated:
+
+- **`parse_structural_reference.py` (this ADR's tool)** — file-input only. The anti-fetch non-responsibility named in the module's `Non-responsibilities:` block (lines 57–61) is preserved verbatim. Authoring-time consumption per ADR 0046 continues to use this tool against legitimately-acquired source files.
+- **`fetch_structural_reference.py` (ADR 0059's tool)** — URL-input only. Composes a polite-fetcher wrapper (User-Agent, robots.txt respect, per-host rate-limit, bounded fetch budget, ephemeral `tempfile.TemporaryDirectory` lifecycle) + this tool's public API (`select_adapter` + `extract` + `extract_entries` + `emit_focusing_brief` + `serialize_brief`) + an additional anonymization-invariant gate (recursive-walk assertion that no source-identity strings survive in the URL-fetched brief). Audit-time consumption per ADR 0059 uses the new tool.
+
+The S-0103 source-identity anonymization mechanism above (`serialize_brief()`'s `dataclasses.asdict()` post-filter, `strip_publication_name_suffix()`, `is_publication_name_shaped()`) is shared via direct function reuse — `fetch_structural_reference.py` imports the helpers, does not fork or reimplement. The recursive-walk assertion `_assert_anonymized()` in the new tool is *additional* defense-in-depth on the URL path (where the parser's emit-time + partition-layer filters might miss a publication-name shape that the source's HTML structure smuggles past the existing entry-boundary detection).
+
+The "Open future ADRs" clause in this section's preceding paragraph anticipated "a per-source acquisition ADR if a paywalled member of the ADR 0046 class is acquired." ADR 0059 is *not* that ADR — it covers the public Tier 4 case (SEP, IEP, Wikipedia). The paywalled per-source ADR remains deferred until institutional-credential fetching is pursued.
+
 ## See also
 
 - [ADR 0046](../../product/adr/0046-structural-reference-posture-extends-to-philosophy-reference-works.md) — the posture this ADR provides the operational mechanism for; unchanged.

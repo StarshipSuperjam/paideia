@@ -25,7 +25,7 @@ The `Status:` field is required; `engine/tools/validate.py` soft-warns on ADR fi
 
 ## Index
 
-The engine collection has **24 ADRs total — all Accepted**. Engine ADRs are about how the build apparatus works (graph validation infrastructure, periodic project audits, expression contracts for engine-internal documents and engine-side code, the engine/product partition itself, the universal expression contract spanning all AI authoring patterns, the build-readiness gate before substantive build sessions, cascade-analysis discipline, soft-warn lifecycle, the harness hook architecture, the recipe-vs-reference skill-conversion partition, shared-state integrity discipline, the structural-reference parser tool, HANDOFF/Issues split for cross-session deferrals, scope-lock at boot + descope/reorder audit, project venv with hook PATH wiring, routine-mode session pattern, mechanism-first-exercise gate, lifecycle-push wrapping, apply-migration wrapping, MemPalace mechanical adoption checks, adversarial stance for health-check audits, canonical timestamp format and shared helper). The full ADR collection across the project is **59** (24 engine + 35 product).
+The engine collection has **25 ADRs total — all Accepted**. Engine ADRs are about how the build apparatus works (graph validation infrastructure, periodic project audits, expression contracts for engine-internal documents and engine-side code, the engine/product partition itself, the universal expression contract spanning all AI authoring patterns, the build-readiness gate before substantive build sessions, cascade-analysis discipline, soft-warn lifecycle, the harness hook architecture, the recipe-vs-reference skill-conversion partition, shared-state integrity discipline, the structural-reference parser tool, HANDOFF/Issues split for cross-session deferrals, scope-lock at boot + descope/reorder audit, project venv with hook PATH wiring, routine-mode session pattern, mechanism-first-exercise gate, lifecycle-push wrapping, apply-migration wrapping, MemPalace mechanical adoption checks, adversarial stance for health-check audits, canonical timestamp format and shared helper, audit-time structural-reference fetching for verdict fortification). The full ADR collection across the project is **60** (25 engine + 35 product).
 
 | ADR | Title | Status |
 |---|---|---|
@@ -53,6 +53,7 @@ The engine collection has **24 ADRs total — all Accepted**. Engine ADRs are ab
 | [0056](0056-mempalace-mechanical-adoption-checks.md) | MemPalace mechanical adoption checks | Accepted |
 | [0057](0057-adversarial-stance-for-health-check-audits.md) | Adversarial stance for project health-check audits | Accepted |
 | [0058](0058-canonical-timestamp-format-and-helper.md) | Canonical timestamp format and shared timestamps.py helper | Accepted |
+| [0059](0059-audit-time-structural-reference-fetching.md) | Audit-time fetching of public structural references for verdict fortification | Accepted |
 
 ## Adding a new engine ADR
 
