@@ -1,6 +1,7 @@
 {
   "id": "S-0104",
   "mode": "routine",
+  "task_id": "AUDIT-CB",
   "started_at": "2026-05-09T20:35:31Z",
   "status": "in_progress",
   "working_on": "Routine task AUDIT-CB (T-PHASE-5-AUDIT) — cross-bridge full census (71 cross-domain edges) — SEP-anchored review per the master-plan prompt template at engine/build_readiness/phase_5_production_audit.md. Calibration set whose defect rate informs downstream subdomain-task within-session sample expansion. Single deliverable: engine/build_readiness/phase_5_production_audit_evidence/crossbridges.md.",
