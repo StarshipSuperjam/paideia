@@ -1,0 +1,40 @@
+{
+  "id": "S-0104",
+  "mode": "routine",
+  "task_id": "AUDIT-CB",
+  "started_at": "2026-05-09T20:35:31Z",
+  "status": "closed",
+  "working_on": "Routine task AUDIT-CB (T-PHASE-5-AUDIT) — cross-bridge full census (71 cross-domain edges) — SEP-anchored review per the master-plan prompt template at engine/build_readiness/phase_5_production_audit.md. Calibration set whose defect rate informs downstream subdomain-task within-session sample expansion. Single deliverable: engine/build_readiness/phase_5_production_audit_evidence/crossbridges.md.",
+  "outcome_summary": "Routine session S-0104 against T-PHASE-5-AUDIT task AUDIT-CB landed a 71-edge SEP-anchored full census per the master-plan prompt template at engine/build_readiness/phase_5_production_audit.md (per S-0082 master-plan + S-0081 audit-warrant gate decision drawer in paideia/decisions). Single deliverable: engine/build_readiness/phase_5_production_audit_evidence/crossbridges.md (640 lines). Verdict tally: 38 sound (53.5%), 8 defensible (11.3%), 3 weak (4.2%), 8 reversed (11.3%), 14 historical-not-pedagogical (19.7%); substantive defects 25/71 = 35.2%. Three load-bearing aggregate patterns surfaced: (1) historical-not-pedagogical density meets the master-plan pre-flagged ADR-warranting threshold (≥10/71); historical_influence predicate activation expected at closeout. (2) Reversal cluster of 8 edges (X→Y where X is a specific position / sub-concept and Y is its broader parent category — direction inverted) shares a coherent pattern, with 5 of 8 contradicted by the migration's own pedagogical-warrant prose; suggests mechanical authoring slip rather than deliberate claim. New gate-feasible audit-system-input candidate surfaced under verdict NOTES: cross_bridge_pedagogical_direction_inconsistent_with_summary validator soft-warn. (3) Per-grouping non-sound rate ranges 6.7% (A1 formal-logic) → 88.9% (A3 history terminators); calibrates downstream subdomain audits. Empirical defect rate (35.2%) is lower than the S-0081 gate's 15-edge sample projected (53.3%) but well above the 15% threshold confirming the master-plan's 35% per-subdomain density calibration. Empty `evidence` field finding confirmed graph-wide (master-plan §T2-E pre-listed). 0 HANDOFF entries; 0 Issues filed; 0 hard-fails (validate.py 34 checks; soft-warns hold at expected baseline 372 = 366 Phase-5 carryover + 4 issue_collision + 1 adr_consequences_deliverable_audit + 1 mempalace_zero_citations_after_search). AUDIT-CB criteria pass (file_exists + validate_passes); marking complete in close commit. Next eligible task: AUDIT-EPI (depends_on AUDIT-CB now satisfied).",
+  "outcome_summary_soft_warns": {
+    "missing_rigor_score": "Phase-5 carryover (366); not in scope for AUDIT-CB",
+    "issue_collision": "Pre-existing carryover (4); not in scope for AUDIT-CB",
+    "adr_consequences_deliverable_audit": "Pre-existing carryover (1); not in scope for AUDIT-CB"
+  },
+  "approved_plan": "engine/session/current_plan.md",
+  "branch": "claude/interesting-joliot-8e842a",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/interesting-joliot-8e842a",
+  "declared_scope": "Author engine/build_readiness/phase_5_production_audit_evidence/crossbridges.md as candidate-findings evidence for the 71 cross-domain edges per the SEP-anchored review template — verdict + reasoning + confidence per edge. No other tracked files modified.",
+  "next_session_handle": null,
+  "mempalace_activity": {
+    "search_calls": 1,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 0,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 3,
+    "first_call_ts": "2026-05-09T20:32:55Z",
+    "last_call_ts": "2026-05-09T20:49:16Z",
+    "mempalace_citations": {
+      "drawer_id_refs": 0,
+      "session_archive_refs": 1,
+      "tag_named_refs": 0,
+      "total": 1
+    }
+  },
+  "ended_at": "2026-05-09T20:52:57Z"
+}
