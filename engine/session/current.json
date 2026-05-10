@@ -1,0 +1,13 @@
+{
+  "id": "S-0116",
+  "mode": "routine",
+  "task_id": "AUDIT-SVC",
+  "started_at": "2026-05-10T02:00:00Z",
+  "status": "in_progress",
+  "working_on": "Routine task AUDIT-SVC (T-PHASE-5-AUDIT) — Service nodes subdomain audit. SEP-anchored review of a deterministic 35.7%-density edge sample (k=10 of N=28) plus an edge-anchored node sample (~8 of unique nodes), per the master-plan prompt templates at engine/build_readiness/phase_5_production_audit.md. Single deliverable: engine/build_readiness/phase_5_production_audit_evidence/service.md. Emphasis on history-terminator sub-class per master-plan task-name annotation; routine-mode is parametric-only — empirical-fortification branch prohibited per master-plan §\"Empirical-fortification branch\" routine-mode prohibition (load-bearing until T1-A through T1-D close at the closeout interactive session per ADR 0053).",
+  "approved_plan": "engine/session/current_plan.md",
+  "branch": "claude/goofy-einstein-30bd6b",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/goofy-einstein-30bd6b",
+  "target_id": "T-PHASE-5-AUDIT",
+  "declared_scope": "Author engine/build_readiness/phase_5_production_audit_evidence/service.md as candidate-findings evidence for the 10-edge sample (k=10 of N=28 within-service edges; 35.7% density per master-plan §\"Sample-size policy\" AUDIT-SVC row at 35%) plus the ~8-node edge-anchored sample — verdict + SEP-anchored reasoning + confidence per element per the verbatim master-plan prompt templates and evidence-file schema. Emphasis on history-terminator sub-class per master-plan AUDIT-SVC task-name annotation. No other tracked files modified beyond the operational allowlist (current.json, current_plan.md, auto_target.json status fields, register_state.json, archive/S-0116.json, ENGINE_LOG.md, STATE.md, HANDOFF.md). Parametric-only review; empirical-fortification branch prohibited for routine sessions until T1-A through T1-D close at the closeout. phase: NA-routine"
+}
