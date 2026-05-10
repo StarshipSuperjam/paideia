@@ -53,6 +53,8 @@ This is referenced by [`session-build-lifecycle.md`](session-build-lifecycle.md)
 
 0b. **Concurrency lock** (per ADR 0052). Run `engine/tools/routine_lock.py acquire`. Exit 0 → proceed. Exit 1 (lock held by another fresh process) → log "another routine in progress, exiting cleanly" → exit 0 without claiming. The lock is released at step 11.
 
+0c. **Wedge detection** (per [ADR 0060](../adr/0060-routine-wedge-detect-and-pause.md)). Run `engine/tools/routine_wedge_detect.py`. The tool inspects `register_state.json`, `current.json`, `auto_target.json`, and HEAD-vs-`origin/main` for the halted-routine wedge shape (a prior routine fire eager-claimed and halted post-eager-claim, leaving register / current / task pinned at `in_progress` with no archive). Exit 0 (no wedge) → proceed to step 1. Exit 2 (wedge detected) → idempotent Issue + HANDOFF artifacts already authored (or just authored on this fire); release lock, exit cleanly without claiming. Exit 3 (ambiguous shape) → write HANDOFF "wedge detection refused: ambiguous state" with `**Disposition:** out-of-scope`, release lock, exit 0. Exit 5 (generic failure, e.g., gh CLI error) → write HANDOFF naming the failure, release lock, exit 0. Closes Issue #58 (S-0117 wedge): future halted-routine wedges produce exactly ONE Issue + ONE HANDOFF entry across all subsequent hourly fires until a human adjudicates, rather than HANDOFF spam.
+
 1. **Detect mode.** `engine/session/auto_target.json` exists → routine-mode candidate; else fall through to standard interactive boot.
 2. **Pause check.** Target `paused: true` → log "target paused, no claim" → exit 0.
 3. **Target-met check.** Run `check_target.py` against every task; every task `status == complete` AND its criteria still pass → log "target met, no claim" → exit 0.
@@ -361,6 +363,7 @@ The existing eager-claim protocol handles this: routine N+1 reads register_state
 - [ADR 0051](../adr/0051-routine-mode-and-engine-loop.md) — the contract.
 - [ADR 0052](../adr/0052-routine-boot-freshness-and-concurrency-defense.md) — three-layer routine-boot defense (freshness/lock/recovery) the wrapper extends as a fourth layer.
 - [ADR 0054](../adr/0054-lifecycle-push-wrapping-against-default-branch-push-gate.md) — lifecycle-push wrapping (the wrapper named in "Lifecycle pushes via wrapper tool" above).
+- [ADR 0060](../adr/0060-routine-wedge-detect-and-pause.md) — wedge-detect-and-pause (the boot step 0c added between concurrency lock and target precondition).
 - [`auto_target.schema.md`](../session/auto_target.schema.md) — target file schema.
 - [`session-build-lifecycle.md`](session-build-lifecycle.md) — boot procedure, including the routine-mode branch.
 - [`session-shutdown-sequence.md`](session-shutdown-sequence.md) — shutdown sequence (unchanged from interactive sessions).

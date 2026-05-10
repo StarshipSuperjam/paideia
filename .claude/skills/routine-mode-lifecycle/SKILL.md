@@ -27,8 +27,17 @@ Run `python3 engine/tools/routine_boot_freshness.py`. Mechanically fast-forwards
 
 Run `python3 engine/tools/routine_lock.py acquire`. Defense-in-depth against true concurrent fires (the residual case the freshness gate doesn't cover).
 
-- Exit 0 → proceed to step 1. (Release happens at step 11 shutdown.)
+- Exit 0 → proceed to step 0c. (Release happens at step 11 shutdown.)
 - Exit 1 → another routine session is in progress. Log "another routine in progress, exiting cleanly" → exit 0 without claiming. No commit, no shared-state writes.
+
+### 0c. Wedge detection (per ADR 0060)
+
+Run `python3 engine/tools/routine_wedge_detect.py`. Inspects `register_state.json`, `current.json`, `auto_target.json`, and HEAD-vs-`origin/main` for the halted-routine wedge shape — a prior routine fire eager-claimed and halted post-eager-claim, leaving register / current / task pinned at `in_progress` with no archive. Closes Issue #58 (S-0117 wedge): without this step, future halted-routine wedges spam HANDOFF entries every hour.
+
+- Exit 0 → no wedge; proceed to step 1.
+- Exit 2 → wedge detected; idempotent Issue + HANDOFF artifacts authored (or already present from a prior fire). Run `routine_lock.py release` and exit 0 cleanly without claiming.
+- Exit 3 → ambiguous shape (HEAD ahead of origin/main with non-eager-claim subject, or other borderline state). Write HANDOFF "wedge detection refused: ambiguous state" with `**Disposition:** out-of-scope`, run `routine_lock.py release`, exit 0.
+- Exit 5 → generic failure (gh CLI error, file-system error). Write HANDOFF naming the failure with valid Disposition, run `routine_lock.py release`, exit 0.
 
 ### 1. Detect routine-mode preconditions
 
