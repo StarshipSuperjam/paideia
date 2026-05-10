@@ -1,0 +1,14 @@
+{
+  "id": "S-0120",
+  "mode": "routine",
+  "task_id": "AUDIT-HT-2",
+  "started_at": "2026-05-10T17:04:39Z",
+  "ended_at": null,
+  "status": "in_progress",
+  "working_on": "Routine task AUDIT-HT-2 (T-PHASE-5-AUDIT) — second half of decomposed-AUDIT-HT (decomposed at S-0117 administrative close per Issue #58 because the original 96-edge + 10-node + 3-trace single-task scope hit context cap mid-authoring at S-0117). Scope: hubs 6–10 by total degree (classical_logic deg 9, meaning 9, normative_ethics 9, vienna_circle_logical_positivism 9, aristotelian_four_causes 8) under full incident-edge review (~48 unique incident edges) plus 5 per-node reviews on the hub nodes themselves; plus 3 diagnostic syllabus traces per master-plan §\"Three diagnostic syllabus traces\" (gettier_problem epistemology BFS depth 4 11 nodes, modal_realism metaphysics depth 5 8 nodes, social_contract_theory political philosophy depth 3 6 nodes — substituted for absent free_speech per S-0081 gate). Single deliverable: engine/build_readiness/phase_5_production_audit_evidence/hubs_6_10_and_traces.md per master-plan §T1-A prompt template + §\"Per-node prompt template\" + §\"Three diagnostic syllabus traces\" + §\"Evidence file schema (fixed)\". Routine-mode is parametric-only — empirical-fortification branch prohibited per master-plan §\"Empirical-fortification branch\" routine-mode prohibition (load-bearing until T1-A through T1-D close at the closeout interactive session per ADR 0053). Sequential after AUDIT-HT-1 (depends_on AUDIT-HT-1 satisfied at S-0119) so two routine fires don't race to author both halves.",
+  "approved_plan": "engine/session/current_plan.md",
+  "branch": "claude/pensive-engelbart-1942e9",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/pensive-engelbart-1942e9",
+  "target_id": "T-PHASE-5-AUDIT",
+  "declared_scope": "Author engine/build_readiness/phase_5_production_audit_evidence/hubs_6_10_and_traces.md as candidate-findings evidence for the ~48-edge full-incident-edge sample (classical_logic 9 + meaning 9 + normative_ethics 9 + vienna_circle_logical_positivism 9 + aristotelian_four_causes 8 raw, with inter-hub overlaps deduped) plus the 5-hub-node sample plus 3 syllabus-trace prereq trees (gettier_problem 11 nodes / modal_realism 8 nodes / social_contract_theory 6 nodes) — verdict + SEP-anchored reasoning + confidence per element per the verbatim master-plan prompt templates and evidence-file schema. No other tracked files modified beyond the operational allowlist (current.json, current_plan.md, auto_target.json status fields, register_state.json, archive/S-0120.json, ENGINE_LOG.md, STATE.md, HANDOFF.md). Parametric-only review; empirical-fortification branch prohibited for routine sessions until T1-A through T1-D close at the closeout. phase: NA-routine"
+}
