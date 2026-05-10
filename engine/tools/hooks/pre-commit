@@ -230,7 +230,13 @@ fi
 if [ "$MODE" = "closing" ] && [ -f engine/tools/audit_archive_structured_fields.py ]; then
     # The closing commit deletes current.json and adds the archive file.
     # Find the staged archive path and pipe its content through the audit.
-    ARCHIVE_PATH=$(git diff --cached --name-only --diff-filter=A \
+    # --diff-filter=AR catches both `cp + rm + git add` (status A) and
+    # `git mv current.json archive/S-NNNN.json` (status R) close shapes
+    # per Issue #56. Pre-S-0118 this used --diff-filter=A only, which
+    # silently skipped the audit on git-mv closes (tripped at S-0076 and
+    # S-0106). With --name-only, --diff-filter=AR outputs the destination
+    # path for renames, so the existing grep pattern still matches.
+    ARCHIVE_PATH=$(git diff --cached --name-only --diff-filter=AR \
         | grep -E '^engine/session/archive/S-[0-9]{4}\.json$' \
         | head -1)
     if [ -n "$ARCHIVE_PATH" ]; then
