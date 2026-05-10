@@ -1,0 +1,14 @@
+{
+  "id": "S-0108",
+  "mode": "routine",
+  "task_id": "AUDIT-ETH",
+  "started_at": "2026-05-10T00:15:42Z",
+  "status": "in_progress",
+  "working_on": "Routine task AUDIT-ETH (T-PHASE-5-AUDIT) — Ethics subdomain audit. SEP-anchored review of a deterministic 35%-density edge sample (k=24 of N=68) plus an edge-anchored node sample (~12 unique nodes), per the master-plan prompt templates at engine/build_readiness/phase_5_production_audit.md. Single deliverable: engine/build_readiness/phase_5_production_audit_evidence/ethics.md. Routine-mode is parametric-only — empirical-fortification branch prohibited per master-plan §\"Empirical-fortification branch\" routine-mode prohibition (load-bearing until T1-A through T1-D close at the closeout interactive session per ADR 0053).",
+  "approved_plan": "engine/session/current_plan.md",
+  "branch": "claude/cool-jepsen-3057e2",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/cool-jepsen-3057e2",
+  "target_id": "T-PHASE-5-AUDIT",
+  "declared_scope": "Author engine/build_readiness/phase_5_production_audit_evidence/ethics.md as candidate-findings evidence for the 24-edge sample (k=24 of N=68 within-ethics edges from 0020_seed_ethics_part1.sql + 0026_seed_ethics_part1.sql; 35.3% density per master-plan §\"Sample-size policy\" AUDIT-ETH row) plus the ~12-node edge-anchored sample — verdict + SEP-anchored reasoning + confidence per element per the verbatim master-plan prompt templates and evidence-file schema. No other tracked files modified beyond the operational allowlist (current.json, current_plan.md, auto_target.json status fields, register_state.json, archive/S-0108.json, ENGINE_LOG.md, STATE.md). Parametric-only review; empirical-fortification branch prohibited for routine sessions until T1-A through T1-D close at the closeout.",
+  "next_session_handle": null
+}
