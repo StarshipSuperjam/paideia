@@ -171,8 +171,8 @@
       "status": "complete"
     },
     {
-      "id": "AUDIT-HT",
-      "name": "Hubs (top 10 by total degree, full-incident-edge review) + 3 syllabus traces (gettier_problem, modal_realism, social_contract_theory — substituted for absent free_speech per S-0081 gate)",
+      "id": "AUDIT-HT-1",
+      "name": "Hubs 1–5 (top 5 by total degree, full-incident-edge review): epistemic_justification (epistemology, deg 14), existence (metaphysics, 11), propositional_knowledge (epistemology, 11), causation (metaphysics, 10), physicalism (mind, 10) — ~48 unique incident edges. Per-edge SEP-anchored verdict + reasoning + confidence per master-plan §T1-A prompt template; per-node review on the 5 hub nodes themselves. Decomposed from former AUDIT-HT at the S-0117 administrative close per Issue #58 (the original single-task scope of 96 edges + 10 nodes + 3 traces hit context cap mid-authoring at S-0117).",
       "depends_on": [
         "AUDIT-CB",
         "AUDIT-EPI",
@@ -187,15 +187,30 @@
         "AUDIT-SVC"
       ],
       "criteria": [
-        {"type": "file_exists", "path": "engine/build_readiness/phase_5_production_audit_evidence/hubs_and_traces.md"},
+        {"type": "file_exists", "path": "engine/build_readiness/phase_5_production_audit_evidence/hubs_1_5.md"},
         {"type": "validate_passes"}
       ],
       "scope_lock": {
         "allowed_paths": [
-          "engine/build_readiness/phase_5_production_audit_evidence/hubs_and_traces.md"
+          "engine/build_readiness/phase_5_production_audit_evidence/hubs_1_5.md"
         ]
       },
-      "status": "in_progress"
+      "status": "pending"
+    },
+    {
+      "id": "AUDIT-HT-2",
+      "name": "Hubs 6–10 (classical_logic (logic, deg 9), meaning (language, 9), normative_ethics (ethics, 9), vienna_circle_logical_positivism (service, 9), aristotelian_four_causes (service, 8) — ~48 unique incident edges) + 3 syllabus traces (gettier_problem (epistemology, BFS depth 4, 11 nodes), modal_realism (metaphysics, depth 5, 8 nodes), social_contract_theory (political philosophy, depth 3, 6 nodes — substituted for absent free_speech per S-0081 gate)). Per master-plan §T1-A prompt template; per master-plan §\"Three diagnostic syllabus traces\". Sequential after AUDIT-HT-1 (depends_on AUDIT-HT-1) so two routine fires don't race to author both halves.",
+      "depends_on": ["AUDIT-HT-1"],
+      "criteria": [
+        {"type": "file_exists", "path": "engine/build_readiness/phase_5_production_audit_evidence/hubs_6_10_and_traces.md"},
+        {"type": "validate_passes"}
+      ],
+      "scope_lock": {
+        "allowed_paths": [
+          "engine/build_readiness/phase_5_production_audit_evidence/hubs_6_10_and_traces.md"
+        ]
+      },
+      "status": "pending"
     }
   ]
 }
