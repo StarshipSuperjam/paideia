@@ -191,6 +191,7 @@ PRODUCT_ADR_DIR = REPO_ROOT / "product" / "adr"
 # as hard-broken.
 PROBE_PALACE = REPO_ROOT / "engine" / "tools" / "probe_palace.py"
 PROBE_REPO = REPO_ROOT / "engine" / "tools" / "probe_repo.py"
+PROBE_SESSION_DIR = REPO_ROOT / "engine" / "tools" / "probe_session_dir.py"
 
 # Issue-collisions scanner (per ADR 0048). Surfaces open GitHub Issues
 # whose body or title contains keywords from this session's
@@ -611,6 +612,9 @@ def validate_shared_state_health() -> ValidationResult:
       Sub-second on a 130 MB palace per the S-0034 measurement.
     - ``engine/tools/probe_repo.py`` — checks effective ``core.bare``,
       parent-clone direct ``core.bare``, and HEAD resolution.
+    - ``engine/tools/probe_session_dir.py`` — scans the parent repo's
+      ``engine/session/`` for stray files matching the macOS Finder /
+      iCloud-sync duplicate pattern (``current N.json``). Per Issue #57.
 
     The check categories are stable across boot-time and pre-commit
     invocations so the soft-warn lifecycle (per ADR 0042) treats
@@ -635,6 +639,7 @@ def validate_shared_state_health() -> ValidationResult:
     probes = (
         (PROBE_PALACE, "chromadb_palace_health", "palace"),
         (PROBE_REPO, "repo_config_health", "repo"),
+        (PROBE_SESSION_DIR, "session_dir_strays", "session_dir"),
     )
 
     for probe_path, category, probe_name in probes:
