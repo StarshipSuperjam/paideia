@@ -1,39 +1,43 @@
-paths_to_modify: ["engine/build_readiness/phase_5_production_audit_evidence/ethics.md"]
+paths_to_modify: ["engine/build_readiness/phase_5_production_audit_evidence/metaphysics.md"]
 criteria_addressed: [0, 1]
 
-# Plan — S-0108 (routine) — T-PHASE-5-AUDIT / AUDIT-ETH
+# Plan — S-0109 (routine) — T-PHASE-5-AUDIT / AUDIT-MET
 
-This routine session executes T-PHASE-5-AUDIT task `AUDIT-ETH`: ethics subdomain
-audit — SEP-anchored review of a 35%-density edge sample (k=24 of N=68) plus an
-edge-anchored node sample (~12 unique nodes), per the master-plan prompt templates
-at `engine/build_readiness/phase_5_production_audit.md`.
+This routine session executes T-PHASE-5-AUDIT task `AUDIT-MET`: metaphysics
+subdomain audit — SEP-anchored review of a 35%-density edge sample (k=23 of N=66)
+plus an edge-anchored node sample (~12 unique nodes), per the master-plan prompt
+templates at `engine/build_readiness/phase_5_production_audit.md`.
 
 The single deliverable is
-`engine/build_readiness/phase_5_production_audit_evidence/ethics.md`, populated
-with verdict + SEP-anchored reasoning + confidence per edge and per node per the
-fixed schema in the master plan §"Evidence file schema".
+`engine/build_readiness/phase_5_production_audit_evidence/metaphysics.md`,
+populated with verdict + SEP-anchored reasoning + confidence per edge and per
+node per the fixed schema in the master plan §"Evidence file schema".
 
 ## Why these paths address the criteria
 
 - **`file_exists` criterion** (path:
-  `engine/build_readiness/phase_5_production_audit_evidence/ethics.md`) — the
-  deliverable IS the file at the criterion's path; populating it satisfies the
-  criterion directly.
+  `engine/build_readiness/phase_5_production_audit_evidence/metaphysics.md`) —
+  the deliverable IS the file at the criterion's path; populating it satisfies
+  the criterion directly.
 - **`validate_passes` criterion** — committing the file routes through the
   pre-commit hook including `validate.py`; absence of hard-fails satisfies the
   criterion.
 
 ## Execution shape
 
-1. Read the ethics within-domain edge population from the two seed migrations:
-   `0020_seed_ethics_part1.sql` (34 edges, metaethics + normative theory) and
-   `0026_seed_ethics_part1.sql` (34 edges, applied ethics). Total N=68 — matches
-   the master-plan figure. Live-DB read denied in routine mode per ADR 0055; the
-   migrations are the canonical authoring record applied verbatim to production.
-2. Sample selection: deterministic md5(seed='AUDIT-ETH' || source_id || '|' ||
-   target_id) ordering across the 68-edge population, take first 24 (35.3% density).
-3. Node sample: union of the 24 sampled edges' source/target node_ids, ordered
-   by md5(seed='AUDIT-ETH' || node_id), take first 12.
+1. Read the metaphysics within-domain edge population from the two seed
+   migrations: `0030_seed_metaphysics_part1.sql` (Metaphysics core: being /
+   ontology, identity, causation, time — 30 edges per S-0054 close) and
+   `0036_seed_metaphysics_part1.sql` (Metaphysics specialized: modality, free
+   will, properties/universals, mereology — 36 edges per S-0056 close). Total
+   N=66 — matches the master-plan figure. Live-DB read denied in routine mode
+   per ADR 0055; the migrations are the canonical authoring record applied
+   verbatim to production.
+2. Sample selection: deterministic md5(seed='AUDIT-MET' || source_id || '|' ||
+   target_id) ordering across the 66-edge population, take first 23 (34.8%
+   density).
+3. Node sample: union of the 23 sampled edges' source/target node_ids, ordered
+   by md5(seed='AUDIT-MET' || node_id), take first 12.
 4. For each sampled edge: apply the verbatim master-plan §"Per-edge prompt
    template" with verdict ∈ {sound, defensible, reversed, weak, historical,
    thematic, other} and confidence ∈ {high, medium, low}.
@@ -41,9 +45,10 @@ fixed schema in the master plan §"Evidence file schema".
    template" with verdict ∈ {sound, granularity-mismatch, authenticity, other}.
 6. Record findings in the schema's named sections.
 7. Within-session sample expansion rule (master-plan §"Sample-size policy"):
-   if the defect rate at half-sample (after 12 of 24 edges reviewed) exceeds
-   60%, expand to 50% density (≈34 edges) before commit. Halt at 50%. S-0105
-   epistemology returned 5.4% — within-subdomain expansion not expected to fire.
+   if the defect rate at half-sample (after 11 of 23 edges reviewed) exceeds
+   60%, expand to 50% density (≈33 edges) before commit. Halt at 50%.
+   Precedents: S-0105 epistemology 5.4%, S-0108 ethics 16.7% — within-subdomain
+   expansion has not fired in any prior subdomain audit.
 8. Cross-cutting observations: brief, only load-bearing aggregate patterns
    (per master-plan §T2-D — closeout synthesizes; routine session records
    sparingly).
@@ -62,13 +67,48 @@ fixed schema in the master plan §"Evidence file schema".
   populated.
 - `validate.py` exits without hard-fails on the eager-claim commit, the
   deliverable commit, and the close commit.
-- `check_target.py --task-id AUDIT-ETH` returns PASS for both criteria.
+- `check_target.py --task-id AUDIT-MET` returns PASS for both criteria.
 
 ## Scope-lock affirmation
 
 The active task's `scope_lock.allowed_paths` is
-`engine/build_readiness/phase_5_production_audit_evidence/ethics.md` (single
-entry). The plan's `paths_to_modify` is the same single entry. The operational
-allowlist (per [ADR 0051](../adr/0051-routine-mode-and-engine-loop.md) and
-CLAUDE.md "Routine-mode posture") covers session-apparatus files at commit-time.
-No other tracked files are modified by this session.
+`engine/build_readiness/phase_5_production_audit_evidence/metaphysics.md`
+(single entry). The plan's `paths_to_modify` is the same single entry. The
+operational allowlist (per [ADR 0051](../adr/0051-routine-mode-and-engine-loop.md)
+and CLAUDE.md "Routine-mode posture") covers session-apparatus files at
+commit-time. No other tracked files are modified by this session.
+
+
+## Prior context (MemPalace boot search)
+
+_Generated by `engine/tools/mempalace_boot_search.py` at 2026-05-10T02:02:04Z. Three formulations × similarity ≥0.60 = 11 drawers._
+
+### Literal — `metaphysics subdomain audit 23 of 66 edges 35 12 edge-anchored nodes`
+- **sessions/planning** (source: `144ef889-5008-406e-91f6-de97742fd969.jsonl`; sim: 0.62) — it 1 (no hard-fails) → [FAIL] AUDIT-ETH Ethics subdomain audit — 24 of 68 edges (35%); ~12 edge-anchored nodes (status=pending) → [FAIL] file_exists — not found: engine/build_re...
+- **sessions/planning** (source: `e9d4f648-362c-4cf6-9472-0e324164fff4.jsonl`; sim: 0.70) — **Live state:** graph_version 4 → 5; 106 total nodes, 138 total edges in `paideia-dev`. Metaphysics subdomain fully seeded.
+- **sessions/planning** (source: `e9d4f648-362c-4cf6-9472-0e324164fff4.jsonl`; sim: 0.70) — **Live state:** graph_version 4 → 5; 106 total nodes, 138 total edges in `paideia-dev`. Metaphysics subdomain fully seeded.
+- **sessions/architecture** (source: `agent-a7874dffa7523fa5b.jsonl`; sim: 0.62) — **Conclusion:** The audit is SEP-grounded *correctness* review; it **does not** verify that postconditions (the counts themselves) are satisfied post-apply. That gap is **where ...
+- **sessions/planning** (source: `a01080da-e011-4250-9dca-78bbe73a845b.jsonl`; sim: 0.62) — P5-01a"]` | → 217:| P5-10 Service nodes | `["P5-01a"]` | → 218:| P5-11 Cross-bridges | `["P5-01a", "P5-01b", "P5-02a", "P5-02b", "P5-03", "P5-04a", "P5-04b", "P5-05", "P5-06", "...
+
+### Conceptual — `metaphysics subdomain audit edges edge-anchored nodes`
+- **sessions/architecture** (source: `agent-a7874dffa7523fa5b.jsonl`; sim: 0.62) — **Conclusion:** The audit is SEP-grounded *correctness* review; it **does not** verify that postconditions (the counts themselves) are satisfied post-apply. That gap is **where ...
+
+### Adjacent — `metaphysics subdomain audit 23 of 66 edges 35 12 edge-anchored nodes lessons pushback`
+- **sessions/architecture** (source: `bn4jkdzx8.txt`; sim: 0.61) — 113:S-0054 (closed) — third Phase 5 routine-mode session (P5-02a Metaphysics core). Metaphysics core (being/ontology, identity, causation, time) seeded; 27 nodes + 30 edges. Two...
+- **sessions/planning** (source: `e9d4f648-362c-4cf6-9472-0e324164fff4.jsonl`; sim: 0.68) — **Live state:** graph_version 4 → 5; 106 total nodes, 138 total edges in `paideia-dev`. Metaphysics subdomain fully seeded.
+- **sessions/planning** (source: `e9d4f648-362c-4cf6-9472-0e324164fff4.jsonl`; sim: 0.68) — **Live state:** graph_version 4 → 5; 106 total nodes, 138 total edges in `paideia-dev`. Metaphysics subdomain fully seeded.
+- **sessions/architecture** (source: `bqj9abqoo.txt`; sim: 0.61) — S-0056 (now closed) — fourth Phase 5 routine-mode session (P5-02b Metaphysics specialized). Modality, free will, properties/universals, mereology seeded; 25 nodes + 36 edges. Me...
+- **sessions/architecture** (source: `b6g57ekb0.txt`; sim: 0.61) — S-0056 (now closed) — fourth Phase 5 routine-mode session (P5-02b Metaphysics specialized). Modality, free will, properties/universals, mereology seeded; 25 nodes + 36 edges. Me...
+
+## Prior context (diary)
+
+S-0108 (ethics) closed clean; methodology travels well. Patterns observed across S-0104/S-0105/S-0108 worth carrying into AUDIT-MET:
+
+- **Granularity-mismatch on sub-discipline labels** is graph-wide (S-0105 N-8 `bayesian_epistemology`; S-0108 N-4 `moral_epistemology`, N-9 `animal_ethics`). Metaphysics likely has analogous sub-discipline labels (e.g., `mereology`, `modal_metaphysics`, `philosophy_of_time` if present as nodes). Flag candidates per per-node template; closeout adjudicates structurally.
+- **Parallel-edge weak/redundant pairs** (S-0108 E-17, E-20: species-level edges shadowing genus-level edges). Watch for analogues in metaphysics — e.g., `essentialism→<X>` alongside `metaphysics→<X>` or `modal_realism→<X>` alongside `modality→<X>`.
+- **Frameworks-vs-motivations dialectical ordering** (S-0105 E-2/E-20; S-0108 E-5) — defensible-not-defect band where the migration picks one ordering and either is supportable. Apply with same calibration.
+- **Reversed-direction cluster** (S-0104 E-pattern; S-0105 E-13; S-0108 E-16) — where tradition or foundational stance is treated as DOWNSTREAM of application. In metaphysics, watch for `causation→hume's_problem_of_induction`-shape, `essentialism→aristotle`-shape inversions.
+
+S-0056 close (per MemPalace adjacent hits) noted "modality, free will, properties/universals, mereology" as the specialized chunk's scope; that's the part2 layer for sampling.
+
+Routine fire continues parametric-only per master-plan §"Empirical-fortification branch" routine-mode prohibition (load-bearing until T1-A..T1-D close at closeout per ADR 0053).
