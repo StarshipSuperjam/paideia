@@ -1,0 +1,14 @@
+{
+  "id": "S-0113",
+  "mode": "routine",
+  "task_id": "AUDIT-SCI",
+  "started_at": "2026-05-09T23:00:00Z",
+  "ended_at": null,
+  "status": "in_progress",
+  "working_on": "Routine task AUDIT-SCI (T-PHASE-5-AUDIT) — Philosophy of science subdomain audit. SEP-anchored review of a deterministic 36.7%-density edge sample (k=11 of N=30) plus an edge-anchored node sample (8 of 14 unique nodes), per the master-plan prompt templates at engine/build_readiness/phase_5_production_audit.md. Single deliverable: engine/build_readiness/phase_5_production_audit_evidence/science.md. Routine-mode is parametric-only — empirical-fortification branch prohibited per master-plan §\"Empirical-fortification branch\" routine-mode prohibition (load-bearing until T1-A through T1-D close at the closeout interactive session per ADR 0053).",
+  "approved_plan": "engine/session/current_plan.md",
+  "branch": "claude/great-franklin-439107",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/great-franklin-439107",
+  "target_id": "T-PHASE-5-AUDIT",
+  "declared_scope": "Author engine/build_readiness/phase_5_production_audit_evidence/science.md as candidate-findings evidence for the 11-edge sample (k=11 of N=30 within-science edges from 0080_seed_science_part1.sql; 36.7% density per master-plan §\"Sample-size policy\" AUDIT-SCI row at 35%) plus the 8-node edge-anchored sample (from a 14-element edge-anchored union) — verdict + SEP-anchored reasoning + confidence per element per the verbatim master-plan prompt templates and evidence-file schema. No other tracked files modified beyond the operational allowlist (current.json, current_plan.md, auto_target.json status fields, register_state.json, archive/S-0113.json, ENGINE_LOG.md, STATE.md). Parametric-only review; empirical-fortification branch prohibited for routine sessions until T1-A through T1-D close at the closeout. phase: NA-routine"
+}
