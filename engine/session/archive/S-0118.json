@@ -1,0 +1,27 @@
+{
+  "id": "S-0118",
+  "mode": "build",
+  "started_at": "2026-05-10T15:27:16Z",
+  "ended_at": "2026-05-10T15:58:44Z",
+  "status": "closed",
+  "working_on": "Fix Issues #56 (audit_archive_structured_fields hook bypasses git-mv renames — change pre-commit filter from A to AR + regression test), #57 (macOS Finder duplicate file pollutes engine/session/ — add boot-time stray-file detection probe), and #58 (routine wedge: halted prior session leaves AUDIT-HT in_progress with no recovery path — wedge already resolved at S-0117 administrative-close commit 48a6ac9; this session lands the systemic fix: ADR 0060 + routine_wedge_detect.py + routine-mode-lifecycle skill update + first-exercise readiness note + pytests).",
+  "approved_plan": "/Users/shanekidd/.claude/plans/we-need-to-fix-piped-turtle.md",
+  "branch": "claude/keen-thompson-273d08",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/keen-thompson-273d08",
+  "declared_scope": "Land three substantive fixes for Issues #56 / #57 / #58 in this session.",
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": false,
+    "explanation": "Yes — all three issues fixed substantively per the approved plan. Issue #56: pre-commit filter changed to --diff-filter=AR + 4 regression tests green. Issue #57: probe_session_dir.py authored + wired into validate.py --health-probe-only + 6 regression tests green. Issue #58: immediate wedge cleared via administrative S-0117 close + AUDIT-HT decomposition into AUDIT-HT-1 + AUDIT-HT-2; systemic fix landed (ADR 0060 + routine_wedge_detect.py + 14 pytests + skill body update via doc-then-skill flow + first-exercise readiness note + CLAUDE.md posture-vs-machinery entry + MemPalace decision drawer). No descope; no reorder; no deferral mid-session. Five commits to main: 48a6ac9 (admin S-0117 close + auto_target decompose) + 6b87f88 (eager-claim S-0118) + 1c2e0ec (#56 fix) + 2e07f22 (#57 fix) + 002a964 (#58 systemic) + this close commit. Cadence trigger overdue by 1 (slots-since-last-audit 21 vs cadence 20) deferred per session scope; next session re-evaluates."
+  },
+  "outcome_summary": "Interactive S-0118 closed Issues #56, #57, #58 in one session. The S-0117 wedge (routine fire halted post-eager-claim mid-AUDIT-HT) was administratively cleared at boot (commit 48a6ac9 archived current.json as closed_void; AUDIT-HT decomposed into AUDIT-HT-1 + AUDIT-HT-2 to fit context cap). The systemic fix landed inside the new S-0118 slot: ADR 0060 introduces routine boot step 0c (engine/tools/routine_wedge_detect.py, the wedge-detect-and-pause mechanism) so future halted-routine wedges produce exactly ONE Issue + ONE HANDOFF entry across all subsequent fires instead of HANDOFF spam. Auto-administrative-close was rejected because synthesizing structured archive fields without the halted session's input corrupts downstream telemetry per ADR 0042 + 0049 + 0056. Issue #56: one-line filter fix at pre-commit:233 (--diff-filter=A → AR) + 4 pytests covering the filter-logic delta. Issue #57: probe_session_dir.py + wire into validate.py --health-probe-only + 6 pytests covering the macOS Finder/iCloud duplicate detection. Total artifacts: 5 commits to main, 1 new ADR (0060) with matching decision drawer, 1 new ops-doc step (routine-mode-operations.md 0c) + skill body mirror, 2 new tools (probe_session_dir.py + routine_wedge_detect.py), 24 new pytests across 3 modules, 1 new first-exercise readiness note, CLAUDE.md posture-vs-machinery entry. Cadence trigger overdue by 1 (slots-since-last-audit 21 vs cadence 20); deferred per session scope (user direction was fix the issues); next session re-evaluates.",
+  "outcome_summary_soft_warns": {
+    "health_check_overdue": 1,
+    "adr_consequences_deliverable_audit": 1,
+    "issue_collision": 4,
+    "missing_rigor_score": 366
+  },
+  "next_session_handle": null,
+  "mode_explicit": "build",
+  "mempalace_activity": {}
+}
