@@ -71,7 +71,7 @@ The disposition has eight binding commitments. Commitments 1 and 6 preserve from
   - Author `CONTRIBUTING.md` and `CODE_OF_CONDUCT.md`.
   - Rewrite `SECURITY.md` for OSS+BYOK posture.
   - Rewrite `README.md` (remove `(private)`; remove personal-name reference; add OSS status section).
-  - Clean PII (137 tracked files with `/Users/shanekidd/` paths; 3 files with "Shane Kidd").
+  - Clean PII (137 tracked files with `~/` paths; 3 files with "Shane Kidd").
   - Clean `.claude/settings.json` lines 4–10 (personal absolute paths in tracked project config).
   - Verify `.env.example` and update to note BYOK posture (iOS app does not consume `.env`).
   - Execute the public-repo flip via `gh repo edit --visibility public`.

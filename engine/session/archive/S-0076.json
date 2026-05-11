@@ -15,7 +15,7 @@
   },
   "approved_plan": "engine/session/current_plan.md",
   "branch": "claude/gracious-dijkstra-3d20f1",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/gracious-dijkstra-3d20f1",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/gracious-dijkstra-3d20f1",
   "issues_filed": [
     {"number": 26, "title": "build_readiness/README.md should index closeout-class reports separately from gate-class reports", "labels": ["documentation", "cleanup"]}
   ],

@@ -25,9 +25,9 @@
     "orphan_leaf": 0,
     "suspicious_cross_domain_ratio": 0
   },
-  "approved_plan": "/Users/shanekidd/.claude/plans/plan-saved-at-plan-for-s-0039-parser-adr-golden-lake.md",
+  "approved_plan": "~/.claude/plans/plan-saved-at-plan-for-s-0039-parser-adr-golden-lake.md",
   "branch": "claude/amazing-shaw-809d26",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/amazing-shaw-809d26",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/amazing-shaw-809d26",
   "side_discoveries": [
     {
       "commit": "13b8cf5",
@@ -41,7 +41,7 @@
     {
       "id": "S-0040",
       "branch": "claude/eloquent-knuth-423df2",
-      "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/eloquent-knuth-423df2",
+      "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/eloquent-knuth-423df2",
       "working_on_at_S-0039_close": "MemPalace wing-filter fix (deferred from S-0038 in violation of CLAUDE.md fix-in-context posture)",
       "status_at_S-0039_close": "in_progress",
       "claimed_at": "2026-05-03T22:09:45Z",

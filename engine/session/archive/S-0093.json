@@ -58,9 +58,9 @@
       "reasoning": "The string 'pending' appears in the resolve_work_item docstring of engine/tools/mempalace_boot_search.py describing the resolution order ('auto_target.json pending task name (routine pre-claim)'). It is documentation of the resolver's behavior \u2014 the resolver matches `status == \"pending\"` tasks per ADR 0051's auto_target.json schema \u2014 not a deferred TODO marker. No action needed."
     }
   ],
-  "approved_plan": "/Users/shanekidd/.claude/plans/transient-dazzling-backus.md",
+  "approved_plan": "~/.claude/plans/transient-dazzling-backus.md",
   "branch": "claude/interesting-davinci-a97c51",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/interesting-davinci-a97c51",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/interesting-davinci-a97c51",
   "mempalace_activity": {
     "search_calls": 3,
     "diary_read_calls": 1,

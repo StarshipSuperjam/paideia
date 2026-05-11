@@ -13,7 +13,7 @@
   },
   "approved_plan": "engine/session/current_plan.md",
   "branch": "claude/interesting-joliot-8e842a",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/interesting-joliot-8e842a",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/interesting-joliot-8e842a",
   "declared_scope": "Author engine/build_readiness/phase_5_production_audit_evidence/crossbridges.md as candidate-findings evidence for the 71 cross-domain edges per the SEP-anchored review template — verdict + reasoning + confidence per edge. No other tracked files modified.",
   "next_session_handle": null,
   "mempalace_activity": {

@@ -1,7 +1,7 @@
 """One-shot rename: diary_skipped → mempalace_diary_write_skipped.
 
 Per ADR 0056 (S-0078) and the user-confirmed "rename" decision in the plan
-at /Users/shanekidd/.claude/plans/use-of-mempalace-by-velvety-pebble.md.
+at ~/.claude/plans/use-of-mempalace-by-velvety-pebble.md.
 
 Background
 ----------

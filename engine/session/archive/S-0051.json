@@ -47,9 +47,9 @@
       "reasoning": "False positive — the phrase 'rather than deferred' is a negation ('not deferred'). The audit's negation filter only catches no/not/nothing/no longer within ~12 chars; 'rather than' falls outside that window. The actual semantic is 'fixed in-session, not deferred,' which is the opposite of a deferral."
     }
   ],
-  "approved_plan": "/Users/shanekidd/.claude/plans/1-routine-session-velvet-harp.md",
+  "approved_plan": "~/.claude/plans/1-routine-session-velvet-harp.md",
   "branch": "claude/great-wright-9dd19b",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/great-wright-9dd19b",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/great-wright-9dd19b",
   "transcript_token_estimate": 963903,
   "transcript_token_pct": 0.9639,
   "tokenizer_used": "tiktoken-o200k_base",

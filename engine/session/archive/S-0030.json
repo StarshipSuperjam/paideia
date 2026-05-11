@@ -16,7 +16,7 @@
     "adr_back_reference_orphan": 0,
     "adr_consequences_deliverable_audit": 0
   },
-  "approved_plan": "/Users/shanekidd/.claude/plans/the-project-infrastructure-still-abundant-key.md",
+  "approved_plan": "~/.claude/plans/the-project-infrastructure-still-abundant-key.md",
   "branch": "claude/lucid-allen-27edd3",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/lucid-allen-27edd3"
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/lucid-allen-27edd3"
 }

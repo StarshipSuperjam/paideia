@@ -7,7 +7,7 @@
   "outcome_summary": "Closed 5 GitHub Issues (#3 boot-time concurrent-session guard via check_session_conflict.py; #4 closed-as-intractable with CLAUDE.md posture bullet; #5 settings.json sync hard-fail via check_settings_sync.py + pre-commit; #6 routine-mode allowlist subsection rewritten to Auto-mode-supersedes; #7 setup_env.py one-time helper + boot pointer + live URL paste validated end-to-end against PostgreSQL 17.6, validate.py engages graph audit with 30 checks vs 23 prior). Backlog 7 -> 2 (upstream MemPalace #1, #2 remain). Validator clean: 23 checks, 0 hard-fails, 2 issue_collision soft-warns (only #1 and #2). pytest 562/562 (was 519; +43 new tests). 6 commits this session. ADR count unchanged at 51.",
   "outcome_summary_soft_warns": {"issue_collision": 2},
   "scope_delivery": {"delivered": true, "user_confirmed_changes": true, "explanation": "All 5 in-project actionable issues from declared_scope landed: #6 doc rewrite, #5 settings.json sync guard + tests + pre-commit wire-in + ops-doc subsubsection, #3 concurrent-session guard + tests + hook + boot-procedure docs, #4 closure with policy bullet, #7 setup_env.py + tests + boot pointer + README/seed-chunked-authoring/STATE.md updates + live URL paste validated. User-confirmed changes: connection string format and approach (after multiple revisions per user feedback re routine-mode automation framing)."},
-  "approved_plan": "/Users/shanekidd/.claude/plans/i-have-hit-a-abstract-scone.md",
+  "approved_plan": "~/.claude/plans/i-have-hit-a-abstract-scone.md",
   "branch": "claude/hungry-tereshkova-bfd37d",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/hungry-tereshkova-bfd37d"
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/hungry-tereshkova-bfd37d"
 }

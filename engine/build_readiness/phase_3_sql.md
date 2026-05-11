@@ -6,7 +6,7 @@
 
 ## Pre-session decisions (Tier 1 resolutions)
 
-The five Tier 1 findings from the adversarial analysis preceding S-0027 (preserved in [`/Users/shanekidd/.claude/plans/the-next-session-begins-lazy-bentley.md`](file:///Users/shanekidd/.claude/plans/the-next-session-begins-lazy-bentley.md) Findings appendix). Each is settled before S-0028 opens:
+The five Tier 1 findings from the adversarial analysis preceding S-0027 (preserved in [`~/.claude/plans/the-next-session-begins-lazy-bentley.md`](file://~/.claude/plans/the-next-session-begins-lazy-bentley.md) Findings appendix). Each is settled before S-0028 opens:
 
 ### T1-A — Auth model: local `users` table mirror
 

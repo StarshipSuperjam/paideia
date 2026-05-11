@@ -11,9 +11,9 @@
     "user_confirmed_changes": false,
     "explanation": "Yes. Declared scope landed in full. Four-layer mechanism (PostToolUse hook, rollup tool, validate.py --final-check, parameterized structural audit) all in place. Routine-mode-lifecycle SKILL + ops-doc updated with steps 5.5/5.6 inserted and step 11 enumeration fixed (Issue #27 root cause). Build-mode SKILL/ops-doc steps 3 and 3b annotated. Shutdown SKILL/ops-doc gets new step 0 + step 1 amended. mempalace-operations.md new section. soft-warn-lifecycle.md notes. CLAUDE.md mechanization bullet. ADR 0056 + first-exercise readiness note. 32 archives migrated via diary_skipped rename (preserving formatting and UTF-8). 62 new pytests; 757 total pass. T1-A first-exercise gate passed at this shutdown — validate.py --final-check ran cleanly with 0 hard-fails after the PostToolUse hook captured this session's MemPalace MCP calls (search=1, diary_read=1, diary_write=1, add_drawer=3, total_calls=6). Issues #27 and #20 closed via gh CLI + auto-close on commit message. Recovery (Part B per plan at ~/.claude/plans/use-of-mempalace-by-velvety-pebble.md) deferred to S-0079+ as planned — bounded historical cleanup, independent of mechanism landing. No descope, no reorder, no in-flight scope expansion."
   },
-  "approved_plan": "/Users/shanekidd/.claude/plans/use-of-mempalace-by-velvety-pebble.md",
+  "approved_plan": "~/.claude/plans/use-of-mempalace-by-velvety-pebble.md",
   "branch": "claude/peaceful-antonelli-00f715",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/peaceful-antonelli-00f715",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/peaceful-antonelli-00f715",
   "issues_filed": [],
   "issues_closed": [
     {"number": 27, "title": "Routine-mode shutdown skips MemPalace diary write + pushback/lesson capture (silent — diary_skipped not recorded either)", "labels": ["documentation", "tech-debt"], "auto_closed_via_commit": true},

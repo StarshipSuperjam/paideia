@@ -5,7 +5,7 @@
   "status": "closed",
   "working_on": "Piece 1 of approved engine/product wall plan: rename CHANGELOG.md → ENGINE_LOG.md, author ADR 0037 (rename + hard-wall commitment), light-revise ADR 0036 four-layer reference, update operations docs + STATE.md + CLAUDE.md + ROADMAP.md cross-references, add [ENGINE]/[PRODUCT] phase markers to ROADMAP. Resequences original Phase 2 Build Plan Scaffolding to S-0023.",
   "outcome_summary": "Phase 1.5 → Phase 2 bridge landed. ADR 0037 commits to engine/product wall and renames CHANGELOG.md → ENGINE_LOG.md (CHANGELOG.md filename reserved for Phase 9 product release). git mv preserves entry history S-0002→S-0021 verbatim. ADR 0036 light-revised; tools/validate.py changelog_format → engine_log_format; ROADMAP gains [ENGINE]/[PRODUCT] phase markers; ~25 cross-reference updates across operations docs, STATE.md, CLAUDE.md, ROADMAP, ADRs 0016/0022/0027/0032/0036, README/HANDOFF/CROSS_REFERENCES, design docs. ADR count 37 total / 35 Accepted / 2 Superseded. MemPalace decision drawer paired with ADR 0037 (drawer_paideia_general_728f310448ac608078a89932). validate.py: 0 hard-fails, 0 soft-warns. Phase 2 (Build Plan Scaffolding) opens at S-0023 with partition-aware build_plan path constraint.",
-  "approved_plan": "/Users/shanekidd/.claude/plans/does-the-changelog-have-structured-sonnet.md",
+  "approved_plan": "~/.claude/plans/does-the-changelog-have-structured-sonnet.md",
   "branch": "claude/dreamy-shannon-15eb3f",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/dreamy-shannon-15eb3f"
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/dreamy-shannon-15eb3f"
 }

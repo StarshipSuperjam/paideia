@@ -10,9 +10,9 @@
     "user_confirmed_changes": true,
     "explanation": "All declared deliverables landed. Three user-directed mid-session EXPANSIONS (not descopes, additions): (1) chromadb added to requirements.txt explicitly when the install surfaced it as a silent missing dependency (probe_palace.py imports chromadb; previously carried only by user-scope incidental install via mempalace). (2) mempalace migrated from user-scope system Python 3.9 into the project venv after the user asked 'Can, or should, mempalace be moved to the venv? I've already had python version issues with that tool.' (3) mempalace 3.3.4 verified against upstream Issues #1 and #2 after the user pushed back on the initial 'verifying is out of scope' framing with 'Verifying is not out of scope.' Verification findings: Issue #1 reproduces verbatim in 3.3.4; Issue #2 partial-change-not-fix (behavior shifted but per-worktree fragmentation persists). Captured in ADR 0050 Consequences, mempalace-operations.md Known issues + Wing-name reality + Install sections, and the MemPalace decision drawer. End-to-end smoke test partially executed: pre-commit gate exercised through the actual commit (validator clean); pytest 434/434 from venv; scan_context_telemetry --dry-run confirms tiktoken-o200k_base activation against the live transcript. Not separately re-exercised: standalone session-start.sh re-trigger; fresh worktree-local override hatch creation. Both de-risked by the implementation logic plus existing scrub_env.sh test coverage; would only catch a regression specific to the wiring code itself, which the validator and pytest suite already exercise. No scope was descoped or reordered."
   },
-  "approved_plan": "/Users/shanekidd/.claude/plans/i-installed-tiktoken-on-modular-oasis.md",
+  "approved_plan": "~/.claude/plans/i-installed-tiktoken-on-modular-oasis.md",
   "branch": "claude/inspiring-beaver-a5d511",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/inspiring-beaver-a5d511",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/inspiring-beaver-a5d511",
   "transcript_token_estimate": 478646,
   "transcript_token_pct": 0.4786,
   "tokenizer_used": "tiktoken-o200k_base"

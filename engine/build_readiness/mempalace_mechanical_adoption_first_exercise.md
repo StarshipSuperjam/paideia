@@ -91,4 +91,4 @@ The next routine fire post-S-0078 exercises the routine-mode-lifecycle SKILL cha
 - [ADR 0053](../adr/0053-mechanism-first-exercise-gate.md) — the gate framework this report instantiates.
 - [Issue #27](https://github.com/StarshipSuperjam/paideia/issues/27) — closes.
 - [Issue #20](https://github.com/StarshipSuperjam/paideia/issues/20) — closes.
-- Plan file: `/Users/shanekidd/.claude/plans/use-of-mempalace-by-velvety-pebble.md` — the approved-and-sequenced design this implementation realizes.
+- Plan file: `~/.claude/plans/use-of-mempalace-by-velvety-pebble.md` — the approved-and-sequenced design this implementation realizes.

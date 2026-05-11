@@ -15,7 +15,7 @@
   },
   "approved_plan": "engine/session/current_plan.md",
   "branch": "claude/flamboyant-carson-24766a",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/flamboyant-carson-24766a",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/flamboyant-carson-24766a",
   "closed_at": "2026-05-05T03:30:00Z",
   "issues_filed": [],
   "commits": [

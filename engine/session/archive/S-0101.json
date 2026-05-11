@@ -40,9 +40,9 @@
     "next_session_handle_malformed": 0
   },
   "next_session_handle": null,
-  "approved_plan": "/Users/shanekidd/.claude/plans/enumerated-marinating-allen.md",
+  "approved_plan": "~/.claude/plans/enumerated-marinating-allen.md",
   "branch": "claude/jolly-heyrovsky-4188fc",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/jolly-heyrovsky-4188fc",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/jolly-heyrovsky-4188fc",
   "declared_scope": "Cleanup-batch session: close Issue #52 (soft-warn category re-classification audit). Systematic per-category sweep of validate.py soft-warn categories classifying each as actively-tracked / informational-only-accepted / retire-candidate / persistent-warn-annotated / actively-tracked-deferred. Documentation extension to engine/operations/tools-validate-interpretation.md plus ADR 0042 Consequences amendment (S-0101). No code changes; phase: NA-engine-discipline.",
   "scope_delivery": {
     "delivered": true,

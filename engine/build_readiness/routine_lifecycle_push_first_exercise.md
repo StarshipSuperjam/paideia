@@ -103,4 +103,4 @@ Run after the wrapper code lands (per ADR 0053's gate-session structure). Inspec
 - [`engine/tools/probe_push_gate.py`](../tools/probe_push_gate.py) — Phase 0 probe.
 - [`engine/tools/routine_lifecycle_push.py`](../tools/routine_lifecycle_push.py) — Phase 1 wrapper.
 - [`.claude/skills/routine-mode-lifecycle/SKILL.md`](../../.claude/skills/routine-mode-lifecycle/SKILL.md) — Skill body call sites.
-- S-0060 plan: `/Users/shanekidd/.claude/plans/what-is-going-on-wild-falcon.md` — design rationale and the testing-first directive.
+- S-0060 plan: `~/.claude/plans/what-is-going-on-wild-falcon.md` — design rationale and the testing-first directive.

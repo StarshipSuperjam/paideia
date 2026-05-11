@@ -20,7 +20,7 @@
   },
   "approved_plan": "~/.claude/plans/i-want-to-shift-hidden-hedgehog.md",
   "branch": "claude/vibrant-antonelli-850599",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/vibrant-antonelli-850599",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/vibrant-antonelli-850599",
   "mempalace_activity": {
     "search_calls": 2,
     "diary_read_calls": 0,

@@ -16,7 +16,7 @@
   },
   "approved_plan": "engine/session/current_plan.md",
   "branch": "claude/amazing-mayer-f501e9",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/amazing-mayer-f501e9",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/amazing-mayer-f501e9",
   "side_discoveries": [
     {
       "commit": "211320b",

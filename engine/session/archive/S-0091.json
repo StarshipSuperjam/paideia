@@ -38,9 +38,9 @@
     "health_check_overdue": 1,
     "issue_collision": 10
   },
-  "approved_plan": "/Users/shanekidd/.claude/plans/i-m-not-satisfied-with-modular-flute.md",
+  "approved_plan": "~/.claude/plans/i-m-not-satisfied-with-modular-flute.md",
   "branch": "claude/zealous-shaw-236026",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/zealous-shaw-236026",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/zealous-shaw-236026",
   "mempalace_activity": {
     "search_calls": 1,
     "diary_read_calls": 1,

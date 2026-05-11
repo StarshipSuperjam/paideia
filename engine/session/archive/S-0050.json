@@ -18,7 +18,7 @@
     "explanation": "Work product (the migration itself, ROUTING narrative entry, validator-clean state) landed exactly as declared. The criterion-pass bookkeeping (mark P5-01a complete) blocked on a verifier bug discovered post-apply: check_target.py:_check_migration_applied queries WHERE version = %s but the auto_target.json id is the migration name (version is the timestamp). Fix is outside P5-01a's scope_lock, so routine-mode posture treats this as scope-expansion-needed: filed Issue #9, marked P5-01a blocked, wrote HANDOFF, and exited cleanly. The 'declared scope' end state explicitly named 'P5-01a complete' as a deliverable; that flag flipped to 'blocked' instead of 'complete'. Recording delivered=false honestly. The work itself is in main; the contract-bookkeeping deferral is the gap. S-0051 interactive session lands the one-line fix and flips P5-01a to complete."
   },
   "branch": "claude/pedantic-ramanujan-bc0fba",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/pedantic-ramanujan-bc0fba",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/pedantic-ramanujan-bc0fba",
   "issues_filed": [9],
   "handoff_entries_added": [
     "P5-01a Epistemology core — work landed; verifier bug blocks criterion-pass bookkeeping (set at S-0050)"

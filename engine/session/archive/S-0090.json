@@ -7,7 +7,7 @@
   "outcome_summary": "Converted S-0089's `mempalace_diary_write_skipped_invalid_token` HARD-FAIL to `mempalace_diary_write_skipped_substrate_intermittent` SOFT-WARN with mode-aware body. Engine: LOUD ⚠️ MCP INTERMITTENT — DO NOT BURY THIS. Routine: standard one-line. Routines running overnight / AFK no longer killed by intermittent MCP per user directive. Visibility preserved via LOUD body for engine + soft-warn for routine archive review. The S-0087/S-0088 burial pattern remains hard to repeat — LOUD body surfaces the substrate-alive + token-present contradiction explicitly. ADR 0056 amended in-place (no supersession); 2 new pytests replace the prior invalid-token test (29 total in test_validate_mempalace_adoption.py); mypy --strict + ruff clean. Validator at shutdown: 0 hard-fails. Campaign plan reorder: Issue #41 (C3) shifts S-0090 → S-0091.",
   "approved_plan": null,
   "branch": "claude/awesome-carson-4840fe",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/awesome-carson-4840fe",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/awesome-carson-4840fe",
   "declared_scope": "engine-apparatus-mcp-routine-protection",
   "scope_delivery": {
     "delivered": true,

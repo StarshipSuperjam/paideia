@@ -20,5 +20,5 @@
   "tokenizer_used": "tiktoken-o200k_base",
   "approved_plan": null,
   "branch": "claude/focused-engelbart-3a5fdd",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/focused-engelbart-3a5fdd"
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/focused-engelbart-3a5fdd"
 }

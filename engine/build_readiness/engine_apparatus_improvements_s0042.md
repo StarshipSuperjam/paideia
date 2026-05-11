@@ -4,7 +4,7 @@
 
 ## Compression note
 
-ADR 0040 names a temporal split — gate session precedes build session. This work is the exception ADR 0040's amendment discipline accommodates: the planning thread that produced [`/Users/shanekidd/.claude/plans/i-m-seeing-some-recurring-clever-axolotl.md`](../../.claude/plans/i-m-seeing-some-recurring-clever-axolotl.md) executed steps 1–5 of the gate procedure conversationally — three Explore agents in parallel (`Audit current deferral + health-check machinery`, `Measure deferral rate across recent sessions`, `Verify orphan files and surface other orphans`), user-directed Tier 1 resolution (sharpening the orphan definition from "anyone reference it?" to "is it doing work?"), Tier 2 decisions on disposition form / label taxonomy / scope-anchor mechanism, Tier 3 forward pointers on multi-session scope-erosion thresholds. The compression is honest: no separate gate slot consumed, but the substance of steps 1–5 is in the planning artifact and re-stated below.
+ADR 0040 names a temporal split — gate session precedes build session. This work is the exception ADR 0040's amendment discipline accommodates: the planning thread that produced [`~/.claude/plans/i-m-seeing-some-recurring-clever-axolotl.md`](../../.claude/plans/i-m-seeing-some-recurring-clever-axolotl.md) executed steps 1–5 of the gate procedure conversationally — three Explore agents in parallel (`Audit current deferral + health-check machinery`, `Measure deferral rate across recent sessions`, `Verify orphan files and surface other orphans`), user-directed Tier 1 resolution (sharpening the orphan definition from "anyone reference it?" to "is it doing work?"), Tier 2 decisions on disposition form / label taxonomy / scope-anchor mechanism, Tier 3 forward pointers on multi-session scope-erosion thresholds. The compression is honest: no separate gate slot consumed, but the substance of steps 1–5 is in the planning artifact and re-stated below.
 
 The cold-review pass (step 8) is run after this report is complete, against the citations below.
 
@@ -102,7 +102,7 @@ All four resolutions land in this report; no changes to the plan's intent. The c
 
 ## See also
 
-- [`/Users/shanekidd/.claude/plans/i-m-seeing-some-recurring-clever-axolotl.md`](../../.claude/plans/i-m-seeing-some-recurring-clever-axolotl.md) — the approved plan; the substantive contract this report formalizes.
+- [`~/.claude/plans/i-m-seeing-some-recurring-clever-axolotl.md`](../../.claude/plans/i-m-seeing-some-recurring-clever-axolotl.md) — the approved plan; the substantive contract this report formalizes.
 - [ADR 0040](../adr/0040-build-readiness-gate-before-substantive-build-sessions.md) — the gate-protocol contract this report executes.
 - [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md) — soft-warn lifecycle; the new soft-warns introduced here (`empty_declared_scope`, `scope_delivery_non_yes`) inherit the canon.
 - [ADR 0045](../adr/0045-shared-state-integrity-discipline.md) — surface treatment for boot-time hard-broken findings; the urgent-issue LOUD surface mirrors this pattern.

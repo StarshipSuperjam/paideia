@@ -6,7 +6,7 @@
   "outcome_summary": null,
   "approved_plan": "~/.claude/plans/zany-orbiting-bee.md",
   "branch": "claude/thirsty-wilbur-addd15",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/thirsty-wilbur-addd15",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/thirsty-wilbur-addd15",
   "mode": "build",
   "mode_explicit": "build"
 }

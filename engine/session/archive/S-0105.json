@@ -13,7 +13,7 @@
   },
   "approved_plan": "engine/session/current_plan.md",
   "branch": "claude/compassionate-meitner-79f27c",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/compassionate-meitner-79f27c",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/compassionate-meitner-79f27c",
   "declared_scope": "Author engine/build_readiness/phase_5_production_audit_evidence/epistemology.md as candidate-findings evidence for the 25-edge sample plus ~12-node sample drawn from the within-epistemology graph \u2014 verdict + SEP-anchored reasoning + confidence per element. No other tracked files modified.",
   "target_id": "T-PHASE-5-AUDIT",
   "scope_delivery": {

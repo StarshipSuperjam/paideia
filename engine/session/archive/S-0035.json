@@ -18,7 +18,7 @@
     "chromadb_palace_health": 0,
     "repo_config_health": 0
   },
-  "approved_plan": "/Users/shanekidd/.claude/plans/flush-out-a-full-woolly-harp.md",
+  "approved_plan": "~/.claude/plans/flush-out-a-full-woolly-harp.md",
   "branch": "claude/infallible-mestorf-084f1a",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/infallible-mestorf-084f1a"
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/infallible-mestorf-084f1a"
 }

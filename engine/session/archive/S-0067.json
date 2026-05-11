@@ -13,9 +13,9 @@
     "user_confirmed_changes": true,
     "explanation": "Yes. Plan declared scope was a two-line edit on engine/session/auto_target.json (P5-06 status flip + blocked_reason clear) plus an out-of-repo UI prompt update the user owns. Both Step 1 (the auto_target.json edit) and Step 3 (T1-A verification) are now complete — Step 1 landed in commit d2edab6; Step 3 was verified end-to-end during plan authoring when the routine fire executed against S-0066, exercised apply_migration.py cleanly, and closed T1-A. Step 2 (UI prompt update) remains user-owned out-of-repo. Recovery from the stale-claim collision was named explicitly in the plan-relative outcome (the plan said 'commit S-0066'; the routine got S-0066; this session pivoted to S-0067 cleanly with explicit user authorization for the destructive action) — not a scope expansion, the same logical work landed."
   },
-  "approved_plan": "/Users/shanekidd/.claude/plans/routine-mode-is-blocked-pure-wilkinson.md",
+  "approved_plan": "~/.claude/plans/routine-mode-is-blocked-pure-wilkinson.md",
   "branch": "claude/heuristic-gates-d71b84",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/heuristic-gates-d71b84",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/heuristic-gates-d71b84",
   "closed_at": "2026-05-05T18:06:36Z",
   "issues_filed": [],
   "commits": [

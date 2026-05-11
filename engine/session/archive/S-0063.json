@@ -15,7 +15,7 @@
   },
   "approved_plan": "engine/session/current_plan.md",
   "branch": "claude/xenodochial-cartwright-94da7b",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/xenodochial-cartwright-94da7b",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/xenodochial-cartwright-94da7b",
   "closed_at": "2026-05-05T15:50:00Z",
   "issues_filed": [18, 19],
   "issues_closed": [],

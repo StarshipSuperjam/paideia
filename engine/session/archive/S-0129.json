@@ -12,7 +12,7 @@
   },
   "approved_plan": "~/.claude/plans/agile-inventing-crane.md",
   "branch": "claude/keen-swartz-50be53",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/keen-swartz-50be53",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/keen-swartz-50be53",
   "next_session_handle": "S-0130-OSS-BYOK-Session-C",
   "mode": "build",
   "mode_explicit": "build",

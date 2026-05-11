@@ -6,9 +6,9 @@
   "ended_at": "2026-05-11T04:36:12Z",
   "status": "closed",
   "working_on": "Cadence-fired project health-check audit (overdue by 4; slots_since=24 vs cadence=20); window S-0098 → S-0120 (23 archives, 14 routine evidence-authoring + 9 interactive). Second formal exercise of ADR 0057 adversarial-stance posture. Operative diagnostic instantiated as junk-drawer-prose accumulation per user pushback at plan entry. Inline STATE.md + HANDOFF.md cleanup authorized; broader pattern survey routes through report User adjudication subsection.",
-  "approved_plan": "/Users/shanekidd/.claude/plans/drifting-swinging-kahan.md",
+  "approved_plan": "~/.claude/plans/drifting-swinging-kahan.md",
   "branch": "claude/admiring-faraday-020026",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/admiring-faraday-020026",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/admiring-faraday-020026",
   "declared_scope": "Run engine/tools/health_check.py + scan_orphans.py against the S-0098 → S-0120 window. Run five freshness probes per ADR 0057 (MemPalace recall content quality / validator soft-warn acted-on rate / Supabase live-DB predicate distribution / hook-log success-exit verification / registry capture rates). Read pushback/lesson drawers since S-0097 for cluster surfacing. Populate forward-fit map per Issue #44 (Phase 5 closeout / OQ-DEC1 / Phase 6 / Phase 7 / Phase 8-9 / routine-mode forward question). Cold-context probe on a randomly-selected artifact. Apply adversarial postures (Fit / Gaps / Infrastructure-without-function / Bloat) per ADR 0057 with recommendation-shape dispositions. Inline-trim STATE.md (user-authorized at plan entry) — retire 37 'S-NNNN (prior)' rows; verify content preservation in ENGINE_LOG + archives before deletion. Inline-prune HANDOFF.md (user-authorized) — verify each Resolved-line cross-reference before deletion. Author docs/health-checks/S-0121.md against TEMPLATE.md; User adjudication subsection blank on arrival. Update STATE.md Last build session + Next session work item. Add ENGINE_LOG [Unreleased] entries. MemPalace diary write per ADR 0056. Archive current.json → archive/S-0121.json. The production-audit closeout (canonical S-0121 work item before user pivot) defers to S-0122.",
   "scope_delivery": {
     "delivered": true,

@@ -44,9 +44,9 @@
     "phase_mismatch_declared_scope": 0,
     "scope_delivery_non_yes": 0
   },
-  "approved_plan": "/Users/shanekidd/.claude/plans/i-m-seeing-some-recurring-clever-axolotl.md",
+  "approved_plan": "~/.claude/plans/i-m-seeing-some-recurring-clever-axolotl.md",
   "branch": "claude/admiring-heisenberg-c97499",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/admiring-heisenberg-c97499",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/admiring-heisenberg-c97499",
   "transcript_token_estimate": 809733,
   "transcript_token_pct": 0.8097,
   "tokenizer_used": "chars-div-4-fallback"

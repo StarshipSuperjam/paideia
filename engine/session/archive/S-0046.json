@@ -20,7 +20,7 @@
   },
   "approved_plan": null,
   "branch": "claude/naughty-cray-fa368d",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/naughty-cray-fa368d",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/naughty-cray-fa368d",
   "transcript_token_estimate": 1624741,
   "transcript_token_pct": 1.6247,
   "tokenizer_used": "tiktoken-o200k_base"

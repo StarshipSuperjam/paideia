@@ -11,9 +11,9 @@
     "adr_consequences_deliverable_audit": 1,
     "mempalace_diary_read_skipped": 1
   },
-  "approved_plan": "/Users/shanekidd/.claude/plans/i-want-to-combine-humble-anchor.md",
+  "approved_plan": "~/.claude/plans/i-want-to-combine-humble-anchor.md",
   "branch": "claude/crazy-ritchie-db0791",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/crazy-ritchie-db0791",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/crazy-ritchie-db0791",
   "declared_scope": "Anonymize source identity in serialize_brief output (strip source_path top-level + source_url per-entry; replace ENCYCLOPEDIA_CONFIG enumerated suffix patterns with structural stripper) per Issue #49. Add body-font-entry/page-header-runner detector tier to PDFInputAdapter with publication-name anonymization filter at emit-time and partition-layer (defense-in-depth) per Issue #48. Amend ADR 0047 Consequences in-place.",
   "next_session_handle": null,
   "mempalace_activity": {

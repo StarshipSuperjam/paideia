@@ -5,9 +5,9 @@
   "ended_at": "2026-05-10T15:58:44Z",
   "status": "closed",
   "working_on": "Fix Issues #56 (audit_archive_structured_fields hook bypasses git-mv renames — change pre-commit filter from A to AR + regression test), #57 (macOS Finder duplicate file pollutes engine/session/ — add boot-time stray-file detection probe), and #58 (routine wedge: halted prior session leaves AUDIT-HT in_progress with no recovery path — wedge already resolved at S-0117 administrative-close commit 48a6ac9; this session lands the systemic fix: ADR 0060 + routine_wedge_detect.py + routine-mode-lifecycle skill update + first-exercise readiness note + pytests).",
-  "approved_plan": "/Users/shanekidd/.claude/plans/we-need-to-fix-piped-turtle.md",
+  "approved_plan": "~/.claude/plans/we-need-to-fix-piped-turtle.md",
   "branch": "claude/keen-thompson-273d08",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/keen-thompson-273d08",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/keen-thompson-273d08",
   "declared_scope": "Land three substantive fixes for Issues #56 / #57 / #58 in this session.",
   "scope_delivery": {
     "delivered": true,

@@ -40,9 +40,9 @@
     "health_check_overdue": 1,
     "issue_collision": 9
   },
-  "approved_plan": "/Users/shanekidd/.claude/plans/humble-bouncing-thompson.md",
+  "approved_plan": "~/.claude/plans/humble-bouncing-thompson.md",
   "branch": "claude/zealous-ardinghelli-83d301",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/zealous-ardinghelli-83d301",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/zealous-ardinghelli-83d301",
   "mempalace_activity": {
     "search_calls": 1,
     "diary_read_calls": 1,

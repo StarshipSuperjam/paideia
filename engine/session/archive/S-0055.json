@@ -15,7 +15,7 @@
     "user_confirmed_changes": true,
     "explanation": "All four declared Issue closures landed. Mid-session scope adjustments: (a) user corrected Issue #15 diagnosis from concurrency to staleness; the fix scope shrank (no lockfile) then re-expanded per explicit user direction to add concurrency defense-in-depth (lockfile + recovery). (b) Local-main recovery added as Step 0 after explicit user confirmation. (c) Build-readiness-gate.md added to ops/README.md index alongside the new mechanism-first-exercise-gate.md (small adjacent fix — pre-existing index gap)."
   },
-  "approved_plan": "/Users/shanekidd/.claude/plans/another-session-crash-with-calm-yeti.md",
+  "approved_plan": "~/.claude/plans/another-session-crash-with-calm-yeti.md",
   "branch": "claude/modest-swartz-087ae8",
-  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/modest-swartz-087ae8"
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/modest-swartz-087ae8"
 }
