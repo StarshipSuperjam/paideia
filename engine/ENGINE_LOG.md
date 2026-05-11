@@ -1849,7 +1849,7 @@ The pre-commit symlink retarget affects all worktrees in this clone (24 active a
 ## S-0001 — 2026-04-29 — Structural foundation + retirement of obsolete pre-foundation source files
 
 ### Added
-- Industry-standard top-level files: `README.md`, `LICENSE` (proprietary, all rights reserved Shane Kidd), `SECURITY.md`, `STATE.md`, `ROADMAP.md`, `HANDOFF.md`, `CHANGELOG.md` (this file).
+- Industry-standard top-level files: `README.md`, `LICENSE` (proprietary, all rights reserved — relicensed to Apache 2.0 at S-0130 per ADR 0065), `SECURITY.md`, `STATE.md`, `ROADMAP.md`, `HANDOFF.md`, `CHANGELOG.md` (this file).
 - Bimodal session protocol scaffolding: `session/register_state.json` + `session/current.json` + `session/archive/` directory.
 - Eager-slot-claim ritual (commit + push the claim atomically before substantive work).
 - Backup tag `pre-foundation-v0.0.0` at commit `fa70b8c` for one-command rollback if foundation work goes sideways.
