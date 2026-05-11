@@ -1,9 +1,9 @@
 {
   "description": "Session counter state. Single source of truth for the next available session ID. Bumped at slot-claim time (eager-claim ritual) and again at session close.",
   "format": "S-NNNN where N is a zero-padded 4-digit counter. Sessions claim a slot eagerly at start (write current.json + bump next_id + commit + push) so concurrent sessions cannot collide.",
-  "next_id": "0123",
-  "last_claimed": "S-0122",
-  "current_status": "closed",
+  "next_id": "0124",
+  "last_claimed": "S-0123",
+  "current_status": "in_progress",
   "health_check_cadence": 20,
   "health_check_cadence_history": [
     {
@@ -22,14 +22,14 @@
       "cadence": 20,
       "from_session": "S-0097",
       "to_session": null,
-      "reason": "S-0097 user direction: raise from 10 to 20 because routine sessions (per ADR 0051) consume slots in 8\u201312-session batches executing similar tasks against a single target, producing largely-converged telemetry across the batch \u2014 cadence-10 was sized when slot-count tracked roughly with telemetry-variety (mostly heterogeneous interactive build sessions). A 20-session window better captures \u22651 routine batch plus several interactive sessions, producing a more diverse audit-input pool. Raise or lower further if subsequent audits show drift accumulating between checks (lower) or audits consistently producing no actionable findings (raise further)."
+      "reason": "S-0097 user direction: raise from 10 to 20 because routine sessions (per ADR 0051) consume slots in 8–12-session batches executing similar tasks against a single target, producing largely-converged telemetry across the batch — cadence-10 was sized when slot-count tracked roughly with telemetry-variety (mostly heterogeneous interactive build sessions). A 20-session window better captures ≥1 routine batch plus several interactive sessions, producing a more diverse audit-input pool. Raise or lower further if subsequent audits show drift accumulating between checks (lower) or audits consistently producing no actionable findings (raise further)."
     }
   ],
   "last_audit_session": "S-0121",
   "last_audit_session_field_history": [
     {
       "field_added_at": "S-0041",
-      "reason": "Replaces strict-modulo cadence-trigger logic (next_id mod cadence == 0) with overdue-catchup tracking ((next_id - last_audit_session) >= cadence). The strict-modulo logic silently slid the trigger forward by a full cadence whenever a cadence-aligned slot was consumed by user-directed work \u2014 S-0040's slot was taken by the deferred MemPalace wing-filter fix, and the trigger sat dormant until S-0050 (a 19-session gap, nearly 2x the configured cadence). Bootstrap value 'S-0030' is the most recent completed audit at the time of authoring (see docs/health-checks/S-0030.md and docs/health-checks/S-0041.md). The session that runs an audit bumps this field at health_check.py emit time."
+      "reason": "Replaces strict-modulo cadence-trigger logic (next_id mod cadence == 0) with overdue-catchup tracking ((next_id - last_audit_session) >= cadence). The strict-modulo logic silently slid the trigger forward by a full cadence whenever a cadence-aligned slot was consumed by user-directed work — S-0040's slot was taken by the deferred MemPalace wing-filter fix, and the trigger sat dormant until S-0050 (a 19-session gap, nearly 2x the configured cadence). Bootstrap value 'S-0030' is the most recent completed audit at the time of authoring (see docs/health-checks/S-0030.md and docs/health-checks/S-0041.md). The session that runs an audit bumps this field at health_check.py emit time."
     }
   ],
   "wing_count_growth_thresholds": {
@@ -42,7 +42,7 @@
       "loud": 100,
       "from_session": "S-0088",
       "to_session": null,
-      "reason": "Bootstrap thresholds per Issue #46. Tier 1 (informational soft-warn) at 60 wings reflects the post-C2 cleanup target (paideia + sessions + wing_paideia + wing_claude + a handful of legitimate session-internals + 8 historical full-path wings remaining for C3 + buffer); Tier 2 (LOUD attention surface) at 100 wings flags accumulation that materially degrades search recall. Adjust only after a cleanup batch lands \u2014 do not raise to silence the surface (validator soft-warn body documents this rule)."
+      "reason": "Bootstrap thresholds per Issue #46. Tier 1 (informational soft-warn) at 60 wings reflects the post-C2 cleanup target (paideia + sessions + wing_paideia + wing_claude + a handful of legitimate session-internals + 8 historical full-path wings remaining for C3 + buffer); Tier 2 (LOUD attention surface) at 100 wings flags accumulation that materially degrades search recall. Adjust only after a cleanup batch lands — do not raise to silence the surface (validator soft-warn body documents this rule)."
     }
   ]
 }
