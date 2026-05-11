@@ -1,0 +1,130 @@
+-- Migration: 0062_seed_direction_flips_revert_part1
+-- Purpose: Revert ONE of the 15 direction flips applied by
+--   0062_seed_direction_flips_part1.sql — the CB-E-63 flip
+--   (proposition → propositional_attitude). The flip closed a
+--   pre-existing 4-node Kosaraju cycle in the
+--   pedagogical_prerequisite subgraph:
+--   intentionality → meaning → proposition → propositional_attitude
+--   → intentionality. The pre-existing edge propositional_attitude →
+--   intentionality (authored at 0040 mind seed under "Cross-cluster
+--   within-mind bridges") loops back to close the cycle once
+--   CB-E-63 is flipped to proposition → propositional_attitude.
+--
+--   The S-0122 production audit examined the mind subdomain and DID
+--   NOT flag propositional_attitude → intentionality, which signals
+--   the auditor accepted that edge's direction. Re-flipping
+--   propositional_attitude → intentionality alongside CB-E-63 to
+--   resolve the cycle would overrule an audit-accepted direction —
+--   substantive scope expansion beyond the audit's findings.
+--
+--   The user (S-0123 interactive adjudication) chose to revert
+--   CB-E-63 only, preserving the 14 other audit-mandated flips. This
+--   migration is that revert. CB-E-63 is filed as a deferred
+--   follow-up Issue for Phase 6 audit re-scope of the 4-node
+--   cluster (intentionality / meaning / proposition /
+--   propositional_attitude).
+--
+--   Implementation: UPDATE in place swapping source_id and target_id
+--   back to the original direction (proposition → propositional_attitude
+--   becomes propositional_attitude → proposition). Sets evidence to a
+--   short note about the cycle-deferral so the row's evidence column
+--   is non-NULL and traceable to S-0123 adjudication.
+-- Loads tables: public.edges (1 UPDATE; no INSERTs, no DELETEs, no DDL).
+-- Preconditions:
+--   * 0062_seed_direction_flips_part1.sql applied (the CB-E-63 flip
+--     landed; current DB state has the row in (proposition,
+--     propositional_attitude, 'pedagogical_prerequisite') form).
+--   * No row exists in public.edges with (propositional_attitude,
+--     proposition, 'pedagogical_prerequisite') — verified by the
+--     UNIQUE constraint plus the fact that CB-E-63's flip was the
+--     only operation that could have produced a row in that form;
+--     post-flip there is no row in the OLD direction.
+-- Postconditions:
+--   * 1 row in public.edges has (source_id='propositional_attitude',
+--     target_id='proposition', edge_type='pedagogical_prerequisite');
+--     evidence column populated with a S-0123 cycle-deferral note.
+--   * 0 rows in public.edges have (source_id='proposition',
+--     target_id='propositional_attitude',
+--     edge_type='pedagogical_prerequisite').
+--   * Total pedagogical_prerequisite edges: 519 (unchanged — UPDATE
+--     swaps direction, count unchanged).
+--   * Total historical_influence edges: 17 (unchanged from 0061).
+--   * Cycle prerequisite_cycle hard-fail in validate.py is cleared:
+--     the 4-node SCC intentionality/meaning/proposition/
+--     propositional_attitude no longer exists post-revert.
+-- Postcondition-Assertions:
+--   (Layer 2.5 per ADR 0055 / ADR 0039 amendment.)
+--   SELECT count(*)::int FROM public.edges WHERE edge_type = 'pedagogical_prerequisite' AND source_id = 'propositional_attitude' AND target_id = 'proposition' :: 1
+--   SELECT count(*)::int FROM public.edges WHERE edge_type = 'pedagogical_prerequisite' AND source_id = 'proposition' AND target_id = 'propositional_attitude' :: 0
+--   SELECT count(*)::int FROM public.edges WHERE edge_type = 'pedagogical_prerequisite' :: 519
+--   SELECT count(*)::int FROM public.edges WHERE edge_type = 'historical_influence' :: 17
+-- Invariants:
+--   * UNIQUE (source_id, target_id, edge_type) per 0003_edges.sql holds.
+--   * No new nodes inserted. No new edges inserted. No edges deleted.
+--   * Cycle detection: post-apply, validate.py's Kosaraju SCC check
+--     should report 0 prerequisite_cycle hard-fails (verified
+--     post-apply by re-running validate.py).
+-- Non-responsibilities:
+--   * Does not adjudicate the broader audit-direction question for
+--     the 4-node cluster — that is deferred to a follow-up Issue.
+--   * Does not modify edges outside CB-E-63.
+--   * Does not author new evidence on edges outside CB-E-63.
+-- Cross-cutting decisions:
+--   * Audit-finding deferral: CB-E-63's flip was an audit-mandated
+--     correction (S-0122 findings report §"Reversal cluster"). The
+--     deferral is filed as a GitHub Issue for Phase 6 audit re-scope.
+--     The deferral does NOT mean the audit's directional verdict
+--     was wrong — it means the cycle-resolution requires adjudicating
+--     more edges than the audit examined.
+--   * The 14 other flips from 0062 stand. They are graph-cycle-clean
+--     and reflect the audit's directional corrections.
+-- Source citations:
+--   * S-0122 audit findings:
+--     engine/build_readiness/phase_5_production_audit_findings.md
+--     §"Reversal cluster" (CB-E-63 row).
+--   * S-0123 user adjudication: AskUserQuestion response
+--     "Revert CB-E-63 only (Recommended)" — preserve audit-accepted
+--     edges and minimize scope expansion.
+--   * Pre-existing edge that closed the cycle:
+--     0040_seed_mind_part1.sql ("Cross-cluster within-mind bridges"
+--     — propositional_attitude → intentionality, graph_version=10).
+--   * GitHub Issue (filed in same session): CB-E-63 deferral with
+--     re-scope question for Phase 6 audit.
+-- Idempotency:
+--   * Not idempotent. Re-applying after the first apply would update
+--     0 rows (no row matches the WHERE clause once the revert has
+--     landed). The wrapper's exit-6 gate is the canonical re-fire
+--     defense.
+-- Rollback:
+--   BEGIN;
+--   UPDATE public.edges SET source_id='proposition', target_id='propositional_attitude', evidence='<original 0062 evidence>' WHERE source_id='propositional_attitude' AND target_id='proposition' AND edge_type='pedagogical_prerequisite';
+--   COMMIT;
+--   (Note: rolling back this revert would re-introduce the cycle.
+--   Rollback should only happen alongside a separate adjudication of
+--   the propositional_attitude → intentionality direction.)
+-- Dependencies:
+--   * Hard: 0040 (the pre-existing edge that closed the cycle), 0062
+--     (the migration whose CB-E-63 flip is being reverted here).
+-- Related:
+--   * engine/build_readiness/phase_5_production_audit_findings.md
+--     §"Reversal cluster" (CB-E-63 row);
+--   * engine/adr/0055-apply-migration-wrapping-against-production-reads-gate.md
+--     (apply via wrapper);
+--   * engine/operations/migration-discipline.md Layer 2.5;
+--   * GitHub Issue (filed in same session as this revert).
+
+BEGIN;
+
+-- Revert CB-E-63 to original (pre-0062-flip) direction. The audit's
+-- directional verdict (proposition is content-bearer, attitude is
+-- relation TO content) is correct in isolation but closes a cycle
+-- through pre-existing edges the audit accepted. Resolution deferred
+-- to Phase 6 audit re-scope per S-0123 user adjudication.
+UPDATE public.edges
+   SET source_id = 'propositional_attitude',
+       target_id = 'proposition',
+       evidence  = 'Per S-0123 cycle-deferral: 0062 flipped CB-E-63 from propositional_attitude > proposition to proposition > propositional_attitude per S-0122 audit verdict (propositions are content-bearers, attitudes are relations TO contents). The flipped direction closed a 4-node Kosaraju cycle through the pre-existing edge propositional_attitude > intentionality > meaning > proposition (audit-accepted). Direction reverted here pending Phase 6 audit re-scope of the 4-node cluster; tracked as a follow-up GitHub Issue.'
+ WHERE source_id = 'proposition' AND target_id = 'propositional_attitude'
+   AND edge_type = 'pedagogical_prerequisite';
+
+COMMIT;
