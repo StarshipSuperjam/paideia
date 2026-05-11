@@ -23,8 +23,15 @@ def _make_repo(
     declared_scope: object = None,
     scope_delivery: object = None,
     manifest_text: str | None = None,
+    mode: str | None = "routine",
 ) -> Path:
-    """Build a minimal synthetic repo under tmp_path and return it."""
+    """Build a minimal synthetic repo under tmp_path and return it.
+
+    Default mode is "routine" because that is the mode against which
+    declared_scope checks are gated post-S-0125 (S-0121 audit Retire-F).
+    Tests that exercise the interactive-session no-warn path pass
+    mode="build" or mode=None.
+    """
     sess_dir = tmp_path / "engine" / "session"
     sess_dir.mkdir(parents=True)
     payload: dict[str, object] = {
@@ -32,6 +39,8 @@ def _make_repo(
         "started_at": "2026-05-04T00:00:00Z",
         "status": "in_progress",
     }
+    if mode is not None:
+        payload["mode"] = mode
     if declared_scope is not None:
         payload["declared_scope"] = declared_scope
     if scope_delivery is not None:
@@ -215,3 +224,48 @@ def test_all_three_checks_register_in_run(
     assert "empty_declared_scope" in r.checks_run
     assert "phase_mismatch_declared_scope" in r.checks_run
     assert "scope_delivery_non_yes" in r.checks_run
+
+
+# --- S-0125: mode-gating for empty_declared_scope per Retire-F ---
+
+
+def test_missing_scope_in_build_mode_no_warn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Interactive build mode: missing declared_scope no longer fires."""
+    _make_repo(tmp_path, mode="build")  # No declared_scope.
+    monkeypatch.setattr(validate, "REPO_ROOT", tmp_path)
+    r = validate.validate_scope_discipline()
+    assert "empty_declared_scope" not in r.soft_warns
+
+
+def test_empty_scope_in_build_mode_no_warn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Interactive build mode: empty declared_scope no longer fires."""
+    _make_repo(tmp_path, declared_scope="", mode="build")
+    monkeypatch.setattr(validate, "REPO_ROOT", tmp_path)
+    r = validate.validate_scope_discipline()
+    assert "empty_declared_scope" not in r.soft_warns
+
+
+def test_missing_scope_with_no_mode_field_no_warn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Legacy current.json without a mode field — treated as non-routine."""
+    _make_repo(tmp_path, mode=None)
+    monkeypatch.setattr(validate, "REPO_ROOT", tmp_path)
+    r = validate.validate_scope_discipline()
+    assert "empty_declared_scope" not in r.soft_warns
+
+
+def test_missing_scope_in_routine_mode_still_fires(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Routine mode: missing declared_scope fires per ADR 0049."""
+    _make_repo(tmp_path, mode="routine")
+    monkeypatch.setattr(validate, "REPO_ROOT", tmp_path)
+    r = validate.validate_scope_discipline()
+    assert "empty_declared_scope" in r.soft_warns
+    body = r.soft_warns["empty_declared_scope"][0]
+    assert "routine-mode" in body

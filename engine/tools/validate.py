@@ -964,8 +964,13 @@ def validate_scope_discipline() -> ValidationResult:
     Three categories per ADR 0049:
 
     - ``empty_declared_scope`` — current.json missing the field or
-      holding an empty string. Skipped silently when current.json
-      itself is absent (exploration mode).
+      holding an empty string AND the session is running in routine
+      mode (``current.json.mode == "routine"``). Skipped silently when
+      current.json itself is absent (exploration mode) OR when the
+      session is non-routine (interactive build sessions don't require
+      declared_scope per ADR 0049 §Routine-mode scope-lock; the field
+      is a routine-mode contract surface). Gate added at S-0125 per
+      S-0121 audit Retire-F.
     - ``phase_mismatch_declared_scope`` — declared_scope contains a
       ``phase:`` token whose identifier doesn't appear in
       ``build_plan/MANIFEST.md``. The literal string starting with
@@ -997,13 +1002,16 @@ def validate_scope_discipline() -> ValidationResult:
         return r
 
     scope = data.get("declared_scope")
+    mode = data.get("mode")
     if not isinstance(scope, str) or not scope.strip():
-        r.soft_warn(
-            "empty_declared_scope",
-            "current.json has no declared_scope field; per ADR 0049 the "
-            "eager-claim ritual must write this field as a 1-3 sentence "
-            "statement of what the session commits to deliver.",
-        )
+        if mode == "routine":
+            r.soft_warn(
+                "empty_declared_scope",
+                "current.json has no declared_scope field; per ADR 0049 "
+                "the routine-mode eager-claim ritual must write this field "
+                "as a 1-3 sentence statement of what the session commits "
+                "to deliver.",
+            )
     else:
         phase_match = _PHASE_TOKEN_RE.search(scope)
         if phase_match:

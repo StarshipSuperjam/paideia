@@ -216,11 +216,11 @@ Recoverable per the choice the AI makes; the warn does not require resolution to
 
 ### `empty_declared_scope`
 
-A build session's `engine/session/current.json` is missing the `declared_scope` field or holds an empty string. Active from S-0042 onward per [ADR 0049](../adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md). The field is the boot-time scope declaration: a 1-3 sentence statement of what the session commits to deliver, optionally including a `phase: <id>` token tying the work to a `build_plan/MANIFEST.md` identifier (or `phase: NA-...` for operational sessions).
+A **routine-mode** session's `engine/session/current.json` is missing the `declared_scope` field or holds an empty string. Active from S-0042 onward per [ADR 0049](../adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md); **mode-gated to routine sessions** at S-0125 per S-0121 audit Retire-F. The field is the routine-mode boot-time scope declaration: a 1-3 sentence statement of what the session commits to deliver, optionally including a `phase: <id>` token tying the work to a `build_plan/MANIFEST.md` identifier (or `phase: NA-...` for operational sessions).
 
-The eager-claim ritual in [`session-build-lifecycle.md`](session-build-lifecycle.md) writes this field at slot-claim time. The soft-warn fires every commit until the field is populated.
+The routine-mode eager-claim ritual writes this field at slot-claim time. The soft-warn fires every commit until the field is populated when the session is routine-mode.
 
-Recoverable — open `engine/session/current.json`, add the `declared_scope` field with prose naming the session's deliverable. Skipped silently when `current.json` is absent (exploration mode).
+Recoverable — open `engine/session/current.json`, add the `declared_scope` field with prose naming the session's deliverable. Skipped silently when `current.json` is absent (exploration mode) OR when the session declares any non-routine mode (interactive build sessions don't carry `declared_scope`; the field is a routine-mode contract surface per ADR 0049 §Routine-mode scope-lock).
 
 ### `phase_mismatch_declared_scope`
 
