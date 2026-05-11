@@ -25,7 +25,7 @@ The `Status:` field is required; `engine/tools/validate.py` soft-warns on ADR fi
 
 ## Index
 
-The product collection has **35 ADRs total — 33 Accepted plus 2 Superseded** ([ADR 0002](0002-commercial-sustainability-without-pedagogical-compromise.md) by [ADR 0032](0032-personal-project-disposition.md); [ADR 0032](0032-personal-project-disposition.md) by [ADR 0035](0035-multi-platform-apple-expansion.md)). The canonical project-wide ADR count lives in [`engine/STATE.md`](../../engine/STATE.md); the engine subtree carries the engine-side ADRs in [`engine/adr/`](../../engine/adr/). ADR numbers are drawn from a single shared sequence and do not duplicate across the partition. ADRs are grouped below by the structural role they play in the project.
+The product collection has **36 ADRs total — 32 Accepted plus 4 Superseded** ([ADR 0002](0002-commercial-sustainability-without-pedagogical-compromise.md) by [ADR 0032](0032-personal-project-disposition.md); [ADR 0029](0029-personal-financial-cost-ceiling.md) by [ADR 0065](0065-oss-pivot-and-byok-disposition.md); [ADR 0032](0032-personal-project-disposition.md) by [ADR 0035](0035-multi-platform-apple-expansion.md); [ADR 0035](0035-multi-platform-apple-expansion.md) by [ADR 0065](0065-oss-pivot-and-byok-disposition.md)). The canonical project-wide ADR count lives in [`engine/STATE.md`](../../engine/STATE.md); the engine subtree carries the engine-side ADRs in [`engine/adr/`](../../engine/adr/). ADR numbers are drawn from a single shared sequence and do not duplicate across the partition. ADRs are grouped below by the structural role they play in the project.
 
 ### Strong working commitments (ADRs 0001–0012)
 
@@ -69,7 +69,7 @@ The product collection has **35 ADRs total — 33 Accepted plus 2 Superseded** (
 | [0026](0026-persistent-learner-storage-structural-not-substantive.md) | Persistent learner storage is structural, not substantive | Accepted |
 | [0027](0027-rendering-policy-prompt-layer-contract.md) | Rendering policy is the prompt-layer contract | Accepted |
 | [0028](0028-input-side-scope-structural-not-prompt.md) | Input-side scope is structural, not prompt-policed | Accepted |
-| [0029](0029-personal-financial-cost-ceiling.md) | Personal financial cost ceiling is an operating constraint | Accepted |
+| [0029](0029-personal-financial-cost-ceiling.md) | Personal financial cost ceiling is an operating constraint | Superseded by [ADR 0065](0065-oss-pivot-and-byok-disposition.md) |
 | [0030](0030-confidence-level-evidentiary-mode-on-nodes.md) | `confidence_level` is the evidentiary-mode axis on nodes | Accepted |
 | [0031](0031-erasure-mechanism-and-individual-only-regime.md) | Erasure mechanism (hard-delete with cascade); individual-only data regime | Accepted |
 | [0032](0032-personal-project-disposition.md) | Personal project disposition; refusal-not-deferral commercial closure (supersedes ADR 0002) | Superseded by [ADR 0035](0035-multi-platform-apple-expansion.md) |
@@ -80,7 +80,7 @@ The product collection has **35 ADRs total — 33 Accepted plus 2 Superseded** (
 |---|---|---|
 | [0033](0033-mission-realignment-structured-guidance-for-self-learners.md) | Mission realignment: structured guidance for self-learners; globe / reward visual-system obsolescence | Accepted |
 | [0034](0034-discovery-planning-engagement-triad.md) | Discovery / Planning / Engagement triad as primary product structure | Accepted |
-| [0035](0035-multi-platform-apple-expansion.md) | Multi-platform Apple expansion; iPhone + iPad first-class via SwiftUI, Mac via Designed-for-iPad (supersedes ADR 0032) | Accepted |
+| [0035](0035-multi-platform-apple-expansion.md) | Multi-platform Apple expansion; iPhone + iPad first-class via SwiftUI, Mac via Designed-for-iPad (supersedes ADR 0032) | Superseded by [ADR 0065](0065-oss-pivot-and-byok-disposition.md) |
 
 > [ADR 0036](../../engine/adr/0036-expression-contract-for-inward-documents.md) (expression contract for inward-facing documentation) and [ADR 0037](../../engine/adr/0037-engine-product-wall-and-changelog-rename.md) (engine/product wall) sit in this numerical range but file under `engine/adr/` because they govern engine-internal practice.
 
@@ -107,6 +107,14 @@ The product collection has **35 ADRs total — 33 Accepted plus 2 Superseded** (
 | [0061](0061-historical-influence-retyping-for-history-terminator-bridges.md) | Retype history-terminator cross-bridges from pedagogical_prerequisite to historical_influence | Accepted |
 
 > ADRs 0053–0060 sit in the numerical range between Phase 5 and the production-audit closeout but file under `engine/adr/` (mechanism-first-exercise gate, lifecycle-push wrapping, apply-migration wrapping, MemPalace mechanical adoption checks, adversarial-stance audit posture, canonical-timestamp helper, audit-time fetcher, routine-wedge detect-and-pause); see [`engine/adr/README.md`](../../engine/adr/README.md) for the engine collection.
+
+### OSS pivot (ADR 0065, product-side; supersedes ADRs 0029 + 0035)
+
+| ADR | Title | Status |
+|---|---|---|
+| [0065](0065-oss-pivot-and-byok-disposition.md) | OSS pivot and BYOK disposition; open-source under Apache 2.0, users bring their own Anthropic key (supersedes ADRs 0029 + 0035) | Accepted |
+
+> ADRs 0062–0064 sit in the numerical range between the production-audit closeout and the OSS pivot but file under `engine/adr/` (retire-ADR-inline-amendments + governed-doc soft-warns; validator tiered runtime targets; uv lockfile + reproducible builds); see [`engine/adr/README.md`](../../engine/adr/README.md) for the engine collection.
 
 ## Adding a new product ADR
 

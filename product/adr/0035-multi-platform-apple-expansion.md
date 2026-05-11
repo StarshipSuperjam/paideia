@@ -1,9 +1,11 @@
 # ADR 0035 — Multi-platform Apple expansion; iPhone + iPad first-class via SwiftUI, Mac via Designed-for-iPad
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR 0065](0065-oss-pivot-and-byok-disposition.md)
 - **Supersedes:** [ADR 0032](0032-personal-project-disposition.md)
 - **Date:** 2026-04-30
-- **Deciders:** S-0015 (third session of Phase 1.5; lands the platform-scope supersession that [ADR 0033](0033-mission-realignment-structured-guidance-for-self-learners.md) named in its Consequences and that the editorial / typographic / library-shaped product structure following from [ADR 0034](0034-discovery-planning-engagement-triad.md)'s triad makes natural)
+- **Deciders:** S-0015 (third session of Phase 1.5; lands the platform-scope supersession that [ADR 0033](0033-mission-realignment-structured-guidance-for-self-learners.md) named in its Consequences and that the editorial / typographic / library-shaped product structure following from [ADR 0034](0034-discovery-planning-engagement-triad.md)'s triad makes natural); superseded in S-0128
+
+> **Superseded 2026-05-11 (S-0128).** [ADR 0065](0065-oss-pivot-and-byok-disposition.md) revises this ADR's disposition for the OSS pivot plus BYOK shift. Commitments 1 and 6 preserve verbatim (Apple platforms via App Store + iPhone / iPad first-class via SwiftUI + Mac via Designed-for-iPad; static polish + minimum-shape maintenance). Commitments 2 and 4 invert: free download with a one-time IAP unlock replaces the cost-priced subscription (commitment 2); consumer BYOK is the required regime (commitment 4) — institutional BYOK, institutional licensing, grants, and acquisition remain foreclosed unchanged. Commitments 3 and 5 retire: the builder no longer eats API costs (users pay Anthropic directly through their own accounts); the cost-ceiling mechanism per [ADR 0029](0029-personal-financial-cost-ceiling.md) (also superseded in S-0128) is structurally absent under BYOK. Two new commitments: source open under Apache 2.0 with attribution to "The Paideia Project Contributors" (commitment 7); the user's API key lives only on-device in iOS Keychain, the server never sees the key or proxies the API exchange (commitment 8). The corruption-vector test from [ADR 0032](0032-personal-project-disposition.md) — preserved through this ADR — continues to bind: the OSS+BYOK shift removes the cost-recovery surface entirely, re-shaping the funnel-mechanic threat from *builder*-mechanic to *user*-mechanic without weakening the discipline against it. The institutional-foreclosure half of commitment 4 is explicitly preserved. The historical reasoning below preserves per the ADR README's supersession discipline (one-directional pointer; old file not deleted).
 
 ## Context
 

@@ -203,9 +203,19 @@ When the volume of "things to watch for in future evidence that aren't actionabl
 ---
 
 ## OQ-BYOK-REGIME: Institutional vs. consumer bring-your-own-key
-**Added: 2026-04-29 (S-0008) | Withdrawn by [ADR 0032](../adr/0032-personal-project-disposition.md) — 2026-04-30 (S-0012)**
+**Added: 2026-04-29 (S-0008) | Originally withdrawn: 2026-04-30 (S-0012) | Reopened and re-resolved: 2026-05-11 (S-0128)**
 
-Withdrawn by foreclosure. [ADR 0032](../adr/0032-personal-project-disposition.md) commitment 4: no bring-your-own-key, neither consumer nor institutional. Both candidates are excluded under the personal-project disposition:
+**Reopened and re-resolved 2026-05-11 (S-0128).** [ADR 0065](../adr/0065-oss-pivot-and-byok-disposition.md) adopts consumer BYOK as the required regime under the OSS-pivot disposition; institutional BYOK remains foreclosed.
+
+The S-0012 closure reasoning that excluded consumer BYOK (it self-selects technically sophisticated users away from the freshman audience per [ADR 0012](../adr/0012-freshman-defaults-autodidact-ceiling.md)) is mitigated by the in-app onboarding flow committed in [ADR 0065](../adr/0065-oss-pivot-and-byok-disposition.md) commitment 4: a freshman-defaults-calibrated, step-by-step walkthrough of Anthropic account creation, console navigation, key generation, and key entry, with a round-trip test against `/v1/messages` before onboarding completes. The technical-self-selection concern shifts from a structural failure mode to a UX problem with known solutions; multiple BYOK App Store apps have shipped to non-technical user bases successfully. The cost-recovery argument that closed consumer BYOK under the prior disposition (the subscription model recovers marginal API cost from the user's subscription, not from the user's own Anthropic account) is no longer load-bearing under BYOK — there is no marginal API cost for Paideia to recover because the user pays Anthropic directly.
+
+**Institutional BYOK closure carries forward unchanged.** The no-institutional-regime commitment from [ADR 0032](../adr/0032-personal-project-disposition.md) (preserved through [ADR 0035](../adr/0035-multi-platform-apple-expansion.md)) is preserved in [ADR 0065](../adr/0065-oss-pivot-and-byok-disposition.md) commitment 4. The cost-flow attraction that originally made institutional BYOK attractive (institution → Anthropic, sidestepping the builder-exposure problem) is moot — the builder-exposure problem itself is gone under BYOK.
+
+The historical closure reasoning below preserves as informative context. The closure-then-reopening sequence demonstrates that a foreclosed option can be re-opened when the operating context that motivated the closure substantively changes, *not* via silent re-litigation but via explicit supersession with named reasoning for what changed.
+
+### Historical closure reasoning (preserved from S-0012)
+
+Withdrawn by foreclosure. [ADR 0032](../adr/0032-personal-project-disposition.md) commitment 4: no bring-your-own-key, neither consumer nor institutional. Both candidates were excluded under the personal-project disposition:
 
 - **(a) Institutional BYOK** — excluded by the no-institutional-regime commitment ([ADR 0032](../adr/0032-personal-project-disposition.md) commitments 3 and 4). The cost-flow attraction (institution → Anthropic, sidestepping the builder-exposure problem) is moot when the project no longer pursues institutional partners.
 - **(b) Consumer BYOK** — excluded because it self-selects technically sophisticated users away from the freshman audience the system is calibrated for per [ADR 0012](../adr/0012-freshman-defaults-autodidact-ceiling.md), and because the cost-priced subscription model ([ADR 0032](../adr/0032-personal-project-disposition.md) commitment 2) recovers the marginal API cost from the user's subscription, not from the user's own Anthropic account.
@@ -215,11 +225,17 @@ If a future session reopens BYOK (institutional or consumer), the supersession d
 ---
 
 ## OQ-WALL-BEHAVIOR: Soft-wall degradation ladder at cost cap
-**Added: 2026-04-29 (S-0008) | Status: Open | Decide before: Phase 8 (cost-cap mechanism wiring) per ADR 0029**
+**Added: 2026-04-29 (S-0008) | Resolved by [ADR 0065](../adr/0065-oss-pivot-and-byok-disposition.md) — 2026-05-11 (S-0128)**
 
-[ADR 0029](../adr/0029-personal-financial-cost-ceiling.md) commits the principle that walls degrade rather than terminate (the atomic unit of teaching is the concept engagement per [`session-lifecycle.md`](session-lifecycle.md), which spans hours or days; a wall that fires mid-engagement violates that integrity). What it does not settle is the **specific degradation ladder** — what changes at each step of approach to the cap, in what order.
+Resolved by supersession. [ADR 0065](../adr/0065-oss-pivot-and-byok-disposition.md) supersedes [ADR 0029](../adr/0029-personal-financial-cost-ceiling.md) — the cost-ceiling mechanism this OQ was deciding the degradation-ladder for is structurally absent under the OSS+BYOK disposition (no Paideia-controlled API account; no per-user cap; no aggregate cap; no Paideia-side spend telemetry).
 
-The ladder is single-tier: one cost-priced subscription cohort, one cap (the per-user spend ceiling within the fixed annual operating subsidy budget). The ladder is a sequence of degradations within that single subscription cohort.
+The four candidate degradation steps (model downshift, retrieval shrink, concept-engagement length cap, soft refusal with explanation) lose their cost-cap framing entirely. **The pedagogical-integrity principle the OQ was protecting — the atomic unit of teaching per [`session-lifecycle.md`](session-lifecycle.md) is the concept engagement; termination mid-engagement violates that integrity — survives as a teaching discipline absorbed into [ADR 0014](../adr/0014-sonnet-teaches-opus-reviews.md)'s Sonnet-teaches-Opus-reviews role split.** A teaching layer that downshifts (deeper retrieval window → shallower; two-hop neighborhood → one-hop) when an engagement runs long is doing pedagogical work (preserving engagement integrity under context-amplification pressure), not cost protection. Users handle their own API spend via their own Anthropic billing console.
+
+### Historical open-question content (preserved from S-0008)
+
+[ADR 0029](../adr/0029-personal-financial-cost-ceiling.md) committed the principle that walls degrade rather than terminate. What it did not settle was the **specific degradation ladder** — what changes at each step of approach to the cap, in what order.
+
+The ladder was single-tier: one cost-priced subscription cohort, one cap (the per-user spend ceiling within the fixed annual operating subsidy budget). The ladder was a sequence of degradations within that single subscription cohort.
 
 Candidate steps to compose into the ladder:
 
@@ -228,11 +244,9 @@ Candidate steps to compose into the ladder:
 - **Concept-engagement length cap** — upper-bound on per-engagement turn count or total token cost; on hit, agent surfaces a "we've spent some real time on this; let's pause and pick up next session" pattern that respects engagement integrity.
 - **Soft refusal with explanation** — final fallback; agent acknowledges the cap, explains the situation, points at the exit affordance per [ADR 0028](../adr/0028-input-side-scope-structural-not-prompt.md). Explicit, never silent.
 
-Cross-domain bridges are bounded by the per-user spend ceiling, not by a separate bridge-count threshold.
+Cross-domain bridges were bounded by the per-user spend ceiling, not by a separate bridge-count threshold.
 
-The open questions: (1) what's the order of the four candidate steps above? (2) at what fraction of cap does each step trigger? (3) is the ladder per-user, per-aggregate-system, or both? (4) how is the user notified, if at all, between steps? Notification is itself a design decision — silent degradation respects the [ADR 0027](../adr/0027-rendering-policy-prompt-layer-contract.md) "no machinery narration" discipline but may surprise the user; explicit degradation creates a moment of friction that may be the right honesty trade.
-
-Decide-before Phase 8 cost-cap wiring. Decision lands as an ADR (with operational parameters held in private configuration, per [ADR 0029](../adr/0029-personal-financial-cost-ceiling.md)'s pattern).
+The open questions (now moot under BYOK) were: (1) what's the order of the four candidate steps above? (2) at what fraction of cap does each step trigger? (3) is the ladder per-user, per-aggregate-system, or both? (4) how is the user notified, if at all, between steps?
 
 ---
 

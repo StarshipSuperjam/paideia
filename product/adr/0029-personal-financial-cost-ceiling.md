@@ -1,8 +1,10 @@
 # ADR 0029 — Personal financial cost ceiling is an operating constraint
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR 0065](0065-oss-pivot-and-byok-disposition.md)
 - **Date:** 2026-04-29
-- **Deciders:** S-0008 (exploration carried into the build session — operating-discipline commitment surfaced during BYOK assessment)
+- **Deciders:** S-0008 (exploration carried into the build session — operating-discipline commitment surfaced during BYOK assessment); superseded in S-0128
+
+> **Superseded 2026-05-11 (S-0128).** [ADR 0065](0065-oss-pivot-and-byok-disposition.md) retires the cost-ceiling mechanism this ADR committed (per-user spend ceiling, aggregate-system spend ceiling, real-time spend telemetry, soft-walls-degrade-don't-terminate). Under the OSS+BYOK disposition the apparatus does not exist: there is no Paideia-controlled API account against which a per-user cap could be enforced, no aggregated Paideia spend to telemetry, no soft-wall-at-cap behavior to wire because there is no Paideia-side cap. The user's own Anthropic billing console is the spend-cap surface, but it is not a Paideia mechanism — it is the third-party billing relationship between the user and Anthropic. **This is a mechanism-changes supersession** in deliberate contrast to the S-0012 inline-amendment-not-supersession that retracted this ADR's bridge-to-grants framing (the *Grant timeline interacts with this commitment* consequence bullet replaced with the fixed-annual-operating-subsidy-budget framing per [ADR 0032](0032-personal-project-disposition.md)). At S-0012 the mechanism survived intact and only the justification structure changed; the supersession discipline does not warrant that case (per the S-0012 decision drawer's explicit reasoning, preserved in MemPalace). Under BYOK the mechanism is structurally absent, which is the supersession trigger. The pedagogical principle the cost ceiling protected — degrade rather than terminate mid-concept-engagement — survives as a teaching discipline absorbed into [ADR 0014](0014-sonnet-teaches-opus-reviews.md)'s Sonnet-teaches-Opus-reviews role split. OQ-WALL-BEHAVIOR closes in the same session ([`product/docs/tensions.md`](../docs/tensions.md)). The historical reasoning below — including the S-0012 inline amendment to the *Grant timeline interacts with this commitment* consequence bullet — preserves per the ADR README's supersession discipline (one-directional pointer; old file not deleted).
 
 ## Context
 
