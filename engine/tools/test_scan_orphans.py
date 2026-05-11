@@ -19,13 +19,38 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from scan_orphans import (  # noqa: E402
     OrphanCandidate,
+    _build_boot_surface_reachable_set,
     _detect_session_id,
     _table_emptiness,
+    axis_ops_doc_uncited,
     axis_register_emptiness,
     main,
     render_json,
     render_markdown,
 )
+
+
+def _init_git(tmp_path: Path) -> None:
+    """Initialize a synthetic tmp_path repo with one commit so git-aware
+    helpers (count_inbound_references, last_substantive_change) work.
+    """
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@t",
+            "commit",
+            "-q",
+            "-m",
+            "init",
+        ],
+        cwd=tmp_path,
+        check=True,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -303,3 +328,171 @@ def test_main_axis_filter_runs_only_named_axis(
     assert rc == 0
     out = capsys.readouterr().out
     assert json.loads(out) == []
+
+
+# ---------------------------------------------------------------------------
+# axis_ops_doc_uncited — refined predicate (S-0126, Issue #89)
+#
+# The refined axis flags an ops doc when BOTH predicates fire:
+#   (1) fewer than 5 unique inbound file references, AND
+#   (2) unreachable from the boot-surface link graph rooted at
+#       CLAUDE.md + engine/STATE.md (treating operations/README.md as a
+#       visit-but-don't-traverse leaf).
+# ---------------------------------------------------------------------------
+
+
+def _seed_minimal_repo_with_ops_doc(
+    tmp_path: Path,
+    *,
+    ops_doc_name: str,
+    inbound_refs_from_files: list[tuple[str, str]],
+    boot_link_to_ops_doc: bool,
+    extra_files: list[tuple[str, str]] | None = None,
+) -> Path:
+    """Create a tmp_path repo with a single ops doc + optional inbound refs.
+
+    Parameters
+    ----------
+    ops_doc_name:
+        Filename (no path) of the ops doc to create under engine/operations/.
+    inbound_refs_from_files:
+        List of (relative_path, content) for additional files that may mention
+        the ops doc's basename. The basename mention counts as an inbound ref.
+    boot_link_to_ops_doc:
+        If True, engine/STATE.md links directly to the ops doc via a markdown
+        link, making the doc reachable from the boot surface.
+    extra_files:
+        Extra files to create (path, content) with no implicit refs.
+
+    Returns the path of the created ops doc.
+    """
+    ops_dir = tmp_path / "engine" / "operations"
+    ops_dir.mkdir(parents=True)
+    ops_doc_path = ops_dir / ops_doc_name
+    ops_doc_path.write_text(f"# {ops_doc_name}\n\nBody.\n")
+
+    # operations/README.md is the ops-doc index — present so the BFS
+    # encounters it as a leaf (visited but not traversed).
+    (ops_dir / "README.md").write_text(
+        f"# Operations index\n\n- [{ops_doc_name}]({ops_doc_name})\n"
+    )
+
+    # Boot-surface seeds. STATE.md is at engine/STATE.md, so its relative
+    # link to an ops doc is operations/<name>.md (not engine/operations/).
+    state_link = (
+        f"\n\nSee [{ops_doc_name}](operations/{ops_doc_name})."
+        if boot_link_to_ops_doc
+        else ""
+    )
+    (tmp_path / "engine" / "STATE.md").parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "engine" / "STATE.md").write_text(
+        f"# Project State\n\nBoot pointer.{state_link}\n"
+    )
+    (tmp_path / "CLAUDE.md").write_text(
+        "# CLAUDE.md\n\nAI orientation. Links: "
+        "[ops-index](engine/operations/README.md).\n"
+    )
+
+    # Inbound-ref files.
+    for rel, content in inbound_refs_from_files:
+        full = tmp_path / rel
+        full.parent.mkdir(parents=True, exist_ok=True)
+        full.write_text(content)
+
+    for rel, content in extra_files or []:
+        full = tmp_path / rel
+        full.parent.mkdir(parents=True, exist_ok=True)
+        full.write_text(content)
+
+    _init_git(tmp_path)
+    return ops_doc_path
+
+
+def test_axis_ops_doc_uncited_flags_truly_orphan_doc(tmp_path: Path) -> None:
+    """An ops doc with 0 inbound refs AND no boot-surface link is flagged."""
+    _seed_minimal_repo_with_ops_doc(
+        tmp_path,
+        ops_doc_name="orphan-doc.md",
+        inbound_refs_from_files=[],
+        boot_link_to_ops_doc=False,
+    )
+    candidates = axis_ops_doc_uncited(tmp_path)
+    flagged = {c.path for c in candidates}
+    assert "engine/operations/orphan-doc.md" in flagged
+
+
+def test_axis_ops_doc_uncited_skips_boot_reachable_doc(tmp_path: Path) -> None:
+    """An ops doc reachable from STATE.md is NOT flagged, even with 0 refs."""
+    _seed_minimal_repo_with_ops_doc(
+        tmp_path,
+        ops_doc_name="boot-reachable.md",
+        inbound_refs_from_files=[],
+        boot_link_to_ops_doc=True,
+    )
+    candidates = axis_ops_doc_uncited(tmp_path)
+    flagged = {c.path for c in candidates}
+    assert "engine/operations/boot-reachable.md" not in flagged
+
+
+def test_axis_ops_doc_uncited_skips_high_reference_doc(tmp_path: Path) -> None:
+    """An ops doc with >= 5 unique inbound refs is NOT flagged, even when
+    unreachable from boot.
+    """
+    refs = [(f"refs/file{i}.md", "Mentions: boot-irreachable.md\n") for i in range(6)]
+    _seed_minimal_repo_with_ops_doc(
+        tmp_path,
+        ops_doc_name="boot-irreachable.md",
+        inbound_refs_from_files=refs,
+        boot_link_to_ops_doc=False,
+    )
+    candidates = axis_ops_doc_uncited(tmp_path)
+    flagged = {c.path for c in candidates}
+    assert "engine/operations/boot-irreachable.md" not in flagged
+
+
+def test_axis_ops_doc_uncited_readme_not_traversed_as_path(tmp_path: Path) -> None:
+    """operations/README.md indexing a doc must NOT alone make it reachable
+    from the boot surface. The BFS visits README.md as a leaf so README's
+    outbound links are not followed for reachability purposes.
+    """
+    # Only README.md mentions the ops doc; no boot link, no other refs.
+    _seed_minimal_repo_with_ops_doc(
+        tmp_path,
+        ops_doc_name="readme-only.md",
+        inbound_refs_from_files=[],
+        boot_link_to_ops_doc=False,
+    )
+    candidates = axis_ops_doc_uncited(tmp_path)
+    flagged = {c.path for c in candidates}
+    # README.md mentions readme-only.md (as an index entry) but BFS does NOT
+    # traverse README.md, AND count_inbound_references discounts the
+    # operations/README.md mention. So readme-only.md has 0 refs and is
+    # unreachable → flagged.
+    assert "engine/operations/readme-only.md" in flagged
+
+
+def test_build_boot_surface_reachable_set_treats_readme_as_leaf(
+    tmp_path: Path,
+) -> None:
+    """README.md is reached from CLAUDE.md, but its outbound links are NOT
+    traversed. A doc only linked from README.md is NOT in the reachable set.
+    """
+    ops_dir = tmp_path / "engine" / "operations"
+    ops_dir.mkdir(parents=True)
+    (ops_dir / "indexed-only.md").write_text("# indexed\n")
+    (ops_dir / "README.md").write_text("# Index\n\n- [indexed](indexed-only.md)\n")
+    (tmp_path / "engine" / "STATE.md").write_text("# State\n[no ops links]\n")
+    (tmp_path / "CLAUDE.md").write_text(
+        "# CLAUDE\n[ops-index](engine/operations/README.md)\n"
+    )
+
+    reachable = _build_boot_surface_reachable_set(tmp_path)
+
+    # CLAUDE.md and STATE.md are seeds → in set.
+    assert (tmp_path / "CLAUDE.md").resolve() in reachable
+    assert (tmp_path / "engine" / "STATE.md").resolve() in reachable
+    # README.md is visited as a leaf → in set.
+    assert (ops_dir / "README.md").resolve() in reachable
+    # But the doc indexed by README.md is NOT reached, because the BFS does
+    # not traverse README.md's outbound links.
+    assert (ops_dir / "indexed-only.md").resolve() not in reachable

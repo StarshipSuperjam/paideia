@@ -32,11 +32,15 @@ candidate against the operative diagnostic question.
    Issue #29 — the function migrated to GitHub Issues with the
    ``enhancement`` label per ADR 0048).
 
-4. **Ops-doc-uncited.** For each engine/operations/*.md, count
-   citations across recent session archives (last 20). Files cited
-   only by the operations/README.md index (or not at all in archives)
-   are candidates. Catches docs that exist but no session has ever
-   cited following.
+4. **Ops-doc-uncited.** For each engine/operations/*.md, flag the doc
+   if it has fewer than ``OPS_DOC_UNCITED_REF_THRESHOLD`` (default 5)
+   unique inbound file references AND it is unreachable from the
+   boot-surface link graph (BFS from CLAUDE.md + engine/STATE.md,
+   treating operations/README.md as a visit-but-don't-traverse leaf).
+   Refined at S-0126 per Issue #89 / ADR 0062 from the prior
+   archive-text-substring predicate, which had a high false-positive
+   rate against foundational ops docs consumed by behavior but rarely
+   cited verbatim in outcome_summary prose.
 
 5. **Stale-pending-marker.** Files carrying pending decision markers
    (e.g., "decide-trigger", "decide-before", "open decide-by") whose
@@ -410,41 +414,117 @@ def axis_register_emptiness(repo_root: Path) -> list[OrphanCandidate]:
     return candidates
 
 
+# Threshold for ops-doc-uncited axis: minimum unique inbound file references
+# (per count_inbound_references, which already discounts the operations/README.md
+# index entry). An ops doc with fewer than this many unique inbound references
+# AND unreachable from the boot-surface link graph is a candidate.
+OPS_DOC_UNCITED_REF_THRESHOLD = 5
+
+# Boot-surface seeds for axis 4. operations/README.md is intentionally NOT a
+# seed — README.md is the ops-doc index, so seeding from it would make every
+# ops doc trivially reachable, collapsing the axis. The BFS treats README.md as
+# a "visited but not traversed" leaf when reached transitively.
+_BOOT_SURFACE_SEEDS = (
+    Path("engine/STATE.md"),
+    Path("CLAUDE.md"),
+)
+_BOOT_SURFACE_LEAF_NAMES = ("README.md",)
+
+_MD_LINK_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
+
+
+def _build_boot_surface_reachable_set(repo_root: Path) -> set[Path]:
+    """BFS over markdown links starting from CLAUDE.md + engine/STATE.md.
+
+    README.md files are visited as leaves (added to the reachable set) but not
+    traversed into. This is because operations/README.md indexes every ops doc;
+    seeding or traversing into it would make every ops doc reachable, defeating
+    the axis. Docs are reachable iff some non-index doc links to them.
+
+    Returns a set of resolved (canonical) Paths.
+    """
+    reachable: set[Path] = set()
+    seeds: list[Path] = []
+    for seed in _BOOT_SURFACE_SEEDS:
+        seed_path = (repo_root / seed).resolve()
+        if seed_path.exists():
+            seeds.append(seed_path)
+    repo_root_resolved = repo_root.resolve()
+    queue: list[Path] = list(seeds)
+    while queue:
+        cur = queue.pop()
+        if cur in reachable:
+            continue
+        reachable.add(cur)
+        # Visit-but-don't-traverse for README.md leaves.
+        if cur.name in _BOOT_SURFACE_LEAF_NAMES:
+            continue
+        try:
+            text = cur.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        for m in _MD_LINK_RE.finditer(text):
+            target_raw = m.group(1).split("#", 1)[0].strip()
+            if not target_raw or target_raw.startswith(
+                ("http://", "https://", "mailto:")
+            ):
+                continue
+            try:
+                target_path = (cur.parent / target_raw).resolve()
+            except OSError:
+                continue
+            try:
+                target_path.relative_to(repo_root_resolved)
+            except ValueError:
+                continue
+            if (
+                target_path.exists()
+                and target_path.is_file()
+                and target_path.suffix == ".md"
+            ):
+                queue.append(target_path)
+    return reachable
+
+
 def axis_ops_doc_uncited(
     repo_root: Path, archives_to_check: int = 20
 ) -> list[OrphanCandidate]:
-    """Axis 4 — operations docs not cited by recent session archives."""
+    """Axis 4 — operations docs that are BOTH low-referenced AND
+    unreachable from the boot-surface link graph.
+
+    Refined at S-0126 per Issue #89 / ADR 0062's audit-driven scope.
+    The pre-S-0126 axis flagged ops docs whose basename did not appear in
+    the concatenated text of the last N session archives — high
+    false-positive rate against foundational ops docs that are consumed
+    by behavior (e.g. session-build-lifecycle.md is read at every boot by
+    the build SKILL) but rarely cited verbatim by name in outcome_summary
+    prose. The refined axis combines two independent predicates with AND
+    so a doc must fail BOTH signals before flagging.
+
+    The ``archives_to_check`` parameter is retained for backward
+    compatibility with the CLI but is unused by the refined predicate.
+    """
+    del archives_to_check  # retained for CLI compat; no longer consumed
     candidates: list[OrphanCandidate] = []
     ops_dir = repo_root / "engine" / "operations"
     if not ops_dir.is_dir():
         return candidates
-    archive_dir = repo_root / "engine" / "session" / "archive"
-    if not archive_dir.is_dir():
-        return candidates
 
-    archived = sorted(archive_dir.glob("S-[0-9][0-9][0-9][0-9].json"))
-    recent = (
-        archived[-archives_to_check:] if len(archived) > archives_to_check else archived
-    )
-    if not recent:
-        return candidates
+    reachable = _build_boot_surface_reachable_set(repo_root)
 
-    archive_text = ""
-    for arch in recent:
-        try:
-            archive_text += arch.read_text() + "\n"
-        except OSError:
-            continue
-
-    for ops_doc in ops_dir.glob("*.md"):
+    for ops_doc in sorted(ops_dir.glob("*.md")):
         if ops_doc.name == "README.md":
             continue
-        # Substring search of basename in archive corpus.
-        if ops_doc.name not in archive_text:
+        refs = count_inbound_references(repo_root, ops_doc)
+        is_reachable = ops_doc.resolve() in reachable
+        if refs < OPS_DOC_UNCITED_REF_THRESHOLD and not is_reachable:
             rel = str(ops_doc.relative_to(repo_root))
-            refs = count_inbound_references(repo_root, ops_doc)
             last_change = last_substantive_change(repo_root, ops_doc)
-            sig = f"not cited in any of the last {len(recent)} session archive(s)"
+            sig = (
+                f"{refs} unique inbound file reference(s) (threshold "
+                f"{OPS_DOC_UNCITED_REF_THRESHOLD}) AND unreachable from "
+                f"boot-surface link graph (CLAUDE.md / engine/STATE.md)"
+            )
             candidates.append(
                 OrphanCandidate(
                     path=rel,
