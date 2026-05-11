@@ -1,0 +1,38 @@
+{
+  "id": "S-0128",
+  "mode": "build",
+  "mode_explicit": "build",
+  "started_at": "2026-05-11T20:12:01Z",
+  "ended_at": "2026-05-11T20:26:30Z",
+  "status": "closed",
+  "working_on": "OSS pivot + BYOK disposition supersession ADR \u2014 supersedes ADRs 0029 (cost ceiling) and 0035 (multi-platform Apple). Reopens OQ-BYOK-REGIME, closes OQ-WALL-BEHAVIOR. Session A of three-session refactor; B (downstream doc rewrites) and C (PII cleanup + license + OSS hygiene + public flip) follow.",
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": false,
+    "explanation": "Delivered Session A of the three-session OSS+BYOK refactor per the approved plan. New product ADR 0065 (~250 lines) supersedes ADRs 0029 + 0035 with the eight-commitment OSS+BYOK disposition. ADR 0029 + ADR 0035 Status flipped with supersession banner blocks explaining the mechanism-vs-justification distinction (S-0128 mechanism-changes supersedes vs. S-0012 justification-changes inline-amends) and the commitment-by-commitment carry-forward / invert / retire / new shape. ADR 0032 deliberately NOT re-superseded \u2014 already Superseded by 0035; chain 0002 \u2192 0032 \u2192 0035 \u2192 0065 traversed via existing one-directional pointers. product/adr/README.md updated (count 35\u219237; supersession chain; status flips; new OSS-pivot section). product/docs/tensions.md: OQ-BYOK-REGIME reopened-and-re-resolved (consumer BYOK adopted via in-app onboarding flow; institutional foreclosed), OQ-WALL-BEHAVIOR closed (cost-cap framing retires; pedagogical-degradation absorbs into ADR 0014). Apple App Store compliance posture committed in advance (Guidelines 5.1.1 / 4.0 / 3.1.1 / 3.2.2). Milestone-bound repo-migration trigger recorded. MemPalace decision drawer filed (drawer_paideia_decisions_cb5585958acc4043495228dc) including the discipline-pair with the S-0012 ADR 0029 amendment drawer. STATE.md updated (Current phase row's ADR count corrected from 64 to 66 \u2014 the engine 28\u219229 part is a pre-existing off-by-one correction independent of S-0128's new ADR; Last build session row replaced; Next session work item replaced with Session B / Session C sequence). ENGINE_LOG `[Unreleased]` extended with S-0128 Added / Changed / Known-unfixed sections. Three commits: eager-claim, substantive ADR work, closeout. Out of scope per the approved plan: doc rewrites (Session B at S-0129); LICENSE replacement + PII cleanup + OSS hygiene + public flip (Session C at S-0130). Side discoveries (pre-existing, not in scope for OSS pivot Session A; flagged in ENGINE_LOG Known-unfixed for follow-up): duplicate ADR 0052 across the engine/product partition violating the shared-sequence discipline; cohort_id lingers in product/seed-graph/migrations/0005_learner_events.sql despite ADR 0032's S-0012 removal commitment."
+  },
+  "next_session_handle": "S-0129-OSS-BYOK-Session-B",
+  "outcome_summary": "Session A of three-session OSS+BYOK refactor. New product ADR 0065 supersedes ADRs 0029 + 0035 with eight-commitment OSS+BYOK disposition (Apache 2.0 + 'Paideia Project Contributors' attribution; on-device Keychain key + key-blind server via ADR 0026's transcript-non-persistence; free download + one-time IAP unlock with dollar amount deferred; cost-ceiling mechanism retires; institutional foreclosure preserved unchanged; in-app onboarding flow as the BYOK mitigation per Apple Guidelines 5.1.1 / 4.0 / 3.1.1 / 3.2.2). ADR 0032 NOT re-superseded (already Superseded by 0035; chain 0002\u21920032\u21920035\u21920065). tensions.md OQ-BYOK-REGIME reopened-and-re-resolved; OQ-WALL-BEHAVIOR closed. ADR README + STATE.md + ENGINE_LOG updated. MemPalace decision drawer drawer_paideia_decisions_cb5585958acc4043495228dc captures the mechanism-vs-justification discipline-pair with the S-0012 ADR 0029 amendment drawer. STATE.md engine-ADR count corrected (pre-existing off-by-one, 28\u219229; product 36\u219237; total 64\u219266). Side discoveries flagged in ENGINE_LOG `Known unfixed`: duplicate ADR 0052 across partition; cohort_id lingers despite S-0012 commitment. 3 commits (eager-claim, ADR work, closeout). 0 hard-fails; 382 soft-warns all persistent (issue_collision 21 / missing_rigor_score 360 / orphan_leaf 1) \u2014 no new categories.",
+  "outcome_summary_soft_warns": {
+    "issue_collision": 21,
+    "missing_rigor_score": 360,
+    "orphan_leaf": 1
+  },
+  "approved_plan": "~/.claude/plans/i-want-to-shift-hidden-hedgehog.md",
+  "branch": "claude/vibrant-antonelli-850599",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/vibrant-antonelli-850599",
+  "mempalace_activity": {
+    "search_calls": 2,
+    "diary_read_calls": 0,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 1,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 4,
+    "first_call_ts": "2026-05-11T20:11:41Z",
+    "last_call_ts": "2026-05-11T20:26:17Z"
+  }
+}
