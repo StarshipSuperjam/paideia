@@ -43,7 +43,9 @@ Invariants this module preserves:
   appended) and to stdout/stderr (the run's report).
 - Deterministic for a given working tree. Two runs against the same tree
   produce the same checks_run list, hard_fails, and soft_warns categories.
-  Telemetry rows differ in timestamp and duration_ms only.
+  Telemetry rows differ in timestamp and the three duration fields
+  (``duration_structural_ms`` / ``duration_graph_audit_ms`` /
+  ``duration_total_ms``) only.
 - Resilient to absent optional files. Files expected from later sessions
   (e.g., engine/operations/README.md before S-0002) are soft-warned, not
   hard-failed.
@@ -77,10 +79,19 @@ engine/tools/validate-history.jsonl:
       "checks_run": [...],
       "hard_fails": int,
       "soft_warns": {category: count, ...},
-      "duration_ms": float
+      "duration_structural_ms": float,
+      "duration_graph_audit_ms": float,
+      "duration_total_ms": float
     }
 
-Health checks per ADR 0022 consume this JSONL for trend analysis.
+The per-phase fields land at S-0126 per ADR 0063: structural-phase checks
+are in-process (no DB) and target < 500ms; the graph-audit phase consults
+the live DB per ADR 0016 and targets < 5s; total runtime targets < 6s. The
+``validator_runtime_phase_regression`` soft-warn fires when any phase
+exceeds 1.5x its tiered target across 3 consecutive runs. Pre-S-0126
+entries carry the prior ``duration_ms`` field instead; the regression
+check skips entries lacking the per-phase fields. Health checks per ADR
+0022 consume this JSONL for trend analysis.
 
 CLI invocation:
 
@@ -3467,6 +3478,110 @@ def validate_timestamp_helper_bypass() -> ValidationResult:
     return r
 
 
+# Per-phase runtime targets per ADR 0063 (S-0126).
+# Structural phase: in-process file/regex checks only, no DB consultation.
+# Graph audit phase: live-DB consultation per ADR 0016.
+# Total: sum of phases plus shutdown audits when --final-check is set.
+VALIDATOR_PHASE_TARGETS_MS: dict[str, float] = {
+    "duration_structural_ms": 500.0,
+    "duration_graph_audit_ms": 5000.0,
+    "duration_total_ms": 6000.0,
+}
+
+# Multiplier above the tiered target that must be sustained across this many
+# consecutive entries before the regression soft-warn fires. Conservative:
+# single-run noise won't trigger; only sustained breach will.
+_REGRESSION_BREACH_MULTIPLIER = 1.5
+_REGRESSION_RUN_WINDOW = 3
+
+
+def validate_runtime_phase_regression(
+    history_path: Path,
+    tentative_entry: dict[str, float] | None = None,
+) -> ValidationResult:
+    """Check the last ``_REGRESSION_RUN_WINDOW`` history entries for sustained
+    per-phase target breach; emit ``validator_runtime_phase_regression``
+    soft-warn for any phase that breaches in all of them.
+
+    Per ADR 0063 (S-0126; Issue #88). Reads
+    ``engine/tools/validate-history.jsonl``, filters to entries that carry
+    the three per-phase fields (skipping pre-S-0126 entries that only carry
+    the prior ``duration_ms``), and evaluates the rolling window against
+    ``VALIDATOR_PHASE_TARGETS_MS * _REGRESSION_BREACH_MULTIPLIER``.
+
+    When ``tentative_entry`` is provided, it represents the current run's
+    timings (not yet appended to the JSONL). The function reads the last
+    ``_REGRESSION_RUN_WINDOW - 1`` qualifying history entries and prepends
+    them to ``[tentative_entry]`` so the current run participates in the
+    window. This makes the soft-warn responsive (fires on the third
+    sustained-breach run, not the run after it).
+
+    Inputs:
+        history_path: Path to ``validate-history.jsonl``. Absent file is fine
+            — the check returns clean (insufficient data).
+        tentative_entry: Optional dict carrying ``duration_structural_ms`` /
+            ``duration_graph_audit_ms`` / ``duration_total_ms`` for the
+            current run. When None, the function evaluates the last
+            ``_REGRESSION_RUN_WINDOW`` qualifying entries from history alone.
+
+    Returns:
+        ValidationResult with up to three soft-warns (one per phase) when
+        all entries in the window breach the phase's threshold.
+    """
+    r = ValidationResult()
+    r.add_check("validator_runtime_phase_regression")
+
+    qualifying: list[dict[str, float]] = []
+    if history_path.is_file():
+        try:
+            text = history_path.read_text(encoding="utf-8")
+        except OSError:
+            text = ""
+        for line in text.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(entry, dict):
+                continue
+            if all(
+                isinstance(entry.get(phase), (int, float))
+                for phase in VALIDATOR_PHASE_TARGETS_MS
+            ):
+                qualifying.append(
+                    {phase: float(entry[phase]) for phase in VALIDATOR_PHASE_TARGETS_MS}
+                )
+
+    if tentative_entry is not None:
+        # Use the last (window - 1) qualifying entries + the tentative.
+        window_entries = qualifying[-(_REGRESSION_RUN_WINDOW - 1) :] + [tentative_entry]
+    else:
+        window_entries = qualifying[-_REGRESSION_RUN_WINDOW:]
+
+    if len(window_entries) < _REGRESSION_RUN_WINDOW:
+        return r
+
+    for phase, target in VALIDATOR_PHASE_TARGETS_MS.items():
+        threshold = target * _REGRESSION_BREACH_MULTIPLIER
+        if all(e[phase] > threshold for e in window_entries):
+            sorted_durations = sorted(e[phase] for e in window_entries)
+            median = sorted_durations[len(sorted_durations) // 2]
+            r.soft_warn(
+                "validator_runtime_phase_regression",
+                f"Validator phase `{phase}` exceeded "
+                f"{_REGRESSION_BREACH_MULTIPLIER}x target "
+                f"({threshold:.0f}ms) in last {_REGRESSION_RUN_WINDOW} runs; "
+                f"median {median:.1f}ms, target {target:.0f}ms. "
+                f"Investigate the phase's hot path or, with evidence the "
+                f"steady-state has shifted legitimately, adjust the target "
+                f"in VALIDATOR_PHASE_TARGETS_MS.",
+            )
+    return r
+
+
 def session_id_from_current() -> str:
     """Return the in-progress session id, or 'outside-session' if none.
 
@@ -3499,7 +3614,10 @@ def append_history(record: dict[str, Any]) -> None:
     Inputs:
         record: dict serializable to JSON. Caller is responsible for shape;
             health-check telemetry expects keys ``timestamp``, ``session_id``,
-            ``checks_run``, ``hard_fails``, ``soft_warns``, ``duration_ms``.
+            ``checks_run``, ``hard_fails``, ``soft_warns``,
+            ``duration_structural_ms``, ``duration_graph_audit_ms``,
+            ``duration_total_ms``. Pre-S-0126 entries carry the prior
+            ``duration_ms`` field instead.
 
     Side effect:
         Creates the parent directory if absent (mkdir parents=True). Appends
@@ -3632,6 +3750,8 @@ def main(argv: list[str] | None = None) -> int:
 
     start = time.monotonic()
     overall = ValidationResult()
+    duration_structural_ms: float = 0.0
+    duration_graph_audit_ms: float = 0.0
 
     if args.health_probe_only:
         overall.merge(validate_shared_state_health())
@@ -3642,18 +3762,50 @@ def main(argv: list[str] | None = None) -> int:
     elif args.export_snapshot is not None:
         overall.merge(validate_graph(export_snapshot=args.export_snapshot))
     else:
+        # Structural phase: in-process file/regex checks; no DB consultation.
         overall.merge(validate_repo_structure())
         overall.merge(validate_shared_state_health())
         overall.merge(validate_issue_collisions())
         overall.merge(validate_scope_discipline())
         overall.merge(validate_routine_mode())
         overall.merge(validate_timestamp_helper_bypass())
+        t_structural_end = time.monotonic()
+        duration_structural_ms = (t_structural_end - start) * 1000
+
+        # Graph-audit phase: live-DB consultation per ADR 0016.
         overall.merge(validate_graph())
+        t_graph_end = time.monotonic()
+        duration_graph_audit_ms = (t_graph_end - t_structural_end) * 1000
+
+        # Shutdown audits gated to --final-check; counted toward total but
+        # not separately reported (per-phase target only covers the two
+        # standing phases the audit at ADR 0063 names).
         if args.final_check:
             overall.merge(validate_mempalace_adoption())
             overall.merge(validate_outcome_summary_unhandled_defer())
 
-    duration_ms = (time.monotonic() - start) * 1000
+    duration_total_ms = (time.monotonic() - start) * 1000
+
+    # Per-phase regression check (default-mode only — gate flags + health-probe
+    # don't run the full pipeline, so their per-phase timings would be misleading
+    # if compared against the tiered targets at ADR 0063).
+    if (
+        not args.health_probe_only
+        and not args.code_gates
+        and not args.sql_gates
+        and args.export_snapshot is None
+    ):
+        tentative_entry = {
+            "duration_structural_ms": round(duration_structural_ms, 2),
+            "duration_graph_audit_ms": round(duration_graph_audit_ms, 2),
+            "duration_total_ms": round(duration_total_ms, 2),
+        }
+        overall.merge(
+            validate_runtime_phase_regression(
+                history_path=HISTORY_FILE,
+                tentative_entry=tentative_entry,
+            )
+        )
 
     # Print summary to stdout
     print(f"[validate] checks run: {len(overall.checks_run)}")
@@ -3673,14 +3825,24 @@ def main(argv: list[str] | None = None) -> int:
 
     # Telemetry — emit_micros() per ADR 0058 (microsecond precision matters here
     # for same-second event ordering across rapid-fire validate runs).
-    record = {
+    record: dict[str, Any] = {
         "timestamp": emit_micros(),
         "session_id": session_id_from_current(),
         "checks_run": overall.checks_run,
         "hard_fails": len(overall.hard_fails),
         "soft_warns": {k: len(v) for k, v in overall.soft_warns.items()},
-        "duration_ms": round(duration_ms, 2),
+        "duration_total_ms": round(duration_total_ms, 2),
     }
+    # Per-phase fields are only meaningful for the default-mode pipeline; gate
+    # flags + health-probe + export-snapshot skip the structural/graph split.
+    if (
+        not args.health_probe_only
+        and not args.code_gates
+        and not args.sql_gates
+        and args.export_snapshot is None
+    ):
+        record["duration_structural_ms"] = round(duration_structural_ms, 2)
+        record["duration_graph_audit_ms"] = round(duration_graph_audit_ms, 2)
     append_history(record)
 
     if overall.hard_fails:

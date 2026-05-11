@@ -270,6 +270,12 @@ Note: shape errors at the JSON-type level (non-string non-null) ALSO trigger `au
 
 Recoverable — change the value to one of the three valid forms (`"#<num>"`, `"S-<NNNN>"`, or `null`), or remove the hedge-pattern phrasing from `outcome_summary` if the prose was unintentional.
 
+### `validator_runtime_phase_regression`
+
+Per [ADR 0063](../adr/0063-validator-tiered-runtime-targets-and-regression-soft-warn.md) (S-0126). Fires when any one of the three validator phases (`duration_structural_ms`, `duration_graph_audit_ms`, `duration_total_ms`) exceeds 1.5× its tiered target (500ms / 5000ms / 6000ms) across the last 3 consecutive runs in `engine/tools/validate-history.jsonl` (the current run participates in the rolling window). Pre-S-0126 entries that carry only `duration_ms` are skipped.
+
+Recoverable: investigate the offending phase's hot path (which subcheck regressed?). If the steady-state has legitimately shifted (new infrastructure raised the structural-phase baseline, or live-DB load varies), adjust `VALIDATOR_PHASE_TARGETS_MS` in `validate.py` with evidence in the commit.
+
 ### `timestamp_helper_bypass`
 
 A `Call` node in `engine/tools/**/*.py` (excluding `test_*.py` and the four allowlisted files) invokes `.isoformat(...)`, `.strftime(...)`, or `.fromisoformat(...)` directly. Per [ADR 0058](../adr/0058-canonical-timestamp-format-and-helper.md) + [`timestamp-discipline.md`](timestamp-discipline.md), all timestamp emission and parsing in the engine subtree routes through `engine/tools/timestamps.py` (`emit` / `emit_micros` / `parse` / `today`) so format knowledge concentrates in one place.
@@ -294,7 +300,7 @@ The seven categories ADR 0016 contracts. All seven register in `checks_run` even
 
 - **A soft-warn that recurs across multiple sessions** — formalized into a discipline per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md). The boot-time persistent-warn surface flags categories firing in 3-or-more of the last 5 archives; categories firing in 10 consecutive archives reach the escalation criterion (promote to hard-fail, accept and annotate, or address inline) per [`soft-warn-lifecycle.md`](soft-warn-lifecycle.md).
 - **A new hard-fail in CI on a commit that passed locally** — clock skew on `validate-history.jsonl` writes is fine to ignore; everything else is a real divergence to investigate.
-- **Validator runtime > 3s** — Phase 4 graph audit budget is 3s on a 100-node test seed. If the structural-only checks (Phase 0+) start exceeding ~500ms, they've grown beyond their scope.
+- **Validator runtime budgets** — per [ADR 0063](../adr/0063-validator-tiered-runtime-targets-and-regression-soft-warn.md) the tiered targets are: structural phase < 500ms (in-process file/regex checks; no DB), graph audit phase < 5s (live-DB consultation per [ADR 0016](../adr/0016-graph-construction-needs-live-validation.md)), total runtime < 6s. The `validator_runtime_phase_regression` soft-warn fires when any phase exceeds 1.5× its target across 3 consecutive runs. Investigate the phase's hot path on the soft-warn, or — with evidence the steady-state has shifted legitimately — adjust the target in `VALIDATOR_PHASE_TARGETS_MS`.
 
 ## Validator-pipeline classification map
 

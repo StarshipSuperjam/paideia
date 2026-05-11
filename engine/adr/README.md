@@ -55,6 +55,8 @@ The engine collection has **25 ADRs total — all Accepted**. Engine ADRs are ab
 | [0058](0058-canonical-timestamp-format-and-helper.md) | Canonical timestamp format and shared timestamps.py helper | Accepted |
 | [0059](0059-audit-time-structural-reference-fetching.md) | Audit-time fetching of public structural references for verdict fortification | Accepted |
 | [0060](0060-routine-wedge-detect-and-pause.md) | Routine wedge detect-and-pause | Accepted |
+| [0062](0062-retire-adr-inline-amendments-and-governed-doc-soft-warns.md) | Retire ADR inline-amendment pattern + governed-doc validator soft-warns | Accepted |
+| [0063](0063-validator-tiered-runtime-targets-and-regression-soft-warn.md) | Validator tiered runtime targets + per-phase regression soft-warn | Accepted |
 
 ## Adding a new engine ADR
 

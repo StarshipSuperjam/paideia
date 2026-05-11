@@ -430,26 +430,51 @@ def audit_fit(archives: list[Path]) -> CategoryFindings:
         )
 
     # validate-history.jsonl runtime drift (opportunistic).
+    # Per ADR 0063 (S-0126): records carry per-phase fields
+    # (duration_structural_ms / duration_graph_audit_ms / duration_total_ms).
+    # Pre-S-0126 records carry the prior duration_ms field; treat duration_ms
+    # as the legacy alias for duration_total_ms when the new field is absent.
     if VALIDATE_HISTORY_PATH.is_file():
         try:
             lines = VALIDATE_HISTORY_PATH.read_text().splitlines()
-            durations = []
+            totals: list[float] = []
+            structurals: list[float] = []
+            graph_audits: list[float] = []
             for line in lines:
                 try:
                     rec = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                if isinstance(rec, dict) and isinstance(
-                    rec.get("duration_ms"), (int, float)
-                ):
-                    durations.append(float(rec["duration_ms"]))
-            if durations:
-                median = sorted(durations)[len(durations) // 2]
+                if not isinstance(rec, dict):
+                    continue
+                total = rec.get("duration_total_ms")
+                if not isinstance(total, (int, float)):
+                    total = rec.get("duration_ms")  # legacy pre-S-0126
+                if isinstance(total, (int, float)):
+                    totals.append(float(total))
+                structural = rec.get("duration_structural_ms")
+                if isinstance(structural, (int, float)):
+                    structurals.append(float(structural))
+                graph_audit = rec.get("duration_graph_audit_ms")
+                if isinstance(graph_audit, (int, float)):
+                    graph_audits.append(float(graph_audit))
+            if totals:
+                median_total = sorted(totals)[len(totals) // 2]
+                line_total = (
+                    f"Validator runtime: median {median_total:.0f}ms total across "
+                    f"{len(totals)} per-clone invocations (validate-history.jsonl)."
+                )
+                if structurals and graph_audits:
+                    median_struct = sorted(structurals)[len(structurals) // 2]
+                    median_graph = sorted(graph_audits)[len(graph_audits) // 2]
+                    line_total += (
+                        f" Per-phase median: structural {median_struct:.0f}ms / "
+                        f"graph audit {median_graph:.0f}ms."
+                    )
                 findings.add(
-                    f"Validator runtime: median {median:.0f}ms across "
-                    f"{len(durations)} per-clone invocations (validate-history.jsonl).",
-                    "Phase-0+ structural-only checks should stay under ~500ms; "
-                    "investigate if median exceeds.",
+                    line_total,
+                    "Per ADR 0063 tiered targets: structural < 500ms; graph audit "
+                    "< 5s; total < 6s. Investigate if any phase exceeds.",
                 )
         except OSError:
             pass

@@ -1824,3 +1824,143 @@ class TestReadWingCountThresholds:
         )
         monkeypatch.setattr(validate, "REGISTER_STATE_PATH", register)
         assert validate._read_wing_count_thresholds() == (60, 100)
+
+
+# ---------------------------------------------------------------------------
+# validate_runtime_phase_regression (ADR 0063, Issue #88)
+# ---------------------------------------------------------------------------
+
+
+class TestValidateRuntimePhaseRegression:
+    """Regression detection across the last N entries of validate-history.jsonl.
+
+    Per ADR 0063: fires on sustained 1.5x target breach across the rolling
+    window. Current run's tentative entry participates in the window when
+    supplied.
+    """
+
+    def _write_history(self, path: Path, entries: list[dict[str, Any]]) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        lines = [json.dumps(e, separators=(",", ":")) for e in entries]
+        path.write_text("\n".join(lines) + ("\n" if lines else ""))
+
+    def _clean_entry(self) -> dict[str, Any]:
+        return {
+            "duration_structural_ms": 100.0,
+            "duration_graph_audit_ms": 3000.0,
+            "duration_total_ms": 3100.0,
+        }
+
+    def _breaching_entry(self) -> dict[str, Any]:
+        # All three phases strictly exceed 1.5x their tiered target.
+        return {
+            "duration_structural_ms": 800.0,  # > 750 (1.5 * 500)
+            "duration_graph_audit_ms": 8000.0,  # > 7500 (1.5 * 5000)
+            "duration_total_ms": 9500.0,  # > 9000 (1.5 * 6000)
+        }
+
+    def test_absent_history_returns_clean(self, tmp_path: Path) -> None:
+        r = validate.validate_runtime_phase_regression(
+            history_path=tmp_path / "missing.jsonl"
+        )
+        assert r.soft_warns == {}
+        assert "validator_runtime_phase_regression" in r.checks_run
+
+    def test_fewer_than_window_entries_returns_clean(self, tmp_path: Path) -> None:
+        history = tmp_path / "h.jsonl"
+        self._write_history(history, [self._breaching_entry()])
+        r = validate.validate_runtime_phase_regression(history_path=history)
+        assert r.soft_warns == {}
+
+    def test_all_three_entries_breach_fires_warn(self, tmp_path: Path) -> None:
+        history = tmp_path / "h.jsonl"
+        self._write_history(history, [self._breaching_entry()] * 3)
+        r = validate.validate_runtime_phase_regression(history_path=history)
+        # All three phases breach → three soft-warns under the same category.
+        assert "validator_runtime_phase_regression" in r.soft_warns
+        msgs = r.soft_warns["validator_runtime_phase_regression"]
+        assert len(msgs) == 3
+        assert any("duration_structural_ms" in m for m in msgs)
+        assert any("duration_graph_audit_ms" in m for m in msgs)
+        assert any("duration_total_ms" in m for m in msgs)
+
+    def test_two_breaches_plus_one_clean_does_not_fire(self, tmp_path: Path) -> None:
+        history = tmp_path / "h.jsonl"
+        self._write_history(
+            history,
+            [self._breaching_entry(), self._breaching_entry(), self._clean_entry()],
+        )
+        r = validate.validate_runtime_phase_regression(history_path=history)
+        assert r.soft_warns == {}
+
+    def test_only_one_phase_breaches_fires_single_warn(self, tmp_path: Path) -> None:
+        history = tmp_path / "h.jsonl"
+        # Only structural phase breaches; graph audit + total stay clean.
+        entry = {
+            "duration_structural_ms": 1000.0,  # > 1.5 * 500
+            "duration_graph_audit_ms": 3000.0,
+            "duration_total_ms": 4000.0,
+        }
+        self._write_history(history, [entry] * 3)
+        r = validate.validate_runtime_phase_regression(history_path=history)
+        assert "validator_runtime_phase_regression" in r.soft_warns
+        msgs = r.soft_warns["validator_runtime_phase_regression"]
+        assert len(msgs) == 1
+        assert "duration_structural_ms" in msgs[0]
+
+    def test_tentative_entry_completes_window(self, tmp_path: Path) -> None:
+        """Two breaches in history + a breaching tentative current run → fires."""
+        history = tmp_path / "h.jsonl"
+        self._write_history(history, [self._breaching_entry()] * 2)
+        r = validate.validate_runtime_phase_regression(
+            history_path=history,
+            tentative_entry={
+                "duration_structural_ms": 800.0,
+                "duration_graph_audit_ms": 8000.0,
+                "duration_total_ms": 9500.0,
+            },
+        )
+        assert "validator_runtime_phase_regression" in r.soft_warns
+        assert len(r.soft_warns["validator_runtime_phase_regression"]) == 3
+
+    def test_tentative_clean_breaks_the_streak(self, tmp_path: Path) -> None:
+        """Two breaches in history + a clean tentative current run → no fire."""
+        history = tmp_path / "h.jsonl"
+        self._write_history(history, [self._breaching_entry()] * 2)
+        r = validate.validate_runtime_phase_regression(
+            history_path=history,
+            tentative_entry={
+                "duration_structural_ms": 100.0,
+                "duration_graph_audit_ms": 3000.0,
+                "duration_total_ms": 3100.0,
+            },
+        )
+        assert r.soft_warns == {}
+
+    def test_legacy_duration_ms_entries_skipped(self, tmp_path: Path) -> None:
+        """Pre-S-0126 entries (only duration_ms) are not counted toward the
+        rolling window — they lack the per-phase fields the regression check
+        evaluates.
+        """
+        history = tmp_path / "h.jsonl"
+        legacy_entry: dict[str, Any] = {"duration_ms": 9000.0}
+        self._write_history(history, [legacy_entry] * 3)
+        r = validate.validate_runtime_phase_regression(history_path=history)
+        assert r.soft_warns == {}
+
+    def test_malformed_jsonl_lines_skipped(self, tmp_path: Path) -> None:
+        history = tmp_path / "h.jsonl"
+        history.parent.mkdir(parents=True, exist_ok=True)
+        history.write_text(
+            "not valid json\n"
+            + json.dumps(self._breaching_entry())
+            + "\n"
+            + "[]\n"
+            + json.dumps(self._breaching_entry())
+            + "\n"
+            + json.dumps(self._breaching_entry())
+            + "\n"
+        )
+        r = validate.validate_runtime_phase_regression(history_path=history)
+        # Three well-formed breaching entries → all phases warn.
+        assert "validator_runtime_phase_regression" in r.soft_warns
