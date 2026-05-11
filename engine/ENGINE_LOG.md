@@ -10,6 +10,30 @@ This project does not yet follow [Semantic Versioning](https://semver.org/) — 
 
 ## [Unreleased]
 
+### Added (S-0126 — close S-0121 audit follow-ups #87 #88 #89)
+
+- **New engine ADR 0062** ([`engine/adr/0062-retire-adr-inline-amendments-and-governed-doc-soft-warns.md`](adr/0062-retire-adr-inline-amendments-and-governed-doc-soft-warns.md)) — retires the ADR Consequences inline-amendment pattern + mechanizes three governed-doc soft-warns. Closes Issue [#87](https://github.com/StarshipSuperjam/paideia/issues/87) (audit Retire-C + recommended soft-warns).
+- **New engine ADR 0063** ([`engine/adr/0063-validator-tiered-runtime-targets-and-regression-soft-warn.md`](adr/0063-validator-tiered-runtime-targets-and-regression-soft-warn.md)) — replaces the unitary `< 500ms` validator runtime target with tiered targets (structural < 500ms / graph audit < 5s / total < 6s) + per-phase timing instrumentation + `validator_runtime_phase_regression` soft-warn. Closes Issue [#88](https://github.com/StarshipSuperjam/paideia/issues/88) (audit Retire-D).
+- **Four new validator soft-warns** in [`engine/tools/validate.py`](tools/validate.py):
+  - `state_md_row_count` — threshold 180 rows (baseline 118 at S-0126); per ADR 0062.
+  - `adr_consequences_amendment_header` — zero-tolerance pattern catch on `### Amendment` headers in any ADR file; per ADR 0062.
+  - `handoff_long_resolved_sections` — threshold 5 total OR any section >10 sessions old; per ADR 0062.
+  - `validator_runtime_phase_regression` — fires when any phase exceeds 1.5× target across 3 consecutive runs; per ADR 0063.
+- **Per-phase timing instrumentation** in `validate.py` main(): `duration_structural_ms`, `duration_graph_audit_ms`, `duration_total_ms` in `validate-history.jsonl` records. Prior `duration_ms` renamed cleanly to `duration_total_ms`; `health_check.py` reader accepts both shapes for cross-S-0126 history continuity.
+- **Two first-exercise readiness notes** per ADR 0053:
+  - [`engine/build_readiness/governed_doc_soft_warns_first_exercise.md`](build_readiness/governed_doc_soft_warns_first_exercise.md) covering the three governed-doc soft-warns (T1-A: first natural fire; T1-B: corrective edit motivated).
+  - [`engine/build_readiness/validator_runtime_phase_regression_first_exercise.md`](build_readiness/validator_runtime_phase_regression_first_exercise.md) covering the runtime-regression soft-warn (T1-A: first sustained-breach fire; T1-B: hot-path investigation or evidence-backed target adjustment).
+- **First-exercise T1-A on the regression soft-warn closed naturally** at S-0126's own validation run: `duration_structural_ms` median 3705ms exceeded 750ms threshold across 3 consecutive runs (likely chromadb open in `validate_shared_state_health` being counted in the structural phase). Filed as a follow-up Issue for downstream investigation.
+
+### Changed (S-0126)
+
+- **14 ADR amendment blocks retired** across 8 engine ADRs per ADR 0062 + Issue #87 part (a). Mix: pure-narration deletions (5 ADRs: 0042 / 0045 / 0047 / 0048 / 0054 — substance preserved in tool docstrings + ENGINE_LOG + git) and contract-refinement folds (3 ADRs: 0049 / 0056 / 0057 — body rewritten as present-truth contract). ADR 0049 loses Decision 3 entirely (retired at S-0083), gains Decision 5 (defer-handle field from S-0100); Decisions renumber. ADR 0056 gets the heaviest restructure: Layer 1 extended for boot-search + citation scanner; new "Scoped surface" subsection (post-S-0086 retirements); Layer 3 audit table rewritten to the complete post-S-0091 contract; new boot-time substrate probe + pending-diary index + effectiveness check subsections. `grep -rE "^### Amendment" engine/adr/ product/adr/` returns empty post-retirement.
+- **`engine/tools/scan_orphans.py` `axis_ops_doc_uncited` predicate refined** per ADR 0062 + Issue #89: replaces the prior archive-text-substring check (19 of 22 ops docs false-flagged at S-0121) with AND-combined predicate (`<5` unique inbound file refs AND unreachable from boot-surface link graph). `operations/README.md` treated as visit-but-don't-traverse leaf in the BFS so README indexing doesn't trivially reach every ops doc. 6 new pytests at [`test_scan_orphans.py`](tools/test_scan_orphans.py); zero candidates against the current 22 ops docs.
+- **[`engine/operations/health-check.md`](operations/health-check.md) Validator-telemetry section** updated to name the tiered targets (structural / graph audit / total) and the new regression soft-warn.
+- **[`engine/operations/tools-validate-interpretation.md`](operations/tools-validate-interpretation.md)** — Response-posture section's runtime-budget bullet updated to tiered shape; four new soft-warn category entries authored (`state_md_row_count`, `adr_consequences_amendment_header`, `handoff_long_resolved_sections`, `validator_runtime_phase_regression`).
+- **[`engine/tools/health_check.py`](tools/health_check.py) `audit_fit` runtime reader** updated to handle both legacy `duration_ms` and new per-phase fields; surfaces per-phase median alongside total median in the Fit findings.
+- **[`engine/adr/README.md`](adr/README.md)** — index rows added for ADR 0062 and ADR 0063.
+
 ### Added (S-0125 — SWE-hardening pairings + S-0121 audit-findings closure)
 
 - **Three combined-session pairings declared** in [`engine/STATE.md`](STATE.md) "SWE-hardening rollout" section. New "Combined-session pairings" subsection with rationale table; new "Pairing" column on Tier 1 + Tier 2 tables:
