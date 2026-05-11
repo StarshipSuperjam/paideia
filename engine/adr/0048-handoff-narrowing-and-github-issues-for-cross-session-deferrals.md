@@ -83,18 +83,7 @@ The wing-filter and wing-naming bugs from the S-0040 HANDOFF entry are filed as 
 
 The intervention does **not** fix the underlying LLM-trained tendency toward descoping. Sessions will still attempt to defer work when fix-in-context is the right call. What this ADR does is reroute the inevitable deferrals into a destination that supports user-controlled batching, surfaces cumulative backlog as a visible signal at every boot, and warns when a session's scope appears to depend on something already known broken. The user retains the load-bearing pushback responsibility that CLAUDE.md's standing pushback rule formalizes; this ADR makes that pushback better-informed by surfacing the data the user needs.
 
-### Amendment at S-0051: FYI line corrected; taxonomy extended; community labels dropped
-
-The original FYI line (`N bugs, N tech-debt, N cleanup, N enhancement (M urgent)`) had two defects discovered during the S-0051 audit:
-
-1. `count_by_label` collected 6 type categories at the time, but `format_fyi_line` emitted only 4. `health-check-finding` was silently suppressed — a count that mattered for cadence-fired audits never reached the surface.
-2. `bug` issues that were also tagged `upstream` folded into the bug count without disambiguation. A reader scanning "3 bugs" had no signal that 2 of them might be upstream-blocked and therefore not in-project actionable.
-
-The corrected line emits 7 type categories (`N bugs, N tech-debt, N cleanup, N enhancement, N health-check, N docs, N question`), subtracts upstream-tagged bugs from the bug count, and surfaces the upstream total separately in the parenthetical: `(M urgent; K upstream-blocked)`. The behavior is now: a reader sees the in-project actionable bug count and the upstream-blocked count as separate signals. The 7th and 8th categories (`docs`, `question`) reflect taxonomy additions made the same session — `documentation` and `question` labels gained authoring procedures in [`engine/operations/issue-discipline.md`](../operations/issue-discipline.md) for doc-specific work and in-band uncertainties respectively.
-
-Two GitHub stock community labels (`good first issue`, `help wanted`) were dropped via `gh label delete` during the same session — they had never been applied and have no plausible trigger in a solo-developer + AI workflow. Three reactive-only stock labels (`duplicate`, `invalid`, `wontfix`) were retained and explicitly framed in `issue-discipline.md` as triage-time-applied (no authoring procedure). `gh label list` now reflects 12 labels: 8 type + 1 priority + 3 reactive-only.
-
-This is an amendment, not a supersession — adding/dropping labels and correcting a surface format are workflow changes, not contract changes (the ADR taxonomy clause already declared them so).
+**FYI line shape.** The `SessionStart` hook emits 7 type categories (`N bugs, N tech-debt, N cleanup, N enhancement, N health-check, N docs, N question`), subtracts upstream-tagged bugs from the bug count, and surfaces the upstream total separately in the parenthetical: `(M urgent; K upstream-blocked)`. A reader sees the in-project actionable bug count and the upstream-blocked count as separate signals. The `documentation` and `question` labels have authoring procedures in [`engine/operations/issue-discipline.md`](../operations/issue-discipline.md). The full label set is 12: 8 type labels + 1 `priority:urgent` + 3 reactive-only triage labels (`duplicate`, `invalid`, `wontfix`).
 
 ## See also
 
