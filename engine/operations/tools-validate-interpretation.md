@@ -270,6 +270,24 @@ Note: shape errors at the JSON-type level (non-string non-null) ALSO trigger `au
 
 Recoverable — change the value to one of the three valid forms (`"#<num>"`, `"S-<NNNN>"`, or `null`), or remove the hedge-pattern phrasing from `outcome_summary` if the prose was unintentional.
 
+### `state_md_row_count`
+
+Per [ADR 0062](../adr/0062-retire-adr-inline-amendments-and-governed-doc-soft-warns.md) (S-0126; Issue #87). Fires when `engine/STATE.md` exceeds `STATE_MD_ROW_COUNT_THRESHOLD` (default 180; baseline at S-0126 was 118 rows). STATE.md committed at S-0121 to a scope-discipline preamble (present-state only); per-session prose belongs in `engine/session/archive/S-NNNN.json` + `engine/ENGINE_LOG.md`.
+
+Recoverable: trim the file per the preamble's guidance. If the row count exceeds the threshold for legitimate reasons (additions to the SWE-hardening rollout section, new audit-tracking subsections, etc.), bump `STATE_MD_ROW_COUNT_THRESHOLD` in `validate.py` with evidence in the commit.
+
+### `adr_consequences_amendment_header`
+
+Per [ADR 0036](../adr/0036-expression-contract-for-inward-documents.md) + [ADR 0062](../adr/0062-retire-adr-inline-amendments-and-governed-doc-soft-warns.md) (S-0126; Issue #87). Zero-tolerance pattern catch — fires on any `### Amendment` header in any `engine/adr/*.md` or `product/adr/*.md` file. ADR body content is present-truth declarative; authorship history belongs in `engine/ENGINE_LOG.md` / MemPalace `decision` drawers / git, not in ADR body.
+
+Recoverable: fold the amendment substance into the body as present-truth (refining contract clauses, deleting blocks whose substance lives in tool docstrings / ENGINE_LOG / git), then delete the `### Amendment` header.
+
+### `handoff_long_resolved_sections`
+
+Per [ADR 0062](../adr/0062-retire-adr-inline-amendments-and-governed-doc-soft-warns.md) (S-0126; Issue #87). Fires under two conditions: (1) total `**Resolved:**` section count exceeds `HANDOFF_RESOLVED_COUNT_THRESHOLD` (default 5); (2) any single resolved section's `S-NNNN` is more than `HANDOFF_RESOLVED_AGE_THRESHOLD_SESSIONS` (default 10) older than the current session. HANDOFF.md's preamble commits to prune-on-resolve at the next interactive session that touches HANDOFF; this soft-warn is the gate-time backstop.
+
+Recoverable: prune resolved sections per the preamble's discipline (content preserved in git history; each section's `**Resolved:**` line names the downstream artifact). If a resolved section is intentionally retained as a load-bearing reference, move its content elsewhere (ENGINE_LOG, an ops doc, the relevant ADR) and prune the HANDOFF entry.
+
 ### `validator_runtime_phase_regression`
 
 Per [ADR 0063](../adr/0063-validator-tiered-runtime-targets-and-regression-soft-warn.md) (S-0126). Fires when any one of the three validator phases (`duration_structural_ms`, `duration_graph_audit_ms`, `duration_total_ms`) exceeds 1.5× its tiered target (500ms / 5000ms / 6000ms) across the last 3 consecutive runs in `engine/tools/validate-history.jsonl` (the current run participates in the rolling window). Pre-S-0126 entries that carry only `duration_ms` are skipped.

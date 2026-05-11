@@ -3488,6 +3488,173 @@ VALIDATOR_PHASE_TARGETS_MS: dict[str, float] = {
     "duration_total_ms": 6000.0,
 }
 
+# Governed-doc soft-warn thresholds per ADR 0062 (S-0126; Issue #87 part b).
+# state_md_row_count: STATE.md baseline at S-0126 is 118 rows; threshold gives
+# ~50% headroom before firing. Per-session prose belongs in archive + ENGINE_LOG.
+STATE_MD_ROW_COUNT_THRESHOLD = 180
+# handoff_long_resolved_sections: HANDOFF.md preamble commits to prune-on-resolve;
+# total-count threshold + age-in-sessions threshold (per-section S-NNNN parse).
+HANDOFF_RESOLVED_COUNT_THRESHOLD = 5
+HANDOFF_RESOLVED_AGE_THRESHOLD_SESSIONS = 10
+# Regex catching `**Resolved:**` lines that name a session (preamble prose uses
+# the word "Resolved" without bold + session-id; this pattern only matches the
+# actual section-marker shape).
+_HANDOFF_RESOLVED_LINE_RE = re.compile(
+    r"^\s*[-*]?\s*\*\*Resolved:\*\*\s*S-(\d{4})", re.MULTILINE
+)
+# Pattern for retired ADR-Consequences inline-amendment headers per ADR 0036
+# + ADR 0062. Zero-tolerance — any `### Amendment` header in any ADR file fires.
+_ADR_AMENDMENT_HEADER_RE = re.compile(r"^### Amendment", re.MULTILINE)
+
+
+def validate_state_md_row_count(repo_root: Path | None = None) -> ValidationResult:
+    """Soft-warn when engine/STATE.md exceeds STATE_MD_ROW_COUNT_THRESHOLD.
+
+    Per ADR 0062 (S-0126; Issue #87). STATE.md committed at S-0121 to a
+    scope-discipline preamble: present-state-only; per-session prose belongs
+    in archive + ENGINE_LOG.md. This soft-warn mechanizes the boundary so
+    accumulation re-surfacing fires the warn rather than waiting for the next
+    cadence-fired audit.
+
+    Inputs:
+        repo_root: Override the module-level REPO_ROOT. Test injection point.
+
+    Returns:
+        ValidationResult with `state_md_row_count` registered as a check.
+        Soft-warn fires when row count exceeds the threshold.
+    """
+    r = ValidationResult()
+    r.add_check("state_md_row_count")
+    root = repo_root if repo_root is not None else REPO_ROOT
+    state_path = root / "engine" / "STATE.md"
+    if not state_path.exists():
+        return r
+    row_count = sum(1 for _ in state_path.read_text(encoding="utf-8").splitlines())
+    if row_count > STATE_MD_ROW_COUNT_THRESHOLD:
+        r.soft_warn(
+            "state_md_row_count",
+            f"engine/STATE.md is {row_count} rows (threshold "
+            f"{STATE_MD_ROW_COUNT_THRESHOLD}); per the file's preamble, "
+            f"session-by-session prose belongs in engine/session/archive + "
+            f"engine/ENGINE_LOG.md, not in STATE.md.",
+        )
+    return r
+
+
+def validate_adr_consequences_amendment_headers(
+    repo_root: Path | None = None,
+) -> ValidationResult:
+    """Soft-warn on any `### Amendment` header in ADR files.
+
+    Per ADR 0036 + ADR 0062 (S-0126; Issue #87). ADR body content is
+    present-truth declarative; authorship history, supersession narration, and
+    per-session revision markers belong in ENGINE_LOG.md / MemPalace `decision`
+    drawers / git blame. The 14 inline-amendment blocks retired at S-0126
+    motivate this gate-time backstop against re-introduction.
+
+    Inputs:
+        repo_root: Override the module-level REPO_ROOT.
+
+    Returns:
+        ValidationResult with `adr_consequences_amendment_header` registered.
+        One soft-warn per offending header (file:line pinpoints the surface).
+    """
+    r = ValidationResult()
+    r.add_check("adr_consequences_amendment_header")
+    root = repo_root if repo_root is not None else REPO_ROOT
+    for adr_dir in [root / "engine" / "adr", root / "product" / "adr"]:
+        if not adr_dir.exists():
+            continue
+        for adr_file in sorted(adr_dir.glob("*.md")):
+            try:
+                text = adr_file.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            for match in _ADR_AMENDMENT_HEADER_RE.finditer(text):
+                line_no = text[: match.start()].count("\n") + 1
+                rel_path = adr_file.relative_to(root)
+                r.soft_warn(
+                    "adr_consequences_amendment_header",
+                    f"ADR {rel_path} carries `### Amendment` header at "
+                    f"line {line_no}; per ADR 0036 + ADR 0062, authorship "
+                    f"history belongs in engine/ENGINE_LOG.md / MemPalace "
+                    f"`decision` drawers / git, not in ADR body.",
+                )
+    return r
+
+
+def validate_handoff_long_resolved_sections(
+    repo_root: Path | None = None,
+    current_session_id: str | None = None,
+) -> ValidationResult:
+    """Soft-warn when HANDOFF.md accumulates resolved sections.
+
+    Per ADR 0062 (S-0126; Issue #87). HANDOFF.md's preamble commits to a
+    prune-on-resolve discipline applied inline at the next interactive session
+    that touches HANDOFF. This soft-warn mechanizes the boundary at two
+    thresholds:
+
+      1. Total-count: more than HANDOFF_RESOLVED_COUNT_THRESHOLD resolved
+         sections present.
+      2. Per-section age: any `**Resolved:** S-NNNN` line whose session id is
+         more than HANDOFF_RESOLVED_AGE_THRESHOLD_SESSIONS older than the
+         current session.
+
+    Inputs:
+        repo_root: Override the module-level REPO_ROOT.
+        current_session_id: "S-NNNN" of the in-progress session. If absent or
+            unparseable, the age check is skipped (count check still fires).
+
+    Returns:
+        ValidationResult with `handoff_long_resolved_sections` registered.
+        Up to one count-warn + N age-warns.
+    """
+    r = ValidationResult()
+    r.add_check("handoff_long_resolved_sections")
+    root = repo_root if repo_root is not None else REPO_ROOT
+    handoff_path = root / "HANDOFF.md"
+    if not handoff_path.exists():
+        return r
+    try:
+        text = handoff_path.read_text(encoding="utf-8")
+    except OSError:
+        return r
+
+    matches = list(_HANDOFF_RESOLVED_LINE_RE.finditer(text))
+    count = len(matches)
+    if count > HANDOFF_RESOLVED_COUNT_THRESHOLD:
+        r.soft_warn(
+            "handoff_long_resolved_sections",
+            f"HANDOFF.md has {count} resolved sections (threshold "
+            f"{HANDOFF_RESOLVED_COUNT_THRESHOLD}); prune per the "
+            f"prune-on-resolve discipline in the HANDOFF.md preamble.",
+        )
+
+    # Age check: requires a parseable current_session_id. The session id passes
+    # through main() from session_id_from_current(); during pre-commit hook
+    # invocations the current session is in-progress, so the id is available.
+    if current_session_id and current_session_id.startswith("S-"):
+        try:
+            current_n = int(current_session_id[2:])
+        except ValueError:
+            current_n = None
+        if current_n is not None:
+            for m in matches:
+                try:
+                    resolved_n = int(m.group(1))
+                except (ValueError, IndexError):
+                    continue
+                age = current_n - resolved_n
+                if age > HANDOFF_RESOLVED_AGE_THRESHOLD_SESSIONS:
+                    r.soft_warn(
+                        "handoff_long_resolved_sections",
+                        f"HANDOFF.md resolved section at S-{m.group(1)} is "
+                        f"{age} sessions old (threshold "
+                        f"{HANDOFF_RESOLVED_AGE_THRESHOLD_SESSIONS}); prune.",
+                    )
+    return r
+
+
 # Multiplier above the tiered target that must be sustained across this many
 # consecutive entries before the regression soft-warn fires. Conservative:
 # single-run noise won't trigger; only sustained breach will.
@@ -3769,6 +3936,15 @@ def main(argv: list[str] | None = None) -> int:
         overall.merge(validate_scope_discipline())
         overall.merge(validate_routine_mode())
         overall.merge(validate_timestamp_helper_bypass())
+        # Governed-doc soft-warns per ADR 0062 (S-0126; Issue #87 part b).
+        # File-only / in-process; belong in the structural phase.
+        overall.merge(validate_state_md_row_count())
+        overall.merge(validate_adr_consequences_amendment_headers())
+        overall.merge(
+            validate_handoff_long_resolved_sections(
+                current_session_id=session_id_from_current()
+            )
+        )
         t_structural_end = time.monotonic()
         duration_structural_ms = (t_structural_end - start) * 1000
 

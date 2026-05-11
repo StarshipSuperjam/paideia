@@ -1964,3 +1964,165 @@ class TestValidateRuntimePhaseRegression:
         r = validate.validate_runtime_phase_regression(history_path=history)
         # Three well-formed breaching entries → all phases warn.
         assert "validator_runtime_phase_regression" in r.soft_warns
+
+
+# ---------------------------------------------------------------------------
+# Governed-doc soft-warns per ADR 0062 (S-0126; Issue #87 part b)
+# ---------------------------------------------------------------------------
+
+
+class TestValidateStateMdRowCount:
+    """STATE.md row-count threshold gate."""
+
+    def test_absent_state_md_returns_clean(self, tmp_path: Path) -> None:
+        # No engine/STATE.md created.
+        r = validate.validate_state_md_row_count(repo_root=tmp_path)
+        assert r.soft_warns == {}
+        assert "state_md_row_count" in r.checks_run
+
+    def test_under_threshold_clean(self, tmp_path: Path) -> None:
+        state_dir = tmp_path / "engine"
+        state_dir.mkdir(parents=True)
+        # 100 lines, under the 180 threshold.
+        (state_dir / "STATE.md").write_text("\n".join(["row"] * 100) + "\n")
+        r = validate.validate_state_md_row_count(repo_root=tmp_path)
+        assert r.soft_warns == {}
+
+    def test_over_threshold_fires(self, tmp_path: Path) -> None:
+        state_dir = tmp_path / "engine"
+        state_dir.mkdir(parents=True)
+        # 200 lines, over the 180 threshold.
+        (state_dir / "STATE.md").write_text("\n".join(["row"] * 200) + "\n")
+        r = validate.validate_state_md_row_count(repo_root=tmp_path)
+        assert "state_md_row_count" in r.soft_warns
+        assert len(r.soft_warns["state_md_row_count"]) == 1
+        assert "200 rows" in r.soft_warns["state_md_row_count"][0]
+
+
+class TestValidateAdrConsequencesAmendmentHeaders:
+    """Zero-tolerance gate against re-introduction of ADR inline-amendment pattern."""
+
+    def _setup_repo(self, tmp_path: Path) -> None:
+        (tmp_path / "engine" / "adr").mkdir(parents=True)
+        (tmp_path / "product" / "adr").mkdir(parents=True)
+
+    def test_clean_adr_corpus_no_warn(self, tmp_path: Path) -> None:
+        self._setup_repo(tmp_path)
+        (tmp_path / "engine" / "adr" / "0001-test.md").write_text(
+            "# ADR 0001\n\n## Decision\n\nBody.\n\n## Consequences\n\nBody.\n"
+        )
+        r = validate.validate_adr_consequences_amendment_headers(repo_root=tmp_path)
+        assert r.soft_warns == {}
+
+    def test_amendment_header_in_engine_adr_fires(self, tmp_path: Path) -> None:
+        self._setup_repo(tmp_path)
+        (tmp_path / "engine" / "adr" / "0001-test.md").write_text(
+            "# ADR 0001\n\n## Consequences\n\n### Amendment (S-0042) — retrofit\n\nProse.\n"
+        )
+        r = validate.validate_adr_consequences_amendment_headers(repo_root=tmp_path)
+        assert "adr_consequences_amendment_header" in r.soft_warns
+        msg = r.soft_warns["adr_consequences_amendment_header"][0]
+        assert "engine/adr/0001-test.md" in msg
+        assert "line 5" in msg
+
+    def test_amendment_header_in_product_adr_fires(self, tmp_path: Path) -> None:
+        self._setup_repo(tmp_path)
+        (tmp_path / "product" / "adr" / "0042-x.md").write_text(
+            "# ADR 0042\n\n## Consequences\n\n### Amendment (S-0099)\n\nProse.\n"
+        )
+        r = validate.validate_adr_consequences_amendment_headers(repo_root=tmp_path)
+        assert "adr_consequences_amendment_header" in r.soft_warns
+        assert (
+            "product/adr/0042-x.md"
+            in r.soft_warns["adr_consequences_amendment_header"][0]
+        )
+
+    def test_multiple_amendments_each_fire(self, tmp_path: Path) -> None:
+        self._setup_repo(tmp_path)
+        (tmp_path / "engine" / "adr" / "0056-multi.md").write_text(
+            "# ADR 0056\n\n## Consequences\n\n"
+            "### Amendment (S-0087)\n\nProse.\n\n"
+            "### Amendment (S-0089)\n\nProse.\n\n"
+            "### Amendment (S-0091)\n\nProse.\n"
+        )
+        r = validate.validate_adr_consequences_amendment_headers(repo_root=tmp_path)
+        assert len(r.soft_warns["adr_consequences_amendment_header"]) == 3
+
+    def test_no_adr_dir_returns_clean(self, tmp_path: Path) -> None:
+        # tmp_path has no engine/adr or product/adr directories.
+        r = validate.validate_adr_consequences_amendment_headers(repo_root=tmp_path)
+        assert r.soft_warns == {}
+
+
+class TestValidateHandoffLongResolvedSections:
+    """HANDOFF.md prune-on-resolve discipline gate."""
+
+    def test_absent_handoff_returns_clean(self, tmp_path: Path) -> None:
+        r = validate.validate_handoff_long_resolved_sections(repo_root=tmp_path)
+        assert r.soft_warns == {}
+        assert "handoff_long_resolved_sections" in r.checks_run
+
+    def test_few_resolved_sections_clean(self, tmp_path: Path) -> None:
+        (tmp_path / "HANDOFF.md").write_text(
+            "# Handoff Log\n\n"
+            "## Item 1\n\n**Resolved:** S-0010 — landed in commit abc.\n\n"
+            "## Item 2\n\n**Resolved:** S-0012 — landed in commit def.\n"
+        )
+        r = validate.validate_handoff_long_resolved_sections(
+            repo_root=tmp_path, current_session_id="S-0015"
+        )
+        # 2 sections, under threshold 5; 5-session age, under threshold 10.
+        assert r.soft_warns == {}
+
+    def test_too_many_resolved_sections_fires_count_warn(self, tmp_path: Path) -> None:
+        sections = "\n\n".join(
+            [f"## Item {i}\n\n**Resolved:** S-0090 — landed." for i in range(8)]
+        )
+        (tmp_path / "HANDOFF.md").write_text(f"# Handoff Log\n\n{sections}\n")
+        r = validate.validate_handoff_long_resolved_sections(
+            repo_root=tmp_path, current_session_id="S-0095"
+        )
+        msgs = r.soft_warns.get("handoff_long_resolved_sections", [])
+        # One count-warn at minimum (count=8 > 5).
+        assert any("8 resolved sections" in m for m in msgs)
+
+    def test_old_resolved_section_fires_age_warn(self, tmp_path: Path) -> None:
+        (tmp_path / "HANDOFF.md").write_text(
+            "# Handoff Log\n\n"
+            "## Old Item\n\n**Resolved:** S-0010 — landed long ago.\n\n"
+            "## Recent Item\n\n**Resolved:** S-0120 — landed recently.\n"
+        )
+        r = validate.validate_handoff_long_resolved_sections(
+            repo_root=tmp_path, current_session_id="S-0126"
+        )
+        msgs = r.soft_warns.get("handoff_long_resolved_sections", [])
+        # S-0010 is 116 sessions old (> 10); S-0120 is 6 sessions old (< 10).
+        old_warns = [m for m in msgs if "S-0010" in m and "sessions old" in m]
+        assert len(old_warns) == 1
+        recent_warns = [m for m in msgs if "S-0120" in m]
+        assert len(recent_warns) == 0
+
+    def test_no_current_session_skips_age_check(self, tmp_path: Path) -> None:
+        (tmp_path / "HANDOFF.md").write_text(
+            "# Handoff Log\n\n## Old Item\n\n**Resolved:** S-0010 — landed.\n"
+        )
+        r = validate.validate_handoff_long_resolved_sections(
+            repo_root=tmp_path, current_session_id=None
+        )
+        # No age check without current session id; count is 1 (under threshold).
+        assert r.soft_warns == {}
+
+    def test_preamble_resolved_prose_not_matched(self, tmp_path: Path) -> None:
+        """The HANDOFF.md preamble uses 'Resolved' in prose without bold + S-NNNN;
+        the regex only matches actual section-marker shape."""
+        (tmp_path / "HANDOFF.md").write_text(
+            "# Handoff Log\n\n"
+            "> Per the preamble, Resolved entries leave under prune-on-resolve.\n"
+            "> Past sections marked **Resolved:** are pruned in interactive sessions.\n"
+            "\n## Item\n\n**Resolved:** S-0050 — landed.\n"
+        )
+        r = validate.validate_handoff_long_resolved_sections(
+            repo_root=tmp_path, current_session_id="S-0055"
+        )
+        # Only 1 actual section-marker should match; preamble prose does not.
+        assert r.soft_warns == {}  # count under threshold, age under threshold
