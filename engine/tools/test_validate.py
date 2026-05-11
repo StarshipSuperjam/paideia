@@ -1827,7 +1827,8 @@ class TestReadWingCountThresholds:
 
 
 # ---------------------------------------------------------------------------
-# validate_runtime_phase_regression (ADR 0063, Issue #88)
+# validate_runtime_phase_regression (ADR 0063, Issue #88;
+# four-phase model from S-0127 Issue #90)
 # ---------------------------------------------------------------------------
 
 
@@ -1836,7 +1837,8 @@ class TestValidateRuntimePhaseRegression:
 
     Per ADR 0063: fires on sustained 1.5x target breach across the rolling
     window. Current run's tentative entry participates in the window when
-    supplied.
+    supplied. Four-phase model since S-0127 (Issue #90 fold): structural,
+    health_probe, graph_audit, total.
     """
 
     def _write_history(self, path: Path, entries: list[dict[str, Any]]) -> None:
@@ -1847,16 +1849,27 @@ class TestValidateRuntimePhaseRegression:
     def _clean_entry(self) -> dict[str, Any]:
         return {
             "duration_structural_ms": 100.0,
+            "duration_health_probe_ms": 3000.0,
             "duration_graph_audit_ms": 3000.0,
-            "duration_total_ms": 3100.0,
+            "duration_total_ms": 6200.0,
         }
 
     def _breaching_entry(self) -> dict[str, Any]:
-        # All three phases strictly exceed 1.5x their tiered target.
+        # All four phases strictly exceed 1.5x their tiered target.
         return {
             "duration_structural_ms": 800.0,  # > 750 (1.5 * 500)
+            "duration_health_probe_ms": 8000.0,  # > 7500 (1.5 * 5000)
             "duration_graph_audit_ms": 8000.0,  # > 7500 (1.5 * 5000)
-            "duration_total_ms": 9500.0,  # > 9000 (1.5 * 6000)
+            "duration_total_ms": 17000.0,  # > 16500 (1.5 * 11000)
+        }
+
+    def test_phase_targets_dict_has_four_phases(self) -> None:
+        """The four-phase model from S-0127 must include health_probe."""
+        assert set(validate.VALIDATOR_PHASE_TARGETS_MS.keys()) == {
+            "duration_structural_ms",
+            "duration_health_probe_ms",
+            "duration_graph_audit_ms",
+            "duration_total_ms",
         }
 
     def test_absent_history_returns_clean(self, tmp_path: Path) -> None:
@@ -1872,15 +1885,16 @@ class TestValidateRuntimePhaseRegression:
         r = validate.validate_runtime_phase_regression(history_path=history)
         assert r.soft_warns == {}
 
-    def test_all_three_entries_breach_fires_warn(self, tmp_path: Path) -> None:
+    def test_all_phases_breach_fires_warn_per_phase(self, tmp_path: Path) -> None:
         history = tmp_path / "h.jsonl"
         self._write_history(history, [self._breaching_entry()] * 3)
         r = validate.validate_runtime_phase_regression(history_path=history)
-        # All three phases breach → three soft-warns under the same category.
+        # All four phases breach → four soft-warns under the same category.
         assert "validator_runtime_phase_regression" in r.soft_warns
         msgs = r.soft_warns["validator_runtime_phase_regression"]
-        assert len(msgs) == 3
+        assert len(msgs) == 4
         assert any("duration_structural_ms" in m for m in msgs)
+        assert any("duration_health_probe_ms" in m for m in msgs)
         assert any("duration_graph_audit_ms" in m for m in msgs)
         assert any("duration_total_ms" in m for m in msgs)
 
@@ -1893,13 +1907,16 @@ class TestValidateRuntimePhaseRegression:
         r = validate.validate_runtime_phase_regression(history_path=history)
         assert r.soft_warns == {}
 
-    def test_only_one_phase_breaches_fires_single_warn(self, tmp_path: Path) -> None:
+    def test_only_structural_phase_breaches_fires_single_warn(
+        self, tmp_path: Path
+    ) -> None:
         history = tmp_path / "h.jsonl"
-        # Only structural phase breaches; graph audit + total stay clean.
+        # Only structural phase breaches; others stay clean.
         entry = {
             "duration_structural_ms": 1000.0,  # > 1.5 * 500
+            "duration_health_probe_ms": 3000.0,
             "duration_graph_audit_ms": 3000.0,
-            "duration_total_ms": 4000.0,
+            "duration_total_ms": 7100.0,
         }
         self._write_history(history, [entry] * 3)
         r = validate.validate_runtime_phase_regression(history_path=history)
@@ -1908,20 +1925,38 @@ class TestValidateRuntimePhaseRegression:
         assert len(msgs) == 1
         assert "duration_structural_ms" in msgs[0]
 
+    def test_only_health_probe_phase_breaches_fires_single_warn(
+        self, tmp_path: Path
+    ) -> None:
+        """Health-probe phase regression detected independently of others.
+
+        Specifically guards the S-0127 split: a slow probe must surface as a
+        health_probe warn, not a structural-phase false-positive.
+        """
+        history = tmp_path / "h.jsonl"
+        entry = {
+            "duration_structural_ms": 100.0,
+            "duration_health_probe_ms": 8000.0,  # > 1.5 * 5000
+            "duration_graph_audit_ms": 3000.0,
+            "duration_total_ms": 11200.0,
+        }
+        self._write_history(history, [entry] * 3)
+        r = validate.validate_runtime_phase_regression(history_path=history)
+        assert "validator_runtime_phase_regression" in r.soft_warns
+        msgs = r.soft_warns["validator_runtime_phase_regression"]
+        assert len(msgs) == 1
+        assert "duration_health_probe_ms" in msgs[0]
+
     def test_tentative_entry_completes_window(self, tmp_path: Path) -> None:
         """Two breaches in history + a breaching tentative current run → fires."""
         history = tmp_path / "h.jsonl"
         self._write_history(history, [self._breaching_entry()] * 2)
         r = validate.validate_runtime_phase_regression(
             history_path=history,
-            tentative_entry={
-                "duration_structural_ms": 800.0,
-                "duration_graph_audit_ms": 8000.0,
-                "duration_total_ms": 9500.0,
-            },
+            tentative_entry=self._breaching_entry(),
         )
         assert "validator_runtime_phase_regression" in r.soft_warns
-        assert len(r.soft_warns["validator_runtime_phase_regression"]) == 3
+        assert len(r.soft_warns["validator_runtime_phase_regression"]) == 4
 
     def test_tentative_clean_breaks_the_streak(self, tmp_path: Path) -> None:
         """Two breaches in history + a clean tentative current run → no fire."""
@@ -1929,11 +1964,7 @@ class TestValidateRuntimePhaseRegression:
         self._write_history(history, [self._breaching_entry()] * 2)
         r = validate.validate_runtime_phase_regression(
             history_path=history,
-            tentative_entry={
-                "duration_structural_ms": 100.0,
-                "duration_graph_audit_ms": 3000.0,
-                "duration_total_ms": 3100.0,
-            },
+            tentative_entry=self._clean_entry(),
         )
         assert r.soft_warns == {}
 
@@ -1945,6 +1976,21 @@ class TestValidateRuntimePhaseRegression:
         history = tmp_path / "h.jsonl"
         legacy_entry: dict[str, Any] = {"duration_ms": 9000.0}
         self._write_history(history, [legacy_entry] * 3)
+        r = validate.validate_runtime_phase_regression(history_path=history)
+        assert r.soft_warns == {}
+
+    def test_pre_split_three_phase_entries_skipped(self, tmp_path: Path) -> None:
+        """Pre-S-0127 entries (only the three S-0126 phase fields) are not
+        counted — they lack ``duration_health_probe_ms`` introduced at the
+        Issue #90 fold.
+        """
+        history = tmp_path / "h.jsonl"
+        pre_split_entry: dict[str, Any] = {
+            "duration_structural_ms": 800.0,
+            "duration_graph_audit_ms": 8000.0,
+            "duration_total_ms": 9500.0,
+        }
+        self._write_history(history, [pre_split_entry] * 3)
         r = validate.validate_runtime_phase_regression(history_path=history)
         assert r.soft_warns == {}
 

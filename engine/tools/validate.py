@@ -3478,14 +3478,24 @@ def validate_timestamp_helper_bypass() -> ValidationResult:
     return r
 
 
-# Per-phase runtime targets per ADR 0063 (S-0126).
-# Structural phase: in-process file/regex checks only, no DB consultation.
+# Per-phase runtime targets per ADR 0063 (S-0126; four-phase model from S-0127
+# Issue #90 fold).
+# Structural phase: in-process file/regex checks only, no DB or subprocess.
+# Health-probe phase: external-subprocess probes (chromadb open via
+# probe_palace.py, repo state via probe_repo.py, GitHub Issues via
+# `gh issue list`). Bounded but slow and variable (network for gh).
+# Extracted from structural phase at S-0127 — pre-extraction the chromadb
+# open dominated structural timing and surfaced the regression soft-warn
+# that motivated the split; validate_issue_collisions was also moved here
+# in the same fold because it shares the external-subprocess shape.
 # Graph audit phase: live-DB consultation per ADR 0016.
-# Total: sum of phases plus shutdown audits when --final-check is set.
+# Total: sum of phases plus shutdown audits when --final-check is set; ~500ms
+# buffer above phase sum for finalchecks + bookkeeping.
 VALIDATOR_PHASE_TARGETS_MS: dict[str, float] = {
     "duration_structural_ms": 500.0,
+    "duration_health_probe_ms": 5000.0,
     "duration_graph_audit_ms": 5000.0,
-    "duration_total_ms": 6000.0,
+    "duration_total_ms": 11000.0,
 }
 
 # Governed-doc soft-warn thresholds per ADR 0062 (S-0126; Issue #87 part b).
@@ -3670,10 +3680,12 @@ def validate_runtime_phase_regression(
     per-phase target breach; emit ``validator_runtime_phase_regression``
     soft-warn for any phase that breaches in all of them.
 
-    Per ADR 0063 (S-0126; Issue #88). Reads
-    ``engine/tools/validate-history.jsonl``, filters to entries that carry
-    the three per-phase fields (skipping pre-S-0126 entries that only carry
-    the prior ``duration_ms``), and evaluates the rolling window against
+    Per ADR 0063 (S-0126; Issue #88). Four-phase model from S-0127 (Issue #90).
+    Reads ``engine/tools/validate-history.jsonl``, filters to entries that
+    carry every per-phase field declared in ``VALIDATOR_PHASE_TARGETS_MS``
+    (skipping pre-S-0126 entries that only carry the prior ``duration_ms``
+    and pre-S-0127 entries that lack ``duration_health_probe_ms``), and
+    evaluates the rolling window against
     ``VALIDATOR_PHASE_TARGETS_MS * _REGRESSION_BREACH_MULTIPLIER``.
 
     When ``tentative_entry`` is provided, it represents the current run's
@@ -3686,14 +3698,14 @@ def validate_runtime_phase_regression(
     Inputs:
         history_path: Path to ``validate-history.jsonl``. Absent file is fine
             — the check returns clean (insufficient data).
-        tentative_entry: Optional dict carrying ``duration_structural_ms`` /
-            ``duration_graph_audit_ms`` / ``duration_total_ms`` for the
-            current run. When None, the function evaluates the last
-            ``_REGRESSION_RUN_WINDOW`` qualifying entries from history alone.
+        tentative_entry: Optional dict carrying every key in
+            ``VALIDATOR_PHASE_TARGETS_MS`` for the current run. When None,
+            the function evaluates the last ``_REGRESSION_RUN_WINDOW``
+            qualifying entries from history alone.
 
     Returns:
-        ValidationResult with up to three soft-warns (one per phase) when
-        all entries in the window breach the phase's threshold.
+        ValidationResult with up to one soft-warn per phase when all entries
+        in the window breach that phase's threshold.
     """
     r = ValidationResult()
     r.add_check("validator_runtime_phase_regression")
@@ -3918,6 +3930,7 @@ def main(argv: list[str] | None = None) -> int:
     start = time.monotonic()
     overall = ValidationResult()
     duration_structural_ms: float = 0.0
+    duration_health_probe_ms: float = 0.0
     duration_graph_audit_ms: float = 0.0
 
     if args.health_probe_only:
@@ -3929,10 +3942,14 @@ def main(argv: list[str] | None = None) -> int:
     elif args.export_snapshot is not None:
         overall.merge(validate_graph(export_snapshot=args.export_snapshot))
     else:
-        # Structural phase: in-process file/regex checks; no DB consultation.
+        # Structural phase: in-process file/regex checks; no DB consultation,
+        # no subprocess probes. validate_shared_state_health and
+        # validate_issue_collisions were here pre-S-0127 but moved to the
+        # health-probe phase (Issue #90 / ADR 0063 fold) because both spawn
+        # subprocesses to live external systems (chromadb open via
+        # probe_palace.py and `gh issue list` respectively) and dominated
+        # structural timing.
         overall.merge(validate_repo_structure())
-        overall.merge(validate_shared_state_health())
-        overall.merge(validate_issue_collisions())
         overall.merge(validate_scope_discipline())
         overall.merge(validate_routine_mode())
         overall.merge(validate_timestamp_helper_bypass())
@@ -3948,13 +3965,23 @@ def main(argv: list[str] | None = None) -> int:
         t_structural_end = time.monotonic()
         duration_structural_ms = (t_structural_end - start) * 1000
 
+        # Health-probe phase: external-subprocess probes (chromadb open via
+        # probe_palace.py, repo state via probe_repo.py, GitHub Issues via
+        # `gh issue list`). Bounded but slow and variable (network involved
+        # for the gh call); budgeted separately so the in-memory structural
+        # target stays meaningful.
+        overall.merge(validate_shared_state_health())
+        overall.merge(validate_issue_collisions())
+        t_health_probe_end = time.monotonic()
+        duration_health_probe_ms = (t_health_probe_end - t_structural_end) * 1000
+
         # Graph-audit phase: live-DB consultation per ADR 0016.
         overall.merge(validate_graph())
         t_graph_end = time.monotonic()
-        duration_graph_audit_ms = (t_graph_end - t_structural_end) * 1000
+        duration_graph_audit_ms = (t_graph_end - t_health_probe_end) * 1000
 
         # Shutdown audits gated to --final-check; counted toward total but
-        # not separately reported (per-phase target only covers the two
+        # not separately reported (per-phase target only covers the three
         # standing phases the audit at ADR 0063 names).
         if args.final_check:
             overall.merge(validate_mempalace_adoption())
@@ -3973,6 +4000,7 @@ def main(argv: list[str] | None = None) -> int:
     ):
         tentative_entry = {
             "duration_structural_ms": round(duration_structural_ms, 2),
+            "duration_health_probe_ms": round(duration_health_probe_ms, 2),
             "duration_graph_audit_ms": round(duration_graph_audit_ms, 2),
             "duration_total_ms": round(duration_total_ms, 2),
         }
@@ -4018,6 +4046,7 @@ def main(argv: list[str] | None = None) -> int:
         and args.export_snapshot is None
     ):
         record["duration_structural_ms"] = round(duration_structural_ms, 2)
+        record["duration_health_probe_ms"] = round(duration_health_probe_ms, 2)
         record["duration_graph_audit_ms"] = round(duration_graph_audit_ms, 2)
     append_history(record)
 

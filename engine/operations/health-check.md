@@ -102,13 +102,14 @@ Each candidate is annotated with axis, signal, last substantive change, and inbo
 
 ### Validator telemetry
 
-`tools/validate-history.jsonl` (gitignored, per-clone) — soft-warn category trends, validator runtime drift, hard-fail incidence. Per [ADR 0063](../adr/0063-validator-tiered-runtime-targets-and-regression-soft-warn.md), each record carries three per-phase duration fields against tiered targets:
+`tools/validate-history.jsonl` (gitignored, per-clone) — soft-warn category trends, validator runtime drift, hard-fail incidence. Per [ADR 0063](../adr/0063-validator-tiered-runtime-targets-and-regression-soft-warn.md), each record carries four per-phase duration fields against tiered targets:
 
-- **Structural phase** (in-process file/regex checks; no DB) — target **< 500ms**.
+- **Structural phase** (in-process file/regex checks; no DB, no subprocess) — target **< 500ms**.
+- **Health-probe phase** (external-subprocess probes: chromadb open + repo state + GitHub Issues via `gh`) — target **< 5s**.
 - **Graph audit phase** (live-DB consultation per [ADR 0016](../adr/0016-graph-construction-needs-live-validation.md)) — target **< 5s**.
-- **Total runtime** — target **< 6s**.
+- **Total runtime** — target **< 11s**.
 
-The `validator_runtime_phase_regression` soft-warn fires when any phase exceeds 1.5× its tiered target across 3 consecutive runs (the current run participates in the rolling window). Pre-S-0126 entries carry the prior single `duration_ms` field; the regression check skips those entries.
+The `validator_runtime_phase_regression` soft-warn fires when any phase exceeds 1.5× its tiered target across 3 consecutive runs (the current run participates in the rolling window). Pre-S-0126 entries carry the prior single `duration_ms` field; pre-S-0127 entries carry the three-field schema (no `duration_health_probe_ms`); the regression check skips entries that don't carry every per-phase field.
 
 `engine/session/archive/S-NNNN.json` — per-session `outcome_summary_soft_warns` (the canonical structured field per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md)), `started_at`, `closed_at`, `status`, `outcome_summary`, branch, and (post-ADR-0049) `scope_delivery`. (Pre-S-0083 archives also carry `transcript_token_pct` / `transcript_token_estimate` / `tokenizer_used` from the retired ADR 0049 decision 3 telemetry; new archives do not.)
 

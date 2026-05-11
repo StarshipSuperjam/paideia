@@ -430,15 +430,18 @@ def audit_fit(archives: list[Path]) -> CategoryFindings:
         )
 
     # validate-history.jsonl runtime drift (opportunistic).
-    # Per ADR 0063 (S-0126): records carry per-phase fields
-    # (duration_structural_ms / duration_graph_audit_ms / duration_total_ms).
+    # Per ADR 0063 (S-0126; four-phase model from S-0127 Issue #90): records
+    # carry four per-phase fields (duration_structural_ms /
+    # duration_health_probe_ms / duration_graph_audit_ms / duration_total_ms).
     # Pre-S-0126 records carry the prior duration_ms field; treat duration_ms
     # as the legacy alias for duration_total_ms when the new field is absent.
+    # Pre-S-0127 records carry the three-field schema (no health_probe).
     if VALIDATE_HISTORY_PATH.is_file():
         try:
             lines = VALIDATE_HISTORY_PATH.read_text().splitlines()
             totals: list[float] = []
             structurals: list[float] = []
+            health_probes: list[float] = []
             graph_audits: list[float] = []
             for line in lines:
                 try:
@@ -455,6 +458,9 @@ def audit_fit(archives: list[Path]) -> CategoryFindings:
                 structural = rec.get("duration_structural_ms")
                 if isinstance(structural, (int, float)):
                     structurals.append(float(structural))
+                health_probe = rec.get("duration_health_probe_ms")
+                if isinstance(health_probe, (int, float)):
+                    health_probes.append(float(health_probe))
                 graph_audit = rec.get("duration_graph_audit_ms")
                 if isinstance(graph_audit, (int, float)):
                     graph_audits.append(float(graph_audit))
@@ -469,12 +475,17 @@ def audit_fit(archives: list[Path]) -> CategoryFindings:
                     median_graph = sorted(graph_audits)[len(graph_audits) // 2]
                     line_total += (
                         f" Per-phase median: structural {median_struct:.0f}ms / "
-                        f"graph audit {median_graph:.0f}ms."
+                        f"graph audit {median_graph:.0f}ms"
                     )
+                    if health_probes:
+                        median_health = sorted(health_probes)[len(health_probes) // 2]
+                        line_total += f" / health probe {median_health:.0f}ms"
+                    line_total += "."
                 findings.add(
                     line_total,
-                    "Per ADR 0063 tiered targets: structural < 500ms; graph audit "
-                    "< 5s; total < 6s. Investigate if any phase exceeds.",
+                    "Per ADR 0063 tiered targets: structural < 500ms; "
+                    "health probe < 5s; graph audit < 5s; total < 11s. "
+                    "Investigate if any phase exceeds.",
                 )
         except OSError:
             pass
