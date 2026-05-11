@@ -1,0 +1,41 @@
+{
+  "id": "S-0126",
+  "mode": "build",
+  "mode_explicit": "build",
+  "started_at": "2026-05-11T17:18:33Z",
+  "ended_at": "2026-05-11T17:58:00Z",
+  "status": "closed",
+  "working_on": "Close S-0121 audit follow-ups: Issue #87 (retire 14 ADR amendment blocks + 3 governed-doc soft-warns + ADR 0062), Issue #88 (validator tiered runtime + per-phase timing + regression soft-warn + ADR 0063), Issue #89 (refine scan_orphans ops-doc-uncited axis).",
+  "approved_plan": "/Users/shanekidd/.claude/plans/i-want-to-close-dynamic-tulip.md",
+  "branch": "claude/serene-shannon-92a934",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/serene-shannon-92a934",
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": false,
+    "explanation": "Delivered the approved plan in full: Issues #87 / #88 / #89 closed. Two new ADRs (0062 + 0063), two first-exercise readiness notes, four new validator soft-warns (state_md_row_count / adr_consequences_amendment_header / handoff_long_resolved_sections / validator_runtime_phase_regression), per-phase timing instrumentation, scan_orphans axis refinement, 14 ADR amendment blocks retired across 8 ADRs. One follow-up Issue (#90) filed for the structural-phase regression that surfaced during S-0126's own validator runs \u2014 folded the optional regression soft-warn from #88 into the session per the user's anti-deferral pushback during plan mode."
+  },
+  "outcome_summary": "Closed three S-0121 audit follow-ups in one session per the plan at i-want-to-close-dynamic-tulip.md. Issue #89: refined scan_orphans.axis_ops_doc_uncited from archive-text-substring (19/22 false-positives) to AND-combined predicate (refs<5 AND boot-unreachable; operations/README.md as visit-but-don't-traverse leaf); zero candidates live; 6 new pytests. Issue #88: tiered runtime targets (structural<500ms / graph-audit<5s / total<6s) per new ADR 0063; per-phase timing in validate-history.jsonl (duration_ms renamed cleanly to duration_total_ms); new validator_runtime_phase_regression soft-warn (1.5x target across 3 consecutive runs with current-run participating in window); 9 new pytests; first-exercise readiness note. Issue #87 part (a): retired 14 inline-amendment blocks across 8 engine ADRs (5 pure-narration deletes + 3 contract-refinement folds); ADR 0049 lost Decision 3 (retired at S-0083), gained Decision 5 (defer-handle from S-0100); ADR 0056 got heaviest restructure (5 amendments compounded into Layer 1 + Scoped surface + Layer 3 table); grep returns empty post-retirement. Issue #87 part (b): three governed-doc soft-warns (state_md_row_count threshold 180 / adr_consequences_amendment_header zero-tolerance / handoff_long_resolved_sections >5 OR >10 sessions old) per new ADR 0062; 14 new pytests; first-exercise readiness note. Side-effect win: adr_consequences_deliverable_audit soft-warn cleared (ADR 0049 rewrite removed the trigger phrase). First-exercise gate T1-A closed naturally for validator_runtime_phase_regression: median 3705ms structural exceeded 750ms threshold across 3 consecutive runs (likely chromadb open in validate_shared_state_health misclassified as structural); filed Issue #90 for T1-B investigation. 1213 pytests pass. 3 MemPalace decision drawers filed.",
+  "outcome_summary_soft_warns": {
+    "issue_collision": 29,
+    "missing_rigor_score": 360,
+    "orphan_leaf": 1,
+    "mempalace_diary_read_skipped": 1,
+    "mempalace_zero_citations_after_search": 1,
+    "validator_runtime_phase_regression": 1
+  },
+  "next_session_handle": "#90",
+  "mempalace_activity": {
+    "search_calls": 3,
+    "diary_read_calls": 0,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 3,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 7,
+    "first_call_ts": "2026-05-11T16:58:39Z",
+    "last_call_ts": "2026-05-11T17:58:20Z"
+  }
+}
