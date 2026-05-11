@@ -1,0 +1,63 @@
+[project]
+name = "paideia"
+version = "0.0.0"
+description = "Knowledge mastery app on a pedagogical dependency graph. Engine-side tooling — see engine/STATE.md."
+requires-python = ">=3.12"
+
+# Source-of-truth for engine-tool dependencies per ADR 0064 (S-0127).
+# Floor pins; uv.lock holds the exact transitive-resolved versions.
+# Refresh procedure: see engine/operations/dependency-discipline.md.
+#
+# When changing a dep below, also run `uv lock` so uv.lock reflects the
+# new transitive graph. Pre-commit validate.py emits the
+# `uv_lock_out_of_date` soft-warn when pyproject.toml is staged without
+# the matching lockfile regeneration.
+dependencies = [
+    # Code-discipline gate stack per ADR 0038 (Layer 2 mechanical gates).
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+    "pytest>=8.0.0",
+
+    # Phase 4+ live-graph audit per ADR 0016. psycopg v3 binary build
+    # (zero-toolchain install). Activated only when SUPABASE_DB_URL is set.
+    "psycopg[binary]>=3.1.0",
+
+    # MemPalace shared-state probe — engine/tools/probe_palace.py per ADR 0045.
+    # Pinned explicitly even though mempalace re-exposes it transitively, so
+    # probe_palace's expected version is independent of mempalace's pin.
+    "chromadb>=0.5.0",
+
+    # Phase 4.6+ structural-reference parser per ADR 0047. HTMLInputAdapter
+    # uses BeautifulSoup4 for SEP/IEP HTML normalization.
+    "beautifulsoup4>=4.12.0",
+
+    # Phase 5+ structural-reference parser PDF adapter per ADR 0047 decision 6
+    # + Issue #34 (S-0096). pdfplumber for outline/font-metrics, pypdfium2 for
+    # bulk text extraction (~30x speed at encyclopedia scale). pypdfium2 is
+    # also a pdfplumber transitive but pinned explicitly so the expected
+    # version is independent of pdfplumber's pin.
+    "pdfplumber>=0.11.0",
+    "pypdfium2>=4.0.0",
+
+    # Test-only — engine/tools/test_parse_structural_reference.py uses
+    # reportlab to synthesize PDF fixtures in-test (mirrors the SYNTHETIC_HTML
+    # inline-string pattern for HTMLInputAdapter tests). Kept in the main
+    # dep set rather than split into a dev-deps group — splitting via
+    # PEP 735 dependency-groups is a deferred refinement when the test
+    # surface justifies the indirection.
+    "reportlab>=4.0.0",
+
+    # MemPalace — semantic-memory store, MCP server, Stop/PreCompact hook
+    # capture. Per ADR 0050 mempalace runs from the project venv. Floor
+    # bumped at S-0084 to capture `mempalace repair-status` (3.3.4). Per
+    # the S-0084 user directive, mempalace version strings live only here
+    # — ADR/ops-doc prose references the version as a forensic timestamp
+    # ("as observed at S-NNNN") rather than asserting a specific version.
+    "mempalace>=3.3.4",
+]
+
+[tool.uv]
+# Lockfile generated and committed per ADR 0064. Regenerate with `uv lock`
+# only when dependencies change — no drive-by refreshes mid-session.
+# Pre-commit gate (validate.py: validate_uv_lock_freshness) catches drift.
+package = false

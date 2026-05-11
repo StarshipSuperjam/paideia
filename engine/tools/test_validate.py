@@ -37,6 +37,7 @@ Non-responsibilities:
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -2172,3 +2173,105 @@ class TestValidateHandoffLongResolvedSections:
         )
         # Only 1 actual section-marker should match; preamble prose does not.
         assert r.soft_warns == {}  # count under threshold, age under threshold
+
+
+# ---------------------------------------------------------------------------
+# validate_uv_lock_freshness (ADR 0064, Issue #65)
+# ---------------------------------------------------------------------------
+
+
+class TestValidateUvLockFreshness:
+    """`uv lock --check` staleness gate per ADR 0064.
+
+    Verified shapes:
+    - missing pyproject.toml → no-op (project hasn't adopted)
+    - missing uv.lock → no-op (project hasn't adopted)
+    - missing uv binary on PATH → no-op (clone hasn't installed prereqs)
+    - both files present + uv available + clean → no soft-warn
+    - both files present + uv available + stale → uv_lock_out_of_date soft-warn
+    """
+
+    def test_absent_pyproject_returns_clean(
+        self, tmp_path: Path, monkeypatch: Any
+    ) -> None:
+        # Neither pyproject nor uv.lock exists.
+        r = validate.validate_uv_lock_freshness(repo_root=tmp_path)
+        assert r.soft_warns == {}
+        assert "uv_lock_out_of_date" in r.checks_run
+
+    def test_absent_lockfile_returns_clean(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "x"\nversion = "0"\nrequires-python = ">=3.12"\n'
+        )
+        r = validate.validate_uv_lock_freshness(repo_root=tmp_path)
+        assert r.soft_warns == {}
+
+    def test_uv_binary_missing_returns_clean(
+        self, tmp_path: Path, monkeypatch: Any
+    ) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "x"\nversion = "0"\nrequires-python = ">=3.12"\n'
+        )
+        (tmp_path / "uv.lock").write_text("# placeholder lock\n")
+        # shutil.which returns None for any binary lookup.
+        monkeypatch.setattr("shutil.which", lambda _name: None)
+        r = validate.validate_uv_lock_freshness(repo_root=tmp_path)
+        assert r.soft_warns == {}
+
+    def test_clean_lock_no_warn(self, tmp_path: Path, monkeypatch: Any) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "x"\nversion = "0"\nrequires-python = ">=3.12"\n'
+        )
+        (tmp_path / "uv.lock").write_text("# placeholder lock\n")
+        # Stub uv binary present + uv lock --check returning 0.
+        monkeypatch.setattr(
+            "shutil.which", lambda name: "/usr/bin/uv" if name == "uv" else None
+        )
+        completed = subprocess.CompletedProcess(
+            args=["uv", "lock", "--check"], returncode=0, stdout="", stderr=""
+        )
+        monkeypatch.setattr(subprocess, "run", lambda *a, **kw: completed)
+        r = validate.validate_uv_lock_freshness(repo_root=tmp_path)
+        assert r.soft_warns == {}
+
+    def test_stale_lock_fires_soft_warn(self, tmp_path: Path, monkeypatch: Any) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "x"\nversion = "0"\nrequires-python = ">=3.12"\n'
+        )
+        (tmp_path / "uv.lock").write_text("# stale lock\n")
+        monkeypatch.setattr(
+            "shutil.which", lambda name: "/usr/bin/uv" if name == "uv" else None
+        )
+        completed = subprocess.CompletedProcess(
+            args=["uv", "lock", "--check"],
+            returncode=1,
+            stdout="",
+            stderr="lockfile out of date",
+        )
+        monkeypatch.setattr(subprocess, "run", lambda *a, **kw: completed)
+        r = validate.validate_uv_lock_freshness(repo_root=tmp_path)
+        assert "uv_lock_out_of_date" in r.soft_warns
+        assert len(r.soft_warns["uv_lock_out_of_date"]) == 1
+        assert "uv lock" in r.soft_warns["uv_lock_out_of_date"][0]
+
+    def test_subprocess_timeout_returns_clean(
+        self, tmp_path: Path, monkeypatch: Any
+    ) -> None:
+        """Timeout is treated as a no-op (returns clean) rather than a warn —
+        the gate cannot distinguish 'lockfile stale' from 'uv hung,' and
+        falsely flagging on transient subprocess failure would erode trust
+        in the warn category."""
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "x"\nversion = "0"\nrequires-python = ">=3.12"\n'
+        )
+        (tmp_path / "uv.lock").write_text("# placeholder lock\n")
+        monkeypatch.setattr(
+            "shutil.which", lambda name: "/usr/bin/uv" if name == "uv" else None
+        )
+
+        def _raise_timeout(*args: Any, **kwargs: Any) -> Any:
+            raise subprocess.TimeoutExpired(cmd="uv lock --check", timeout=30)
+
+        monkeypatch.setattr(subprocess, "run", _raise_timeout)
+        r = validate.validate_uv_lock_freshness(repo_root=tmp_path)
+        assert r.soft_warns == {}

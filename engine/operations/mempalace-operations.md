@@ -53,7 +53,7 @@ Wing      (project or person, e.g., "paideia")
 
 ## Install
 
-MemPalace ships as a Python package on PyPI. Per [ADR 0050](../adr/0050-project-venv-and-hook-path-wiring.md), the project pins it in [`engine/tools/requirements.txt`](../tools/requirements.txt) and installs it into the project venv at `<main_repo>/.venv/`. The pinned floor is the single source of truth for the supported mempalace version; prose docs reference the version only as a forensic timestamp ("as observed at S-NNNN") and not as a version assertion.
+MemPalace ships as a Python package on PyPI. Per [ADR 0050](../adr/0050-project-venv-and-hook-path-wiring.md) (venv) + [ADR 0064](../adr/0064-uv-lockfile-and-reproducible-builds.md) (lockfile, S-0127), the project pins it in [`pyproject.toml`](../../pyproject.toml) at the repo root with exact transitive versions in [`uv.lock`](../../uv.lock); `uv sync` installs into the project venv at `<main_repo>/.venv/`. The pinned floor in `pyproject.toml` is the single source of truth for the supported mempalace version; prose docs reference the version only as a forensic timestamp ("as observed at S-NNNN") and not as a version assertion.
 
 ```
 <main_repo>/.venv/bin/mempalace
@@ -167,7 +167,7 @@ mempalace status
 # Expect: drawer count > 0, last write timestamp matches recent activity
 ```
 
-If drawers aren't appearing: check `~/.mempalace/hook_state/` for stale lock files; check `mempalace --version` (must satisfy the floor pinned in [`engine/tools/requirements.txt`](../tools/requirements.txt)); check that Claude Code restarted after the `.mcp.json` and `.claude/settings.json` edits.
+If drawers aren't appearing: check `~/.mempalace/hook_state/` for stale lock files; check `mempalace --version` (must satisfy the floor pinned in [`pyproject.toml`](../../pyproject.toml)); check that Claude Code restarted after the `.mcp.json` and `.claude/settings.json` edits.
 
 ## Known issues
 

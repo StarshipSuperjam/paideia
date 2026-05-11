@@ -31,6 +31,7 @@ Procedural documentation. One file per topic. AI sessions discover topics by rea
 - [`adr-authoring.md`](adr-authoring.md) — Nygard template, status conventions, when an ADR is warranted.
 - [`document-voice.md`](document-voice.md) — expression contract for inward-facing project documentation; governs voice in the `docs/` tree, ADRs, root-level project files. Sibling tool to [`AGENT_INSTRUCTIONS.md`](../../product/AGENT_INSTRUCTIONS.md), separately scoped.
 - [`code-discipline.md`](code-discipline.md) — expression contract for AI-authored code under engine/; three-layer discipline (contract-first prose, mechanical gates, cold-context review pass). Sibling tool to [`document-voice.md`](document-voice.md), separately scoped to code.
+- [`dependency-discipline.md`](dependency-discipline.md) — Layer 1 source-of-truth for Python dependency management per ADR 0064 (S-0127): pyproject.toml as source-of-truth, uv.lock as the install contract, uv sync as canonical install, validate.py freshness gate, refresh procedure, routine-mode interaction.
 - [`sub-agent-validation.md`](sub-agent-validation.md) — when to spawn sub-agents, briefing style, output validation.
 - [`health-check.md`](health-check.md) — periodic project audit (per ADR 0022): categories, report template, cadence policy.
 

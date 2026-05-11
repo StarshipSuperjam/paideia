@@ -57,6 +57,7 @@ The engine collection has **25 ADRs total — all Accepted**. Engine ADRs are ab
 | [0060](0060-routine-wedge-detect-and-pause.md) | Routine wedge detect-and-pause | Accepted |
 | [0062](0062-retire-adr-inline-amendments-and-governed-doc-soft-warns.md) | Retire ADR inline-amendment pattern + governed-doc validator soft-warns | Accepted |
 | [0063](0063-validator-tiered-runtime-targets-and-regression-soft-warn.md) | Validator tiered runtime targets + per-phase regression soft-warn | Accepted |
+| [0064](0064-uv-lockfile-and-reproducible-builds.md) | `uv` lockfile + reproducible dependency builds | Accepted |
 
 ## Adding a new engine ADR
 

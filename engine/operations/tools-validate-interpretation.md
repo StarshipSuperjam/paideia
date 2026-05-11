@@ -294,6 +294,16 @@ Per [ADR 0063](../adr/0063-validator-tiered-runtime-targets-and-regression-soft-
 
 Recoverable: investigate the offending phase's hot path (which subcheck regressed?). If the phase boundary itself is wrong (a slow concern misclassified into the wrong phase), correct it — the S-0126 first-fire was resolved this way at S-0127 by extracting `validate_shared_state_health` from the structural phase into its own `health_probe` phase. If the steady-state has legitimately shifted (new infrastructure raised a baseline, or live-DB load varies), adjust `VALIDATOR_PHASE_TARGETS_MS` in `validate.py` with evidence in the commit.
 
+### `uv_lock_out_of_date`
+
+Per [ADR 0064](../adr/0064-uv-lockfile-and-reproducible-builds.md) (S-0127; Issue #65). Fires when `uv lock --check` (run from the repo root) exits non-zero — i.e., `uv.lock` does not match `pyproject.toml`'s declared dependency surface. Three no-op cases preserve clean exits when the contract isn't installed: missing `pyproject.toml`, missing `uv.lock`, missing `uv` binary.
+
+Recoverable: from the repo root, run `uv lock` to regenerate the lockfile, then `uv sync` to align the local venv, then stage `pyproject.toml` and `uv.lock` together in the same commit. Refresh procedure: [`dependency-discipline.md`](dependency-discipline.md).
+
+The check runs in the `health_probe` phase per ADR 0063 (subprocess to `uv`).
+
+The soft-warn is intentionally per-session-resolvable — every fire indicates a missing `uv lock` step. Persistent firing across 10 sessions per `soft-warn-lifecycle.md` reaches the escalation criterion as either: (a) the dep change should be reverted; (b) the lockfile-regeneration step should be CI-automated.
+
 ### `timestamp_helper_bypass`
 
 A `Call` node in `engine/tools/**/*.py` (excluding `test_*.py` and the four allowlisted files) invokes `.isoformat(...)`, `.strftime(...)`, or `.fromisoformat(...)` directly. Per [ADR 0058](../adr/0058-canonical-timestamp-format-and-helper.md) + [`timestamp-discipline.md`](timestamp-discipline.md), all timestamp emission and parsing in the engine subtree routes through `engine/tools/timestamps.py` (`emit` / `emit_micros` / `parse` / `today`) so format knowledge concentrates in one place.
@@ -410,8 +420,10 @@ The since-date matches the calendar span of the cadence-20 window. The `git log 
 | `next_session_handle_unknown_issue` | Actively-tracked, deferred (S-0100) | 0 | 0 | 2 | ADR 0049 Decision 6 — handle references unknown Issue |
 | `next_session_handle_unknown_session` | Actively-tracked, deferred (S-0100) | 0 | 0 | 2 | ADR 0049 Decision 6 — handle references unknown session |
 | `next_session_handle_malformed` | Actively-tracked, deferred (S-0100) | 0 | 0 | 2 | ADR 0049 Decision 6 — handle malformed (not `#NN` or `S-NNNN`) |
+| `validator_runtime_phase_regression` | Actively-tracked, deferred (S-0126) | 0 | 0 | 1 | Per-phase runtime regression per ADR 0063 four-phase model (S-0127 fold) |
+| `uv_lock_out_of_date` | Actively-tracked, deferred (S-0127) | 0 | 0 | 0 | uv.lock vs pyproject.toml staleness per ADR 0064 |
 
-**Coverage check:** 40 rows above; 38 static-emission category strings (per `grep -oE 'r\.soft_warn\(\s*"[a-z_]+"' engine/tools/validate.py | sort -u`) plus 2 dynamic-emission categories (`chromadb_palace_health`, `repo_config_health`) emitted from the probe loop at `validate.py:687`. Two ghost keys appear in some historical archives (`graph_audit_skipped` is an `add_check` not a `soft_warn`; `mempalace_diary_write_skipped` is a hard-fail not a soft-warn) — both excluded from this map by design.
+**Coverage check:** 42 rows above; 40 static-emission category strings (per `grep -oE 'r\.soft_warn\(\s*"[a-z_]+"' engine/tools/validate.py | sort -u`) plus 2 dynamic-emission categories (`chromadb_palace_health`, `repo_config_health`) emitted from the probe loop at `validate.py:687`. Two ghost keys appear in some historical archives (`graph_audit_skipped` is an `add_check` not a `soft_warn`; `mempalace_diary_write_skipped` is a hard-fail not a soft-warn) — both excluded from this map by design.
 
 **Concordance check (per S-0101 plan verification step 2):** the 3 S-0077 persistent-warn annotations and 2 S-0098 informational-only classifications survive the new threshold matrix unchanged. No category flipped relative to its prior assignment.
 

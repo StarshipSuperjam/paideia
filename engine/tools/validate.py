@@ -141,6 +141,7 @@ import ast
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -3665,6 +3666,60 @@ def validate_handoff_long_resolved_sections(
     return r
 
 
+def validate_uv_lock_freshness(repo_root: Path | None = None) -> ValidationResult:
+    """Soft-warn when ``uv.lock`` is out of date relative to ``pyproject.toml``.
+
+    Per ADR 0064 (S-0127; Issue #65). The lockfile is committed; whenever
+    ``pyproject.toml`` is edited, ``uv lock`` must be re-run to refresh
+    transitive resolution. ``uv lock --check`` is the canonical staleness
+    detector — it returns non-zero when the lock is out of date.
+
+    Three no-op cases (return clean):
+
+    - ``pyproject.toml`` is absent (project has not adopted the lockfile
+      contract; pre-S-0127 clones).
+    - ``uv.lock`` is absent (same case).
+    - ``uv`` binary is not on PATH (clone has not installed prerequisites
+      per ADR 0050; the missing-prereq surface is `engine/STATE.md`'s
+      "Infrastructure pointers" section, not this gate).
+
+    Inputs:
+        repo_root: Override the module-level REPO_ROOT. Test injection point.
+
+    Returns:
+        ValidationResult with ``uv_lock_out_of_date`` registered as a check.
+        Soft-warn fires when ``uv lock --check`` exits non-zero.
+    """
+    r = ValidationResult()
+    r.add_check("uv_lock_out_of_date")
+    root = repo_root if repo_root is not None else REPO_ROOT
+    pyproject = root / "pyproject.toml"
+    lockfile = root / "uv.lock"
+    if not pyproject.exists() or not lockfile.exists():
+        return r
+    if shutil.which("uv") is None:
+        return r
+    try:
+        proc = subprocess.run(
+            ["uv", "lock", "--check"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=scrubbed_env(),
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return r
+    if proc.returncode != 0:
+        r.soft_warn(
+            "uv_lock_out_of_date",
+            "uv.lock is out of date relative to pyproject.toml. Run `uv lock` "
+            "from the repo root and stage the updated uv.lock alongside the "
+            "pyproject.toml change. Per engine/operations/dependency-discipline.md.",
+        )
+    return r
+
+
 # Multiplier above the tiered target that must be sustained across this many
 # consecutive entries before the regression soft-warn fires. Conservative:
 # single-run noise won't trigger; only sustained breach will.
@@ -3967,11 +4022,15 @@ def main(argv: list[str] | None = None) -> int:
 
         # Health-probe phase: external-subprocess probes (chromadb open via
         # probe_palace.py, repo state via probe_repo.py, GitHub Issues via
-        # `gh issue list`). Bounded but slow and variable (network involved
-        # for the gh call); budgeted separately so the in-memory structural
-        # target stays meaningful.
+        # `gh issue list`, lockfile freshness via `uv lock --check`).
+        # Bounded but slow and variable (network involved for the gh call);
+        # budgeted separately so the in-memory structural target stays
+        # meaningful.
         overall.merge(validate_shared_state_health())
         overall.merge(validate_issue_collisions())
+        # Lockfile-staleness check per ADR 0064 (S-0127; Issue #65). Fits
+        # health_probe rather than structural because it shells out to `uv`.
+        overall.merge(validate_uv_lock_freshness())
         t_health_probe_end = time.monotonic()
         duration_health_probe_ms = (t_health_probe_end - t_structural_end) * 1000
 

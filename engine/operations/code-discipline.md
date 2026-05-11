@@ -57,13 +57,13 @@ Pre-commit invokes these via `validate.py`'s `validate_code_gates()` function, w
 
 ### Tool installation
 
-Engine-tool dependencies are declared in [`../tools/requirements.txt`](../tools/requirements.txt). Install with:
+Engine-tool dependencies are declared in [`pyproject.toml`](../../pyproject.toml) at the repo root with exact transitive resolution pinned in [`uv.lock`](../../uv.lock). Install with:
 
 ```bash
-pip install -r engine/tools/requirements.txt
+uv sync
 ```
 
-The S-0026 session that authored this contract installs the stack and verifies it runs.
+Refresh procedure when deps change is documented in [`dependency-discipline.md`](dependency-discipline.md). The S-0026 session that authored this contract installs the stack and verifies it runs; the S-0127 session migrated the install path from `pip install -r engine/tools/requirements.txt` to `uv sync` per [ADR 0064](../adr/0064-uv-lockfile-and-reproducible-builds.md).
 
 ## Layer 3 — Cold-context review pass
 
