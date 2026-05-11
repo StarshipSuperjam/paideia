@@ -1,27 +1,40 @@
 # Security Policy
 
+## Project status
+
+Paideia is an open-source personal project under the Apache License 2.0. No commercial SLA. Best-effort response from the maintainer.
+
 ## Reporting a vulnerability
 
-This is a private, pre-launch project. If you discover a security vulnerability — whether in dependencies, configuration, exposed secrets, or application logic — report it directly and privately to the project owner.
+Report security vulnerabilities privately via GitHub's security-advisory channel: [https://github.com/StarshipSuperjam/paideia/security/advisories/new](https://github.com/StarshipSuperjam/paideia/security/advisories/new).
 
 Do **not** open a public issue or pull request describing the vulnerability.
 
-## Scope
+## BYOK posture (load-bearing)
 
-Active concerns include:
+Per [ADR 0065](product/adr/0065-oss-pivot-and-byok-disposition.md), Paideia ships under a Bring-Your-Own-Key model on the user-facing iOS app:
 
-- **API key exposure** — `.env`, `.mcp.json`, and any file containing credentials are gitignored. If you find a credential committed to the repo, treat it as compromised, rotate it, and report.
-- **Dependency vulnerabilities** — Python and Node packages declared in `requirements.txt` / `package.json` (when those land in later phases). Notable runtime dependencies: `mempalace`, `chromadb`, `psycopg`, `@supabase/mcp-server-supabase`.
-- **Supabase** — project ref is named in committed config; the access token is in gitignored `.mcp.json`. The token has scoped permissions per its issuance; if compromised, rotate from the Supabase dashboard.
-- **MemPalace** — local-first, no cloud calls at the core layer. The palace lives at `~/.mempalace/palace` by default; treat as locally sensitive (it can contain verbatim conversation history including any secrets discussed in chat).
-- **User-supplied content** (post-Phase 7) — close-reading user-uploaded texts are stored per-user; access controls enforce owner-only access.
+> The user's Anthropic API key lives only on-device in iOS Keychain. No Paideia-controlled server receives the key, proxies the API, or observes the API exchange.
 
-## What's out of scope
+The app stores the user's API key under iOS Keychain with `kSecAttrAccessibleWhenUnlockedThisDeviceOnly` and no iCloud sync. The app makes direct HTTPS calls to Anthropic's API from the device; no Paideia-controlled middlebox exists in the API exchange path.
 
-- Theoretical attacks against unreleased components (Phase 7+ teaching layer, Phase 9 UI)
-- DoS scenarios on the dev Supabase instance (free tier, no production data)
-- Speculative attacks on dependencies you haven't verified are exploitable
+The maintainer-side back-end (Supabase + engine tooling) handles graph construction, graph analysis, and aggregated mastery-state ingestion. It never receives, proxies, or observes user API keys.
+
+## Scope of concern
+
+- **Credential exposure in tracked files** — `.env`, `.mcp.json`, and any file containing live credentials are gitignored. If you find a credential committed to the repo, treat it as compromised, rotate it, and report.
+- **Graph data (Supabase)** — the project ref is named in committed config; service-role tokens live in gitignored `.mcp.json` / `.env`. The dev tier has no production user data; Phase 6+ will introduce per-user RLS-gated tables.
+- **Engine-side build tooling** — Python tools in `engine/tools/`. Dependencies are pinned in `pyproject.toml` / `uv.lock`; supply-chain integrity rides on `uv sync` reproducibility.
+- **iOS app surface (Phase 6+)** — once the app surface lands, the BYOK key-handling and direct-Anthropic-call posture above is the primary attack surface. The maintainer's own deployment process (Apple build, IPA signing, App Store submission) is in scope.
+- **MemPalace** — local-first, no cloud calls at the core layer. The palace at `~/.mempalace/palace` is locally sensitive; it can contain verbatim conversation history.
+
+## Out of scope
+
+- Third-party platform security: Anthropic's API surface, Supabase's hosted Postgres, Apple's iOS Keychain, Apple's App Store distribution. Defer to upstream security postures and report vulnerabilities to those vendors directly.
+- Theoretical attacks on unreleased components (Phase 6+ teaching layer, Phase 9 commercial launch surface).
+- DoS scenarios on the dev Supabase instance (free tier, no production data).
+- Speculative attacks on dependencies you have not verified are exploitable on Paideia's current usage.
 
 ## Disclosure timeline
 
-Private response within a reasonable timeframe given the project's pre-launch status. No formal SLA until commercial launch.
+Best-effort response from the maintainer. No formal SLA. Critical issues (live credential exposure, ability to impersonate users post-Phase-6, key-extraction paths from the BYOK boundary) get prioritized; lower-severity issues queue against the maintainer's session schedule.

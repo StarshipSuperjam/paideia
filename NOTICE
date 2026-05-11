@@ -1,0 +1,8 @@
+Paideia
+Copyright (c) 2026 The Paideia Project Contributors
+
+This product includes software developed under the Apache License 2.0.
+See LICENSE for full terms.
+
+Third-party dependencies retain their respective licenses; see
+pyproject.toml and uv.lock for the dependency set.

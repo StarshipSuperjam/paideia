@@ -2,9 +2,9 @@
 
 A knowledge mastery app built on a pedagogical dependency graph. Generates personalized learning paths, provides AI-driven Socratic teaching, and tracks mastery across texts and sessions. Philosophy is the first domain; the architecture is domain-agnostic.
 
-**Status:** design and early implementation. Project setup complete; Phase 3 (SQL schema) deployed. `engine/STATE.md` carries the current phase and next session's work item; `engine/ENGINE_LOG.md` carries the full history.
+**Status:** OSS (Apache 2.0) — pre-Phase-6 personal project, post-pivot from cost-capped pseudo-SaaS to BYOK direct-API (per [ADR 0065](product/adr/0065-oss-pivot-and-byok-disposition.md)). App Store distribution pending the Phase 9 milestone. Contributions accepted at maintainer discretion; see [CONTRIBUTING.md](CONTRIBUTING.md). `engine/STATE.md` carries the current phase and next session's work item; `engine/ENGINE_LOG.md` carries the full history.
 
-**Repository:** https://github.com/StarshipSuperjam/paideia (private)
+**Repository:** https://github.com/StarshipSuperjam/paideia
 
 ---
 
@@ -25,8 +25,11 @@ The repo is partitioned into `engine/` (the AI build apparatus the user and Clau
 ```
 paideia/
 ├── README.md                       # this file
-├── LICENSE                         # proprietary, all rights reserved (Shane Kidd)
-├── SECURITY.md                     # vulnerability disclosure policy
+├── LICENSE                         # Apache License 2.0 (see NOTICE for copyright)
+├── NOTICE                          # Apache 2.0 attribution notice
+├── CONTRIBUTING.md                 # contribution guidelines + pointers
+├── CODE_OF_CONDUCT.md              # Contributor Covenant v2.1
+├── SECURITY.md                     # vulnerability disclosure policy (BYOK posture per ADR 0065)
 ├── CLAUDE.md                       # AI orientation; auto-loaded by Claude Code; engine-side content kept at root because the harness expects it there (ADR 0037 edge-case (c))
 ├── ROADMAP.md                      # phase sequence with success criteria; carries [ENGINE] / [PRODUCT] markers
 ├── HANDOFF.md                      # running log of items deferred to future major-state-transitions
@@ -146,7 +149,9 @@ After setup, restart Claude Code so the new MCP servers load.
 
 ## License
 
-Proprietary, all rights reserved. See `LICENSE`.
+[Apache License 2.0](LICENSE). Copyright (c) 2026 The Paideia Project Contributors; see [NOTICE](NOTICE) for the attribution notice.
+
+The "Paideia" name and product brand are not Apache-licensed. If you fork for App Store distribution, please rebrand. See [CONTRIBUTING.md](CONTRIBUTING.md) for full contribution guidance.
 
 ---
 
