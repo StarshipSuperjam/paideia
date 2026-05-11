@@ -1,0 +1,33 @@
+{
+  "id": "S-0129",
+  "started_at": "2026-05-11T22:00:00Z",
+  "ended_at": "2026-05-11T22:55:00Z",
+  "status": "closed",
+  "working_on": "Session B of three-session OSS+BYOK refactor: downstream doc rewrites per ADR 0065 (business.md / infrastructure.md / ROADMAP.md / MISSION.md) + ADR 0014 editorial extension absorbing the pedagogical-degradation principle + pick up S-0128 leftover cleanup (ENGINE_LOG invented section + STATE.md side-discoveries \u2192 Issue links #91 + #92).",
+  "outcome_summary": "Session B of three-session OSS+BYOK refactor delivered per the approved plan. Five files rewritten / extended against ADR 0065's eight-commitment contract: business.md (Personal Project Disposition \u2192 eight commitments; Pricing and Distribution table; Operating Cost Model \u2192 Infrastructure Operating Cost; Annual Operating Subsidy Budget section retired; Cost Amplification with Session Length reframed user-side); infrastructure.md (Deployment Target rewritten Apple-only + client-direct; new BYOK key handling subsection naming Keychain storage and the load-bearing architectural clarification that graph build and graph analysis remain back-end maintainer work, not user-device work \u2014 user conversations surface signals like bug reports, the maintainer adjudicates); ROADMAP.md (Phase 8 + Phase 9 success criteria rewritten \u2014 cost-cap-mechanism criterion removed; BYOK onboarding flow + force-crash test + milestone-bound repo-migration trigger as Phase-9-entry gate added; Phase 9 pedagogical-degradation discipline per ADR 0014 replaces prior cost-cap-against-production criterion; static-polish foreclosure extends to bind against user-funnel-mechanic; Phase 1.5 historical narration of ADR 0035's original commitments annotated with inline supersession marker); MISSION.md (Disposition + commitment 2 rewrites); ADR 0014 Consequences extended absorbing the retired ADR 0029 pedagogical-degradation principle (optional editorial pass folded in per the approved plan). S-0128 leftover cleanup picked up first: ENGINE_LOG invented `### Known unfixed` subsection removed (Keep-a-Changelog discipline); STATE.md side-discoveries prose replaced with Issue-link references to #91 + #92. ENGINE_LOG `[Unreleased]` extended with S-0129 Changed entries. STATE.md Last build session + Next session work item rows replaced (next: S-0130 LICENSE / PII / OSS hygiene / public-flip). 7 commits (eager-claim + cleanup + 5 substantive rewrites + closeout). Soft-warns persistent only \u2014 issue_collision 28, missing_rigor_score 360, orphan_leaf 1; no new categories. issue_collision count rose from 21 (S-0128) to 28 because Issues #91 + #92 now exist and surface as collision candidates. User pushback mid-session corrected one infrastructure.md framing error (client did not become responsible for graph analysis under BYOK \u2014 graph build remains back-end work; user device emits per-user mastery-state events the back-end consumes structurally, the same shape ADR 0026 transcript-non-persistence already implied).",
+  "outcome_summary_soft_warns": {
+    "issue_collision": 28,
+    "missing_rigor_score": 360,
+    "orphan_leaf": 1
+  },
+  "approved_plan": "~/.claude/plans/agile-inventing-crane.md",
+  "branch": "claude/keen-swartz-50be53",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/keen-swartz-50be53",
+  "next_session_handle": "S-0130-OSS-BYOK-Session-C",
+  "mode": "build",
+  "mode_explicit": "build",
+  "mempalace_activity": {
+    "search_calls": 1,
+    "diary_read_calls": 0,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 0,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 2,
+    "first_call_ts": "2026-05-11T21:02:46Z",
+    "last_call_ts": "2026-05-11T21:12:25Z"
+  }
+}
