@@ -1,0 +1,39 @@
+{
+  "id": "S-0125",
+  "mode": "build",
+  "mode_explicit": "build",
+  "started_at": "2026-05-11T16:39:29Z",
+  "ended_at": "2026-05-11T16:55:00Z",
+  "status": "closed",
+  "working_on": "Bundle two governance items: (1) annotate three SWE-hardening rollout pairings (#66+#70, #68+#69, #73+#74) in STATE.md; (2) adjudicate S-0121 audit findings — populate User adjudication subsection of docs/health-checks/S-0121.md (4 retire candidates + 3 recommended validator soft-warns + cold-context probe finding), file health-check-finding Issues for accepted items, inline-fix Item F (empty_declared_scope mode-gate) and Item Cold (5 ADR See-also user-local path retire).",
+  "approved_plan": "/Users/shanekidd/.claude/plans/s-0124-did-a-full-zesty-planet.md",
+  "branch": "claude/laughing-dhawan-abb696",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/laughing-dhawan-abb696",
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": true,
+    "explanation": "Both planned items delivered in full. Part 1: three SWE-hardening rollout pairings annotated in engine/STATE.md — new Pairing column on Tier 1 + Tier 2 tables (Pairing A: #66+#70 pre-commit security scanners; Pairing B: #68+#69 GitHub gating layer; Pairing C: #73+#74 code-review skills), new 'Combined-session pairings' subsection with rationale table, Pickup rule updated to reference eligible units (Issue OR pairing), section blockquote updated. Part 2: docs/health-checks/S-0121.md User adjudication subsection populated with dispositions + execution lanes for all 6 audit items (C/D/E/F/three-recommended-soft-warns/Cold). Three GitHub Issues filed for accepted-but-substantial work: #87 (Retire-C bundle: 8 ADR Consequences amendment retire + 3 governed-doc validator soft-warns), #88 (validator tiered runtime + per-phase timing), #89 (ops-doc-uncited axis refinement). Two items landed inline per CLAUDE.md fix-in-context: Item F mode-gated empty_declared_scope on current.json.mode == 'routine' (validate.py + docstring + ops-doc annotation + 4 new tests; 18/18 pass; warn cleared mid-session); Item Cold swept user-local plan paths from 5 ADRs (engine 0022/0054; product 0033/0034/0035) — 4 See-also bullets deleted + 3 body-prose occurrences tightened. STATE.md Last build session + Next session work item updated; Adjudicate-S-0121 candidate cleared. No descope; no reorder; no deferral. User-confirmed at plan-mode approval and via the bundling-with-audit follow-up direction at plan iteration."
+  },
+  "outcome_summary": "S-0125 bundled two governance/housekeeping items into one session because both shared the STATE.md + governance-doc + Issue-filing surface and neither required a build-readiness gate. Part 1 annotated three combined-session pairings in the SWE-hardening rollout structure — Pairing A (#66 gitleaks + #70 bandit; shared pre-commit hook + validate.py + first-exercise readiness surfaces), Pairing B (#68 CI mirror + #69 PR template + branch protection; branch protection requires CI status check), Pairing C (#73 /review + #74 /security-review; identical Skill-authoring pattern + reused anti-rationalization table). New 'Combined-session pairings' subsection with rationale table; Pickup rule references eligible units (Issue OR pairing). The user's pushback at plan entry — '22 sessions seems unlikely all siloed' — was the right read: trigger-gated 9 don't run as near-term sessions, and 3 natural pairings shrink near-term to ~10 from 22. Issue bodies unchanged; pairings surface via STATE.md as the routing layer. Part 2 adjudicated the S-0121 audit (second formal ADR 0057 adversarial-stance exercise, blank User adjudication subsection from S-0121). Three Issues filed: #87 bundles Retire-C (8 ADR Consequences inline-amendment retire to canonical homes per ADR 0036) + the 3 recommended governed-doc validator soft-warns (state_md_row_count / adr_consequences_amendment_header / handoff_long_resolved_sections) because all four share the AI-default additive-prose root pattern; #88 retires the stale <500ms validator runtime target for tiered targets + per-phase timing instrumentation; #89 refines scan_orphans.py ops-doc-uncited axis (19/22 false-positive against load-bearing foundational ops docs). Two items landed inline per CLAUDE.md fix-in-context. Item F mode-gated empty_declared_scope on mode == 'routine' (the field is a routine-mode contract surface per ADR 0049; the warn was misidentifying interactive session mode). 4 new tests added; 18/18 pass; ops-doc annotation updated; the warn cleared from this session's own validator output between commits 56c3add and cbf94de — the fix verified itself mid-session. Item Cold swept user-local plan paths from 5 ADRs (engine 0022/0054 + product 0033/0034/0035): 4 entire See-also bullets deleted; 3 body-prose occurrences (ADR 0022 line 32 parenthetical, ADR 0033 Deciders field, ADR 0033 silent-drop recovery paragraph) tightened to drop the unresolvable path while preserving substance; grep verification post-sweep returns empty. STATE.md Last build session + Next session work item updated (S-0121 adjudication candidate cleared; #87/#88/#89 added as downstream-eligible). Two MemPalace decision drawers filed (pairings declaration + audit adjudication slate); diary written. Six commits: eager-claim, pairings annotation, Item F (with mypy fix recommit so technically 7 commits including the rejected one), Item Cold sweep, audit-report populate, close. Validator at shutdown: 0 hard-fails; soft-warns at expected baseline minus empty_declared_scope (cleared by this session's own fix).",
+  "outcome_summary_soft_warns": {
+    "adr_consequences_deliverable_audit": 1,
+    "issue_collision": 31,
+    "missing_rigor_score": 360,
+    "orphan_leaf": 1
+  },
+  "next_session_handle": null,
+  "mempalace_activity": {
+    "search_calls": 2,
+    "diary_read_calls": 0,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 2,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 5,
+    "first_call_ts": "2026-05-11T16:39:11Z",
+    "last_call_ts": "2026-05-11T16:51:51Z"
+  }
+}
