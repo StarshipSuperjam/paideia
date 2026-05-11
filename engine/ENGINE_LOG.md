@@ -10,6 +10,10 @@ This project does not yet follow [Semantic Versioning](https://semver.org/) — 
 
 ## [Unreleased]
 
+### Changed (S-0130 Phase H — public visibility flip)
+
+- **Repository visibility flipped from PRIVATE to PUBLIC** via `gh repo edit StarshipSuperjam/paideia --visibility public --accept-visibility-change-consequences`. Post-flip `gh repo view --json visibility,licenseInfo` reports `visibility: PUBLIC`, `licenseInfo.key: apache-2.0`, `licenseInfo.name: Apache License 2.0` — GitHub Licensee correctly identifies the canonical Apache 2.0 LICENSE text. Annotated tag `oss-flip-v1.0.0` created against the Phase G post-pass commit (`65376d4`) with message *"OSS visibility flip — Apache 2.0 source open per ADR 0065 (S-0130)"* and pushed to origin. STATE.md GitHub row updated from `(private)` to `(OSS, Apache 2.0; public-flip landed at S-0130 with tag oss-flip-v1.0.0)`. The flip closed the OSS+BYOK three-session sequence (S-0128 / S-0129 / S-0130) that began with ADR 0065 supersession of ADRs 0029 + 0035 at S-0128. Repo URL `https://github.com/StarshipSuperjam/paideia` is now indexable, forkable, and discoverable; the milestone-bound repo-migration trigger (ADR 0065 commitment 7 — migrate to org account before first App Store submission) remains pending at the Phase 9 boundary. Executed at session close after user explicit `go` authorization per the locked plan halt-and-confirm gate.
+
 ### Added (S-0130 — OSS pivot + BYOK refactor Session C: OSS hygiene file authoring)
 
 - **New top-level [`NOTICE`](../NOTICE)** at repo root — Apache 2.0 attribution: `Copyright (c) 2026 The Paideia Project Contributors` + reference to LICENSE for full terms + pointer to `pyproject.toml` and `uv.lock` for the third-party dependency set. Minimal form per the locked plan scoping decision (Apache 2.0 §4(d) compliance at current dependency depth).

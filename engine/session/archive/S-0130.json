@@ -1,0 +1,33 @@
+{
+  "id": "S-0130",
+  "started_at": "2026-05-11T21:49:07Z",
+  "ended_at": "2026-05-11T22:08:48Z",
+  "status": "closed",
+  "working_on": "Session C of three-session OSS+BYOK refactor per ADR 0065: LICENSE Apache 2.0 replacement + NOTICE / CONTRIBUTING.md / CODE_OF_CONDUCT.md authoring + SECURITY.md and README.md OSS-status rewrites + .env.example BYOK annotation + .claude/settings.json path cleanup + mechanical PII sweep across ~141 tracked files + personal-name case-by-case handling + verification battery + halt-and-confirm before public visibility flip.",
+  "outcome_summary": "Session C of three-session OSS+BYOK refactor delivered per the approved plan; PUBLIC-FLIP LANDED after user `go` token. Eight commits this session. Phase A authored 6 OSS hygiene files: LICENSE replaced with canonical Apache 2.0 verbatim (202 lines from apache.org); NOTICE with Contributors copyright; CONTRIBUTING.md minimal pointer-doc; CODE_OF_CONDUCT.md Contributor Covenant v2.1 with GitHub security-advisory URL as enforcement contact; SECURITY.md rewritten for OSS+BYOK anchoring on ADR 0065 commitment 8 (key on-device only, no Paideia middlebox); README.md targeted rewrites dropping (private) and proprietary framing. Phase B prepended BYOK comment block to .env.example. Phase C moved seven main-repo-path-dependent git permission patterns from tracked .claude/settings.json to gitignored .claude/settings.local.json so the tracked file is portable. Phase D ran mechanical s|<absolute-home-prefix>|~/|g across 141 tracked files (130 engine/session + 4 build_readiness + 2 docs/health-checks + 5 singletons); all 129 archive JSONs JSON-parsed cleanly post-sweep. Phase E dropped personal-name mention from ENGINE_LOG S-0001 entry. Phase G updated STATE.md + ENGINE_LOG; a Phase-G-post-pass cleaned self-referential PII from the cleanup-narration prose itself (regressed grep 0->2 from the s|...|...|g pattern descriptions; cleaned back to 0 via generic 'maintainer absolute home-prefix' framing). Phase H executed the visibility flip: `gh repo edit --visibility public`; GitHub Licensee confirms Apache 2.0 detection; tag `oss-flip-v1.0.0` annotated + pushed; STATE.md GitHub row updated from `(private)` to OSS-status. Settings.json/main-FF desync surfaced mid-session (pre-commit hook caught it); root cause was I had not FF'd main between in-session commits, so main HEAD was stale relative to worktree HEAD; resolved by FF'ing main forward (the hook's suggested cp main->worktree fix was the wrong direction in this case). Soft-warns persistent only — issue_collision 29 / missing_rigor_score 360 / orphan_leaf 1; no new categories. ADR collection unchanged at 66 (62 Accepted + 4 Superseded; 29 engine + 37 product). OSS+BYOK three-session sequence (S-0128 / S-0129 / S-0130) is fully closed. Repo is now publicly indexable, forkable, discoverable. Milestone-bound repo-migration trigger (ADR 0065 commitment 7) remains pending at Phase 9 boundary.",
+  "outcome_summary_soft_warns": {
+    "issue_collision": 29,
+    "missing_rigor_score": 360,
+    "orphan_leaf": 1
+  },
+  "approved_plan": "~/.claude/plans/zany-orbiting-bee.md",
+  "branch": "claude/thirsty-wilbur-addd15",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/thirsty-wilbur-addd15",
+  "next_session_handle": "S-0131-SWE-hardening-pairing-A-or-B",
+  "mode": "build",
+  "mode_explicit": "build",
+  "mempalace_activity": {
+    "search_calls": 1,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 0,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 3,
+    "first_call_ts": "2026-05-11T21:48:58Z",
+    "last_call_ts": "2026-05-11T22:09:40Z"
+  }
+}
