@@ -1,0 +1,47 @@
+{
+  "id": "S-0123",
+  "mode": "build",
+  "mode_explicit": "build",
+  "started_at": "2026-05-11T05:32:43Z",
+  "ended_at": "2026-05-11T06:22:46Z",
+  "status": "closed",
+  "working_on": "Phase 5 production-audit follow-up migrations: author and apply 0061 (retype 17 history-terminator cross-bridges to historical_influence per ADR 0061), 0062 (flip 15 reversed edges), 0063 (prune 4 weak + annotate 5 retain-with-annotation), 0064 (annotate 7 defensible edges); close Issues #59 #60 #61 #63.",
+  "approved_plan": "/Users/shanekidd/.claude/plans/melodic-cooking-porcupine.md",
+  "branch": "claude/flamboyant-morse-b09e12",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/flamboyant-morse-b09e12",
+  "declared_scope": "Phase 5 production-audit follow-up migrations executing the S-0122 closeout disposition matrix per engine/build_readiness/phase_5_production_audit_findings.md. Author and apply four new migrations under product/seed-graph/migrations/: 0061 retypes 17 history-terminator cross-bridges from pedagogical_prerequisite to historical_influence (Issue #60, ratifies ADR 0061 product); 0062 flips 15 direction-reversed edges with source/target swap and evidence backfill (Issue #59); 0063 prunes 4 weak/redundant edges and annotates 5 retain-with-annotation cases (Issue #61); 0064 annotates 7 defensible-with-annotation edges (Issue #63). Each migration applies via engine/tools/apply_migration.py with Layer 2.5 postcondition assertions per ADR 0055. Auxiliary updates: ROUTING.md per-session narratives ×4, PREDICATE_MANIFEST.md first-use note for historical_influence, ENGINE_LOG.md Changed/Added entries, STATE.md last-session/next-work bumps. Close Issues #59 #60 #61 #63 with closing comments referencing landed commits.",
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": true,
+    "explanation": "Plan delivered with one user-adjudicated mid-session deviation (CB-E-63 cycle deferral). Concrete deliverables: (1) 0061_seed_historical_influence_retyping_part1.sql applied (commit 66a7749, 17 retypings, 5 Layer 2.5 assertions passed, first-use of historical_influence predicate); (2) 0062_seed_direction_flips_part1.sql + 0062_seed_direction_flips_revert_part1.sql applied (commit 5894c5b, 15 flips minus CB-E-63 = 14 net flips, 4+4 Layer 2.5 assertions passed); (3) 0063_seed_weak_edge_cleanup_part1.sql applied (commit db17948, 4 prunes + 5 evidence backfills, 4 Layer 2.5 assertions passed); (4) 0064_seed_evidence_annotations_part1.sql applied (commit fe9cb34, 7 evidence backfills, 3 Layer 2.5 assertions passed); (5) ROUTING.md narrative + ENGINE_LOG entries + STATE.md update committed (commit a2edae6); (6) closed Issues #59 #60 #61 #63; (7) filed Issue #64 for the CB-E-63 deferral. Filename adoption note: planned filenames `0061_retype_*` / `0062_flip_*` / etc. were renamed to `00NN_seed_<subject>_part1.sql` to satisfy the apply_migration.py wrapper's filename regex `^\\d{4}_seed_<subject>_part\\d+\\.sql$` — thin naming workaround, no scope expansion to the wrapper. Implementation choice clarification (already noted in plan as constraint #1): UPDATE in place on public.edges over DELETE+INSERT into a non-existent per-predicate table — preserves UUID id, created_at, graph_version_added; ADR 0061 prose left this open per `PREDICATE_MANIFEST.md is the source of truth`. Final graph state: 380 nodes / 532 edges / 515 pedagogical_prerequisite + 17 historical_influence; 44 edges with non-NULL evidence (17 retypings + 14 retained flips + 1 CB-E-63 revert annotation + 5 0063 annotates + 7 0064 annotates).",
+    "deviations": [
+      {
+        "deviation": "CB-E-63 direction flip applied to DB then reverted in same session",
+        "trigger": "validate.py pre-commit Kosaraju SCC check hard-failed: the proposition→propositional_attitude flip (one of the 15 audit-mandated flips in 0062) closed a 4-node cycle through the pre-existing edge propositional_attitude→intentionality (from 0040 mind seed). The audit examined the mind subdomain but did not flag that pre-existing edge.",
+        "resolution": "Halted and confer'd via AskUserQuestion. User chose option A (revert CB-E-63 only); cluster re-scope deferred to Phase 6 audit infrastructure. Authored 0062_seed_direction_flips_revert_part1.sql to revert just CB-E-63 in DB; filed Issue #64 to track the cluster re-scope. Net effect: 14 of 15 audit-mandated flips stand."
+      }
+    ]
+  },
+  "outcome_summary": "Authored and applied four follow-up migrations executing the S-0122 production-audit disposition matrix. (1) 0061 retyped 17 history-terminator-source edges from pedagogical_prerequisite to historical_influence per ADR 0061 — first-use of the historical_influence predicate (registered in v1 PREDICATE_MANIFEST.md since schema's initial draft, zero edges using it before). (2) 0062 flipped 15 reversed direction edges; CB-E-63 was reverted via 0062_seed_direction_flips_revert_part1.sql because the flip closed a 4-node Kosaraju cycle through the audit-accepted pre-existing edge propositional_attitude→intentionality from 0040 (per S-0123 user adjudication via AskUserQuestion); cluster re-scope deferred to Phase 6 (Issue #64). (3) 0063 pruned 4 weak/redundant edges + annotated 5 retain-with-annotation cases. (4) 0064 backfilled evidence on 7 defensible-with-annotation edges. Each migration applied via apply_migration.py with all Layer 2.5 assertions passing (5+4+4+4+3=20 assertions across the 5 applies). Final state: 380 nodes / 532 edges (was 536, -4 prunes); 515 pedagogical_prerequisite + 17 historical_influence; 44 edges with non-NULL evidence. Closed Issues #59 #60 #61 #63; filed Issue #64. Soft-warn delta: +1 orphan_leaf for phenomenology (expected — its only inbound pp edge was retyped to historical_influence). Implementation choice (UPDATE in place over DELETE+INSERT) clarified ADR 0061's schema-naming ambiguity since public.edges is single-table with edge_type column. Filename naming workaround (00NN_seed_<subject>_part1.sql to satisfy apply_migration.py wrapper regex) recorded inline. No HANDOFF authored — clean session-internal close.",
+  "outcome_summary_soft_warns": {
+    "missing_rigor_score": 360,
+    "issue_collision": 6,
+    "adr_consequences_deliverable_audit": 1,
+    "orphan_leaf": 1
+  },
+  "next_session_handle": "S-0124 — open candidates per engine/STATE.md Next session work item. The S-0123 follow-up migrations landed cleanly with no in-flight transition state. User picks among: (1) implement the 4 validator soft-warns from audit-system-input report (Issue #62; 3 gate-feasible immediately, 1 pending node-class schema extension); (2) adjudicate S-0121 health-check audit findings (User adjudication subsection — junk-drawer-prose recommendations, ADR Consequences inline-amendment pattern, operations-doc bloat survey); (3) settle OQ-DEC1-A through OQ-DEC1-D for Phase 6 unblock; (4) Phase 6 audit infrastructure design as the natural surface for re-scoping the 4-node intentionality/meaning/proposition/propositional_attitude cluster per Issue #64 (CB-E-63 cycle deferral). No HANDOFF entries; no in-flight recovery procedure; next session boots cold from STATE.md.",
+  "mempalace_activity": {
+    "search_calls": 1,
+    "diary_read_calls": 0,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 0,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 2,
+    "first_call_ts": "2026-05-11T05:26:02Z",
+    "last_call_ts": "2026-05-11T06:22:30Z"
+  }
+}
