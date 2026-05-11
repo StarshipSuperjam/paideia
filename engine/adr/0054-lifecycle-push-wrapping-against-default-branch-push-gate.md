@@ -166,4 +166,3 @@ Both mechanisms ship with full pytest coverage: 7 new tests in `test_routine_lif
 - [Issue #16](https://github.com/StarshipSuperjam/paideia/issues/16) — stale `claude/*` worktree buildup; auto-sweep follow-on landed via this Amendment.
 - [`engine/tools/probe_push_gate.py`](../tools/probe_push_gate.py) — Phase 0 empirical probe.
 - [`engine/build_readiness/routine_lifecycle_push_first_exercise.md`](../build_readiness/routine_lifecycle_push_first_exercise.md) — mechanism-first-exercise gate report.
-- S-0060 plan: `/Users/shanekidd/.claude/plans/what-is-going-on-wild-falcon.md` — design rationale and the testing-first directive.

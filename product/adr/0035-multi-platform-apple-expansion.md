@@ -88,4 +88,3 @@ The disposition has six binding commitments. Commitment 1 broadens; commitments 
 - Apple App Store Review Guidelines — single-platform consumer subscription distribution surface across iPhone, iPad, and Mac via Designed-for-iPad; refund window as trial affordance.
 - Apple Small Business Program — 15% take rate under $1M annual revenue; presumed in pricing model; applies identically across all three Apple targets.
 - Apple "Designed for iPad on Mac" documentation — Apple Silicon Macs run iPad apps from the App Store by default unless the developer opts out; the path that makes Mac distribution essentially free of additional engineering cost.
-- The Phase 1.5 plan reference: `/Users/shanekidd/.claude/plans/at-its-core-this-iterative-beaver.md` (local developer config; not a tracked project artifact).

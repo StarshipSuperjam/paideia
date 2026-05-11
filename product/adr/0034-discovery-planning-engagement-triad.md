@@ -137,4 +137,3 @@ These three are explicitly *future-amendment-friendly*. The remaining decisions 
 - [`docs/session-lifecycle.md`](../docs/session-lifecycle.md) — substantially rewritten in this session against the triad.
 - [`docs/architecture.md`](../docs/architecture.md) — graph data model; cross-domain edges remain first-class; the data-side commitments survive.
 - [ROADMAP.md](../../ROADMAP.md) — Phase 1.5.2 (this session); Phase 9 success criteria rewritten at S-0015 per [ADR 0035](0035-multi-platform-apple-expansion.md).
-- The Phase 1.5 plan reference: `/Users/shanekidd/.claude/plans/at-its-core-this-iterative-beaver.md` (local developer config; not a tracked project artifact).
