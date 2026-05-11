@@ -1,0 +1,172 @@
+# CI mirror of engine/tools/validate.py + pytest engine/tools.
+# Authored at S-0131 per engine/adr/0065-validate-py-mirror-to-ci.md (Issue #68).
+#
+# What this workflow runs (mirrors engine/tools/hooks/pre-commit):
+#   1. uv lock --check                  — fail-fast on lockfile drift
+#                                         (hard-fail here; soft-warn locally
+#                                         per ADR 0064)
+#   2. uv sync --frozen                 — reproducible install
+#   3. python3 engine/tools/validate.py — default invocation
+#                                         (mirrors pre-commit line 111)
+#   4. python3 engine/tools/validate.py --code-gates --files <changed_py>
+#                                       — mirrors pre-commit line 178
+#                                         (skipped when no Python changed)
+#   5. uv run pytest engine/tools/      — test suite
+#
+# CLI flag deviation from Issue #68 body: the Issue body specified
+# `--repo-structure --staged --code-gates`. Those flags do not exist;
+# the actual pre-commit pattern is "default mode + --code-gates --files".
+# Resolution recorded in ADR 0065.
+#
+# Posture (per ADR 0065):
+#  - Hard-fails fail the job. Soft-warns are surfaced in $GITHUB_STEP_SUMMARY
+#    but the job exits 0 — mirrors local-pre-commit behavior. The
+#    persistent-warn boot surface (per ADR 0042) is the cross-session
+#    enforcement layer.
+#  - No CI check can be locally bypassed (no-skip philosophy from
+#    addyosmani/agent-skills ci-cd-and-automation).
+#  - Pipeline budget: 10 minutes hard cap. Exceeding triggers an
+#    ADR-amendment optimization pass (cache, parallelism, path filters).
+#  - Routine-mode pushes (per ADR 0054 routine_lifecycle_push.py) push
+#    directly to main and do NOT wait for CI green. A red CI run on main
+#    after a routine push is the cleanup-session signal surfaced at the
+#    next boot via engine/tools/hooks/session-start.sh.
+
+name: validate
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  issues: read      # validate.py invokes `gh issue list` for issue_collision
+
+concurrency:
+  # Cancel superseded runs on the same PR / ref so push-spam doesn't queue.
+  group: validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: validate.py
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout (full history for diff)
+        uses: actions/checkout@v4
+        with:
+          # fetch-depth: 0 lets us diff PR base...HEAD (PRs) and HEAD~1...HEAD
+          # (push). Repo is small enough that full-history clone fits well
+          # within the 10-minute budget.
+          fetch-depth: 0
+
+      - name: Set up uv with cache keyed on uv.lock
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Set up Python 3.12 (matches .python-version)
+        run: uv python install 3.12
+
+      - name: Lockfile freshness — uv lock --check
+        # Mirrors validate.py's `uv_lock_out_of_date` soft-warn but
+        # hard-fails in CI per ADR 0065 — drift on a tracked uv.lock is
+        # unambiguous and a soft-warn in CI is dead surface (no one
+        # reviews CI soft-warns the way they review pre-commit ones).
+        run: uv lock --check
+
+      - name: Install dependencies — uv sync --frozen
+        run: uv sync --frozen
+
+      - name: Discover changed Python files under engine/
+        id: changed
+        # PR: diff against the PR base SHA (provided by GitHub).
+        # Push: diff HEAD~1...HEAD.
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            git diff --name-only --diff-filter=ACMR "${BASE}...HEAD" -- 'engine/**/*.py' > changed.txt
+          else
+            git diff --name-only --diff-filter=ACMR HEAD~1 HEAD -- 'engine/**/*.py' > changed.txt
+          fi
+          count=$(wc -l < changed.txt | tr -d ' ')
+          echo "count=${count}" >> "$GITHUB_OUTPUT"
+          echo "files=$(tr '\n' ' ' < changed.txt)" >> "$GITHUB_OUTPUT"
+          echo "Changed Python files under engine/: ${count}"
+          cat changed.txt
+
+      - name: Run validate.py (default — structural + health-probe + graph-audit)
+        id: validate_default
+        # Soft-warns expected on CI (no chromadb palace at ~/.mempalace/palace;
+        # SUPABASE_DB_URL unset → graph_audit_skipped). Hard-fails fail the
+        # job. STATUS captured so we can surface soft-warn detail to the
+        # step summary even on exit-1.
+        run: |
+          set -uo pipefail
+          STATUS=0
+          uv run python3 engine/tools/validate.py 2> validate.log || STATUS=$?
+          # Mirror pre-commit semantics: exit >= 2 is hard-fail.
+          if [ "$STATUS" -ge 2 ]; then
+            echo "## validate.py hard-failed (exit ${STATUS})" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            cat validate.log >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            cat validate.log >&2
+            exit 1
+          fi
+          if [ "$STATUS" -eq 1 ]; then
+            echo "## validate.py soft-warns (exit 1, not blocking)" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            grep -E '^\[soft-warn:|^\[validate\]' validate.log | head -50 >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Run validate.py --code-gates on changed engine/*.py
+        if: steps.changed.outputs.count != '0'
+        run: |
+          set -uo pipefail
+          files="${{ steps.changed.outputs.files }}"
+          STATUS=0
+          # shellcheck disable=SC2086
+          uv run python3 engine/tools/validate.py --code-gates --files $files 2> code-gates.log || STATUS=$?
+          if [ "$STATUS" -ge 2 ]; then
+            echo "## validate.py --code-gates hard-failed (exit ${STATUS})" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            cat code-gates.log >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            cat code-gates.log >&2
+            exit 1
+          fi
+
+  test:
+    name: pytest engine/tools
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv with cache keyed on uv.lock
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install dependencies — uv sync --frozen
+        run: uv sync --frozen
+
+      - name: Run pytest engine/tools
+        # --tb=short keeps tracebacks scannable in the GitHub log UI.
+        # Coverage gating arrives in a follow-up Issue (#71 pytest-cov),
+        # gated on this CI workflow per ADR 0065.
+        run: uv run pytest engine/tools/ --tb=short

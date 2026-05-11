@@ -445,6 +445,45 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# CI-red on main surface (per ADR 0065 — S-0131)
+# ---------------------------------------------------------------------------
+#
+# Reads the most recent GitHub Actions run on main and emits a LOUD block
+# when it concluded `failure`. The cleanup-session signal for routine-mode
+# lifecycle pushes that bypass synchronous CI wait per ADR 0054 +
+# routine_lifecycle_push.py.
+#
+# Silent when:
+#   - status is success (the healthy case)
+#   - status is null / empty / "in_progress" (no completed runs to judge)
+#   - `gh` binary is missing OR network unavailable (legitimate offline-boot;
+#     surfacing in this case would be noise, not signal)
+#
+# Exits 0 regardless (per the project's hook contract — boot must proceed).
+
+if command -v gh >/dev/null 2>&1; then
+    CI_STATUS=$(gh run list --branch main --limit 1 --json conclusion --jq '.[0].conclusion' 2>/dev/null || echo "")
+    if [ "$CI_STATUS" = "failure" ]; then
+        {
+            echo ""
+            echo "============================================================"
+            echo "[session-start] CI RED on main"
+            echo "============================================================"
+            echo "  The most recent CI run on main concluded FAILURE."
+            echo "  Inspect:  gh run list --branch main --limit 5"
+            echo "            gh run view <run-id> --log-failed"
+            echo ""
+            echo "  Red on main after a routine_lifecycle_push.py push is the"
+            echo "  expected cleanup-session signal per ADR 0065 (CI mirror)."
+            echo "  Either fix-in-context if scope-compatible, or open a"
+            echo "  cleanup-session issue via gh issue create."
+            echo "============================================================"
+            echo ""
+        } >&2
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 # MemPalace MCP availability probe (per S-0089 follow-up to S-0087/S-0088
 # escape-hatch burial pattern; tightens ADR 0056 token contract)
 # ---------------------------------------------------------------------------
