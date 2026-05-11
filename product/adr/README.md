@@ -100,6 +100,14 @@ The product collection has **35 ADRs total — 33 Accepted plus 2 Superseded** (
 
 > ADRs 0047–0051 sit in the numerical range between Phase 4.5 and Phase 5 but file under `engine/adr/` (structural-reference parser tool, HANDOFF/Issues split, scope-lock + descope-reorder audit, project venv + hook PATH wiring, routine-mode and engine loop); see [`engine/adr/README.md`](../../engine/adr/README.md) for the engine collection.
 
+### Phase 5 — Production-audit closeout (ADR 0061, product-side)
+
+| ADR | Title | Status |
+|---|---|---|
+| [0061](0061-historical-influence-retyping-for-history-terminator-bridges.md) | Retype history-terminator cross-bridges from pedagogical_prerequisite to historical_influence | Accepted |
+
+> ADRs 0053–0060 sit in the numerical range between Phase 5 and the production-audit closeout but file under `engine/adr/` (mechanism-first-exercise gate, lifecycle-push wrapping, apply-migration wrapping, MemPalace mechanical adoption checks, adversarial-stance audit posture, canonical-timestamp helper, audit-time fetcher, routine-wedge detect-and-pause); see [`engine/adr/README.md`](../../engine/adr/README.md) for the engine collection.
+
 ## Adding a new product ADR
 
 1. Pick the next unused 4-digit number from the **shared** ADR numbering pool (engine + product use a single sequence per ADR 0037 — numbers do not duplicate across the partition).
