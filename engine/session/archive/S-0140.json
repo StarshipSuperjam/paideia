@@ -1,0 +1,33 @@
+{
+  "id": "S-0140",
+  "mode": "build",
+  "started_at": "2026-05-12T21:08:36Z",
+  "closed_at": "2026-05-12T21:18:31Z",
+  "status": "closed",
+  "working_on": "Issue #86 (Revert/rollback discipline ops-doc) — author new engine/operations/revert-and-rollback-discipline.md + engine ADR 0078 (with Alternatives Considered section per ADR 0077) documenting revert procedure, interactions with routine_lifecycle_push.py / build_lifecycle_push.py / routine_eager_claim_recovery.py / apply_migration.py / ADR supersession / MemPalace drawers, hotfix flow. Cascade: README index, cross-references.md, CLAUDE.md topical pointers, code-discipline.md See-also, migration-discipline.md See-also, ENGINE_LOG [Unreleased], STATE.md.",
+  "outcome_summary": "Issue #86 closed via new engine ADR 0078 + new Layer-1 ops doc engine/operations/revert-and-rollback-discipline.md consolidating revert/rollback procedure. Five-section ops doc: when to revert vs forward-fix (decision criteria); revert procedure via PR flow with `revert: <subject> [reverts <sha>]` Conventional Commits prefix; five named project-mechanism interactions (lifecycle-push wrappers refuse `revert:` in deliverable mode by design — PR flow is the right surface; `routine_eager_claim_recovery.py` HEAD-shape regex `^chore\\(session\\): eager-claim S-\\d{4}\\b` does not match `revert:` so the recovery script does not false-trigger; `apply_migration.py` handles in-flight SQL rollback via BEGIN/COMMIT atomic wrap but a SUCCESSFUL apply requires a separate `NNNN_rollback_<reason>_partN.sql` migration per `migration-discipline.md`'s existing rule, living precedent `0062_seed_direction_flips_revert_part1.sql` from S-0123; ADR supersession via successor ADR with `Status: Superseded by ADR NNNN`, not deletion; MemPalace `decision` drawers are immutable — reverts author a new drawer alongside the original); hotfix flow for critical production bugs; 'What does NOT change for reverts' section recording the ADR 0078 rejection rationale. **Premise correction discovered at boot** — Issue body's 'verify `revert:` is in `validate.py` allowed Conventional Commits types' is moot because `validate.py` does not validate commit subjects at all; the prefix gate lives in the lifecycle wrappers (`routine_lifecycle_push.py:99` / inherited by `build_lifecycle_push.py:166`); the wrappers correctly refuse `revert:` because reverts route through PR flow not lifecycle pushes. Disposition: no code change to wrappers or `validate.py`. Same narrowed-scope-discovery pattern as S-0139 / Issue #81 (recorded per pushback drawer drawer_paideia_decisions_14689598e4bbbac248e785db on narrowed-scope discipline). ADR 0078 dogfoods the canonical 'Alternatives Considered' section per ADR 0077 with four full What/Pros/Cons/Rejected-because alternatives: (1) extend code-discipline.md instead — rejected on one-concern-per-file convention; (2) add `revert:` to `DELIVERABLE_SUBJECT_RE` — rejected on scope mismatch + review-bypass risk; (3) author a separate ADR for migration rollback — rejected because the rule already exists in migration-discipline.md (cross-reference suffices); (4) defer the ops doc — rejected per feedback_no_pilot_wait_and_see.md + feedback_no_preemptive_deferral.md (deferral-without-mechanism is silent indefinite deferral). MemPalace boot search surfaced S-0061 pushback drawer (don't amend commits even when wrapper suggests; project rule wins) and S-0067 lesson drawers (stale-claim collision shape distinct from eager-claim race; harness destructive-action gate does not accept conversational 'Yes') — both informed the ops doc's destructive-action posture + the precise HEAD-shape regex citation. No first-exercise readiness note required per ADR 0053 (criteria 1-4 evaluated explicitly in Consequences): procedural ops doc + ADR, not a cross-cutting mechanism (8th consecutive negative-finding precedent after ADRs 0069/0070/0071/0072/0073/0075/0077). Cascade landings: engine/operations/README.md index gains a bullet; engine/operations/cross-references.md gains ADR 0078 row + ops-doc row; code-discipline.md + migration-discipline.md See-also sections gain sibling cross-references; CLAUDE.md Topical pointers gains a bullet; engine/adr/README.md index gains row 0078 (engine count corrected 41 → 43, total 78 → 80 — pre-S-0140 prose had drifted; the S-0140 update lands on the correct counts). Three commits: eager-claim bf7bd0b + deliverable 5252eef + this closeout. Both pushes via build_lifecycle_push.py (eager-claim + deliverable modes; close mode imminent). ADR collection 79 → 80 (Accepted 75 → 76; Superseded 4 stable; engine 42 → 43; product 37 stable). Soft-warns persistent baseline + one new fire: 22 issue_collision (was 23; #81 + #86 both auto-close at shutdown), 360 missing_rigor_score, 1 orphan_leaf, 1 mempalace_zero_citations_after_search (1-of-5 occurrence — not yet at 3-of-5 escalation; cited drawers above to resolve for this session). Next session S-0141 is cadence-aligned (slots_since=20=cadence); audit fires at boot per ADR 0022 + ADR 0057.",
+  "outcome_summary_soft_warns": {
+    "issue_collision": 22,
+    "missing_rigor_score": 360,
+    "orphan_leaf": 1,
+    "mempalace_zero_citations_after_search": 1
+  },
+  "approved_plan": "~/.claude/plans/partitioned-waddling-flask.md",
+  "branch": "claude/focused-mcnulty-2ebada",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/focused-mcnulty-2ebada",
+  "next_session_handle": null,
+  "mempalace_activity": {
+    "search_calls": 2,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 1,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 5,
+    "first_call_ts": "2026-05-12T21:04:19Z",
+    "last_call_ts": "2026-05-12T21:18:11Z"
+  }
+}
