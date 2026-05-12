@@ -15,7 +15,23 @@
 
 set -e
 
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+# Capture the caller's enclosing worktree (whatever ``git rev-parse
+# --show-toplevel`` resolves from INITIAL_PWD); skip that path during sweep.
+# The caller is presumably mid-session there. Without this, a build session
+# whose branch has been merged into main via the eager-claim lifecycle push
+# (per ADR 0076) would have its own worktree swept out from under it because
+# the merged-into-main + clean-tree + claude/* preconditions all pass.
+# Added at S-0142 per user pushback "what is the point in HAVING to clean
+# this up at all?" — the bulk sweep should be safe to run unattended without
+# removing the caller's working tree.
+CALLER_WT=$(git rev-parse --path-format=absolute --show-toplevel 2>/dev/null || echo "")
+
+# Resolve the main repo (the parent of .git/) rather than the caller's
+# linked-worktree path. ``--git-common-dir`` gives the shared .git directory;
+# its parent is the main repo regardless of which worktree we were invoked
+# from.
+COMMON_DIR=$(git rev-parse --path-format=absolute --git-common-dir)
+REPO_ROOT=$(cd "$COMMON_DIR/.." 2>/dev/null && pwd -P)
 cd "$REPO_ROOT"
 
 DRY_RUN=true
@@ -41,6 +57,17 @@ while IFS= read -r WT_PATH; do
         echo "[sweep] worktree path missing: $WT_PATH (skipping)" >&2
         SKIPPED=$((SKIPPED + 1))
         continue
+    fi
+
+    # Skip the caller's enclosing worktree (in-flight session).
+    if [ -n "$CALLER_WT" ]; then
+        WT_PATH_REAL=$(cd "$WT_PATH" 2>/dev/null && pwd -P || echo "$WT_PATH")
+        CALLER_WT_REAL=$(cd "$CALLER_WT" 2>/dev/null && pwd -P || echo "$CALLER_WT")
+        if [ "$WT_PATH_REAL" = "$CALLER_WT_REAL" ]; then
+            echo "[sweep] skip $WT_PATH (caller's current worktree; in-flight session)"
+            SKIPPED=$((SKIPPED + 1))
+            continue
+        fi
     fi
 
     BRANCH=$(git -C "$WT_PATH" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")

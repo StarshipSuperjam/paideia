@@ -295,6 +295,22 @@ The wrapper mechanically shape-verifies HEAD (close subject pattern, archive/S-N
 
 No per-push confirmation — the `/start-engine` invocation at session boot already authorized the shutdown push.
 
+### 11. Post-close worktree sweep (per ADR 0076 Amendment, S-0142)
+
+After the close push completes, sweep the session's worktree to match the leave-no-mess posture routine close has carried since [ADR 0054 Amendment](../../../engine/adr/0054-lifecycle-push-wrapping-against-default-branch-push-gate.md) (S-0072). Without this step, every build session leaves its worktree + `claude/<branch>` branch behind on the parent repo, and accumulation drives recurring health-check audit findings.
+
+```bash
+python3 engine/tools/routine_worktree_sweep.py
+```
+
+The tool is mode-agnostic in mechanism (pre-flight checks: `claude/*` branch, working tree clean, branch merged into main). The "routine_" prefix reflects its first consumer at S-0072, not a mode binding. Exit codes:
+
+- **0** — sweep succeeded.
+- **2** — refused with explicit reason. Best-effort; the close has already succeeded.
+- **5** — generic git error. Best-effort; may need manual cleanup via `engine/tools/sweep_worktrees.sh --apply` (which carries a skip-current-worktree safety check landed at S-0142).
+
+The session is fully closed after this step. Worktree directory is gone.
+
 ## Updating design docs during a session
 
 Design docs in `product/docs/` (`architecture.md`, `pedagogy.md`, `tensions.md`, etc.) follow a maintenance protocol that applies throughout the session:

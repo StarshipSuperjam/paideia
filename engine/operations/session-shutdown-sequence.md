@@ -325,7 +325,25 @@ python3 engine/tools/build_lifecycle_push.py close
 
 The wrapper mechanically shape-verifies HEAD (close subject pattern, archive/S-NNNN.json created, current.json deleted, register_state.json flips `in_progress` → `closed`) before pushing. On success it performs the parent-side FF best-effort. Exit codes 0 / 2 / 3 / 4 / 5 per the wrapper's CLI contract. The wrapper bypasses the harness's "Default Branch Push" classifier via subprocess-spawned git from a permitted python tool — same pattern as `routine_lifecycle_push.py` (ADR 0054) for routine sessions.
 
-No per-push confirmation — the `/start-engine` invocation at session boot already authorizes the shutdown push (per `session-build-lifecycle.md` Push policy). After the push completes, the session is closed.
+No per-push confirmation — the `/start-engine` invocation at session boot already authorizes the shutdown push (per `session-build-lifecycle.md` Push policy). After the push completes, the durable close has landed on `origin/main`; proceed to step 11 for the post-close worktree sweep.
+
+### 11. Post-close worktree sweep (per ADR 0076 Amendment, S-0142)
+
+After the close push completes successfully, sweep the session's worktree to match the leave-no-mess posture routine close has carried since [ADR 0054 Amendment](../adr/0054-lifecycle-push-wrapping-against-default-branch-push-gate.md) (S-0072). Without this step, every build session leaves its worktree + `claude/<branch>` branch behind on the parent repo, and accumulation drives recurring health-check audit findings (the S-0141 audit's strongest concrete retire candidate was 75 stale worktrees from 22 unswept build sessions).
+
+```bash
+python3 engine/tools/routine_worktree_sweep.py
+```
+
+The tool is mode-agnostic in mechanism — its pre-flight checks (`claude/*` branch, working tree clean, branch merged into main) are identical to those used by the bulk `engine/tools/sweep_worktrees.sh` utility. The "routine_" prefix in the tool's name reflects its first consumer at S-0072, not a mode binding. Build mode reuses as-is.
+
+The tool chdir's to the parent repo before removing the current worktree (so the process working directory is not the path being removed), runs the pre-flight checks, then performs `git worktree remove` + `git branch -d` for the session's `claude/<name>` branch. Exit codes:
+
+- **0** — sweep succeeded (worktree directory removed, branch deleted).
+- **2** — refused with explicit reason (working tree dirty, branch not `claude/*`, branch not merged, running in parent). Best-effort; the close has already succeeded.
+- **5** — generic git error during remove/branch-delete. Best-effort; the worktree may need manual cleanup later via `engine/tools/sweep_worktrees.sh --apply` (which carries a sibling skip-current-worktree safety check landed at S-0142 — the bulk utility is now safe to run mid-session without affecting the caller's worktree).
+
+After this step the session's worktree no longer exists. The session is fully closed.
 
 ## Updating design docs during a session
 
