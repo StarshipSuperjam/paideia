@@ -29,6 +29,7 @@ an unchecked item reads as "skipped" in review, not "irrelevant."
 - [ ] First-exercise readiness note authored if a cross-cutting mechanism is introduced (per [ADR 0053](engine/adr/0053-mechanism-first-exercise-gate.md))
 - [ ] Routine-mode `scope_lock` honored (if applicable)
 - [ ] Secrets: no credentials, keys, or env values in diff
+- [ ] If `pyproject.toml` changed: `uv.lock` regenerated and staged in the same PR (per [ADR 0064](engine/adr/0064-uv-lockfile-and-reproducible-builds.md); applies to Dependabot PRs — reviewer regenerates before merge per [ADR 0069](engine/adr/0069-dependabot-pip-and-actions-ecosystems.md))
 
 ## Links
 

@@ -73,15 +73,20 @@ The contract: every dep in `pyproject.toml` is justified by an inline comment na
 
 ## Security-update workflow
 
-Once [Issue #67](https://github.com/StarshipSuperjam/paideia/issues/67) lands Dependabot for `pip`, Dependabot's PRs will:
+Per [ADR 0069](../adr/0069-dependabot-pip-and-actions-ecosystems.md) (S-0133), [`.github/dependabot.yml`](../../.github/dependabot.yml) runs Dependabot weekly on Mondays against `pip` (repo-root `pyproject.toml`) and `github-actions` (`.github/workflows/`). Dependabot's PRs:
 
-1. Bump the floor in `pyproject.toml` (above the bad version).
-2. Regenerate `uv.lock`.
-3. Open a PR with the diff.
+1. Bump the floor pin in `pyproject.toml` to a minor/patch release (or above a CVE'd version).
+2. Open a PR with the `pyproject.toml` diff (grouped per ecosystem per ADR 0069 decision 3 — one PR per week per ecosystem for minor/patch; major-version bumps land separately).
 
-The reviewer (or the auto-merge gate, once configured) accepts the PR. No additional discipline beyond the standard refresh procedure above.
+**Dependabot does NOT regenerate `uv.lock`.** The `pip` ecosystem reads `pyproject.toml` floors and bumps them; lockfile regen is the reviewer's responsibility. The standard refresh procedure applies (above): pull the Dependabot branch, run `uv lock && uv sync`, amend the PR with the regenerated `uv.lock`, push. The PR template's lockfile-regen reminder line surfaces the step at human-review time. CI hard-fails on `uv lock --check` per [ADR 0065 (engine)](../adr/0065-validate-py-mirror-to-ci.md) decision 3, so a Dependabot PR with stale `uv.lock` cannot merge until regenerated.
 
-Pre-Dependabot: a session that wants to apply a CVE fix follows the "Adding a new dependency" procedure with the floor bumped above the bad version.
+The reviewer accepts the PR. **No auto-merge** per ADR 0069 — user merges; CI green is necessary but not sufficient.
+
+**Dependabot PRs are not routine-mode commits** per [ADR 0069](../adr/0069-dependabot-pip-and-actions-ecosystems.md). They originate from GitHub's external apparatus, not from an `auto_target.json` task; routine-mode `scope_lock` does not apply (the routine apparatus never sees the PR).
+
+**Major-version bumps** are deliberately NOT grouped — each opens its own PR for individual review. A major bump in a tool cited by an ADR (psycopg, bandit, mempalace, chromadb, pdfplumber, pypdfium2, reportlab) may require an ADR amendment if upstream contract changes affect the citing decision; see ADR 0069 "Major-version bumps require ADR or amendment."
+
+Out-of-cadence CVE response: a session that wants to apply a CVE fix mid-week (before Dependabot's next Monday run) follows the "Adding a new dependency" procedure with the floor bumped above the bad version. Dependabot is the *batched* refresh procedure, not the only one.
 
 ## Validator soft-warn
 
@@ -98,7 +103,7 @@ Per [`tools-validate-interpretation.md`](tools-validate-interpretation.md) "Pers
 - [ADR 0050](../adr/0050-project-venv-and-hook-path-wiring.md) — the venv exists at `<repo-root>/.venv/` (Python 3.12 pinned via `.python-version`). `uv sync` populates it from the lockfile. `scrub_env.sh` prepends `.venv/bin/` to PATH so all subprocess invocations resolve to the venv-installed binaries.
 - [ADR 0051](../adr/0051-routine-mode-and-engine-loop.md) — routine sessions treat `uv.lock` as read-only; the scope_lock check enforces.
 - [ADR 0063](../adr/0063-validator-tiered-runtime-targets-and-regression-soft-warn.md) — `validate_uv_lock_freshness` runs in the `health_probe` phase (subprocess to `uv`).
-- [Issue #67](https://github.com/StarshipSuperjam/paideia/issues/67) — Dependabot adoption (pending) will automate the security-update half of the refresh procedure.
+- [ADR 0069](../adr/0069-dependabot-pip-and-actions-ecosystems.md) — Dependabot adoption (S-0133) automates the security-update half of the refresh procedure via weekly batched PRs on `pip` + `github-actions` ecosystems. Closes [Issue #67](https://github.com/StarshipSuperjam/paideia/issues/67).
 - [Issue #83](https://github.com/StarshipSuperjam/paideia/issues/83) — SBOM generation (trigger-gated on deployable artifact) reads `uv.lock` as the canonical transitive-graph source.
 
 ## External tool prerequisites
