@@ -1424,9 +1424,24 @@ class TestAdrBackReferenceOrphan:
         assert "adr_back_reference_orphan" not in r.soft_warns
 
     def test_superseded_adr_not_checked(self, synthetic_repo: Path) -> None:
-        """Superseded ADRs are not subject to the orphan check (only Accepted)."""
+        """Superseded ADRs are not subject to the orphan check (Accepted or Deprecated only)."""
         _write_adr(
             synthetic_repo, engine=True, num="0050", status="Superseded by ADR 0051"
+        )
+        r = validate_adr_back_reference_orphan()
+        assert "adr_back_reference_orphan" not in r.soft_warns
+
+    def test_uncited_deprecated_adr_warns(self, synthetic_repo: Path) -> None:
+        """A Deprecated ADR with no inbound non-ADR citation warns (per ADR 0077)."""
+        _write_adr(synthetic_repo, engine=True, num="0050", status="Deprecated")
+        r = validate_adr_back_reference_orphan()
+        assert "adr_back_reference_orphan" in r.soft_warns
+
+    def test_cited_deprecated_adr_does_not_warn(self, synthetic_repo: Path) -> None:
+        """A Deprecated ADR cited from a non-ADR doc is not orphaned."""
+        _write_adr(synthetic_repo, engine=True, num="0050", status="Deprecated")
+        (synthetic_repo / "product" / "docs" / "lessons.md").write_text(
+            "ADR 0050 was abandoned; see the discussion below.\n"
         )
         r = validate_adr_back_reference_orphan()
         assert "adr_back_reference_orphan" not in r.soft_warns

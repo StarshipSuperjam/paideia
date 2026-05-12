@@ -21,6 +21,21 @@ What's the situation calling for this decision? Constraints, forces, prior commi
 
 What was chosen. State it plainly, in the present tense ("The graph uses Postgres with recursive CTEs, not OWL/RDF"). One paragraph.
 
+## Alternatives Considered
+
+Optional but encouraged. Author this section when rejected paths are non-obvious or future sessions might re-litigate. Omit for small targeted ADRs where the chosen path was obviously correct.
+
+Per-alternative pattern:
+
+### <alternative name>
+
+- **What:** brief description of the alternative.
+- **Pros:** ...
+- **Cons:** ...
+- **Rejected because:** the deciding reason.
+
+Prose-form alternatives discussions remain valid where they read better than the structured pattern (see e.g. [ADR 0051](../adr/0051-routine-mode-and-engine-loop.md), [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md), [ADR 0060](../adr/0060-routine-wedge-detect-and-pause.md), [product/adr/0061](../../product/adr/0061-historical-influence-retyping-for-history-terminator-bridges.md)). The structured pattern's value is comparability across alternatives — Pros / Cons / Rejected because for each — rather than a strict formatting requirement.
+
 ## Consequences
 
 What follows from this decision — both intended and incidental. Include downstream files this affects, future work it enables, and tradeoffs accepted. ~1-3 paragraphs.

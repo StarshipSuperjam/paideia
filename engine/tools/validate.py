@@ -1312,13 +1312,17 @@ def _has_orphan_ok_annotation(adr_text: str) -> bool:
 
 
 def validate_adr_back_reference_orphan() -> ValidationResult:
-    """Soft-warn on Accepted ADRs with no inbound citation outside their subtree.
+    """Soft-warn on Accepted or Deprecated ADRs with no inbound citation outside their subtree.
 
-    For each ADR with Status `Accepted`, greps tracked .md files outside
-    `*/adr/*` for the ADR's id. Soft-warns when zero matches found, unless
-    the ADR carries an `Orphan-OK` annotation.
+    For each ADR with Status `Accepted` or `Deprecated`, greps tracked .md
+    files outside `*/adr/*` for the ADR's id. Soft-warns when zero matches
+    found, unless the ADR carries an `Orphan-OK` annotation.
 
-    Per ADR 0041 / cascade-discipline.md.
+    Per ADR 0041 / cascade-discipline.md. Deprecated coverage added at
+    S-0139 per ADR 0077 — a decision-record that records why an approach
+    was abandoned is just as load-bearing as one that records an active
+    contract; both should be cited by something downstream rather than
+    silently rot.
 
     Returns:
         ValidationResult with check ``cascade_adr_back_reference_orphan``
@@ -1333,8 +1337,8 @@ def validate_adr_back_reference_orphan() -> ValidationResult:
     r = ValidationResult()
     r.add_check("cascade_adr_back_reference_orphan")
 
-    accepted_status = re.compile(
-        r"^[\s*\-]*Status[\s*]*:[\s*]*Accepted\b",
+    eligible_status = re.compile(
+        r"^[\s*\-]*Status[\s*]*:[\s*]*(Accepted|Deprecated)\b",
         re.MULTILINE | re.IGNORECASE,
     )
 
@@ -1346,7 +1350,7 @@ def validate_adr_back_reference_orphan() -> ValidationResult:
             continue
         for adr_file in sorted(adr_dir.glob("[0-9][0-9][0-9][0-9]-*.md")):
             text = adr_file.read_text()
-            if not accepted_status.search(text):
+            if not eligible_status.search(text):
                 continue
             if _has_orphan_ok_annotation(text):
                 continue

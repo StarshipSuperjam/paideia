@@ -70,6 +70,7 @@ The engine collection has **41 ADRs total — all Accepted**. Engine ADRs are ab
 | [0074](0074-pytest-cov-coverage-floor.md) | `pytest-cov` coverage reporting with measured floor | Accepted |
 | [0075](0075-github-issue-templates.md) | GitHub issue templates for the eight type labels | Accepted |
 | [0076](0076-build-mode-lifecycle-push-wrapping.md) | Build-mode lifecycle-push wrapping (sibling to ADR 0054) | Accepted |
+| [0077](0077-adr-template-alternatives-considered-section.md) | ADR template gains "Alternatives Considered" section; Deprecated ADRs join the back-reference orphan check | Accepted |
 
 ## Adding a new engine ADR
 
