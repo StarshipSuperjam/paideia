@@ -1,0 +1,11 @@
+{
+  "id": "S-0140",
+  "mode": "build",
+  "started_at": "2026-05-12T21:08:36Z",
+  "status": "in_progress",
+  "working_on": "Issue #86 — Revert/rollback discipline ops-doc. Author new engine/operations/revert-and-rollback-discipline.md + engine ADR 0078 (with Alternatives Considered section per ADR 0077) documenting revert procedure, interactions with routine_lifecycle_push.py / build_lifecycle_push.py / routine_eager_claim_recovery.py / apply_migration.py / ADR supersession / MemPalace drawers, hotfix flow. Premise correction discovered at boot: Issue body's 'verify revert: in validate.py allowed types' is wrong — validate.py does not validate commit subjects; the gate is in the lifecycle wrappers (DELIVERABLE_SUBJECT_RE); disposition is no code change because reverts route through PR flow per the Issue body's own framing. Cascade: README index, cross-references.md, CLAUDE.md topical pointers, code-discipline.md See-also, migration-discipline.md See-also, ENGINE_LOG [Unreleased], STATE.md.",
+  "outcome_summary": null,
+  "approved_plan": "~/.claude/plans/partitioned-waddling-flask.md",
+  "branch": "claude/focused-mcnulty-2ebada",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/focused-mcnulty-2ebada"
+}

@@ -1,9 +1,9 @@
 {
   "description": "Session counter state. Single source of truth for the next available session ID. Bumped at slot-claim time (eager-claim ritual) and again at session close.",
   "format": "S-NNNN where N is a zero-padded 4-digit counter. Sessions claim a slot eagerly at start (write current.json + bump next_id + commit + push) so concurrent sessions cannot collide.",
-  "next_id": "0140",
-  "last_claimed": "S-0139",
-  "current_status": "closed",
+  "next_id": "0141",
+  "last_claimed": "S-0140",
+  "current_status": "in_progress",
   "health_check_cadence": 20,
   "health_check_cadence_history": [
     {
