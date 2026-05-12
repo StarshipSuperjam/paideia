@@ -33,3 +33,24 @@ def _scrub_git_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for key in list(os.environ.keys()):
         if key.startswith("GIT_"):
             monkeypatch.delenv(key, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _scrub_project_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Remove project-side env vars that can bleed across tests.
+
+    ``SUPABASE_DB_URL`` is consulted by :mod:`validate` and friends to
+    decide whether to attempt a live-DB graph audit. Tests that
+    legitimately need it set call ``monkeypatch.setenv`` in their body;
+    those still win because per-test setenv runs after this autouse
+    fixture. The risk this guards against is a prior test leaking the
+    value into ``os.environ`` (the S-0131 CI failure where
+    ``test_load_env.test_load_dotenv_walk_up_finds_main_repo_env_from_worktree``
+    leaked ``postgresql://test`` into a later ``validate.main()`` call
+    that then hit a DNS hard-fail and broke
+    ``TestMain.test_default_mode_clean_returns_non_two``).
+
+    No-op when the var was already unset.
+    """
+    for key in ("SUPABASE_DB_URL",):
+        monkeypatch.delenv(key, raising=False)

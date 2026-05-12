@@ -53,8 +53,17 @@ def _make_origin_with_clone(tmp_path: Path) -> tuple[Path, Path]:
     """
     origin = tmp_path / "origin.git"
     clone = tmp_path / "clone"
+    # --initial-branch=main on `git init --bare` ensures the bare repo's
+    # HEAD points at refs/heads/main regardless of the host's
+    # init.defaultBranch config; without it, GitHub Actions runners
+    # (where the default is master) leave HEAD pointing to a nonexistent
+    # master ref after the clone pushes main, which silently breaks
+    # non-fast-forward push tests and HEAD~1 reset tests (S-0131 CI
+    # surfacing). Requires git ≥ 2.28; CI ships 2.53.
     subprocess.run(
-        ["git", "init", "--bare", str(origin)], capture_output=True, check=True
+        ["git", "init", "--bare", "--initial-branch=main", str(origin)],
+        capture_output=True,
+        check=True,
     )
     subprocess.run(
         ["git", "clone", str(origin), str(clone)], capture_output=True, check=True

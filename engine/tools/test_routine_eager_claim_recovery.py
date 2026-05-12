@@ -22,12 +22,29 @@ def _git(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
 
 
 def _make_origin_with_clone(tmp_path: Path) -> tuple[Path, Path]:
-    """Create bare origin + clone with one commit on main."""
+    """Create bare origin + clone with one commit on main.
+
+    ``--initial-branch=main`` is passed to both ``git init --bare`` and
+    ``git clone`` so the fixture works on any runner regardless of the
+    host's ``init.defaultBranch`` config. Without this, GitHub Actions
+    runners (where the default is ``master``) end up with the bare
+    origin's HEAD pointing at a nonexistent ``master`` ref after the
+    clone pushes ``main``, which breaks subsequent ``git reset --hard
+    HEAD~1`` and non-fast-forward push tests (S-0131 CI surfacing).
+    Requires git ≥ 2.28; CI runners ship 2.53 and the local venv is
+    well past 2.28.
+    """
     origin = tmp_path / "origin.git"
     clone = tmp_path / "clone"
     subprocess.run(
-        ["git", "init", "--bare", str(origin)], capture_output=True, check=True
+        ["git", "init", "--bare", "--initial-branch=main", str(origin)],
+        capture_output=True,
+        check=True,
     )
+    # No --branch=main on clone: the bare repo is empty, so main has no
+    # commits yet — git refuses --branch=<X> when X doesn't exist as a
+    # ref. The bare's HEAD (set via --initial-branch=main on init) is
+    # inherited by the clone's HEAD, so the first commit lands on main.
     subprocess.run(
         ["git", "clone", str(origin), str(clone)], capture_output=True, check=True
     )
@@ -36,7 +53,6 @@ def _make_origin_with_clone(tmp_path: Path) -> tuple[Path, Path]:
     (clone / "README").write_text("init\n")
     _git(["add", "README"], clone)
     _git(["commit", "-m", "initial"], clone)
-    _git(["branch", "-M", "main"], clone)
     _git(["push", "-u", "origin", "main"], clone)
     return origin, clone
 
