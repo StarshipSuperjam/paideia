@@ -2,7 +2,7 @@
 
 A knowledge mastery app built on a pedagogical dependency graph. Generates personalized learning paths, provides AI-driven Socratic teaching, and tracks mastery across texts and sessions. Philosophy is the first domain; the architecture is domain-agnostic.
 
-**Status:** OSS (Apache 2.0) — pre-Phase-6 personal project, post-pivot from cost-capped pseudo-SaaS to BYOK direct-API (per [ADR 0065](product/adr/0065-oss-pivot-and-byok-disposition.md)). App Store distribution pending the Phase 9 milestone. Contributions accepted at maintainer discretion; see [CONTRIBUTING.md](CONTRIBUTING.md). `engine/STATE.md` carries the current phase and next session's work item; `engine/ENGINE_LOG.md` carries the full history.
+**Project setup and current build state.** `engine/STATE.md` carries the canonical current state (current phase, last build session, next session's work item). `engine/ENGINE_LOG.md` carries the full chronological history of engine changes. Backup tags annotate phase boundaries (`pre-phase-3-v0.0.1` cut before Phase 3 SQL build).
 
 **Repository:** https://github.com/StarshipSuperjam/paideia
 
@@ -14,13 +14,13 @@ Paideia is built on a **pedagogical dependency graph** — not a historical infl
 
 Users select a target topic. The system traverses prerequisites, topologically sorts them, and generates a reading syllabus for each step. A persistent learner model tracks mastery across sessions and texts.
 
-For full project vision and audience framing, see [`product/docs/MISSION.md`](product/docs/MISSION.md). The strong working commitments and architectural decisions are recorded as ADRs split across [`engine/adr/`](engine/adr/) (the AI build apparatus) and [`product/adr/`](product/adr/) (Paideia-the-product) per [ADR 0037](engine/adr/0037-engine-product-wall-and-changelog-rename.md).
+For full project vision and audience framing, see [`product/docs/MISSION.md`](product/docs/MISSION.md). The strong working commitments and architectural decisions are recorded as ADRs split across [`engine/adr/`](engine/adr/) (the AI build apparatus) and [`product/adr/`](product/adr/) (Paideia-the-product).
 
 ---
 
 ## Repo map
 
-The repo is partitioned into `engine/` (the AI build apparatus the user and Claude run together to construct Paideia) and `product/` (Paideia itself — pedagogy, content, runtime architecture). Partition per [ADR 0037](engine/adr/0037-engine-product-wall-and-changelog-rename.md).
+The repo is partitioned into `engine/` (the AI build apparatus the user and Claude run together to construct Paideia) and `product/` (Paideia itself — pedagogy, content, runtime architecture).
 
 ```
 paideia/
@@ -105,7 +105,7 @@ This project is built primarily by AI sessions. Two session modes:
 
 Just open Claude Code in this repo and start chatting. Default posture is **design partner**: discuss, sketch, push back, work through ideas in conversation. **No project file edits to tracked files. No commits. No slot claim.** When a discussion converges on something worth committing, convert with `/start-engine`.
 
-The pre-commit hook restricts exploration-mode commits to: `.claude/plans/`, `HANDOFF.md`, `product/docs/tensions.md`. Anything else is refused with a pointer to `/start-engine`. (Pre-S-0083 the allowlist also included `product/docs/ideation.md`; that file retired at S-0083 per Issue #29 — its function migrated to GitHub Issues with the `enhancement` label per ADR 0048.)
+The pre-commit hook restricts exploration-mode commits to: `.claude/plans/`, `HANDOFF.md`, `product/docs/tensions.md`. Anything else is refused with a pointer to `/start-engine`.
 
 MemPalace captures exploration conversations under the `exploration` tag — knowing "we considered X, rejected for reason Y" prevents re-litigation.
 
@@ -152,11 +152,3 @@ After setup, restart Claude Code so the new MCP servers load.
 [Apache License 2.0](LICENSE). Copyright (c) 2026 The Paideia Project Contributors; see [NOTICE](NOTICE) for the attribution notice.
 
 The "Paideia" name and product brand are not Apache-licensed. If you fork for App Store distribution, please rebrand. See [CONTRIBUTING.md](CONTRIBUTING.md) for full contribution guidance.
-
----
-
-## Project history
-
-**Pre-foundation design phase.** 8 of 14 prompt-pack sessions closed (Schema Foundations, Session Lifecycle, Assessment & Mastery Verification, Self-Correction & Node Mapping, Reading System & Outline Generation, Product Identity & Institutional Design, Learner Model Implementation, Seed Graph & Node Schema). Settled the strong working commitments and the architectural decisions that became the project's first ADRs. Backup tag at `pre-foundation-v0.0.0` (commit `fa70b8c`).
-
-**Project setup and current build state.** `engine/STATE.md` carries the canonical current state (current phase, last build session, next session's work item). `engine/ENGINE_LOG.md` carries the full chronological history of engine changes. Backup tags annotate phase boundaries (`pre-phase-3-v0.0.1` cut before Phase 3 SQL build).
