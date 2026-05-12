@@ -633,16 +633,31 @@ def audit_gaps() -> CategoryFindings:
         )
 
     # Universal scan: TBD / TODO / FIXME markers in tracked .md files.
+    #
+    # Per S-0143 / Issue #111, each marker line is classified as back-pinned
+    # or forward-pinned via scan_orphans.is_marker_line_back_pinned(). Only
+    # back-pinned (overdue or unannotated) lines contribute to the count;
+    # markers explicitly forward-pinned to a future phase/session/OQ/external
+    # trigger are deliberately deferred and not stale.
+    #
+    # The DEFINITIONAL skip-list below covers files where the marker tokens
+    # are talked about (the audit-side-discoveries marker list,
+    # ADR 0043's hook description, ENGINE_LOG's historical narrative) rather
+    # than used as deferred-work markers. The line-level classifier handles
+    # the bulk of the false-positive problem for normal usage.
+    import scan_orphans  # local import to avoid circular dependency at module load
+
+    current_phase = scan_orphans.get_current_phase(REPO_ROOT)
+    current_session = scan_orphans.get_current_session(REPO_ROOT)
+
     all_md = _list_scanned_md_files()
     marker_pattern = re.compile(r"\b(TBD|TODO|FIXME)\b")
     files_with_markers: list[tuple[str, int]] = []
     for md_path in all_md:
         if md_path.name in DEAD_WEIGHT_SKIP_NAMES:
             continue
-        # Skip files where these tokens are part of the content's domain
-        # (e.g., docs that describe the markers themselves). The S-0041
-        # acceptable-list is files that reference the tokens definitionally
-        # rather than as live gaps. Keep narrow to start.
+        # Definitional skip-list: files that reference the marker tokens as
+        # subject matter rather than as deferred-work signals.
         try:
             md_rel_str = str(md_path.relative_to(REPO_ROOT))
         except ValueError:
@@ -653,7 +668,7 @@ def audit_gaps() -> CategoryFindings:
                 "engine/operations/session-shutdown-sequence.md",  # describes the audit-side-discoveries marker list
                 "HANDOFF.md",  # historical entries that include the marker tokens
                 "engine/tools/test_audit_side_discoveries.py",  # not .md; defensive
-                "engine/operations/expression-contract-instantiation.md",  # TBD is the convention's own decide-by-pattern marker
+                "engine/operations/expression-contract-instantiation.md",  # TBD is the convention's pattern-instantiation marker; row-level annotations would be verbose without obviously improving signal
                 "engine/ENGINE_LOG.md",  # historical narrative referring to the marker list as audit input
                 "engine/adr/0043-hook-architecture.md",  # describes the post-state-edit hook's marker-detection list
             }
@@ -663,9 +678,19 @@ def audit_gaps() -> CategoryFindings:
             text = md_path.read_text()
         except OSError:
             continue
-        matches = marker_pattern.findall(text)
-        if matches:
-            files_with_markers.append((md_rel_str, len(matches)))
+
+        # Line-level classification: count only back-pinned marker lines.
+        back_pinned_count = 0
+        for line in text.splitlines():
+            if not marker_pattern.search(line):
+                continue
+            if scan_orphans.is_marker_line_back_pinned(
+                line, current_phase, current_session
+            ):
+                back_pinned_count += 1
+
+        if back_pinned_count > 0:
+            files_with_markers.append((md_rel_str, back_pinned_count))
     if files_with_markers:
         files_with_markers.sort(key=lambda x: -x[1])
         listing = ", ".join(f"{p} ({n})" for p, n in files_with_markers[:8])
@@ -675,12 +700,14 @@ def audit_gaps() -> CategoryFindings:
             else ""
         )
         findings.add(
-            f"{len(files_with_markers)} tracked .md file(s) with TBD/TODO/FIXME "
-            f"markers: {listing}{more}",
-            "Per file: each marker is an author-acknowledged gap. Either close "
-            'the gap inline (default per CLAUDE.md "Default to fix-in-context"), '
-            "or replace the marker with an explicit decide-by trigger naming the "
-            "phase or session that resolves it.",
+            f"{len(files_with_markers)} tracked .md file(s) with back-pinned "
+            f"TBD/TODO/FIXME markers: {listing}{more}",
+            "Per file: each back-pinned marker is an unannotated or overdue "
+            'gap. Either close the gap inline (default per CLAUDE.md "Default '
+            'to fix-in-context"), annotate the marker with a forward-pin '
+            "trigger (e.g., `decide-before Phase N`, `decide-by S-NNNN`, "
+            "`[TRIGGER: ...]`, `OQ-XXXXX`), or remove the marker if the gap "
+            "no longer applies.",
         )
 
     # Universal scan: build_plan/ chunks not yet started.

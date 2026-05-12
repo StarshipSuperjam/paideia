@@ -108,7 +108,14 @@ The mechanical scanners below feed the audit; the freshness probes attached to e
 - **last-mod-age** — files unchanged across 20+ sessions of project history AND with low inbound references (the dual filter prevents foundation reference docs from surfacing).
 - **register-empty** — register/queue files (currently `tensions.md`) with no captured entries. (Pre-S-0083 the list also included `ideation.md`; that file retired at S-0083 per Issue #29 — its function migrated to GitHub Issues with the `enhancement` label per ADR 0048.)
 - **ops-doc-uncited** — operations docs not cited in any of the last 20 session archives.
-- **stale-marker** — files carrying decide-trigger / decide-before / open decide-by markers whose pinned phase or session has passed.
+- **stale-marker** — files carrying decide-trigger / decide-before / open decide-by markers classified as **back-pinned** (overdue OR unannotated). Marker lines explicitly **forward-pinned** to a future phase/session/OQ/external-trigger are deliberately deferred and not stale; the scanner skips them via the classifier in `is_marker_line_back_pinned()` (per S-0143 / [Issue #111](https://github.com/StarshipSuperjam/paideia/issues/111)). Forward-pin trigger vocabulary the classifier recognizes:
+    - `decide-before Phase N` — forward-pinned when N > current_phase (Phase N has not yet opened); back-pinned (overdue) otherwise.
+    - `decide-by S-NNNN` — forward-pinned when NNNN > current_session_id; back-pinned otherwise.
+    - `Phase N+` — forward-pinned when N > current_phase; back-pinned otherwise.
+    - `[TRIGGER: <condition>]` — always forward-pinned (gated on external condition).
+    - `OQ-XXXXX` reference — always forward-pinned (the open question is unresolved; if it had been settled, the marker would have been removed).
+    - No trigger annotation → back-pinned (stale by default, since no deferral justification is given).
+    The same classifier is used by [`engine/tools/health_check.py`](../tools/health_check.py)'s TBD/TODO/FIXME marker scan in audit_gaps; both surfaces share the trigger vocabulary so an annotation that satisfies one satisfies the other.
 
 Run at audit-session boot:
 

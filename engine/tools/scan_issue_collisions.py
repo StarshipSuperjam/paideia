@@ -1,6 +1,6 @@
 """Scan open Issues for keyword/path overlap with this session's scope.
 
-Layer 1 contract per ADR 0048 + ADR 0049.
+Layer 1 contract per ADR 0048 + ADR 0049 + S-0143 Issue #110 refinement.
 
 Purpose
 -------
@@ -15,9 +15,14 @@ Strategy
    Extract keywords (whitespace-tokenized, lowercase, drop stopwords).
 2. Collect file paths from ``git diff --cached --name-only`` (the
    first-commit's staged files).
-3. Query open Issues via ``gh issue list``.
-4. For each Issue, soft-warn if the body or title contains either an
-   extracted keyword OR a touched file path.
+3. Query open Issues via ``gh issue list`` (with labels).
+4. **Filter out structurally-non-actionable Issues** (per S-0143 / Issue
+   #110): Issues carrying the ``upstream`` label (not in-project
+   actionable per ADR 0048's cleanup-batch discipline) and Issues whose
+   titles match the trigger-gate marker pattern ``[TRIGGER: ...]`` (the
+   work is gated on a future external condition that hasn't fired yet).
+5. For each remaining Issue, soft-warn if the body or title contains
+   either an extracted keyword OR a touched file path.
 
 Exit codes
 ----------
@@ -109,6 +114,23 @@ _MIN_KEYWORD_LEN = 4
 
 _WORD_RE = re.compile(r"[A-Za-z][A-Za-z0-9_-]+")
 
+# Trigger-gate marker pattern (per S-0143 / Issue #110). Issues whose
+# titles carry "[TRIGGER: <condition>]" are gated on a future external
+# condition and are not in-project actionable until the condition fires.
+# Pre-S-0143 these collided constantly with sessions that touched
+# adjacent scope without intending to act on the gated work; the filter
+# reduces noise without losing signal (when the gate fires, the title
+# is rewritten to drop the marker, restoring matchability).
+_TRIGGER_TITLE_RE = re.compile(r"\[TRIGGER:\s")
+
+# Labels that signal "not in-project actionable now" (per ADR 0048).
+# `upstream` is the bug-is-elsewhere lane the cleanup-batch discipline
+# explicitly says NOT to pick up; matching against it produces noise
+# without producing acted-on signal. Extend this set if new
+# not-actionable-now labels emerge (e.g., a future `blocked` /
+# `external-dependency` lane).
+_NON_ACTIONABLE_LABELS = frozenset({"upstream"})
+
 
 @dataclass(frozen=True)
 class Collision:
@@ -173,7 +195,12 @@ def staged_files(repo_root: Path) -> list[str]:
 
 
 def fetch_open_issues(gh_repo: str | None = None) -> list[dict[str, Any]] | None:
-    """Return open issues as a list of dicts, or None on gh failure."""
+    """Return open issues as a list of dicts, or None on gh failure.
+
+    Includes the `labels` field (per S-0143 / Issue #110) so downstream
+    filtering can skip Issues marked `upstream` etc. without an extra
+    round-trip.
+    """
     cmd = [
         "gh",
         "issue",
@@ -183,7 +210,7 @@ def fetch_open_issues(gh_repo: str | None = None) -> list[dict[str, Any]] | None
         "--limit",
         "1000",
         "--json",
-        "number,title,body",
+        "number,title,body,labels",
     ]
     if gh_repo:
         cmd.extend(["-R", gh_repo])
@@ -199,6 +226,31 @@ def fetch_open_issues(gh_repo: str | None = None) -> list[dict[str, Any]] | None
         return cast(list[dict[str, Any]], json.loads(proc.stdout))
     except json.JSONDecodeError:
         return None
+
+
+def is_actionable_now(issue: dict[str, Any]) -> bool:
+    """True when the Issue is in-project actionable AND not trigger-gated.
+
+    Skip criteria (per S-0143 / Issue #110):
+      - Carries any label in ``_NON_ACTIONABLE_LABELS`` (e.g., `upstream`).
+      - Title matches ``_TRIGGER_TITLE_RE`` (carries `[TRIGGER: ...]`).
+
+    Returns False for skip candidates; True otherwise. Issues missing
+    `labels` (legacy gh response shape) default to actionable.
+    """
+    title = issue.get("title") or ""
+    if _TRIGGER_TITLE_RE.search(title):
+        return False
+
+    labels = issue.get("labels") or []
+    if isinstance(labels, list):
+        label_names = {
+            entry.get("name", "").lower() for entry in labels if isinstance(entry, dict)
+        }
+        if label_names & _NON_ACTIONABLE_LABELS:
+            return False
+
+    return True
 
 
 def find_collisions(
@@ -291,7 +343,13 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
 
-    collisions = find_collisions(issues, keywords, paths)
+    # Filter out structurally-non-actionable Issues (per S-0143 / Issue #110):
+    # `upstream`-labeled (cleanup-batch discipline says skip per ADR 0048)
+    # and trigger-gated (`[TRIGGER: ...]` title prefix; gated work whose
+    # external condition hasn't fired yet).
+    actionable_issues = [i for i in issues if is_actionable_now(i)]
+
+    collisions = find_collisions(actionable_issues, keywords, paths)
 
     if args.json:
         json.dump(

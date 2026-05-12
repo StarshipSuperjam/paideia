@@ -24,6 +24,9 @@ from scan_orphans import (  # noqa: E402
     _table_emptiness,
     axis_ops_doc_uncited,
     axis_register_emptiness,
+    get_current_phase,
+    get_current_session,
+    is_marker_line_back_pinned,
     main,
     render_json,
     render_markdown,
@@ -496,3 +499,122 @@ def test_build_boot_surface_reachable_set_treats_readme_as_leaf(
     # But the doc indexed by README.md is NOT reached, because the BFS does
     # not traverse README.md's outbound links.
     assert (ops_dir / "indexed-only.md").resolve() not in reachable
+
+
+# ---------------------------------------------------------------------------
+# is_marker_line_back_pinned + get_current_phase + get_current_session
+# (S-0143 / Issue #111 forward-pin classifier)
+# ---------------------------------------------------------------------------
+
+
+def test_get_current_phase_parses_phase_from_state_md(tmp_path: Path) -> None:
+    state = tmp_path / "engine" / "STATE.md"
+    state.parent.mkdir(parents=True)
+    state.write_text(
+        "# Project State\n\n## Current\n\n"
+        "| Field | Value |\n|---|---|\n"
+        "| **Current phase** | **Phase 5 — Philosophy subdomain seeding** |\n"
+    )
+    assert get_current_phase(tmp_path) == 5
+
+
+def test_get_current_phase_returns_zero_when_state_missing(tmp_path: Path) -> None:
+    assert get_current_phase(tmp_path) == 0
+
+
+def test_get_current_session_parses_next_id(tmp_path: Path) -> None:
+    register = tmp_path / "engine" / "session" / "register_state.json"
+    register.parent.mkdir(parents=True)
+    register.write_text(json.dumps({"next_id": "0143"}))
+    assert get_current_session(tmp_path) == 143
+
+
+def test_get_current_session_returns_zero_when_register_missing(
+    tmp_path: Path,
+) -> None:
+    assert get_current_session(tmp_path) == 0
+
+
+def test_back_pinned_decide_before_phase_future_skips(tmp_path: Path) -> None:
+    """`decide-before Phase 7` with current_phase=5 → forward-pinned (skip)."""
+    line = "| Outward / UI text | TBD — open question; decide-before Phase 7 |"
+    assert (
+        is_marker_line_back_pinned(line, current_phase=5, current_session=143) is False
+    )
+
+
+def test_back_pinned_decide_before_phase_past_flags(tmp_path: Path) -> None:
+    """`decide-before Phase 3` with current_phase=5 → back-pinned (flag)."""
+    line = "TODO — needed before Phase 3 (decide-before Phase 3)"
+    assert (
+        is_marker_line_back_pinned(line, current_phase=5, current_session=143) is True
+    )
+
+
+def test_back_pinned_decide_before_phase_equal_flags(tmp_path: Path) -> None:
+    """`decide-before Phase 5` with current_phase=5 → overdue (Phase has closed)."""
+    line = "TODO — decide-before Phase 5"
+    assert (
+        is_marker_line_back_pinned(line, current_phase=5, current_session=143) is True
+    )
+
+
+def test_back_pinned_decide_by_session_future_skips() -> None:
+    line = "FIXME — decide-by S-0200 if not resolved by then"
+    assert (
+        is_marker_line_back_pinned(line, current_phase=5, current_session=143) is False
+    )
+
+
+def test_back_pinned_decide_by_session_past_flags() -> None:
+    line = "FIXME — decide-by S-0100 if not resolved by then"
+    assert (
+        is_marker_line_back_pinned(line, current_phase=5, current_session=143) is True
+    )
+
+
+def test_back_pinned_trigger_bracket_skips() -> None:
+    line = "TBD [TRIGGER: ≥2 collaborators added]"
+    assert (
+        is_marker_line_back_pinned(line, current_phase=5, current_session=143) is False
+    )
+
+
+def test_back_pinned_phase_plus_future_skips() -> None:
+    line = "TBD — Phase 7+ ADR"
+    assert (
+        is_marker_line_back_pinned(line, current_phase=5, current_session=143) is False
+    )
+
+
+def test_back_pinned_phase_plus_past_flags() -> None:
+    line = "TBD — Phase 3+ ADR"
+    assert (
+        is_marker_line_back_pinned(line, current_phase=5, current_session=143) is True
+    )
+
+
+def test_back_pinned_oq_reference_skips() -> None:
+    line = "TBD — resolves OQ-OUTWARD-VOICE per product/docs/tensions.md"
+    assert (
+        is_marker_line_back_pinned(line, current_phase=5, current_session=143) is False
+    )
+
+
+def test_back_pinned_unannotated_marker_flags() -> None:
+    """No trigger annotation → back-pinned (stale by default)."""
+    line = "TODO: implement this thing"
+    assert (
+        is_marker_line_back_pinned(line, current_phase=5, current_session=143) is True
+    )
+
+
+def test_back_pinned_classifier_ignores_lines_without_decide_markers() -> None:
+    """Caller is responsible for screening the line for a marker token first;
+    the classifier answers the orthogonal forward-pin question."""
+    # The classifier examines trigger annotations only — non-marker text
+    # passes through to the unannotated-flag default.
+    line = "Just a regular sentence with no triggers"
+    assert (
+        is_marker_line_back_pinned(line, current_phase=5, current_session=143) is True
+    )

@@ -679,23 +679,33 @@ def validate_shared_state_health() -> ValidationResult:
         # code (per ADR 0045 amendment, S-0084). This keeps the divergence
         # signal addressable separately from the chromadb-openability
         # health signal — they're independent failure modes.
+        #
+        # add_check() is unconditional (the check was attempted whenever the
+        # palace probe ran); soft_warn fires only when divergence is detected.
+        # Pre-S-0143 the add_check was inside the divergence-detected branch,
+        # which meant the in-session validate's checks_run array did not
+        # include `mempalace_hnsw_divergence` when divergence was zero — and
+        # ADR 0042's outcome_summary_soft_warns telemetry recorded no signal
+        # at all about MemPalace HNSW health unless divergence happened to be
+        # non-zero at the moment of the in-session run. The S-0141 audit
+        # surfaced this as Non-obvious finding A; the unconditional add_check
+        # closes the structural gap (Issue #109).
         if probe_name == "palace":
+            r.add_check("mempalace_hnsw_divergence")
             divergence_msg = _extract_palace_divergence(proc.stderr)
             if divergence_msg is not None:
-                r.add_check("mempalace_hnsw_divergence")
                 r.soft_warn("mempalace_hnsw_divergence", divergence_msg)
 
             # Wing-count accumulation surface (per Issue #46, S-0088).
-            # Independent of openability and divergence — captures the
-            # rate of orphaned per-worktree wings + historical full-path
-            # wings the upstream wing-naming bug (Issues #1 / #2)
-            # produces. Threshold tiers configured in
-            # register_state.json so the project can tune as cleanup
-            # cadence shifts. Same posture as divergence: probe always
-            # emits when measurable; validator decides severity.
+            # Same unconditional-add-check pattern as divergence above:
+            # the probe always emits when measurable, so the check is
+            # recorded in checks_run whenever the palace probe ran. The
+            # soft_warn fires only when the count crosses the configured
+            # threshold tier (register_state.json's
+            # `wing_count_growth_thresholds`).
+            r.add_check("mempalace_wing_count_growth")
             wing_count_msg = _extract_palace_wing_count(proc.stderr)
             if wing_count_msg is not None:
-                r.add_check("mempalace_wing_count_growth")
                 r.soft_warn("mempalace_wing_count_growth", wing_count_msg)
 
         if proc.returncode == 0:

@@ -136,6 +136,118 @@ _PENDING_MARKERS = (
     "open decide-by",
 )
 
+# Forward-pin trigger vocabulary (per S-0143 / Issue #111). Markers carrying
+# any of these annotations point at a FUTURE phase / session / external
+# condition; the marker is deliberately deferred and not stale. The
+# classifier `is_marker_line_back_pinned()` parses each marker line for these
+# patterns and returns False (forward-pinned, skip) when found pointing at a
+# future trigger, True (back-pinned or unannotated, flag) otherwise.
+#
+# Patterns:
+#   - `decide-before Phase N` — forward-pinned if N > current_phase
+#   - `decide-by S-NNNN` — forward-pinned if NNNN > current_session
+#   - `[TRIGGER: <condition>]` — forward-pinned (gated on external trigger)
+#   - `Phase N+` — forward-pinned if N > current_phase
+#   - `OQ-XXXXX` reference — forward-pinned (the open question is unresolved;
+#     if it had been resolved, the marker would have been removed)
+_DECIDE_BEFORE_PHASE_RE = re.compile(r"decide-before\s+Phase\s+(\d+)", re.IGNORECASE)
+_DECIDE_BY_SESSION_RE = re.compile(r"decide-by\s+S-(\d{4})", re.IGNORECASE)
+_TRIGGER_BRACKET_RE = re.compile(r"\[TRIGGER:\s")
+_PHASE_PLUS_RE = re.compile(r"Phase\s+(\d+)\+", re.IGNORECASE)
+_OQ_REFERENCE_RE = re.compile(r"\bOQ-[A-Z][A-Z0-9-]+", re.IGNORECASE)
+
+
+def get_current_phase(repo_root: Path) -> int:
+    """Parse the current phase number from engine/STATE.md.
+
+    Returns 0 when STATE.md is missing or no "Phase N" reference parseable.
+    """
+    state = repo_root / "engine" / "STATE.md"
+    if not state.is_file():
+        return 0
+    try:
+        text = state.read_text()
+    except OSError:
+        return 0
+    # Match the **Current phase** row: "**Phase N — ...**" or "Phase N —".
+    m = re.search(
+        r"\*\*Current phase\*\*\s*\|\s*\*?\*?Phase\s+(\d+)", text, re.IGNORECASE
+    )
+    if m:
+        return int(m.group(1))
+    return 0
+
+
+def get_current_session(repo_root: Path) -> int:
+    """Parse the current session counter from engine/session/register_state.json.
+
+    Returns the integer suffix of `next_id` (e.g., 143 for "S-0143"); 0 on any
+    failure.
+    """
+    register = repo_root / "engine" / "session" / "register_state.json"
+    if not register.is_file():
+        return 0
+    try:
+        data = json.loads(register.read_text())
+    except (OSError, json.JSONDecodeError):
+        return 0
+    next_id = data.get("next_id", "")
+    if isinstance(next_id, str) and next_id:
+        try:
+            return int(next_id)
+        except ValueError:
+            return 0
+    return 0
+
+
+def is_marker_line_back_pinned(
+    line: str, current_phase: int, current_session: int
+) -> bool:
+    """Classify a single marker line as back-pinned (flag) or forward-pinned (skip).
+
+    Returns True (back-pinned, flag) when the line:
+      - has no trigger annotation at all (unannotated marker), OR
+      - carries a `decide-before Phase N` with N <= current_phase (overdue), OR
+      - carries a `decide-by S-NNNN` with NNNN <= current_session (overdue), OR
+      - carries a `Phase N+` with N <= current_phase (overdue).
+
+    Returns False (forward-pinned, skip) when any of:
+      - `decide-before Phase N` with N > current_phase,
+      - `decide-by S-NNNN` with NNNN > current_session,
+      - `Phase N+` with N > current_phase,
+      - `[TRIGGER: ...]` literal,
+      - `OQ-XXXXX` reference (open question, treat as forward-pinned).
+
+    The function answers "is this marker stale?"; the caller decides whether
+    to flag the containing file based on whether ANY of its marker lines
+    return True.
+    """
+    # Explicit phase-future triggers (highest priority).
+    m = _DECIDE_BEFORE_PHASE_RE.search(line)
+    if m:
+        phase = int(m.group(1))
+        return phase <= current_phase  # overdue → back-pinned
+
+    m = _DECIDE_BY_SESSION_RE.search(line)
+    if m:
+        session = int(m.group(1))
+        return session <= current_session  # overdue → back-pinned
+
+    m = _PHASE_PLUS_RE.search(line)
+    if m:
+        phase = int(m.group(1))
+        return phase <= current_phase  # overdue → back-pinned
+
+    if _TRIGGER_BRACKET_RE.search(line):
+        return False  # [TRIGGER: ...] is always forward-pinned
+
+    if _OQ_REFERENCE_RE.search(line):
+        return False  # OQ-XXXXX open question reference is forward-pinned
+
+    # No trigger annotation found — unannotated marker, classify as back-pinned
+    # (the marker has no deferral justification, so it's stale by default).
+    return True
+
 
 @dataclass(frozen=True)
 class OrphanCandidate:
@@ -541,8 +653,16 @@ def axis_stale_marker(
     repo_root: Path,
     threshold_sessions: int = DEFAULT_AGE_THRESHOLD_SESSIONS,
 ) -> list[OrphanCandidate]:
-    """Axis 5 — files with decide-trigger / decide-before markers
-    whose pinned phase or session has passed.
+    """Axis 5 — files with pending-decision markers whose pinned trigger has
+    passed (overdue) OR which carry no trigger annotation at all.
+
+    Per S-0143 / Issue #111 the axis classifies each marker line via
+    `is_marker_line_back_pinned()` and only counts back-pinned (overdue or
+    unannotated) lines as stale. Markers explicitly forward-pinned to a
+    future phase/session/OQ/external-trigger are deliberately deferred and
+    do not produce false-positive findings — pre-S-0143 the axis flagged
+    `expression-contract-instantiation.md`'s correctly-deferred Phase 7+
+    TBDs at every cadence audit (S-0141 audit Cold-context probe finding).
     """
     candidates: list[OrphanCandidate] = []
     files = tracked_md_files(repo_root)
@@ -551,18 +671,28 @@ def axis_stale_marker(
         return candidates
     total_sessions = len(list(archive_dir.glob("S-[0-9][0-9][0-9][0-9].json")))
 
+    current_phase = get_current_phase(repo_root)
+    current_session = get_current_session(repo_root)
+
     for f in files:
         try:
             text = f.read_text()
         except OSError:
             continue
-        # Find pending-marker lines.
-        marker_lines: list[str] = []
+        # Find pending-marker lines AND classify each as back-pinned or
+        # forward-pinned. Only back-pinned lines contribute to the flag.
+        back_pinned_lines: list[str] = []
+        forward_pinned_count = 0
         for line in text.splitlines():
             lower = line.lower()
-            if any(m in lower for m in _PENDING_MARKERS):
-                marker_lines.append(line.strip())
-        if not marker_lines:
+            if not any(m in lower for m in _PENDING_MARKERS):
+                continue
+            if is_marker_line_back_pinned(line, current_phase, current_session):
+                back_pinned_lines.append(line.strip())
+            else:
+                forward_pinned_count += 1
+
+        if not back_pinned_lines:
             continue
 
         # Compute the file's age in sessions: total_sessions minus
@@ -571,19 +701,24 @@ def axis_stale_marker(
         if substantive_commits == 0:
             continue
         # Approximation: if the file has only 1-2 substantive commits but
-        # has been on the books for many sessions with pending markers,
+        # has been on the books for many sessions with back-pinned markers,
         # the markers are stale candidates.
         if substantive_commits <= 2 and total_sessions >= threshold_sessions:
             rel = str(f.relative_to(repo_root))
             refs = count_inbound_references(repo_root, f)
             last_change = last_substantive_change(repo_root, f)
-            preview = "; ".join(marker_lines[:2])
-            if len(marker_lines) > 2:
-                preview += f"; ... (+{len(marker_lines) - 2} more)"
+            preview = "; ".join(back_pinned_lines[:2])
+            if len(back_pinned_lines) > 2:
+                preview += f"; ... (+{len(back_pinned_lines) - 2} more)"
+            forward_note = (
+                f"; {forward_pinned_count} forward-pinned marker(s) skipped"
+                if forward_pinned_count > 0
+                else ""
+            )
             sig = (
-                f"{len(marker_lines)} pending marker(s) present, file has "
-                f"only {substantive_commits} substantive commit(s) across "
-                f"{total_sessions} sessions: {preview}"
+                f"{len(back_pinned_lines)} back-pinned marker(s) present, "
+                f"file has only {substantive_commits} substantive commit(s) "
+                f"across {total_sessions} sessions{forward_note}: {preview}"
             )
             candidates.append(
                 OrphanCandidate(

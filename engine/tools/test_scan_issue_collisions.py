@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from scan_issue_collisions import (  # noqa: E402
     extract_keywords,
     find_collisions,
+    is_actionable_now,
     main,
     read_declared_scope,
 )
@@ -394,3 +395,100 @@ def test_main_json_mode(
     assert payload["staged_paths"] == ["foo.py"]
     assert len(payload["collisions"]) == 1
     assert payload["collisions"][0]["number"] == 7
+
+
+# ---------------------------------------------------------------------------
+# is_actionable_now (S-0143 / Issue #110)
+# ---------------------------------------------------------------------------
+
+
+def test_is_actionable_now_true_for_plain_issue() -> None:
+    issue = {"number": 1, "title": "Regular bug", "body": "x", "labels": []}
+    assert is_actionable_now(issue) is True
+
+
+def test_is_actionable_now_false_for_trigger_gated_title() -> None:
+    issue = {
+        "number": 84,
+        "title": "Add monthly metrics workflow [TRIGGER: ≥2 collaborators]",
+        "body": "x",
+        "labels": [],
+    }
+    assert is_actionable_now(issue) is False
+
+
+def test_is_actionable_now_false_for_upstream_labeled() -> None:
+    issue = {
+        "number": 2,
+        "title": "MemPalace upstream bug",
+        "body": "x",
+        "labels": [{"name": "upstream"}, {"name": "bug"}],
+    }
+    assert is_actionable_now(issue) is False
+
+
+def test_is_actionable_now_label_match_is_case_insensitive() -> None:
+    issue = {
+        "number": 3,
+        "title": "Some bug",
+        "body": "",
+        "labels": [{"name": "Upstream"}],
+    }
+    assert is_actionable_now(issue) is False
+
+
+def test_is_actionable_now_handles_missing_labels_field() -> None:
+    """Legacy gh response shape (pre-S-0143) lacks labels — default actionable."""
+    issue = {"number": 4, "title": "Plain bug", "body": "x"}
+    assert is_actionable_now(issue) is True
+
+
+def test_is_actionable_now_handles_empty_title() -> None:
+    issue = {"number": 5, "title": "", "body": "x", "labels": []}
+    assert is_actionable_now(issue) is True
+
+
+def test_main_skips_upstream_and_trigger_gated_in_collision_loop(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Integration: upstream + trigger-gated Issues are not reported even
+    when their body/title would otherwise match this session's scope."""
+    (tmp_path / "engine" / "session").mkdir(parents=True)
+    (tmp_path / "engine" / "session" / "current.json").write_text(
+        json.dumps({"declared_scope": "Working on epistemology gates"})
+    )
+
+    monkeypatch.setattr(
+        "scan_issue_collisions.staged_files",
+        lambda repo_root: [],
+    )
+    monkeypatch.setattr(
+        "scan_issue_collisions.fetch_open_issues",
+        lambda gh_repo=None: [
+            {
+                "number": 1,
+                "title": "Upstream issue mentioning epistemology",
+                "body": "",
+                "labels": [{"name": "upstream"}],
+            },
+            {
+                "number": 2,
+                "title": "[TRIGGER: future condition] epistemology work",
+                "body": "",
+                "labels": [],
+            },
+            {
+                "number": 3,
+                "title": "Actionable epistemology bug",
+                "body": "",
+                "labels": [{"name": "bug"}],
+            },
+        ],
+    )
+
+    rc = main(["--repo-root", str(tmp_path)])
+    assert rc == 1  # one actionable collision remains (#3)
+    err = capsys.readouterr().err
+    assert "#3" in err
+    assert "#1" not in err  # upstream filtered out
+    assert "#2" not in err  # trigger-gated filtered out
