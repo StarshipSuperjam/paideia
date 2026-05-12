@@ -295,21 +295,15 @@ The wrapper mechanically shape-verifies HEAD (close subject pattern, archive/S-N
 
 No per-push confirmation — the `/start-engine` invocation at session boot already authorized the shutdown push.
 
-### 11. Post-close worktree sweep (per ADR 0076 Amendment, S-0142)
+### 11. Close-side worktree preservation (per ADR 0076 Amendment v2, S-0143)
 
-After the close push completes, sweep the session's worktree to match the leave-no-mess posture routine close has carried since [ADR 0054 Amendment](../../../engine/adr/0054-lifecycle-push-wrapping-against-default-branch-push-gate.md) (S-0072). Without this step, every build session leaves its worktree + `claude/<branch>` branch behind on the parent repo, and accumulation drives recurring health-check audit findings.
+**The closing session's worktree is NOT swept at close.** It survives close push + parent FF + archive so the user can return for follow-up. Both [`engine/tools/routine_worktree_sweep.py`](../../../engine/tools/routine_worktree_sweep.py) and [`engine/tools/sweep_worktrees.sh`](../../../engine/tools/sweep_worktrees.sh) carry a caller's-own-worktree pre-flight that refuses sweep when invoked against the caller's CWD — defense-in-depth in case any consumer accidentally targets it at close.
 
-```bash
-python3 engine/tools/routine_worktree_sweep.py
-```
+Accumulated prior-session worktrees are reaped at the **next session's boot** by [`engine/tools/hooks/session-start.sh`](../../../engine/tools/hooks/session-start.sh) invoking `sweep_worktrees.sh --apply --quiet` (gated on no-conflict; conservative pre-flight). Run `bash engine/tools/sweep_worktrees.sh` (dry-run, no `--quiet`) to see the full multi-line preserve-report per still-preserved worktree (path + branch + merged/ahead/behind + dirty files + last commit + guidance).
 
-The tool is mode-agnostic in mechanism (pre-flight checks: `claude/*` branch, working tree clean, branch merged into main). The "routine_" prefix reflects its first consumer at S-0072, not a mode binding. Exit codes:
+Pre-S-0143 history: the original ADR 0076 Amendment (S-0142) wired build-mode close to invoke `routine_worktree_sweep.py` on its own worktree. That destroyed the closing session's working folder before the user could follow up; S-0142 was the first natural exercise and the defect surfaced immediately. The Amendment v2 at S-0143 reverses the close-side invocation and shifts cleanup to next-session boot.
 
-- **0** — sweep succeeded.
-- **2** — refused with explicit reason. Best-effort; the close has already succeeded.
-- **5** — generic git error. Best-effort; may need manual cleanup via `engine/tools/sweep_worktrees.sh --apply` (which carries a skip-current-worktree safety check landed at S-0142).
-
-The session is fully closed after this step. Worktree directory is gone.
+The session is fully closed after the close push completes.
 
 ## Updating design docs during a session
 

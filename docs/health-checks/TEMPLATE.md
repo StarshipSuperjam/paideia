@@ -2,7 +2,7 @@
 
 > Authored by S-NNNN against the cadence trigger (or on-demand). Per [ADR 0022](../../engine/adr/0022-periodic-project-health-checks.md) and [ADR 0057](../../engine/adr/0057-adversarial-stance-for-health-check-audits.md). Producing script: `python3 engine/tools/health_check.py --session S-NNNN`. Operational surface: [`engine/operations/health-check.md`](../../engine/operations/health-check.md).
 >
-> **The audit is conversational by default — surface findings + guidance suggestions to the user; the user adjudicates; downstream sessions execute approved actions.** The "User adjudication" subsection below is left **blank on arrival** by the audit author. Do not pre-fill it. (Per ADR 0057 user-buffered execution.)
+> **The audit is conversational by default — surface findings + guidance suggestions; the user adjudicates.** Adjudication shape depends on audit mode (per [ADR 0057](../../engine/adr/0057-adversarial-stance-for-health-check-audits.md) revised Decision 1 at S-0143): **interactive audits** populate the "User adjudication" subsection inline via AskUserQuestion + file approved `health-check-finding` Issues in the same session; **routine-fired audits** leave the table blank on arrival, and a subsequent interactive session adjudicates. See `engine/operations/health-check.md` "User-adjudicated execution — inline when interactive, buffered when unattended" for the procedure.
 
 **Cadence:** every <N> sessions. Last check: S-NNNN (Δ = <delta>).
 
@@ -131,7 +131,7 @@ For each scanner-surfaced candidate AND any non-obvious additions, the explicit 
 
 ## User adjudication
 
-> **Left blank on arrival.** Per [ADR 0057](../../engine/adr/0057-adversarial-stance-for-health-check-audits.md) user-buffered execution. The user (or the next interactive session that picks up the audit's recommendations) populates this subsection with accept/reject/modify dispositions per recommendation. The audit closes with recommendations *surfaced*, not *executed*.
+> **Populated inline when the audit is interactive** (audit AI surfaces each finding via AskUserQuestion + records the disposition + files approved `health-check-finding` Issues in the same session); **left blank on arrival when the audit is routine-fired** — a subsequent interactive session populates the table and routes approved findings at that time. Per [ADR 0057](../../engine/adr/0057-adversarial-stance-for-health-check-audits.md) revised Decision 1 at S-0143 + `engine/operations/health-check.md` "User-adjudicated execution".
 >
 > Recommendations route to one of four execution lanes per [ADR 0048](../../engine/adr/0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md):
 > - **Inline trivial cleanup** (typos, broken cross-refs noticed in passing) — only for fix-in-context items, NOT adversarial recommendations.
@@ -139,7 +139,7 @@ For each scanner-surfaced candidate AND any non-obvious additions, the explicit 
 > - **New GitHub Issue** with `health-check-finding` label — default lane for adversarial recommendations.
 > - **New tension in `product/docs/tensions.md`** — if not yet actionable.
 
-<populated post-audit by the user>
+<populated inline (interactive) OR post-audit by a subsequent session (routine-fired)>
 
 ## Cadence calibration
 

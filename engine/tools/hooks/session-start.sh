@@ -372,6 +372,53 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Boot-time worktree bulk sweep (per ADR 0076 Amendment v2 / S-0143)
+# ---------------------------------------------------------------------------
+#
+# After every session boot, run sweep_worktrees.sh --apply --quiet to
+# collect previously-closed sessions' worktrees that survived their own
+# close (per ADR 0076 Amendment v2's skip-caller defense in both
+# routine_worktree_sweep.py and sweep_worktrees.sh). The bulk utility
+# unconditionally preserves:
+#   - The caller's enclosing worktree (in-flight session — this one).
+#   - Worktrees with branches not matching claude/*.
+#   - Worktrees with uncommitted changes or untracked files.
+#   - Worktrees whose branch has unmerged commits ahead of main.
+#
+# Gated on CONFLICT_STATUS == "no-conflict" — if another session is in
+# flight, defer the sweep to avoid the race where a concurrent session's
+# transiently-clean worktree could be reaped between their eager-claim
+# push and their next dirty edit (the skip-caller check protects against
+# self-sweep but not against sibling sessions).
+#
+# Best-effort: any failure emits a stderr line and the boot proceeds.
+
+SWEEP_SCRIPT="$REPO_ROOT/engine/tools/sweep_worktrees.sh"
+SWEEP_STATUS="not-run"
+if [ "$CONFLICT_STATUS" = "no-conflict" ] && [ -x "$SWEEP_SCRIPT" ]; then
+    SWEEP_TMP="$(mktemp 2>/dev/null || echo "/tmp/session-start-sweep.$$")"
+    if bash "$SWEEP_SCRIPT" --apply --quiet >"$SWEEP_TMP" 2>&1; then
+        SWEEP_STATUS="ok"
+    else
+        SWEEP_STATUS="exit-nonzero"
+        log_fail "boot-sweep-exit-nonzero"
+    fi
+    # Emit the tool's per-line output to stderr so the AI + user see what
+    # was removed and what was preserved. In --quiet mode the tool emits
+    # one line per preserved worktree (path + short reason) plus a final
+    # `[sweep] removed N, preserved K` summary.
+    if [ -s "$SWEEP_TMP" ]; then
+        cat "$SWEEP_TMP" >&2 2>/dev/null
+    fi
+    rm -f "$SWEEP_TMP" 2>/dev/null
+elif [ ! -x "$SWEEP_SCRIPT" ]; then
+    log_fail "boot-sweep-script-missing"
+    SWEEP_STATUS="script-missing"
+else
+    SWEEP_STATUS="deferred-concurrent-session"
+fi
+
+# ---------------------------------------------------------------------------
 # Shared-state health probe (per ADR 0045)
 # ---------------------------------------------------------------------------
 #
@@ -690,7 +737,7 @@ fi
 
 if [ ! -d "$ARCHIVE_DIR" ]; then
     echo "[session-start] Persistent warns: archive directory absent."
-    log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=no-archive"
+    log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=no-archive boot_sweep=$SWEEP_STATUS"
     exit 0
 fi
 
@@ -707,7 +754,7 @@ ARCHIVE_COUNT=${#RECENT_ARCHIVES[@]}
 
 if [ "$ARCHIVE_COUNT" -eq 0 ]; then
     echo "[session-start] Persistent warns: no archive files yet."
-    log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=no-archives"
+    log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=no-archives boot_sweep=$SWEEP_STATUS"
     exit 0
 fi
 
@@ -723,7 +770,7 @@ done
 # structured-field archives accumulate.
 if [ "$STRUCTURED_COUNT" -lt 5 ]; then
     echo "[session-start] Persistent warns: calibration window in effect ($STRUCTURED_COUNT/5 structured archives; surface defers until 5)."
-    log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=calibration-window structured=$STRUCTURED_COUNT"
+    log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=calibration-window structured=$STRUCTURED_COUNT boot_sweep=$SWEEP_STATUS"
     exit 0
 fi
 
@@ -855,5 +902,5 @@ if [ -f "$SCHEDULED_AUDITS_FILE" ]; then
     fi
 fi
 
-log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=$PERSISTENT_FOUND scheduled=$SCHEDULED_FOUND probe=$PROBE_STATUS mcp=$MCP_PROBE_STATUS backlog=$BACKLOG_STATUS scope_non_yes=$SCOPE_NON_YES conflict=$CONFLICT_STATUS env_pointer=$ENV_POINTER_STATUS stale_check=$STALE_CHECK_STATUS"
+log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=$PERSISTENT_FOUND scheduled=$SCHEDULED_FOUND probe=$PROBE_STATUS mcp=$MCP_PROBE_STATUS backlog=$BACKLOG_STATUS scope_non_yes=$SCOPE_NON_YES conflict=$CONFLICT_STATUS env_pointer=$ENV_POINTER_STATUS stale_check=$STALE_CHECK_STATUS boot_sweep=$SWEEP_STATUS"
 exit 0

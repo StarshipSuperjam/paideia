@@ -1,68 +1,70 @@
-"""Routine-mode post-close worktree sweep.
+"""Per-worktree post-close sweep — sibling to the bulk ``sweep_worktrees.sh``.
 
-Layer 1 contract per ADR 0054 amendment (S-0072 / Issue #16 follow-on).
+Layer 1 contract per ADR 0054 amendment (S-0072 / Issue #16 follow-on) plus
+ADR 0076 Amendment v2 (S-0143 / skip-caller defense + enriched preserve-report).
 
 Purpose
 -------
-At routine close, after the close push and parent-side FF have succeeded,
-remove the current session's worktree and its ``claude/<name>`` feature
-branch. Routine sessions create a fresh worktree per fire (the Worktree
-checkbox in Claude Code Routines) and the close push lifecycle did not
-sweep them. By S-0072 the project had accumulated 14+ active worktrees
-plus orphan branches (Issue #16). This tool closes that gap so a clean
-routine close leaves no detritus.
+Remove a previously-closed session's worktree and its ``claude/<name>``
+feature branch when the close push has already propagated to ``origin/main``.
 
-Companion to ``routine_lifecycle_push.py`` (post-push parent FF) — both
-extend the routine close lifecycle to match the interactive close's
-"leave-no-mess" posture.
+**The tool defaults to refusing self-sweep.** When the resolved target
+worktree path equals the caller's current working directory, the tool emits
+a structured preserve-report and exits 2. This protects the in-flight
+session's working folder from being silently removed mid-session — the
+defect S-0142 surfaced at its own close, where the routine post-close
+sweep wiping the closing worktree erased the user's follow-up surface.
+
+Sweep of the caller's own worktree is opt-in via ``--allow-caller-self``;
+this is reserved for test fixtures (pytest creates the worktree, chdir's
+into it, then invokes the tool in-process) and manual recovery scenarios.
+Production close ceremonies should never set this flag — the boot-time
+bulk sweep in ``engine/tools/hooks/session-start.sh`` cleans accumulated
+prior-session worktrees at the next session's start.
 
 Sequence
 --------
-1. Resolve current worktree path (CLI ``--worktree`` or ``os.getcwd()``).
-2. Resolve parent repo path via ``git rev-parse --git-common-dir`` (the
-   shared ``.git`` directory's parent). Same helper as
-   ``routine_lifecycle_push.py``.
+1. Resolve target worktree path (CLI ``--worktree`` or ``os.getcwd()``).
+2. Resolve parent repo path via ``git rev-parse --git-common-dir``.
 3. Refuse if running directly in the parent (not a linked worktree).
-4. Chdir to parent so subsequent operations don't carry the about-to-be-
-   removed worktree as CWD (forks would fail).
-5. Pre-flight checks:
-   - working tree must be clean (no uncommitted changes / untracked files);
-   - branch must match ``claude/*`` (the routine convention);
-   - branch must be fully merged into ``main`` (otherwise sweep would
-     orphan the work; close push not yet propagated).
-6. ``git -C <parent> worktree remove <worktree-path>``.
-7. ``git -C <parent> branch -d <worktree-branch>``.
-
-The pre-flight checks mirror ``engine/tools/sweep_worktrees.sh`` exactly
-(claude/* branch, working tree clean, branch merged) — this tool is the
-single-worktree, called-at-routine-close form of that bulk utility.
+4. Refuse if target is the caller's own CWD AND ``--allow-caller-self``
+   is NOT set. Emit the structured preserve-report on refusal.
+5. Pre-flight checks (mirrored from ``sweep_worktrees.sh``):
+   - branch matches ``claude/*``;
+   - working tree clean (no uncommitted changes / untracked files);
+   - branch fully merged into ``main``.
+   Failures emit the structured preserve-report.
+6. Chdir to parent so subsequent operations don't carry the about-to-be-
+   removed worktree as CWD.
+7. ``git -C <parent> worktree remove <worktree-path>``.
+8. ``git -C <parent> branch -d <worktree-branch>``.
 
 Exit codes
 ----------
 - ``0`` — sweep succeeded (worktree directory removed, branch deleted).
-- ``2`` — refused with explicit reason (working tree dirty, branch not
-  ``claude/*``, branch not merged, running in parent). Caller logs and
-  continues — the close has already succeeded; sweep is best-effort.
-- ``5`` — generic git error during remove/branch-delete. Caller logs and
-  continues; the worktree may need manual cleanup later.
+- ``2`` — refused with explicit reason (caller's-own-worktree default,
+  working tree dirty, branch not ``claude/*``, branch not merged, running
+  in parent). Caller logs and continues — the close has already succeeded;
+  sweep is best-effort.
+- ``5`` — generic git error during remove/branch-delete.
 
 CLI
 ---
-- ``routine_worktree_sweep.py`` — sweeps the current worktree (uses
-  ``os.getcwd()``).
-- ``routine_worktree_sweep.py --worktree PATH`` — sweep a specific
-  worktree (test fixtures, manual recovery).
-- ``--dry-run`` — run pre-flight checks, report what would happen, do
-  not remove anything.
+- ``routine_worktree_sweep.py`` — refuses (caller's own worktree default).
+- ``routine_worktree_sweep.py --worktree PATH`` — sweep a specific worktree
+  (resolved path must differ from caller's CWD, OR ``--allow-caller-self``
+  must be set).
+- ``--allow-caller-self`` — opt-in to legacy self-sweep behavior for tests
+  and manual recovery.
+- ``--dry-run`` — run pre-flight checks, emit preserve-report on refusal
+  OR the would-be-removed line on accept; do not remove anything.
 
 Out of scope
 ------------
 - Bulk cleanup of stale sibling worktrees. ``sweep_worktrees.sh --apply``
-  remains the right tool for that; this sweep is single-worktree only.
-- Interactive close. Interactive sessions don't always use worktrees and
-  the closer-loops-back affordance is well-served by manual cleanup.
-- Hard-fail propagation. Sweep is best-effort by design — the close has
-  already landed by the time we run.
+  remains the right tool for that (invoked at session boot per the
+  ADR 0076 Amendment v2 boot-time-sweep wiring).
+- Hard-fail propagation. Sweep is best-effort by design.
 """
 
 from __future__ import annotations
@@ -91,9 +93,8 @@ def _run_git(
 def get_parent_repo_path(repo: Path) -> Path | None:
     """Resolve the parent repo path for a linked worktree.
 
-    Same shape as ``routine_lifecycle_push.get_parent_repo_path``: returns
-    the directory containing the shared ``.git``. Returns the same path
-    as ``repo`` when ``repo`` IS the parent (not a linked worktree).
+    Returns the directory containing the shared ``.git``. Returns the same
+    path as ``repo`` when ``repo`` IS the parent (not a linked worktree).
     Returns ``None`` on git error or unexpected layout.
     """
     result = _run_git(["rev-parse", "--git-common-dir"], repo)
@@ -136,14 +137,134 @@ def branch_merged_into_main(parent: Path, branch: str) -> bool:
     return result.returncode == 0
 
 
-def preflight(worktree: Path, parent: Path) -> tuple[bool, str, str | None]:
+def is_caller_self(target: Path) -> bool:
+    """True when the target worktree equals the caller's current CWD.
+
+    Resolves both paths to avoid symlink-mismatch false negatives. Returns
+    False on OSError (e.g., CWD does not exist).
+    """
+    try:
+        return Path(os.getcwd()).resolve() == target.resolve()
+    except OSError:
+        return False
+
+
+def collect_preserve_info(
+    parent: Path, worktree: Path, branch: str | None
+) -> dict[str, str]:
+    """Gather structured info for a preserved worktree.
+
+    Returns a dict with keys: path, branch, merged, ahead_main, behind_main,
+    dirty_files, last_commit. Used by both the per-worktree refusal path
+    and the bulk utility's --dry-run preserve-report.
+    """
+    info: dict[str, str] = {"path": str(worktree)}
+
+    if branch is None:
+        result = _run_git(["rev-parse", "--abbrev-ref", "HEAD"], worktree)
+        branch = result.stdout.strip() if result.returncode == 0 else ""
+    info["branch"] = branch or "<unknown>"
+
+    if branch:
+        info["merged"] = "yes" if branch_merged_into_main(parent, branch) else "no"
+        ahead = _run_git(["rev-list", "--count", f"main..{branch}"], parent)
+        info["ahead_main"] = ahead.stdout.strip() if ahead.returncode == 0 else "?"
+        behind = _run_git(["rev-list", "--count", f"{branch}..main"], parent)
+        info["behind_main"] = behind.stdout.strip() if behind.returncode == 0 else "?"
+    else:
+        info["merged"] = "?"
+        info["ahead_main"] = "?"
+        info["behind_main"] = "?"
+
+    status = _run_git(["status", "--porcelain"], worktree)
+    if status.returncode == 0 and status.stdout.strip():
+        files = [line[3:] for line in status.stdout.strip().splitlines()[:5]]
+        total = len(status.stdout.strip().splitlines())
+        suffix = f" (+{total - len(files)} more)" if total > len(files) else ""
+        info["dirty_files"] = ", ".join(files) + suffix
+    else:
+        info["dirty_files"] = "(clean)"
+
+    last = _run_git(["log", "-1", "--format=%s | %ci", "HEAD"], worktree)
+    info["last_commit"] = last.stdout.strip() if last.returncode == 0 else "<unknown>"
+
+    return info
+
+
+def format_preserve_report(
+    info: dict[str, str], reason: str, *, is_caller_self_refusal: bool = False
+) -> str:
+    """Format collected info as a multi-line stderr block with guidance.
+
+    The guidance line differs by refusal class: caller-self gets the
+    "preserve for follow-up" note; dirty trees get the
+    `git checkout . && git worktree remove` recipe; merged-but-not-claude
+    or unmerged branches get an investigate-first note.
+    """
+    lines = [
+        f"[routine-worktree-sweep] PRESERVED {info['path']}",
+        f"  reason: {reason}",
+        (
+            f"  branch: {info['branch']} (merged={info['merged']}, "
+            f"ahead={info['ahead_main']}, behind={info['behind_main']})"
+        ),
+        f"  dirty files: {info['dirty_files']}",
+        f"  last commit: {info['last_commit']}",
+    ]
+
+    if is_caller_self_refusal:
+        lines.append(
+            "  guidance: caller's own worktree preserved for follow-up; "
+            "the next session's boot-time bulk sweep will collect it once "
+            "it is no longer the caller (per session-start.sh + ADR 0076 "
+            "Amendment v2)."
+        )
+    elif info["dirty_files"] != "(clean)":
+        lines.append(
+            f"  guidance: review files; if no work to preserve, "
+            f"`git -C {info['path']} checkout . && "
+            f"git worktree remove {info['path']}`"
+        )
+    elif info["merged"] == "yes" and info["branch"].startswith("claude/"):
+        lines.append(
+            f"  guidance: clean + merged; safe to remove via "
+            f"`git worktree remove {info['path']}` (would normally be "
+            "swept automatically — investigate why it was retained)."
+        )
+    elif info["merged"] == "no":
+        lines.append(
+            f"  guidance: branch carries {info['ahead_main']} unmerged "
+            "commit(s); investigate before discarding (merge or rebase as "
+            "appropriate, then remove)."
+        )
+    else:
+        lines.append(
+            f"  guidance: branch {info['branch']!r} does not match "
+            "claude/* convention; manual review required."
+        )
+
+    return "\n".join(lines)
+
+
+def preflight(
+    worktree: Path, parent: Path, *, allow_caller_self: bool = False
+) -> tuple[bool, str, str | None]:
     """Run pre-flight checks before sweep. Returns (ok, reason, branch_name).
 
-    The third element is the branch name resolved from the worktree, or
-    None if a check failed before resolution.
+    Refuses self-sweep by default (per ADR 0076 Amendment v2). The
+    ``allow_caller_self`` opt-in is reserved for tests and manual recovery;
+    production close ceremonies must not set it.
     """
     if parent == worktree:
         return False, "running in parent repo, not a linked worktree", None
+
+    if not allow_caller_self and is_caller_self(worktree):
+        return (
+            False,
+            "caller's own worktree; preserve for follow-up "
+            "(boot-time sweep will collect at next session start)",
+            None,
+        )
 
     branch = get_current_branch(worktree)
     if branch is None:
@@ -184,10 +305,6 @@ def sweep(parent: Path, worktree: Path, branch: str) -> tuple[bool, str]:
             or branch_result.stdout.strip()
             or "unknown error"
         )
-        # Branch delete failed but worktree was removed — partial success;
-        # surface the reason but exit 0 because the worktree is gone (the
-        # primary deliverable). The branch becomes an orphan that
-        # sweep_worktrees.sh or manual cleanup can address.
         return True, (
             f"worktree removed; branch {branch} delete failed "
             f"(orphan branch, will need manual cleanup): {msg.splitlines()[0]}"
@@ -200,9 +317,10 @@ def main(argv: list[str] | None = None) -> int:
     """CLI entry. See module docstring for exit-code semantics."""
     parser = argparse.ArgumentParser(
         description=(
-            "Routine-mode post-close worktree sweep. Removes the current "
-            "session's worktree and its claude/<name> feature branch after "
-            "close has propagated to origin/main."
+            "Per-worktree post-close sweep. Refuses self-sweep by default "
+            "(caller's own worktree preserved for follow-up); the boot-time "
+            "bulk sweep in session-start.sh collects accumulated prior-"
+            "session worktrees at next session boot."
         ),
     )
     parser.add_argument(
@@ -210,6 +328,15 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=None,
         help="Worktree path to sweep (default: current working directory).",
+    )
+    parser.add_argument(
+        "--allow-caller-self",
+        action="store_true",
+        help=(
+            "Permit sweeping the caller's own worktree. Default refuses "
+            "to preserve user follow-up access (per ADR 0076 Amendment "
+            "v2). Reserved for test fixtures and manual recovery."
+        ),
     )
     parser.add_argument(
         "--dry-run",
@@ -228,12 +355,26 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 5
 
-    ok, reason, branch = preflight(worktree, parent)
+    ok, reason, branch = preflight(
+        worktree, parent, allow_caller_self=args.allow_caller_self
+    )
     if not ok:
-        print(
-            f"[routine-worktree-sweep] REFUSED: {reason}",
-            file=sys.stderr,
-        )
+        is_self_refusal = "caller's own worktree" in reason
+        is_in_parent = reason.startswith("running in parent repo")
+
+        if is_in_parent:
+            print(
+                f"[routine-worktree-sweep] REFUSED: {reason}",
+                file=sys.stderr,
+            )
+        else:
+            info = collect_preserve_info(parent, worktree, branch)
+            print(
+                format_preserve_report(
+                    info, reason, is_caller_self_refusal=is_self_refusal
+                ),
+                file=sys.stderr,
+            )
         return 2
 
     print(f"[routine-worktree-sweep] {reason}", file=sys.stderr)
@@ -246,9 +387,6 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
 
-    # Chdir to parent BEFORE running the sweep — once the worktree directory
-    # is unlinked, child-process forks from this process inheriting the
-    # about-to-be-removed CWD would fail on macOS.
     try:
         os.chdir(parent)
     except OSError as exc:

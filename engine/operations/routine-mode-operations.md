@@ -116,17 +116,17 @@ A fourth mechanical layer added at S-0060: routine-mode pushes to `origin/main` 
 
 **Composition with the three prior layers.** Freshness, lock, and recovery handle *whether* and *when* a push happens; the wrapper handles *how* (and now keeps parent main in sync). The four together: freshness (boot synchronizes with origin), lock (only one routine session at a time), wrapper (each push is shape-verified, bypasses the gate, and FFs parent main), recovery (if a push race somehow lands, the loser self-cleans).
 
-### Post-close worktree sweep (per ADR 0054 amendment, S-0072)
+### Close-side worktree preservation + boot-time bulk sweep (per ADR 0076 Amendment v2, S-0143)
 
-Each routine close ends with `engine/tools/routine_worktree_sweep.py`, invoked from inside the worktree after the close push (and its post-push parent FF) and the lock release have completed. The tool removes the current worktree and its `claude/<name>` feature branch.
+**The closing routine session's worktree is NOT swept at close.** It survives close push + parent FF + lock release + archive. Accumulated prior-session worktrees are reaped at the **next session's boot** (interactive or routine) by [`engine/tools/hooks/session-start.sh`](../tools/hooks/session-start.sh) invoking `sweep_worktrees.sh --apply --quiet` (gated on `CONFLICT_STATUS == no-conflict`).
 
-**Why.** Routine sessions create a fresh worktree per fire (the Worktree checkbox in Claude Code Routines). Without an at-close sweep they accumulated — by S-0072 the project carried 14+ active worktrees plus orphan branches ([Issue #16](https://github.com/StarshipSuperjam/paideia/issues/16)). The sweep closes the gap so a clean routine close leaves no detritus.
+**Why preserved at close.** The pre-S-0143 close-side sweep (ADR 0076 original S-0142 Amendment) destroyed the closing session's working folder before any follow-up could happen. The first natural exercise was S-0142's own close, which wiped its own worktree (`vibrant-panini-507410`) before the user could ask a follow-up question — the directory was gone and the user had to spawn a new session in a fresh worktree to surface the defect. Amendment v2 at S-0143 reverses the close-side sweep and shifts cleanup to next-session boot, preserving the user's follow-up window.
 
-**Pre-flight checks** mirror [`engine/tools/sweep_worktrees.sh`](../tools/sweep_worktrees.sh) exactly: branch must match `claude/*`; working tree must be clean; branch must be merged into `main`. Failing any check exits 2 with an explicit reason.
+**Pre-flight defense.** Both [`engine/tools/routine_worktree_sweep.py`](../tools/routine_worktree_sweep.py) and [`engine/tools/sweep_worktrees.sh`](../tools/sweep_worktrees.sh) carry a caller's-own-worktree pre-flight that refuses sweep when the resolved target equals the caller's CWD. The per-worktree tool emits a structured preserve-report (path + branch + merged/ahead/behind + dirty files + last commit + actionable guidance) on refusal. The bulk utility carries the same skip-caller check (originally landed at S-0142 per Issue #16's wide-blast-radius safety concern).
 
-**Posture.** Best-effort by design — close has already succeeded by the time sweep runs. Exit 2 (refused) and exit 5 (git error) are both logged-and-continue. The Skill body does not propagate sweep failure into the close exit code.
+**Boot-time sweep conservatism.** The bulk utility only reaps worktrees that meet all three pre-flight criteria: branch matches `claude/*`, working tree is clean (no uncommitted changes or untracked files), and branch is fully merged into `main`. Dirty or unmerged worktrees are preserved with a one-line stderr note naming the path and reason. Run `bash engine/tools/sweep_worktrees.sh` (dry-run, no `--quiet`) to see the full multi-line preserve-report per preserved worktree.
 
-**Self-CWD safety.** The tool chdirs to the parent repo BEFORE calling `git worktree remove`. Once the worktree directory is unlinked, child-process forks from the running Python process inheriting the about-to-be-removed CWD would fail on macOS; the chdir avoids that.
+**Opt-in escape-hatch.** `python3 engine/tools/routine_worktree_sweep.py --allow-caller-self` restores the legacy self-sweep behavior for test fixtures (pytest creates the worktree, chdir's into it, exercises the chdir-to-parent semantic in-process) and manual recovery scenarios. Production routine close ceremonies must NOT set this flag.
 
 ## Scope-lock model
 

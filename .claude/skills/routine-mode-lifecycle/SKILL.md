@@ -188,13 +188,11 @@ Same as `/start-engine` close per [`session-shutdown-sequence`](../session-shutd
 
 - **Lock release**: `python3 engine/tools/routine_lock.py release` (per ADR 0052; releases the lock acquired at step 0b so the next routine fire can claim it). Do NOT release the lock until after the close push has succeeded.
 
-- **Last action — worktree sweep** (S-0072 / Issue #16 follow-on):
+- **Last action — close-side worktree preservation** (S-0143 / ADR 0076 Amendment v2):
 
-  ```
-  python3 engine/tools/routine_worktree_sweep.py
-  ```
+  **Do NOT sweep the closing session's worktree.** It survives close push + parent FF + archive. Accumulated prior-session worktrees are reaped at the next session's boot by `session-start.sh` invoking `sweep_worktrees.sh --apply --quiet` (gated on no-conflict). Both `routine_worktree_sweep.py` and `sweep_worktrees.sh` carry a caller's-own-worktree pre-flight that refuses sweep against the caller's CWD by default — defense-in-depth.
 
-  Removes the current session's worktree and its `claude/<name>` feature branch. Best-effort: pre-flight checks (claude/* branch, working tree clean, branch merged into main) refuse with exit 2 if any condition fails; generic git error exits 5. In both cases the routine SKILL logs and exits cleanly — close has already succeeded, sweep is best-effort. The tool chdirs to the parent repo before calling `git worktree remove` so child-process forks from this Python process don't fail on macOS after the worktree's CWD is unlinked.
+  Pre-S-0143 history: ADR 0076's original Amendment (S-0142) wired routine + build close to invoke `routine_worktree_sweep.py` on the closing worktree. That destroyed the closing session's working folder before the user could follow up (the defect surfaced at S-0142 close). Amendment v2 at S-0143 reversed the close-side invocation; cleanup shifted to next-session boot.
 
 Issues created during the session count into `outcome_summary` for shutdown review.
 

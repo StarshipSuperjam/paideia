@@ -70,13 +70,31 @@ Each of the four traditional postures (Fit / Gaps / Infrastructure-without-funct
 
 The audit reads ≥1 randomly-selected artifact (operations doc, ADR, register, build-plan chunk, STATE.md row, hook script) *as if* it had no project context, and asks: do cross-references resolve to currently-correct content? does the prose tell a future cold consumer how to *use* this artifact, or only that it exists? does the artifact name a sibling that no longer exists? does it carry a rule whose successor superseded it without a back-reference? The probe is the audit's defense against compound drift in artifacts the warm-context audit can't see — the audit knows too much, and that knowledge is itself the failure mode. A randomly-selected target prevents the audit from converging on artifacts it already trusts.
 
-### User-buffered execution
+### User-adjudicated execution — inline when interactive, buffered when unattended
 
-The audit's deliverable is **findings + guidance suggestions, surfaced to the user, before any retire / convert / replace action is taken**. The audit *reports* and *recommends*; the user *adjudicates and authorizes*; downstream sessions execute approved actions per [ADR 0048](../adr/0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md) issue-discipline (the `health-check-finding` label is the deferral lane).
+The audit's deliverable is **findings + guidance suggestions, adjudicated by the user before downstream action is taken**. The audit *reports* and *recommends*; the user *adjudicates and authorizes*; downstream actions execute per [ADR 0048](../adr/0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md) issue-discipline (the `health-check-finding` label is the deferral lane).
 
 This is the structural counterpart to [ADR 0040](../adr/0040-build-readiness-gate-before-substantive-build-sessions.md)'s "gate sessions are conversational by default" posture — the cadence audit is conversational by default in the same way. The audit session has no path to executing retire / convert / replace actions autonomously; "auto-resolve" of an audit finding is a misidentification of the session's mode. Inline trivial cleanups that fall under the standard "default to fix-in-context" rule (per [CLAUDE.md](../../CLAUDE.md)) still apply — the buffer is for the audit's *adversarial recommendations* (retirement, replacement, structural change), not for stray typos noticed in passing.
 
-The report template carries a "User adjudication" subsection that the audit leaves *blank on arrival*. The user (or the next interactive session that picks up the audit's recommendations) populates that subsection with accept/reject/modify dispositions per recommendation. The audit closes with recommendations *surfaced*, not *executed*; the User adjudication subsection is the structural surface for the buffer.
+The *adjudication step* runs in one of two shapes by audit mode (per [ADR 0057](../adr/0057-adversarial-stance-for-health-check-audits.md) revised Decision 1 at S-0143):
+
+**Interactive audit (user present).** The audit MAY adjudicate findings inline:
+
+1. After authoring each section's adversarial findings (Fit / Gaps / Infrastructure-without-function / Bloat / Non-obvious / Affirmative retire candidates / Cold-context), surface the adjudication options to the user via AskUserQuestion (or equivalent conversational prompt). One question per finding with a small number of disposition options: *accept (file Issue / fix inline / surface in STATE.md / add to tensions.md)*, *reject (with reason)*, *modify (then re-surface)*.
+
+2. Record the user's disposition in the report's "User adjudication" subsection. Author the table row in declarative form ("**Finding A** — *accept*; routed to Issue #NNN" or "**Finding B** — *reject*; the inbound reference is structurally load-bearing per ADR XXXX").
+
+3. For accepted findings routed to Issues, file them inline via `gh issue create --label health-check-finding` immediately. The Issue body cites the audit report by path. Other dispositions (fix-inline / STATE.md surface / tensions.md entry) execute via the same session's normal commit cadence.
+
+4. The audit closes with the User adjudication subsection populated and all approved downstream artifacts authored in the same session — no follow-up adjudication session is required.
+
+This pattern mirrors ADR 0040's build-readiness gate "the AI surfaces, the user directs, the AI authors the resolution artifacts in same session." It collapses what was previously a 2-session cost (audit session + adjudication session, the pre-S-0143 default) into one interactive conversation when the user is reachable.
+
+**Routine-fired audit (unattended).** The audit MUST leave the "User adjudication" subsection blank. The audit closes with recommendations *surfaced*, not *executed*. A subsequent interactive session reads the audit report, populates the User adjudication table with dispositions, and routes approved findings to Issues (or other lanes) at that time. This preserves the deliberation buffer for findings whose merit is genuinely contested — the user-time cost of a 2-session split is justified when no user is available to adjudicate inline.
+
+**Mode determination.** If the AI is responding to user input in the same session (interactive `/start-engine` invocation; a session the user attends after a cadence-trigger boot surface), inline adjudication is permitted. If the session is fired by Claude Code Routines per [ADR 0051](../adr/0051-routine-mode-and-engine-loop.md) (no user input expected), inline adjudication is structurally impossible — leave the table blank.
+
+The audit AI is responsible for the determination. Mis-judgment toward inline adjudication when no user is reachable means findings sit silently in an unanswered AskUserQuestion surface — the same failure mode the user-buffered framing was protecting against, surfaced from a different direction.
 
 ## Mechanical inputs and freshness probes (the audit consumes; the audit is not consumed by them)
 
@@ -269,7 +287,7 @@ The template carries (top-to-bottom):
 - **Accumulated pushbacks and lessons** — populated with `mempalace_search` results, drawer reading, and any cluster-driven recommendations.
 - **Affirmative retire candidates** — ≥1 retire-candidate-with-reasoning OR an explicit "no retire candidates this audit" subsection adversarially scrutinizing its own claim.
 - **Cold-context probe** — what artifact was randomly selected, what a context-cold consumer would see, what gaps surfaced.
-- **User adjudication** — left **blank on arrival**. The user (or the next interactive session that picks up the audit's recommendations) populates this with accept/reject/modify dispositions per recommendation. The audit closes with recommendations *surfaced*, not *executed*.
+- **User adjudication** — populated inline when the audit is interactive (audit AI surfaces each finding via AskUserQuestion + records the disposition + files approved Issues in the same session per the "User-adjudicated execution" section above); left **blank on arrival** when the audit is routine-fired (unattended) — a subsequent interactive session populates the table and routes approved findings to Issues at that time.
 - **Cadence calibration** — is the cadence right? If consistently no-action, raise. If consistently large action lists, lower.
 - **Summary** — one paragraph: what the project's discipline looks like now vs. last check.
 
