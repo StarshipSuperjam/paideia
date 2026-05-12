@@ -44,8 +44,8 @@ Three coupled mechanisms landed in this session:
 
 ## Status
 
-- **T1-A** — *to close empirically post-FF.* (Hook gains the gitleaks step only after the gitleaks-deliverables commit is FF'd into the parent repo's working tree, since `core.hooksPath=.git/hooks` symlinks into the parent's working tree, not the worktree's.)
-- **T1-B** — *to close empirically post-FF.*
+- **T1-A — closed at S-0132 (empirically verified).** A scratch fixture `_gitleaks_test_scratch.txt` was authored with a non-canonical fake AWS pair (`AKIAZ7XJTESTKEYAAAAA` + a 40-char shape secret). `git add` succeeded; `git commit` triggered the pre-commit hook's new gitleaks step → gitleaks scanned the staged 187-byte diff in ~26ms and reported `leaks found: 1`; the hook printed `[pre-commit] gitleaks detected a secret in the staged diff. Commit blocked.` + the redacted finding + the ADR pointer + the allowlist guidance line; the commit did NOT land (`git log -1` still showed `7ee6271` post-test). Scratch unstaged + deleted; working tree clean. Test against post-FF hook at SHA `7ee6271`.
+- **T1-B — closed at S-0132 (empirically verified).** A placeholder-shaped AWS access-key value (`AKIAIOSFODNN7AAAAAA`) was temporarily appended to `.env.example`, staged, and scanned via `gitleaks protect --staged --config engine/tools/gitleaks.toml --redact --no-banner`. Result: `scanned ~88 bytes ... no leaks found`, exit 0 — the `.env.example` path-scoped allowlist correctly suppressed the otherwise-flaggable placeholder. The change was unstaged + reverted; working tree clean post-test. Allowlist behavior verified against post-FF hook at SHA `7ee6271`.
 - **T1-C — closed at S-0132 (empirically verified).** `gh api -X PATCH repos/StarshipSuperjam/paideia` with `security_and_analysis.secret_scanning.status=enabled` + `security_and_analysis.secret_scanning_push_protection.status=enabled` returned 200; round-trip `gh api repos/StarshipSuperjam/paideia --jq '.security_and_analysis'` confirms:
   ```json
   {"dependabot_security_updates": {"status": "disabled"},
