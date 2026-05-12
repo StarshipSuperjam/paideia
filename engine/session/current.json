@@ -1,0 +1,10 @@
+{
+  "id": "S-0134",
+  "started_at": "2026-05-12T16:30:58Z",
+  "status": "in_progress",
+  "working_on": "Pairing C: adopt project-wired /review (five-axis) + /security-review (OWASP Top 10) skills via ADRs 0070 + 0071; closes Issues #73 and #74.",
+  "outcome_summary": null,
+  "approved_plan": "~/.claude/plans/wise-enchanting-shamir.md",
+  "branch": "claude/xenodochial-jepsen-11ae08",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/xenodochial-jepsen-11ae08"
+}
