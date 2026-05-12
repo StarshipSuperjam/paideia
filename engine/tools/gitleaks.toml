@@ -1,0 +1,41 @@
+# Paideia gitleaks configuration.
+#
+# Layer 2 of ADR 0038 / Layer 2 SAST sibling per ADR 0067. Authored at S-0132.
+# Invoked from engine/tools/hooks/pre-commit (staged-diff scan, hard-fail) and
+# from the GitHub-native secret-scanning service (full-tree scan, async alerts).
+#
+# Contract:
+#   - Inherits gitleaks 8.x default rules via [extend].useDefault = true.
+#     Default rules cover AWS / GCP / Azure / Anthropic / OpenAI / Slack /
+#     GitHub / Stripe / generic-API-key shapes and ~100 more.
+#   - Project-specific allowlist below. Each entry names its reason — silent
+#     suppressions accumulate and lose meaning per ADR 0067 decision 5.
+#   - Adding a new allowlist entry requires the same-session inline comment;
+#     drive-by allowlist edits are caught by reviewer attention and
+#     (forthcoming, deferred to a follow-up Issue) by the `gitleaks_config_drift`
+#     validate.py soft-warn fired when this file is staged alongside a `.env*`
+#     change in the same commit.
+
+[extend]
+useDefault = true
+
+# ---------------------------------------------------------------------------
+# Project allowlists.
+# ---------------------------------------------------------------------------
+
+[[allowlists]]
+description = "Engine-side .env.example documents the variables maintainers set in their own .env — values are empty by design. Empty values do not match default rules, but explicit allowlist guards against future placeholder additions (e.g., AWS_KEY=your_key_here) tripping shape-matchers."
+paths = ['''^\.env\.example$''']
+
+[[allowlists]]
+description = "Documentation that names canonical fake secrets (AWS_SECRET_ACCESS_KEY=AKIAIOSFODNN7EXAMPLE etc.) appears in ADRs, ops docs, build_readiness notes, and ENGINE_LOG for educational purposes — see ADR 0067 + ADR 0068 first-exercise notes and engine/operations/code-discipline.md. AKIAIOSFODNN7EXAMPLE is AWS's own documentation example token; gitleaks recognizes it but flags it as 'aws-access-token' anyway."
+paths = [
+    '''^engine/adr/.*\.md$''',
+    '''^engine/build_readiness/.*\.md$''',
+    '''^engine/operations/.*\.md$''',
+    '''^engine/ENGINE_LOG\.md$''',
+    '''^product/adr/.*\.md$''',
+]
+regexes = [
+    '''AKIAIOSFODNN7EXAMPLE''',
+]

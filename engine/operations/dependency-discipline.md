@@ -101,6 +101,22 @@ Per [`tools-validate-interpretation.md`](tools-validate-interpretation.md) "Pers
 - [Issue #67](https://github.com/StarshipSuperjam/paideia/issues/67) — Dependabot adoption (pending) will automate the security-update half of the refresh procedure.
 - [Issue #83](https://github.com/StarshipSuperjam/paideia/issues/83) — SBOM generation (trigger-gated on deployable artifact) reads `uv.lock` as the canonical transitive-graph source.
 
+## External tool prerequisites
+
+Some gates depend on tools outside the Python venv — non-Python binaries that the venv cannot install. These are project prerequisites; the pre-commit hook hard-fails with installation guidance when one is missing.
+
+| Tool | Pinned version | Installation (Darwin/macOS) | Required by | Contract |
+|---|---|---|---|---|
+| `gitleaks` | `8.30.1` | `brew install gitleaks` | `engine/tools/hooks/pre-commit` gitleaks step | [ADR 0067](../adr/0067-gitleaks-pre-commit-secret-scanning.md) |
+| `gh` | (any recent) | `brew install gh` | `engine/tools/hooks/session-start.sh` CI-red surface; routine_lifecycle_push.py admin-bypass; validate.py `issue_collision` | [ADR 0054](../adr/0054-lifecycle-push-wrapping-against-default-branch-push-gate.md) + [ADR 0065 (engine)](../adr/0065-validate-py-mirror-to-ci.md) |
+| `uv` | (any recent) | `brew install uv` | every Python invocation (venv resolution + dep install) | [ADR 0064](../adr/0064-uv-lockfile-and-reproducible-builds.md) |
+
+**Version-pin discipline.** External tools pinned to a major version. Substantive version drift (major-version bump) requires an ADR amendment because the tool's config schema may change. Forensic minor-version drift is recorded in the consuming ADR's empirical record, not enforced.
+
+**Gate-fail-on-missing.** Every consuming pre-commit step checks `command -v <tool>` and emits actionable stderr (`brew install <tool>` line + ADR pointer) on absence. Failure is loud, not silent.
+
+**Update procedure.** Verify with `<tool> version` (or `<tool> --version`); compare against the table above. Major-version bumps go through an ADR amendment; minor-version drift is forensic-only (recorded in the next session's ENGINE_LOG entry if it changes operational behavior).
+
 ## Migration notes (S-0127)
 
 The repo migrated from `engine/tools/requirements.txt` to `pyproject.toml` + `uv.lock` at S-0127. `engine/tools/requirements.txt` is retained as a one-line redirect pointer so cold-context users land on a discoverable surface; the deprecation is final at the next health-check audit. Pre-S-0127 clones running `pip install -r engine/tools/requirements.txt` will still resolve the floor-pinned set (the file content is `# Source-of-truth moved to pyproject.toml ... run \`uv sync\``); the migration is non-breaking for legacy invocations.
