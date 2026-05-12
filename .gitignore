@@ -32,6 +32,16 @@ __pycache__/
 .venv/
 venv/
 
+# pytest-cov artifacts per ADR 0074 (S-0136). Coverage data + xml report
+# are regenerated on every pytest --cov run; do not commit.
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# pytest --cov log artifact written by the CI step + local sanity runs.
+pytest.log
+
 # OS
 .DS_Store
 Thumbs.db
