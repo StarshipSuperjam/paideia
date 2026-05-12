@@ -1,0 +1,63 @@
+name: Question
+description: A genuine open question that needs deliberation before action takes shape.
+title: ""
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Body shape per [`engine/operations/issue-discipline.md`](../blob/main/engine/operations/issue-discipline.md). Questions resolve by becoming an ADR (decision settled), being relabeled to a typed action issue, or being closed `wontfix` (decision made: no action). The "Resolution path" section is where the resolution shape is named — keep it honest. The "Affected files" default is the literal `- (not yet identified)`; override whenever the touch surface is known.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What raised the question? What's the surrounding work or tension? One paragraph.
+    validations:
+      required: true
+
+  - type: textarea
+    id: symptom
+    attributes:
+      label: Symptom
+      description: The question itself, stated as concretely as possible. What needs deliberating? What's the choice or the unknown?
+    validations:
+      required: true
+
+  - type: textarea
+    id: resolution-path
+    attributes:
+      label: Resolution path
+      description: >-
+        How does this question resolve? Becomes an ADR (decision settled), gets relabeled to a
+        typed action issue (decision made and ready), or closes `wontfix` (decision made — no
+        action). Name the expected route honestly — a question expected to resolve via ADR
+        carries different deliberation weight than one expected to close as `wontfix`.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-approach
+    attributes:
+      label: Proposed approach
+      description: How the deliberation might proceed — who or what surfaces input, what the criteria are, what would count as "settled."
+    validations:
+      required: true
+
+  - type: textarea
+    id: affected-files
+    attributes:
+      label: Affected files
+      description: Repo-relative paths the question potentially touches. One per line. Override the default whenever the touch surface is known.
+      value: |
+        - (not yet identified)
+    validations:
+      required: true
+
+  - type: textarea
+    id: cross-references
+    attributes:
+      label: Cross-references
+      description: Related ADRs, HANDOFF.md entries, session archives, tensions in `product/docs/tensions.md`.
+    validations:
+      required: true

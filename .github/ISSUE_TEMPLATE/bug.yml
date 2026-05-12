@@ -1,0 +1,67 @@
+name: Bug
+description: Code or behavior that violates a contract.
+title: ""
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Body shape per [`engine/operations/issue-discipline.md`](../blob/main/engine/operations/issue-discipline.md). Every section is required; the "Affected files" default is the literal `- (not yet identified)` so future-cold readers know paths weren't omitted by mistake. Override with concrete paths whenever possible — the collision-detection scanner ([`engine/tools/scan_issue_collisions.py`](../blob/main/engine/tools/scan_issue_collisions.py)) substring-matches paths against open Issue bodies.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What was the AI/user doing when this surfaced? One paragraph.
+    validations:
+      required: true
+
+  - type: textarea
+    id: symptom
+    attributes:
+      label: Symptom
+      description: What happens that shouldn't, in concrete observable terms. Include exact error messages, log lines, or surface output where possible.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Minimal steps to surface the symptom. Commands, files, conditions. A future cold reader should be able to follow these and see the symptom themselves.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-vs-actual
+    attributes:
+      label: Expected vs. actual
+      description: What the contract says should happen, vs. what actually happens. Anchor "expected" in a specific contract — ADR, ops doc, function docstring, schema — not in "what feels right."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-approach
+    attributes:
+      label: Proposed approach
+      description: What seems like the right shape of the fix. May be loose if the right approach genuinely isn't known yet — flag the uncertainty explicitly.
+    validations:
+      required: true
+
+  - type: textarea
+    id: affected-files
+    attributes:
+      label: Affected files
+      description: Repo-relative paths the bug touches. One per line. Override the default whenever the touch surface is known — the collision-detection scanner reads this section.
+      value: |
+        - (not yet identified)
+    validations:
+      required: true
+
+  - type: textarea
+    id: cross-references
+    attributes:
+      label: Cross-references
+      description: Related ADRs, HANDOFF.md entries, session archives, external bug reports.
+    validations:
+      required: true

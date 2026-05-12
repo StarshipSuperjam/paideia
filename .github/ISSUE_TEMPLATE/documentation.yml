@@ -1,0 +1,51 @@
+name: Documentation
+description: Doc improvements, doc bugs, doc cleanup. Compatible with `cleanup` for small batchy items.
+title: ""
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Body shape per [`engine/operations/issue-discipline.md`](../blob/main/engine/operations/issue-discipline.md). The "Affected files" default is the literal `- (not yet identified)`; override whenever the touch surface is known. Use this for doc-specific work that batches naturally — ADR refresh sweeps, ops-doc restructures, cross-references audits.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What surfaced the doc gap or doc bug? One paragraph.
+    validations:
+      required: true
+
+  - type: textarea
+    id: symptom
+    attributes:
+      label: Symptom
+      description: What the doc says vs. what's true, or what's missing that should be documented. Specific — name the file, section, or claim.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-approach
+    attributes:
+      label: Proposed approach
+      description: What needs to land — a correction, an addition, a restructure, a deletion. May be loose.
+    validations:
+      required: true
+
+  - type: textarea
+    id: affected-files
+    attributes:
+      label: Affected files
+      description: Repo-relative paths the doc work touches. One per line. Override the default whenever the touch surface is known.
+      value: |
+        - (not yet identified)
+    validations:
+      required: true
+
+  - type: textarea
+    id: cross-references
+    attributes:
+      label: Cross-references
+      description: Related ADRs, HANDOFF.md entries, sibling doc Issues, session archives.
+    validations:
+      required: true

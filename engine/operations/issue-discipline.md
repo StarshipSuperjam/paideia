@@ -79,6 +79,8 @@ The S-0051 audit dropped two community labels that had no project-applicable tri
 
 ## Issue body shape
 
+Mechanized via [`.github/ISSUE_TEMPLATE/*.yml`](../../.github/ISSUE_TEMPLATE) per [ADR 0075](../adr/0075-github-issue-templates.md); templates and this section move in lockstep — see "Changing the Issue body shape in `issue-discipline.md`" under [`cascade-discipline.md`](cascade-discipline.md) "Manual cascade procedures" for the four-step refresh procedure.
+
 Every Issue must be self-contained — a future session reading it cold should have everything needed to act without re-deriving context. The body sections below are required:
 
 ```markdown
@@ -113,7 +115,7 @@ session scope.
 - Related external bug reports (for `upstream` issues)
 ```
 
-The "Affected files" section is load-bearing for the collision-detection scanner. If the affected files genuinely aren't known (a high-level enhancement idea that hasn't surfaced concrete touchpoints), the section says `- (not yet identified)` rather than being omitted — the literal text signals to the scanner there's nothing to match.
+The "Affected files" section is load-bearing for the collision-detection scanner. The scanner ([`engine/tools/scan_issue_collisions.py`](../tools/scan_issue_collisions.py)) substring-matches touched paths against the body content; concrete paths in this section enable that match, omitted-or-blank sections silently lose detection. If the affected files genuinely aren't known (a high-level enhancement idea that hasn't surfaced concrete touchpoints), the section says `- (not yet identified)` rather than being omitted — the literal is an authorial-discipline signal to future-cold readers that paths weren't dropped by mistake, not a scanner-recognized regex (clarified at S-0137 per [ADR 0075](../adr/0075-github-issue-templates.md) decision 4).
 
 ## Creating an Issue
 

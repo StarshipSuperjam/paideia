@@ -1,0 +1,12 @@
+# GitHub Issues template router.
+# Authored at S-0137 per engine/adr/0075-github-issue-templates.md (Issue #72).
+# Disables blank-issue authoring so every new Issue picks a typed template.
+# Updates to body shape land in lockstep per engine/operations/cascade-discipline.md
+# "Changing the Issue body shape in issue-discipline.md".
+
+blank_issues_enabled: false
+
+contact_links:
+  - name: Issue body shape and label taxonomy
+    url: https://github.com/StarshipSuperjam/paideia/blob/main/engine/operations/issue-discipline.md
+    about: Reference for required sections, type labels (bug, enhancement, tech-debt, cleanup, health-check-finding, documentation, question, upstream), and when to use HANDOFF.md vs an Issue (per ADR 0048).

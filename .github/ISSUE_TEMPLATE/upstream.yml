@@ -1,0 +1,60 @@
+name: Upstream
+description: The bug is real and affects the project but is not in-project actionable.
+title: ""
+labels: ["upstream", "bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Body shape per [`engine/operations/issue-discipline.md`](../blob/main/engine/operations/issue-discipline.md). `upstream` pairs with `bug` typically; both labels auto-apply. The "Upstream tracker URL" is load-bearing — without it, a future session can't see where to monitor for upstream movement. The "Affected files" default is the literal `- (not yet identified)`; override whenever the touch surface is known.
+
+  - type: input
+    id: upstream-tracker-url
+    attributes:
+      label: Upstream tracker URL
+      description: Link to the upstream bug report, GitHub Issue, or tracker. Signals where to watch for movement that could unblock in-project action.
+      placeholder: "https://github.com/upstream-org/upstream-repo/issues/NNNN"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What was the AI/user doing when the upstream bug surfaced? One paragraph.
+    validations:
+      required: true
+
+  - type: textarea
+    id: symptom
+    attributes:
+      label: Symptom
+      description: How the upstream bug manifests in Paideia. Concrete observable terms.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-approach
+    attributes:
+      label: Proposed approach
+      description: Workaround in-project (if any), watch criterion for upstream movement, conditions under which Paideia would unblock and act. May be loose.
+    validations:
+      required: true
+
+  - type: textarea
+    id: affected-files
+    attributes:
+      label: Affected files
+      description: Repo-relative paths the upstream bug touches. One per line. Override the default whenever the touch surface is known.
+      value: |
+        - (not yet identified)
+    validations:
+      required: true
+
+  - type: textarea
+    id: cross-references
+    attributes:
+      label: Cross-references
+      description: Related ADRs, HANDOFF.md entries, session archives, sibling Issues blocked on the same upstream.
+    validations:
+      required: true

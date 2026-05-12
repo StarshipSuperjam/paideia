@@ -48,6 +48,19 @@ When an operations doc is split, merged, or has its name changed:
 
 Merges and splits are higher-risk than renames because the cited content's location may change in ways `git grep` on filename doesn't catch. The author of the restructure is responsible for tracing each citation to the correct new location.
 
+### Changing the Issue body shape in `issue-discipline.md`
+
+The body shape that GitHub Issues must follow lives in [`issue-discipline.md`](issue-discipline.md) "Issue body shape" section, and is mechanized via [`.github/ISSUE_TEMPLATE/*.yml`](../../.github/ISSUE_TEMPLATE) per [ADR 0075](../adr/0075-github-issue-templates.md). Templates and the doc must change together; drift would silently degrade the mechanization.
+
+When a session updates the body shape (a new required section added, an existing one renamed, a per-type field added or removed):
+
+1. Update [`issue-discipline.md`](issue-discipline.md) — the source-of-truth.
+2. Update each [`.github/ISSUE_TEMPLATE/*.yml`](../../.github/ISSUE_TEMPLATE) file's `body:` entries to match (field labels, required-ness, defaults, ordering).
+3. If a heading rename changed the body content the scanner reads — verify [`engine/tools/scan_issue_collisions.py`](../tools/scan_issue_collisions.py)'s substring contract still holds (the scanner reads body content, not headings, so heading-only renames are usually safe; new-field additions warrant a sanity check that the field's value contributes to the body string the scanner sees).
+4. Same commit. Splitting leaves templates and doc out of sync until the next commit; a Web-UI author between the two commits gets a stale form.
+
+No validator soft-warn mechanizes this cascade — the surface is rare and the manual procedure suffices. Future sessions adding doc-or-template-only changes are the natural failure mode; the session-shutdown spot-check catches it (per the cascade-trigger extension below).
+
 ### Closing a deliverable an ADR named
 
 When a session lands a deliverable that an ADR's Consequences section anticipated:

@@ -1,0 +1,51 @@
+name: Enhancement
+description: A desired addition that doesn't exist yet.
+title: ""
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Body shape per [`engine/operations/issue-discipline.md`](../blob/main/engine/operations/issue-discipline.md). The "Affected files" default is the literal `- (not yet identified)`; override whenever the touch surface is known.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What surfaced the gap? What was the AI/user doing when the absence became salient? One paragraph.
+    validations:
+      required: true
+
+  - type: textarea
+    id: symptom
+    attributes:
+      label: Symptom
+      description: What's missing that should exist, in concrete observable terms. What would change for a user, a session, or the project once the addition lands?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-approach
+    attributes:
+      label: Proposed approach
+      description: What seems like the right shape of the addition. May be loose if the right approach genuinely isn't known yet — flag the uncertainty.
+    validations:
+      required: true
+
+  - type: textarea
+    id: affected-files
+    attributes:
+      label: Affected files
+      description: Repo-relative paths the enhancement touches. One per line. Override the default whenever the touch surface is known.
+      value: |
+        - (not yet identified)
+    validations:
+      required: true
+
+  - type: textarea
+    id: cross-references
+    attributes:
+      label: Cross-references
+      description: Related ADRs, HANDOFF.md entries, session archives, trigger conditions.
+    validations:
+      required: true

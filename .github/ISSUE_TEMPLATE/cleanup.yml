@@ -1,0 +1,59 @@
+name: Cleanup
+description: Small, well-scoped maintenance items that batch naturally.
+title: ""
+labels: ["cleanup"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Body shape per [`engine/operations/issue-discipline.md`](../blob/main/engine/operations/issue-discipline.md). The "Affected files" default is the literal `- (not yet identified)`; override whenever the touch surface is known. "Batch with" is optional — name a cluster if one exists, leave blank if the item stands alone.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What surfaced the cleanup opportunity? One paragraph.
+    validations:
+      required: true
+
+  - type: textarea
+    id: symptom
+    attributes:
+      label: Symptom
+      description: What's the small fragment of work that wants doing? Concrete description — a stale comment, a dead import, an inconsistent format, a missing cross-reference.
+    validations:
+      required: true
+
+  - type: textarea
+    id: batch-with
+    attributes:
+      label: Batch with
+      description: Optional. Issue numbers or shared touch surface that suggests batching — e.g. "all `engine/operations/*.md` cross-reference audits" or "#NN + #NN ADR header normalization". Leave blank if the item stands alone.
+    validations:
+      required: false
+
+  - type: textarea
+    id: proposed-approach
+    attributes:
+      label: Proposed approach
+      description: What seems like the right shape of the cleanup. May be loose.
+    validations:
+      required: true
+
+  - type: textarea
+    id: affected-files
+    attributes:
+      label: Affected files
+      description: Repo-relative paths the cleanup touches. One per line. Override the default whenever the touch surface is known.
+      value: |
+        - (not yet identified)
+    validations:
+      required: true
+
+  - type: textarea
+    id: cross-references
+    attributes:
+      label: Cross-references
+      description: Related ADRs, HANDOFF.md entries, session archives.
+    validations:
+      required: true

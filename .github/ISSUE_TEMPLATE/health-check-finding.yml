@@ -1,0 +1,60 @@
+name: Health-check finding
+description: Surfaced by a health-check audit; downstream of a cadence-fired audit session.
+title: ""
+labels: ["health-check-finding"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Body shape per [`engine/operations/issue-discipline.md`](../blob/main/engine/operations/issue-discipline.md). The "Source audit report path" is load-bearing for the boot surface — `[session-start] Active health-check audits` lines preserve the audit → recommendation lineage by reading the path pattern `engine/docs/audits/<file>.md`. The "Affected files" default is the literal `- (not yet identified)`; override whenever the touch surface is known.
+
+  - type: input
+    id: source-audit-report-path
+    attributes:
+      label: Source audit report path
+      description: Path or URL to the audit that surfaced this finding (e.g. `engine/docs/audits/S-NNNN.md`). The boot surface uses this to preserve audit lineage across cadence cycles.
+      placeholder: "engine/docs/audits/S-NNNN.md"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Which audit category surfaced this? What was the audit looking at? One paragraph.
+    validations:
+      required: true
+
+  - type: textarea
+    id: symptom
+    attributes:
+      label: Symptom
+      description: What the audit observed — concrete deviation, missing structure, drift, dead surface, gap. Quote the audit report verbatim if helpful.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-approach
+    attributes:
+      label: Proposed approach
+      description: The audit's recommended remediation (or the absence of one — flag if the audit recommended deferral, escalation, or wontfix).
+    validations:
+      required: true
+
+  - type: textarea
+    id: affected-files
+    attributes:
+      label: Affected files
+      description: Repo-relative paths the finding touches. One per line. Override the default whenever the touch surface is known.
+      value: |
+        - (not yet identified)
+    validations:
+      required: true
+
+  - type: textarea
+    id: cross-references
+    attributes:
+      label: Cross-references
+      description: Related ADRs, HANDOFF.md entries, prior audits, sibling findings from the same audit batch.
+    validations:
+      required: true

@@ -1,0 +1,59 @@
+name: Tech debt
+description: Code or structure that works but has known fragility.
+title: ""
+labels: ["tech-debt"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Body shape per [`engine/operations/issue-discipline.md`](../blob/main/engine/operations/issue-discipline.md). The "Affected files" default is the literal `- (not yet identified)`; override whenever the touch surface is known. The "Compounding cost if deferred" section is the calibration this label exists for — name what worsens if this sits.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What surfaced the fragility? What was the AI/user doing when it became visible? One paragraph.
+    validations:
+      required: true
+
+  - type: textarea
+    id: symptom
+    attributes:
+      label: Symptom
+      description: What works today but is fragile? Concrete failure modes — what would have to change for the fragility to become a bug.
+    validations:
+      required: true
+
+  - type: textarea
+    id: compounding-cost
+    attributes:
+      label: Compounding cost if deferred
+      description: What gets worse if this sits? Lock-in to a bad path, drift accumulation, future-fix-difficulty multipliers, downstream session friction. Honest assessment — if the cost is "negligible," the right label may be `cleanup` instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-approach
+    attributes:
+      label: Proposed approach
+      description: What seems like the right shape of the fix. May be loose; flag uncertainty.
+    validations:
+      required: true
+
+  - type: textarea
+    id: affected-files
+    attributes:
+      label: Affected files
+      description: Repo-relative paths the debt touches. One per line. Override the default whenever the touch surface is known.
+      value: |
+        - (not yet identified)
+    validations:
+      required: true
+
+  - type: textarea
+    id: cross-references
+    attributes:
+      label: Cross-references
+      description: Related ADRs, HANDOFF.md entries, session archives.
+    validations:
+      required: true
