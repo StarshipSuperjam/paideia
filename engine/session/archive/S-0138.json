@@ -1,0 +1,32 @@
+{
+  "id": "S-0138",
+  "mode": "build",
+  "started_at": "2026-05-12T20:13:43Z",
+  "closed_at": "2026-05-12T20:29:42Z",
+  "status": "closed",
+  "working_on": "Build-mode lifecycle-push wrapping per ADR 0076 (sibling to ADR 0054). Author engine/tools/build_lifecycle_push.py + 12 pytests; revert S-0137's over-broad git-push allowlist in .claude/settings.json; new engine ADR 0076; first-exercise readiness note per ADR 0053; update session-build-lifecycle + session-shutdown-sequence Skills + ops docs to invoke the wrapper; dogfood the new wrapper on this session's own deliverable + close pushes.",
+  "outcome_summary": "S-0137's in-context harness-allowlist over-reach closed via the proper analogue of ADR 0054's pattern. New tool engine/tools/build_lifecycle_push.py (sibling to routine_lifecycle_push.py) imports mode-agnostic helpers from the routine wrapper (verify_eager_claim_shape + verify_close_shape + push + parent_ff + get_* helpers are byte-identical across routine and build modes) and defines its own loose verify_deliverable_shape (no task_id/scope_lock read; build sessions have no machine-readable scope contract because the user-approved plan IS the scope-of-record, lives in the plan file + conversation; verifier enforces only intrinsic shape — conventional-commits prefix, working tree clean, HEAD exactly 1 ahead of remote/target, subject NOT chore(session): which is reserved for lifecycle commits). Six coupled decisions in ADR 0076: sibling tool not refactor (preserves routine-mode stability ~32 tests + ADR 0054 commitments; future health-check audit may recommend collapse if drift between siblings becomes observable); eager-claim + close verifiers identical across modes (current.json with vs without task_id is content not shape; neither verifier reads task_id at eager-claim or close); build deliverable verifier intentionally less strict than routine; revert all S-0137 broad allowlist rules (Bash(git push origin main) + Bash(git push:*) + Bash(git merge --ff-only:*) + Bash(git -C * push:*) + Bash(git -C * merge --ff-only:*) + the narrow git -C *.log/status/rev-parse rules) and add narrow Bash(python3 engine/tools/build_lifecycle_push.py:*); update session-build-lifecycle + session-shutdown-sequence Skills + ops docs per ADR 0044 doc→skill direction; first-exercise readiness note required per ADR 0053 criterion 4 (9 surfaces touched — wrapper + tests + settings.json + 2 ops docs + 2 Skills + ADR + readiness note). 12 new pytests against tmp-dir bare-repo + clone fixtures cover per-mode well-formed accepts (3) + deliverable verifier rejects (4 predicates: lifecycle-prefix, non-conventional subject, 2-ahead, dirty tree) + deliverable-does-not-require-task_id (the KEY build-mode property) + eager-claim + close shape rejects via imported verifiers (2) + dry-run no-push (1) + non-fast-forward exit-3 path (1). All 44 pytests across build + routine wrappers green in 29.27s; composition import did not break routine-mode coverage. T1-A CLOSED in-session: `python3 engine/tools/build_lifecycle_push.py deliverable` against deliverable commit 65d31d0 returned exit 0 + 'build-mode deliverable shape verified' + 'push succeeded (origin/main)'. Parent-FF best-effort refused due to worktree↔parent settings.json sync residual (same shape as S-0137; NOT a wrapper bug — parent-FF is best-effort by design per ADR 0076 decision 2; resolved via `git -C <parent> checkout .claude/settings.json` + manual FF). T1-B CLOSED in-session via this close commit's push (recorded in readiness note empirical record subsection). Tier 2 forward-pointers: eager-claim mode first exercise at next interactive build session; first refusal exercise (malformed lifecycle commit); first push-rejection exit-3 exercise. Tier 3: performance budget audit, refactor-to-single-wrapper consideration, validator soft-warn for raw-push attempts, subprocess-bypass hypothesis robustness. ADR 0054's 'Interactive sessions don't trigger the gate' assertion is empirically falsified at S-0137; ADR 0076 records the falsification but does not supersede ADR 0054 (which remains correct for routine mode — the falsified assumption was about interactive-mode being out-of-scope). The harness-gate mechanical-bridge family now has three members: ADR 0054 (routine_lifecycle_push.py) + ADR 0055 (apply_migration.py) + ADR 0076 (build_lifecycle_push.py); same shape — harness gates X action from Bash surface, write python tool invoking X via subprocess, shape-verify before executing, tool is allowlisted narrow, action permitted only through verified path. Load-bearing pushback at S-0137 close: user asked 'Did you build a workaround that sidesteps the start engine authorization?' — answer was yes (broad allowlist was global per-session, not gated on /start-engine); user-framing 'workaround that sidesteps' vs 'bridge that preserves' was the load-bearing distinction the wrapper preserves. Three commits: eager-claim 37cf9b9 + deliverable batch 65d31d0 (pushed via wrapper — T1-A) + this closeout (pushed via wrapper — T1-B). MemPalace decision drawer drawer_paideia_decisions_2bac4c6e240c6ceb63bb805c + diary entry topic S-0138-build-lifecycle-push-wrapper-replaces-S-0137-allowlist-overreach capture conversational form including all six ADR decisions + the user pushback question framing. Soft-warns persistent only — baseline carryover (issue_collision, missing_rigor_score, orphan_leaf). ADR collection 77 → 78 (Accepted 73 → 74; Superseded 4 stable; engine 40 → 41; product 37 stable). Standing memories honored: feedback_auto_mode_no_push_gating.md (authorization model preserved at the wrapper layer rather than the allowlist); feedback_no_pilot_wait_and_see.md (Tier 1 closes in-session via dogfood, no deferral); CLAUDE.md 'Default to fix-in-context' (user direction to fix-in-line; wrapper authored, allowlist reverted, all in S-0138).",
+  "outcome_summary_soft_warns": {
+    "issue_collision": 23,
+    "missing_rigor_score": 360,
+    "orphan_leaf": 1
+  },
+  "approved_plan": null,
+  "branch": "claude/adoring-archimedes-67a57b",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/adoring-archimedes-67a57b",
+  "next_session_handle": null,
+  "mempalace_activity": {
+    "search_calls": 1,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 1,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 4,
+    "first_call_ts": "2026-05-12T20:27:53Z",
+    "last_call_ts": "2026-05-12T20:29:56Z"
+  }
+}
