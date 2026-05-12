@@ -1,0 +1,32 @@
+{
+  "id": "S-0131",
+  "started_at": "2026-05-11T22:20:36Z",
+  "status": "closed",
+  "working_on": "Pairing B (#68 + #69): GitHub Actions CI mirror of validate.py + PR template + branch protection on main; two engine ADRs (0065 + 0066) + first-exercise readiness note + session-start.sh CI-red surface.",
+  "outcome_summary": "Pairing B closed at S-0131 — six deliverables landed: .github/workflows/validate.yml (two-job CI workflow mirroring pre-commit invocation: uv lock --check hard-fail-in-CI per ADR 0065 decision 3 + default validate.py + --code-gates --files <changed> + pytest engine/tools; cache keyed on uv.lock); .github/PULL_REQUEST_TEMPLATE.md (seven-item discipline checklist adapted from affaan-m/everything-claude-code); engine/adr/0065-validate-py-mirror-to-ci.md (six decisions, trigger criterion 3 + 4 satisfied per ADR 0053); engine/adr/0066-pr-template-and-branch-protection.md (five decisions, enforce_admins=false LOAD-BEARING preserving ADR 0054 routine_lifecycle_push.py admin-bypass for unattended routine mode); engine/build_readiness/ci_mirror_first_exercise.md (T1-A closed both halves empirically via runs 25714935236 green + 25715091632 red on PR #93 deliberate-fail; T1-B + T1-C open awaiting natural exercise); engine/tools/hooks/session-start.sh CI-red-on-main LOUD surface (reads `gh run list --branch main --limit 1 --json conclusion --jq '.[0].conclusion'`; emits LOUD block when failure; silent on success/unknown/no-gh). Branch protection applied via gh api --input JSON heredoc form: required_status_checks=validate.py+pytest engine/tools (strict=true); required_linear_history; allow_force_pushes=false; allow_deletions=false; required_conversation_resolution=true; enforce_admins=false; round-trip verified. The first CI exercise on main was RED — surfaced 6 pre-existing test-fixture portability bugs locally masked by maintainer env state: (a) SUPABASE_DB_URL leak via monkeypatch.delenv-after-direct-os.environ-assign undo semantics in test_load_env (fixed by autouse _scrub_project_env in engine/tools/conftest.py); (b) `git init --bare` without --initial-branch=main left bare HEAD pointing at nonexistent master on Ubuntu CI runners (fixed by passing --initial-branch=main to both _make_origin_with_clone helpers in test_routine_eager_claim_recovery.py + test_routine_lifecycle_push.py). All 6 fixed in-context per CLAUDE.md; second CI run green; deliberate-fail PR #93 (closed, branch deleted) confirmed validate.py --code-gates step catches syntax errors (CI red in 12s on the right step). Five commits this session: eager-claim + Pairing B deliverables + ADR README index + CI-portability fixes + closeout. ADR count 66 → 68 (62 → 64 Accepted; engine 29 → 31). Soft-warns persistent only — issue_collision 26 (down from S-0130 29 because #68 + #69 closed), missing_rigor_score 360 stable, orphan_leaf 1 stable; no new categories. MEMPALACE NOTE: mempalace_unavailable_acknowledged: palace SQLite in readonly state (code 1032) — reconnect succeeded but writes still rejected; the two intended decision drawers (ADR 0065 + 0066 companions) and the S-0131 diary entry were authored in conversation but could not be filed; durable record lives in ADR 0065 + 0066 + ENGINE_LOG [Unreleased] S-0131 sections. Next session S-0132 picks from newly-unblocked SWE-hardening units (Pairing A #66+#70 fully unblocked; #67 Dependabot; #71 pytest-cov; Pairing C #73+#74; #72 issue templates).",
+  "outcome_summary_soft_warns": {
+    "issue_collision": 26,
+    "missing_rigor_score": 360,
+    "orphan_leaf": 1
+  },
+  "approved_plan": "/Users/shanekidd/.claude/plans/functional-soaring-goblet.md",
+  "branch": "claude/happy-williams-640cca",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/happy-williams-640cca",
+  "mempalace_unavailable_acknowledged": "palace SQLite returned readonly database error (code 1032) for every write attempt during shutdown; mempalace_status + mempalace_reconnect succeeded, indicating the substrate is reachable but write-locked; the two decision drawers + diary entry authored in this session's conversation history are not filed; durable record lives in ADR 0065 + ADR 0066 + ENGINE_LOG [Unreleased] S-0131 sections; user adjudicates whether to restart MemPalace MCP server or investigate file-permission / WAL-lock state at next interactive session",
+  "mempalace_activity": {
+    "search_calls": 1,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 2,
+    "status_calls": 1,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 1,
+    "total_calls": 7,
+    "first_call_ts": "2026-05-11T22:14:38Z",
+    "last_call_ts": "2026-05-12T05:27:44Z"
+  },
+  "mode": "build",
+  "next_session_handle": null
+}

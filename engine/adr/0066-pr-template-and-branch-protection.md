@@ -30,18 +30,26 @@ Items that do not apply should be marked N/A explicitly (a comment in the templa
 ### 2. Branch protection on `main` via `gh api`
 
 ```bash
-gh api -X PUT repos/StarshipSuperjam/paideia/branches/main/protection \
-  --field 'required_status_checks[strict]=true' \
-  --field 'required_status_checks[contexts][]=validate.py' \
-  --field 'required_status_checks[contexts][]=pytest engine/tools' \
-  --field 'enforce_admins=false' \
-  --field 'required_pull_request_reviews=' \
-  --field 'restrictions=' \
-  --field 'required_linear_history=true' \
-  --field 'allow_force_pushes=false' \
-  --field 'allow_deletions=false' \
-  --field 'required_conversation_resolution=true'
+cat <<'EOF' | gh api -X PUT repos/StarshipSuperjam/paideia/branches/main/protection --input -
+{
+  "required_status_checks": {
+    "strict": true,
+    "contexts": ["validate.py", "pytest engine/tools"]
+  },
+  "enforce_admins": false,
+  "required_pull_request_reviews": null,
+  "restrictions": null,
+  "required_linear_history": true,
+  "allow_force_pushes": false,
+  "allow_deletions": false,
+  "required_conversation_resolution": true
+}
+EOF
 ```
+
+(`--input -` with heredoc JSON is the reliable form. The `--field`-flag form with bracket syntax for arrays and empty values for `null` has fragile shell-escape semantics and was rejected during S-0131 first-apply.)
+
+Verify round-trip via `gh api repos/StarshipSuperjam/paideia/branches/main/protection`.
 
 The two `required_status_checks.contexts` entries are the `name:` fields from `.github/workflows/validate.yml` (`validate.py` and `pytest engine/tools`). Renaming a job in the workflow requires a coordinated `gh api` update; both surfaces are tracked in this ADR's "See also" so a future rename catches both.
 
