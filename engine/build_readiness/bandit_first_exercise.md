@@ -42,10 +42,9 @@ Three coupled mechanisms landed in this session:
 
 ## Status
 
-- **T1-A** — *to close empirically post-FF.* (Hook gains the bandit step only after the bandit-deliverables commit is FF'd into the parent repo's working tree.)
-- **T1-B** — *to close empirically post-FF.* (CI runs on the FF'd push.)
-
-(Both Tier-1 criteria close before S-0132 archives. This file is updated with the verification SHAs and CI run IDs as each closes.)
+- **T1-A — closed at S-0132 (empirically verified via direct gate invocation).** A scratch file containing `def run_dangerous(user_input: str) -> object: return eval(user_input)` was authored and `uv run bandit -c engine/tools/bandit.yaml -ll -ii -q <scratch>` was invoked directly. Result: bandit reported `B307:blacklist Use of possibly insecure function - consider using safer ast.literal_eval.` at MEDIUM-severity / HIGH-confidence — `Run metrics: Total issues by severity: Medium: 1, by confidence: High: 1`. Exit code 1. This is the same invocation the pre-commit hook makes (line 195: `uv run bandit -c engine/tools/bandit.yaml -ll -ii -q $STAGED_PY`); the hook's `STATUS -ne 0` check translates the exit code into commit-block. Tested empirically against the post-FF hook (parent's working tree at SHA `d7b85ff`).
+  - **Why no pre-commit-gate test:** the test_presence check in the code-discipline gates (per ADR 0038) hard-fails on a new `engine/tools/*.py` file without a companion `test_*.py` — so a synthetic engine-side scratch never reaches the bandit step in the hook order (test_presence is upstream of bandit). The direct-invocation evidence is the cleanest empirical verification of the gate; the pre-commit hook itself merely wraps the same `uv run bandit ...` call.
+- **T1-B — closed at S-0132 (empirically verified).** GitHub Actions run [25741717146](https://github.com/StarshipSuperjam/paideia/actions/runs/25741717146) on push of `d7b85ff` (the bandit deliverables) to `main` concluded `success`. The new `Run bandit SAST on engine/ + product/seed-graph/` step in the `validate` job exits 0 on the post-S-0132 engine corpus (baseline triage at ADR 0068 Empirical record).
 
 ## Risk surface (deliberate posture)
 
