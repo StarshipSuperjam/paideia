@@ -1,0 +1,10 @@
+{
+  "id": "S-0137",
+  "started_at": "2026-05-12T19:44:04Z",
+  "status": "in_progress",
+  "working_on": "SWE-hardening Tier 2 Issue #72: GitHub issue templates for 8 type labels — author .github/ISSUE_TEMPLATE/{bug,enhancement,tech-debt,cleanup,health-check-finding,documentation,question,upstream}.yml + config.yml mechanizing the body-shape posture in engine/operations/issue-discipline.md; new engine ADR 0075; cascade-discipline entry; ADR/STATE/ENGINE_LOG index updates; MemPalace decision drawer.",
+  "outcome_summary": null,
+  "approved_plan": "~/.claude/plans/whimsical-strolling-pine.md",
+  "branch": "claude/adoring-archimedes-67a57b",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/adoring-archimedes-67a57b"
+}
