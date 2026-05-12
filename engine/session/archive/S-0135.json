@@ -1,0 +1,38 @@
+{
+  "id": "S-0135",
+  "started_at": "2026-05-12T17:30:02Z",
+  "closed_at": "2026-05-12T17:48:28Z",
+  "status": "closed",
+  "working_on": "Issue #75 (priority:urgent): adopt modular frontend UI discipline via two skills — .claude/skills/frontend-discipline/ (universal, stack-agnostic) + .claude/skills/paideia-frontend-overlays/ (project tailoring). Two engine ADRs (0072 + 0073) + two MemPalace decision drawers. Mirrors the S-0134 Pairing C two-ADR precedent. Resolves the user's core-invariant-plus-project-tailoring architectural principle surfaced during planning.",
+  "outcome_summary": "Issue #75 closed: 2 skills (.claude/skills/frontend-discipline/ + .claude/skills/paideia-frontend-overlays/) + 2 engine ADRs (0072 + 0073) + 2 MemPalace decision drawers (drawer_paideia_decisions_ccb42dd26fb9ca44f1dd35e2 for ADR 0072; drawer_paideia_decisions_20585487416c0c1945f893c7 for ADR 0073) + STATE.md + ENGINE_LOG.md + ADR README index + feedback memory + MEMORY.md index. Two pushback moments at planning time: (1) Stack-coupling correction — Issue body assumed web stack but ADR 0035 commits to SwiftUI; user clarified that 'no web app' forecloses consumer product distribution channel only, not marketing-site or knowledge-graph visualizer surfaces. (2) Modular-architecture principle — user stated standing rule: 'everything built should have core invariant structures applicable to any project + modules that tailor that systems use for project-specific needs.' Applies to ALL future skill/tool/ops authoring, not just this Issue. Saved as feedback memory at feedback_modular_invariant_plus_tailoring.md with MEMORY.md index entry. Resulted in two-skill split: ADR 0072 adopts /frontend-discipline (invariant core, stack-agnostic; seven concerns: AI visual smell rejection, accessibility invariants, design-token integrity, state-flow hierarchy, composition, adaptive layout, performance posture; 2 reference cards ai-smell-rejection.md and accessibility-invariants.md); ADR 0073 adopts /paideia-frontend-overlays (project tailoring; ten overlays including triad-only primary surfaces ADR 0034, rendering-policy compliance ADR 0027, no engagement-loop dark patterns ADR 0033+0032, quiet mastery rendering ADR 0013, visual-identity working direction at prototype-stage FYI-pre-ADR, iconography discipline, pedagogical-graph rendering norms, plus three inherited from /review). Naming convention introduced: paideia- prefix on project-tailoring modules (no prefix = invariant; paideia- = project tailoring; stack-suffix = stack-specific). User shared S-0135 visual-identity prototypes (logo banner + Apple-style app icon establishing classical-scholarly gold-on-dark aesthetic with Ionic-column-plus-knowledge-graph iconography); referenced as working direction in overlay 5 with FYI-tier severity until a product-side visual-identity ADR commits the palette and motifs formally. ADR 0053 four-criterion rubric evaluated explicitly per ADR: zero criteria satisfied each → no first-exercise readiness note required, mirroring S-0134 Pairing C precedent (ADR 0070 + ADR 0071). Both skills disable-model-invocation: true per ADR 0044. Composition pair always invoked together on Paideia frontend changes; stack-specific implementation skills (future frontend-swiftui, frontend-web) dock as separate siblings when each stack opens. ADR 0035 ambiguity surfaced and filed as separate GitHub Issue at session close for product-session adjudication ('no web app' clarification). Three commits this session: eager-claim aa549f8 + deliverable batch ef8086b + closeout. ADR count 73 → 75 (engine 36 → 38; product unchanged 37; Accepted 69 → 71; Superseded unchanged 4). Pattern source: addyosmani/agent-skills/skills/frontend-ui-engineering (adapted, not cloned — invariant-only body; stack-specifics and project-specifics deliberately omitted per the modular-architecture principle).",
+  "approved_plan": "~/.claude/plans/zippy-discovering-dewdrop.md",
+  "branch": "claude/blissful-kilby-f80ead",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/blissful-kilby-f80ead",
+  "outcome_summary_soft_warns": {
+    "issue_collision": 23,
+    "missing_rigor_score": 360,
+    "orphan_leaf": 1
+  },
+  "mempalace_activity": {
+    "search_calls": 2,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 2,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 6,
+    "first_call_ts": "2026-05-12T16:53:30Z",
+    "last_call_ts": "2026-05-12T17:48:03Z",
+    "mempalace_citations": {
+      "drawer_id_refs": 2,
+      "session_archive_refs": 1,
+      "tag_named_refs": 2,
+      "total": 5
+    }
+  },
+  "mode": "build",
+  "next_session_handle": null
+}
