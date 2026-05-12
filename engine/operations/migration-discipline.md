@@ -330,3 +330,4 @@ The same amendment-asymmetry pattern [ADR 0036](../adr/0036-expression-contract-
 - [`build-readiness-gate.md`](build-readiness-gate.md) — the gate that enforces "no row, no authoring" before substantive build sessions.
 - [`tools-validate-interpretation.md`](tools-validate-interpretation.md) — hard-fail vs soft-warn semantics; the gate stack uses hard-fails uniformly.
 - [`adr-authoring.md`](adr-authoring.md) — when an ADR is warranted (cross-cutting cascade graph, RLS posture).
+- [`revert-and-rollback-discipline.md`](revert-and-rollback-discipline.md) — companion procedure when an already-applied migration must be undone; the rollback-authorship rule in this doc is the source of truth, cross-referenced from there.
