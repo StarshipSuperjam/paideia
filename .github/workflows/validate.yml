@@ -145,6 +145,25 @@ jobs:
             exit 1
           fi
 
+      - name: Run bandit SAST on engine/ + product/seed-graph/
+        # Full-tree scan; CI-side defense-in-depth complement to the pre-
+        # commit's staged-file fast-fail (per ADR 0068 decision 6).
+        # -q is required for non-zero exit on findings; -ll -ii sets the
+        # gate threshold to medium-severity / medium-confidence per ADR
+        # 0068 decision 4.
+        run: |
+          set -uo pipefail
+          STATUS=0
+          uv run bandit -r engine/ product/seed-graph/ -c engine/tools/bandit.yaml -ll -ii -q 2> bandit.log || STATUS=$?
+          if [ "$STATUS" -ne 0 ]; then
+            echo "## bandit SAST hard-failed (exit ${STATUS})" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            uv run bandit -r engine/ product/seed-graph/ -c engine/tools/bandit.yaml -ll -ii 2>&1 | tail -100 >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            cat bandit.log >&2
+            exit 1
+          fi
+
   test:
     name: pytest engine/tools
     runs-on: ubuntu-latest

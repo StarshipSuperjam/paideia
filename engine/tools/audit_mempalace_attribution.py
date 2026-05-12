@@ -359,11 +359,11 @@ def fetch_drawer_metadata_bulk(
         "date",
     )
     placeholders = ",".join("?" for _ in keys)
-    cur = conn.execute(
+    sql = (
         f"SELECT id, key, string_value FROM embedding_metadata "
-        f"WHERE key IN ({placeholders})",
-        keys,
-    )
+        f"WHERE key IN ({placeholders})"
+    )  # nosec B608  # placeholder string construction; values parameterized via execute(sql, keys)
+    cur = conn.execute(sql, keys)
     out: dict[int, dict[str, str | None]] = {}
     for row in cur:
         out.setdefault(row["id"], {})[row["key"]] = row["string_value"]

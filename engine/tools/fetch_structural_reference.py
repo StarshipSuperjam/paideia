@@ -284,13 +284,13 @@ class FetchSession(AbstractContextManager["FetchSession"]):
 
         request = urllib.request.Request(url, headers={"User-Agent": self._user_agent})
         try:
-            response = urllib.request.urlopen(  # noqa: S310 — vetted by ADR 0059
+            response = urllib.request.urlopen(  # noqa: S310 — vetted by ADR 0059  # nosec B310  # scheme allowlist enforced upstream per ADR 0059
                 request, timeout=self._network_timeout_seconds
             )
         except urllib.error.URLError:
             time.sleep(NETWORK_RETRY_BACKOFF_SECONDS)
             try:
-                response = urllib.request.urlopen(  # noqa: S310 — vetted by ADR 0059
+                response = urllib.request.urlopen(  # noqa: S310 — vetted by ADR 0059  # nosec B310  # scheme allowlist enforced upstream per ADR 0059
                     request, timeout=self._network_timeout_seconds
                 )
             except urllib.error.URLError as exc:

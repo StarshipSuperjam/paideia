@@ -120,18 +120,18 @@ def _build_palace(tmp_path: Path) -> Path:
 
 
 def test_resolve_palace_path_uses_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("MEMPALACE_PROBE_PALACE_PATH", "/tmp/fake-palace")
-    assert prune_mempalace.resolve_palace_path(None) == Path("/tmp/fake-palace")
+    monkeypatch.setenv("MEMPALACE_PROBE_PALACE_PATH", "/tmp/fake-palace")  # nosec B108  # test fixture string; not a path used for I/O
+    assert prune_mempalace.resolve_palace_path(None) == Path("/tmp/fake-palace")  # nosec B108  # test fixture string; not a path used for I/O
 
 
 def test_resolve_palace_path_env_beats_arg(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("MEMPALACE_PROBE_PALACE_PATH", "/tmp/from-env")
-    assert prune_mempalace.resolve_palace_path("/tmp/from-arg") == Path("/tmp/from-env")
+    monkeypatch.setenv("MEMPALACE_PROBE_PALACE_PATH", "/tmp/from-env")  # nosec B108  # test fixture string; not a path used for I/O
+    assert prune_mempalace.resolve_palace_path("/tmp/from-arg") == Path("/tmp/from-env")  # nosec B108  # test fixture string; not a path used for I/O
 
 
 def test_resolve_palace_path_arg_when_no_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("MEMPALACE_PROBE_PALACE_PATH", raising=False)
-    assert prune_mempalace.resolve_palace_path("/tmp/from-arg") == Path("/tmp/from-arg")
+    assert prune_mempalace.resolve_palace_path("/tmp/from-arg") == Path("/tmp/from-arg")  # nosec B108  # test fixture string; not a path used for I/O
 
 
 def test_resolve_palace_path_default(monkeypatch: pytest.MonkeyPatch) -> None:

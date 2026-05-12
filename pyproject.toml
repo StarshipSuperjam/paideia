@@ -18,6 +18,12 @@ dependencies = [
     "mypy>=1.10.0",
     "pytest>=8.0.0",
 
+    # SAST gate per ADR 0068 (S-0132, Issue #70). Bandit catches semantic
+    # vulnerabilities (eval, subprocess shell=True, weak random for tokens,
+    # hardcoded credentials) that ruff/mypy don't. Pre-commit + CI gate;
+    # config at engine/tools/bandit.yaml. Floor pinned; uv.lock holds exact.
+    "bandit>=1.7.0",
+
     # Phase 4+ live-graph audit per ADR 0016. psycopg v3 binary build
     # (zero-toolchain install). Activated only when SUPABASE_DB_URL is set.
     "psycopg[binary]>=3.1.0",

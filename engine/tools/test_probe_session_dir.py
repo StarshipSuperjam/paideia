@@ -86,7 +86,7 @@ def test_stray_current_2_json_triggers_soft_warn(tmp_path: Path) -> None:
     assert str(stray) in result.stderr
     # Recovery move surfaces in the same block.
     assert "mv " in result.stderr
-    assert "/tmp/" in result.stderr
+    assert "/tmp/" in result.stderr  # nosec B108  # asserts stderr substring; not a path used for I/O
     assert "Issue #57" in result.stderr
 
 

@@ -119,7 +119,7 @@ def _make_well_formed_migration(
     migrations_dir = repo / "product" / "seed-graph" / "migrations"
     migrations_dir.mkdir(parents=True, exist_ok=True)
     migration_path = migrations_dir / name
-    migration_path.write_text(
+    migration_path.write_text(  # nosec B608  # writing test fixture SQL file content, not building a SQL query
         f"-- Migration: {name.removesuffix('.sql')}\n"
         f"-- Purpose: test\n"
         f"\n"
@@ -528,7 +528,7 @@ def _make_well_formed_migration_with_assertions(
     if assertion_lines is None:
         assertion_lines = ["SELECT 1 :: 1", "SELECT 2 :: 2"]
     block = "\n".join(f"--   {line}" for line in assertion_lines)
-    migration_path.write_text(
+    migration_path.write_text(  # nosec B608  # writing test fixture SQL file content, not building a SQL query
         f"-- Migration: {name.removesuffix('.sql')}\n"
         f"-- Purpose: test\n"
         f"-- Postconditions:\n"

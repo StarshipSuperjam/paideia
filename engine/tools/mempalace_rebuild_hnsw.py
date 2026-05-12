@@ -202,14 +202,12 @@ def _extract_collection_from_sqlite(
         for start in range(0, len(all_internal_ids), CHUNK):
             chunk = all_internal_ids[start : start + CHUNK]
             placeholders = ",".join("?" * len(chunk))
-            rows = cur.execute(
-                f"""
+            sql = f"""
                 SELECT id, key, string_value, int_value, float_value, bool_value
                 FROM embedding_metadata
                 WHERE id IN ({placeholders})
-                """,
-                chunk,
-            ).fetchall()
+                """  # nosec B608  # placeholder string construction; chunk values parameterized via execute(sql, chunk)
+            rows = cur.execute(sql, chunk).fetchall()
             for row in rows:
                 internal_id, key, sv, iv, fv, bv = row
                 drawer_id = id_to_embedding_id[internal_id]

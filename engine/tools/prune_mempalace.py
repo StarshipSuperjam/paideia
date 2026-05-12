@@ -153,8 +153,7 @@ def enumerate_mined_ids(con: sqlite3.Connection) -> list[str]:
     UUIDs via ``get(...)`` if needed for chromadb deletion.
     """
     placeholders = ",".join("?" for _ in _MINED_ROOMS)
-    rows = con.execute(
-        f"""
+    sql = f"""
         SELECT DISTINCT em_w.id
         FROM embedding_metadata em_w
         JOIN embedding_metadata em_r ON em_w.id = em_r.id
@@ -162,9 +161,8 @@ def enumerate_mined_ids(con: sqlite3.Connection) -> list[str]:
         WHERE em_w.key='wing' AND em_w.string_value='paideia'
           AND em_r.key='room' AND em_r.string_value IN ({placeholders})
           AND em_a.key='added_by' AND em_a.string_value=?
-        """,
-        (*_MINED_ROOMS, _MINED_ADDED_BY),
-    ).fetchall()
+        """  # nosec B608  # placeholder string construction; values parameterized via execute()
+    rows = con.execute(sql, (*_MINED_ROOMS, _MINED_ADDED_BY)).fetchall()
     return [str(r[0]) for r in rows]
 
 
@@ -244,10 +242,8 @@ def fetch_drawer_uuids(palace_path: Path, internal_ids: list[str]) -> list[str]:
     con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
     try:
         placeholders = ",".join("?" for _ in internal_ids)
-        rows = con.execute(
-            f"SELECT embedding_id FROM embeddings WHERE id IN ({placeholders})",
-            internal_ids,
-        ).fetchall()
+        sql = f"SELECT embedding_id FROM embeddings WHERE id IN ({placeholders})"  # nosec B608  # placeholder string construction; values parameterized via execute()
+        rows = con.execute(sql, internal_ids).fetchall()
     finally:
         con.close()
     return [r[0] for r in rows]
@@ -273,16 +269,14 @@ def fetch_uuids_by_collection(
     con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
     try:
         placeholders = ",".join("?" for _ in internal_ids)
-        rows = con.execute(
-            f"""
+        sql = f"""
             SELECT e.embedding_id, c.name
             FROM embeddings e
             LEFT JOIN segments s ON e.segment_id = s.id
             LEFT JOIN collections c ON s.collection = c.id
             WHERE e.id IN ({placeholders})
-            """,
-            internal_ids,
-        ).fetchall()
+            """  # nosec B608  # placeholder string construction; values parameterized via execute()
+        rows = con.execute(sql, internal_ids).fetchall()
     finally:
         con.close()
     out: dict[str, list[str]] = {}

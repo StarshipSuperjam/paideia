@@ -221,6 +221,37 @@ if [ -n "$STAGED_PY" ] && [ -f engine/tools/validate.py ]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Run bandit SAST against staged Python files (per ADR 0068).
+# Catches semantic vulnerabilities (eval, subprocess shell=True, weak random,
+# hardcoded credentials, SQL injection, etc.) that ruff/mypy don't. Gate at
+# medium-severity / medium-confidence per ADR 0068 decision 4.
+# Runs after the code-discipline gates (which are fast on the same staged
+# Python files) so the cheapest-and-most-common failure modes are checked
+# first; bandit catches the genuinely-novel security risk.
+# ---------------------------------------------------------------------------
+
+if [ -n "$STAGED_PY" ] && [ -f engine/tools/bandit.yaml ]; then
+    STATUS=0
+    # -q is required for bandit to exit non-zero on findings (per ADR 0068
+    # decision 2). -ll -ii sets the gate threshold to medium-severity AND
+    # medium-confidence — below-threshold findings remain visible in
+    # bandit output but do not gate.
+    # shellcheck disable=SC2086
+    uv run bandit -c engine/tools/bandit.yaml -ll -ii -q $STAGED_PY || STATUS=$?
+    if [ "$STATUS" -ne 0 ]; then
+        echo "[pre-commit] bandit detected a security risk in staged Python. Commit blocked." >&2
+        echo "" >&2
+        echo "  Fix the finding in code (preferred) OR add an inline" >&2
+        echo "  '# nosec BXXX  # <reason>' annotation at the flagged line." >&2
+        echo "  See engine/adr/0068-bandit-sast-pre-commit-and-ci.md for the rule-skip discipline." >&2
+        # Re-run with output visible so the maintainer sees the finding details.
+        # shellcheck disable=SC2086
+        uv run bandit -c engine/tools/bandit.yaml -ll -ii $STAGED_PY >&2 || true
+        exit 1
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 # Run SQL-discipline gates against staged migration files
 # (Layer 2 of ADR 0039 + migration-discipline.md — transaction wrap,
 #  CASCADE on FKs to users(id), RLS-enable on public.* tables, CHECK

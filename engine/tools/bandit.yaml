@@ -1,0 +1,44 @@
+# Paideia bandit configuration.
+#
+# Layer 2 SAST gate per ADR 0068. Authored at S-0132 (Pairing A part 2,
+# Issue #70). Invoked from engine/tools/hooks/pre-commit (staged Python
+# files, hard-fail) and .github/workflows/validate.yml (full-tree, hard-fail).
+#
+# Posture:
+#   - Skip B101 (assert_used) globally — pytest convention. Tests
+#     consist almost entirely of asserts; B101 fires on every assert as
+#     a "could be stripped by python -O" warning. The engine corpus is
+#     not run under python -O.
+#   - Gate threshold runs at -l medium -i medium (CLI flag in the pre-
+#     commit hook + CI workflow). LOW-severity findings (B404 import
+#     subprocess, B603 subprocess without shell=False explicit, B607
+#     start_process_with_partial_path) are informational only — the
+#     engine corpus uses subprocess against system binaries (gh, git,
+#     uv) with static arg lists and env=scrubbed_env() per ADR 0045.
+#     The pattern is intentional and not user-input-driven.
+#   - MEDIUM+ findings ARE actionable: B608 (SQL string construction),
+#     B310 (urlopen scheme allowance), B108 (hardcoded tmp paths),
+#     B306, B321, B322, etc. Each is either fixed in code, OR carries
+#     an inline `# nosec BXX  # reason` annotation per ADR 0068
+#     decision 4 (the rule-skip discipline).
+#
+# Adding a new skip requires same-session inline comment naming reason.
+# Silent suppressions accumulate and lose meaning.
+
+# B101 (assert_used) skipped globally — pytest convention.
+skips:
+  - B101
+
+# Excluded paths — none currently. Bandit's exclude_dirs takes
+# directory names not file globs; test-code MEDIUM findings carry
+# inline `# nosec` rather than a directory exclusion that would
+# hide future genuine test-code findings.
+exclude_dirs: []
+
+# Allow assert in test code explicitly (defense-in-depth; B101 is
+# already skipped above). The assert_used config exempts paths
+# matching the regex.
+assert_used:
+  skips:
+    - '**/test_*.py'
+    - '**/*_test.py'

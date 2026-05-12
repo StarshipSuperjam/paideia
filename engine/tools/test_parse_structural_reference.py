@@ -73,7 +73,7 @@ PARSER_PATH = REPO_ROOT / "engine" / "tools" / "parse_structural_reference.py"
 def _make_output(
     elements: list[StructuralElement],
     *,
-    source_path: str = "/tmp/test.html",
+    source_path: str = "/tmp/test.html",  # nosec B108  # test fixture string; not a path used for I/O
     document_type: str = "encyclopedia",
     source_url: str | None = None,
     full_text: str = "",
@@ -258,7 +258,9 @@ class TestDetectEntryId:
 
     def test_falls_back_to_slugified_title_when_basename_invalid(self) -> None:
         out = _make_output(
-            [], source_path="/tmp/Some Random File.html", source_url=None
+            [],
+            source_path="/tmp/Some Random File.html",  # nosec B108  # test fixture string; not a path used for I/O
+            source_url=None,
         )
         assert detect_entry_id(out, "Virtue Ethics") == "virtue-ethics"
 
@@ -1171,7 +1173,7 @@ class TestCLI:
                 sys.executable,
                 str(PARSER_PATH),
                 "--source",
-                "/tmp/x.html",
+                "/tmp/x.html",  # nosec B108  # test fixture string passed as CLI arg; parser fails early on nonexistent path (which is what the test asserts)
                 "--document-type",
                 "unknown-type",
                 "--output",

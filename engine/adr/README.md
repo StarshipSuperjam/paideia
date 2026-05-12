@@ -25,7 +25,7 @@ The `Status:` field is required; `engine/tools/validate.py` soft-warns on ADR fi
 
 ## Index
 
-The engine collection has **25 ADRs total — all Accepted**. Engine ADRs are about how the build apparatus works (graph validation infrastructure, periodic project audits, expression contracts for engine-internal documents and engine-side code, the engine/product partition itself, the universal expression contract spanning all AI authoring patterns, the build-readiness gate before substantive build sessions, cascade-analysis discipline, soft-warn lifecycle, the harness hook architecture, the recipe-vs-reference skill-conversion partition, shared-state integrity discipline, the structural-reference parser tool, HANDOFF/Issues split for cross-session deferrals, scope-lock at boot + descope/reorder audit, project venv with hook PATH wiring, routine-mode session pattern, mechanism-first-exercise gate, lifecycle-push wrapping, apply-migration wrapping, MemPalace mechanical adoption checks, adversarial stance for health-check audits, canonical timestamp format and shared helper, audit-time structural-reference fetching for verdict fortification). The full ADR collection across the project is **60** (25 engine + 35 product).
+The engine collection has **27 ADRs total — all Accepted**. Engine ADRs are about how the build apparatus works (graph validation infrastructure, periodic project audits, expression contracts for engine-internal documents and engine-side code, the engine/product partition itself, the universal expression contract spanning all AI authoring patterns, the build-readiness gate before substantive build sessions, cascade-analysis discipline, soft-warn lifecycle, the harness hook architecture, the recipe-vs-reference skill-conversion partition, shared-state integrity discipline, the structural-reference parser tool, HANDOFF/Issues split for cross-session deferrals, scope-lock at boot + descope/reorder audit, project venv with hook PATH wiring, routine-mode session pattern, mechanism-first-exercise gate, lifecycle-push wrapping, apply-migration wrapping, MemPalace mechanical adoption checks, adversarial stance for health-check audits, canonical timestamp format and shared helper, audit-time structural-reference fetching for verdict fortification, secret-scan + SAST pre-commit gates). The full ADR collection across the project is **62** (27 engine + 35 product).
 
 | ADR | Title | Status |
 |---|---|---|
@@ -60,6 +60,8 @@ The engine collection has **25 ADRs total — all Accepted**. Engine ADRs are ab
 | [0064](0064-uv-lockfile-and-reproducible-builds.md) | `uv` lockfile + reproducible dependency builds | Accepted |
 | [0065](0065-validate-py-mirror-to-ci.md) | Mirror `validate.py` gate to GitHub Actions CI | Accepted |
 | [0066](0066-pr-template-and-branch-protection.md) | PR template + branch protection on `main` | Accepted |
+| [0067](0067-gitleaks-pre-commit-secret-scanning.md) | `gitleaks` pre-commit secret scanning + GitHub-native scanning | Accepted |
+| [0068](0068-bandit-sast-pre-commit-and-ci.md) | `bandit` SAST in pre-commit + CI | Accepted |
 
 ## Adding a new engine ADR
 
