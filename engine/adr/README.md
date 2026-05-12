@@ -58,6 +58,8 @@ The engine collection has **25 ADRs total — all Accepted**. Engine ADRs are ab
 | [0062](0062-retire-adr-inline-amendments-and-governed-doc-soft-warns.md) | Retire ADR inline-amendment pattern + governed-doc validator soft-warns | Accepted |
 | [0063](0063-validator-tiered-runtime-targets-and-regression-soft-warn.md) | Validator tiered runtime targets + per-phase regression soft-warn | Accepted |
 | [0064](0064-uv-lockfile-and-reproducible-builds.md) | `uv` lockfile + reproducible dependency builds | Accepted |
+| [0065](0065-validate-py-mirror-to-ci.md) | Mirror `validate.py` gate to GitHub Actions CI | Accepted |
+| [0066](0066-pr-template-and-branch-protection.md) | PR template + branch protection on `main` | Accepted |
 
 ## Adding a new engine ADR
 
