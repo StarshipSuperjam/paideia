@@ -1,0 +1,32 @@
+{
+  "id": "S-0139",
+  "mode": "build",
+  "started_at": "2026-05-12T20:48:17Z",
+  "closed_at": "2026-05-12T20:58:23Z",
+  "status": "closed",
+  "working_on": "Issue #81 (narrowed) — ADR template enhancement: add 'Alternatives Considered' section to the Nygard template in engine/operations/adr-authoring.md; extend validate.py's validate_adr_back_reference_orphan check to cover Deprecated ADRs (forward-looking — zero Deprecated ADRs in the corpus today); author engine ADR 0077 dogfooding the new section; close the lifecycle-state half of Issue #81 (already in place pre-session in adr-authoring.md template line 12 + Status conventions section).",
+  "outcome_summary": "Issue #81 closed via new engine ADR 0077 with narrowed scope discovered at boot — the lifecycle-state half (PROPOSED + DEPRECATED + the SUPERSEDED-vs-DEPRECATED distinction) was already in place pre-S-0139 in engine/operations/adr-authoring.md (template line 12 + Status conventions section), so the Issue's three-part proposal narrowed to just the structural pattern + a forward-looking validator extension. Two coupled changes landed: (1) the Nygard template in adr-authoring.md gains an 'Alternatives Considered' section between Decision and Consequences, per-alternative pattern (**What** / **Pros** / **Cons** / **Rejected because**), title-case canonical, optional but encouraged, prose-form remains valid where it reads better (the four pre-existing informal Alternatives uses in ADRs 0051/0056/0060/product-0061 remain valid per ADR 0036 retrofit-exemption clause); (2) validate_adr_back_reference_orphan at engine/tools/validate.py:1314 eligible-status regex extends from `Accepted` to `(Accepted|Deprecated)` with local binding renamed accepted_status → eligible_status; rest of function unchanged. Forward-looking — zero Deprecated ADRs in the corpus today, so zero new findings on land; will fire only when a future ADR transitions to Deprecated without inbound non-ADR citation. ADR 0077 dogfoods the new section — its own Alternatives Considered enumerates four rejected alternatives with full What/Pros/Cons/Rejected-because structure (strict-requirement; retroactive migration of four pre-existing sections; Superseded-also-covered; defer Deprecated-coverage). Two new pytests under TestAdrBackReferenceOrphan (test_uncited_deprecated_adr_warns + test_cited_deprecated_adr_does_not_warn); test_superseded_adr_not_checked docstring tightened from 'only Accepted' to 'Accepted or Deprecated only'. All 6 orphan-check tests + all 169 validate-tests green. No first-exercise readiness note per ADR 0053 — zero criteria satisfied (mirrors the negative-finding precedent from ADRs 0069/0070/0071/0072/0073/0075; 7th consecutive ADR applying the discipline). Narrowed-scope-discovery captured three-way trace (ADR 0077 Context + MemPalace decision drawer drawer_paideia_decisions_14689598e4bbbac248e785db + this archive). Three commits: eager-claim a739106 (pushed via build_lifecycle_push.py eager-claim — first natural exercise of the wrapper's eager-claim mode, closing the S-0138 readiness note's Tier 2 forward-pointer for eager-claim first exercise) + deliverable fec1706 (pushed via build_lifecycle_push.py deliverable — second natural exercise) + this closeout (pushed via build_lifecycle_push.py close). Parent-side FF clean both times. ADR collection 78 → 79 (Accepted 74 → 75; Superseded 4 stable; engine 41 → 42; product 37 stable). Issue #81 closed at session shutdown with comment naming ADR 0077 + the narrowed-scope-discovery + the three deliverables + the ADR-0036 + ADR-0053 + ADR-0077-See-also basis. STATE.md updated: Last-build-session row → S-0139; ADR count; SWE-hardening prose; S-0139 verification subsection added; Next-session-work refreshed (Issue #81 removed; eligible-units list now Issue #86 revert/rollback ops-doc OR Issue #76 /ship multi-model orchestration). Soft-warns persistent only — baseline carryover (issue_collision 23, missing_rigor_score 360, orphan_leaf 1; no new categories introduced; back-reference orphan check extension produced zero new findings as expected for zero-Deprecated-ADRs corpus).",
+  "outcome_summary_soft_warns": {
+    "issue_collision": 23,
+    "missing_rigor_score": 360,
+    "orphan_leaf": 1
+  },
+  "approved_plan": "~/.claude/plans/curious-sniffing-cascade.md",
+  "branch": "claude/reverent-jepsen-317beb",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/reverent-jepsen-317beb",
+  "next_session_handle": null,
+  "mempalace_activity": {
+    "search_calls": 1,
+    "diary_read_calls": 1,
+    "diary_write_calls": 2,
+    "add_drawer_calls": 1,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 5,
+    "first_call_ts": "2026-05-12T20:54:01Z",
+    "last_call_ts": "2026-05-12T20:57:54Z"
+  }
+}
