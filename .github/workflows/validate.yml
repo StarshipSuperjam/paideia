@@ -184,8 +184,38 @@ jobs:
       - name: Install dependencies — uv sync --frozen
         run: uv sync --frozen
 
-      - name: Run pytest engine/tools
+      - name: Run pytest engine/tools with coverage
+        # Coverage gate per ADR 0074 (S-0136, Issue #71). --cov-fail-under=78
+        # is the measured baseline (80%) minus 2pp. Raise only via ADR
+        # amendment per ADR 0074 decision 3 (trend-watching, not aspirational).
         # --tb=short keeps tracebacks scannable in the GitHub log UI.
-        # Coverage gating arrives in a follow-up Issue (#71 pytest-cov),
-        # gated on this CI workflow per ADR 0065.
-        run: uv run pytest engine/tools/ --tb=short
+        # Coverage summary surfaces in $GITHUB_STEP_SUMMARY on pass AND fail
+        # so future sessions know where to target uncovered modules.
+        # coverage's `--fail-under` exits with code 2 (not 1) on threshold
+        # breach; pytest-cov inherits — the STATUS != 0 check below catches
+        # any non-zero exit (pytest failure OR coverage failure).
+        run: |
+          set -uo pipefail
+          STATUS=0
+          uv run pytest engine/tools/ --tb=short \
+            --cov=engine/tools \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-fail-under=78 2>&1 | tee pytest.log
+          STATUS=${PIPESTATUS[0]}
+          {
+            echo "## pytest coverage summary"
+            echo '```'
+            grep -E '^(TOTAL|engine/tools/[^ ]+\.py +[0-9]+|Name +Stmts)' pytest.log \
+              | tail -60 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$STATUS" -ne 0 ]; then
+            {
+              echo "## pytest hard-failed (exit ${STATUS})"
+              echo "Either tests failed or coverage dropped below floor (78%)."
+              echo "See [ADR 0074](../blob/main/engine/adr/0074-pytest-cov-coverage-floor.md)"
+              echo "for the floor-amendment procedure."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit "$STATUS"
+          fi

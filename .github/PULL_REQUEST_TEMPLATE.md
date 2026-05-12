@@ -30,6 +30,7 @@ an unchecked item reads as "skipped" in review, not "irrelevant."
 - [ ] Routine-mode `scope_lock` honored (if applicable)
 - [ ] Secrets: no credentials, keys, or env values in diff
 - [ ] If `pyproject.toml` changed: `uv.lock` regenerated and staged in the same PR (per [ADR 0064](engine/adr/0064-uv-lockfile-and-reproducible-builds.md); applies to Dependabot PRs — reviewer regenerates before merge per [ADR 0069](engine/adr/0069-dependabot-pip-and-actions-ecosystems.md))
+- [ ] Coverage delta acknowledged — a CI coverage drop is a discussion trigger, not an automatic block. If the floor is crossed, the PR either restores coverage or proposes a floor amendment per [ADR 0074](engine/adr/0074-pytest-cov-coverage-floor.md)
 
 ## Links
 

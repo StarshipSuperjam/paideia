@@ -18,6 +18,13 @@ dependencies = [
     "mypy>=1.10.0",
     "pytest>=8.0.0",
 
+    # Coverage gate per ADR 0074 (S-0136, Issue #71). Measures fraction of
+    # engine/tools/ exercised by the pytest suite; CI fails below
+    # floor = baseline - 2pp. Trend-watching, not aspirational gate.
+    # Config in [tool.coverage] below; CI invocation in
+    # .github/workflows/validate.yml.
+    "pytest-cov>=4.0.0",
+
     # SAST gate per ADR 0068 (S-0132, Issue #70). Bandit catches semantic
     # vulnerabilities (eval, subprocess shell=True, weak random for tokens,
     # hardcoded credentials) that ruff/mypy don't. Pre-commit + CI gate;
@@ -67,3 +74,28 @@ dependencies = [
 # only when dependencies change — no drive-by refreshes mid-session.
 # Pre-commit gate (validate.py: validate_uv_lock_freshness) catches drift.
 package = false
+
+# Coverage config per ADR 0074 (S-0136, Issue #71). Chosen pyproject.toml-
+# rooted config over a separate `.coveragerc` to match the project's
+# config-in-pyproject pattern (ruff, mypy, pytest already live here;
+# bandit is the lone exception because bandit requires YAML).
+#
+# Line coverage only (branch = false). Branch coverage adds noise without
+# proportional value at this corpus size; revisit if line-coverage gate
+# produces too many false-positive passes.
+#
+# `omit` exclusion list discipline per ADR 0074 decision 6: each entry
+# must have an inline reason comment. Adding a new omit requires the
+# same-session reason annotation — silent suppressions accumulate.
+[tool.coverage.run]
+source = ["engine/tools"]
+omit = [
+    "engine/tools/test_*.py",          # tests themselves, not the subject
+    "engine/tools/_venv_reexec.py",    # exec-replaces; coverage cannot trace
+    "engine/tools/conftest.py",        # pytest fixture loader
+]
+branch = false
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
