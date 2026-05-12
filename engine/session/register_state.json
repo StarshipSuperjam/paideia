@@ -3,7 +3,7 @@
   "format": "S-NNNN where N is a zero-padded 4-digit counter. Sessions claim a slot eagerly at start (write current.json + bump next_id + commit + push) so concurrent sessions cannot collide.",
   "next_id": "0137",
   "last_claimed": "S-0136",
-  "current_status": "in_progress",
+  "current_status": "closed",
   "health_check_cadence": 20,
   "health_check_cadence_history": [
     {
@@ -41,7 +41,7 @@
       "informational": 60,
       "loud": 100,
       "from_session": "S-0088",
-      "to_session": null,
+      "to_session": "S-0088",
       "reason": "Bootstrap thresholds per Issue #46. Tier 1 (informational soft-warn) at 60 wings reflects the post-C2 cleanup target (paideia + sessions + wing_paideia + wing_claude + a handful of legitimate session-internals + 8 historical full-path wings remaining for C3 + buffer); Tier 2 (LOUD attention surface) at 100 wings flags accumulation that materially degrades search recall. Adjust only after a cleanup batch lands — do not raise to silence the surface (validator soft-warn body documents this rule)."
     }
   ]

@@ -1,0 +1,38 @@
+{
+  "id": "S-0136",
+  "started_at": "2026-05-12T18:00:05Z",
+  "closed_at": "2026-05-12T18:16:02Z",
+  "status": "closed",
+  "working_on": "SWE-hardening Tier 2 Issue #71 pytest-cov: adopt coverage measurement with measured baseline + CI floor gate; author ADR 0074 + first-exercise readiness note.",
+  "outcome_summary": "Issue #71 closed. ADR 0074 lands pytest-cov CI coverage gate per seven coupled decisions: pytest-cov>=4.0.0 pinned in pyproject.toml (+ [tool.coverage] config there, chosen over a separate .coveragerc for consistency with ruff/mypy/pytest); floor procedure = measured baseline minus 2pp (moves up only via ADR amendment); CI gate only (no pre-commit step — coverage is per-suite); no validate.py soft-warn category (gates via coverage's --fail-under exit code, mirrors ADR 0068's bandit posture); exclusion list with inline reason-comment discipline (mirror of `# nosec`-with-reason from ADR 0068); PR template `Coverage delta acknowledged` checkbox. Empirical baseline measured: 80% TOTAL coverage (7115 statements, 1418 missed, 1222 tests passing in 3:39) — well above the post-hoc-set floor of 78%. Five lowest-coverage modules surfaced for future test authoring (probe_repo.py 0%, probe_session_dir.py 0%, probe_palace.py 20%, mempalace_rebuild_hnsw.py 52%, audit_mempalace_attribution.py 53%); five highest-coverage at or above 97% (scrub_env.py, timestamps.py, audit_side_discoveries.py, scan_issue_backlog.py, fetch_structural_reference.py). Both Tier 1 readiness criteria closed empirically in-session: T1-A — GitHub Actions run 25753339781 on SHA 9f8ea63 concluded `success` (both `validate.py` + `pytest engine/tools` jobs exit 0; the new `Run pytest engine/tools with coverage` step green at 80% >= floor 78%); T1-B — direct `uv run coverage report --fail-under=99 ` exits 2 + emits `Coverage failure: total of 80 is less than fail-under=99` while `--fail-under=78` exits 0 (gate semantics provably wired upstream of pytest-cov's CLI integration, so direct invocation is functionally equivalent to the CI step's gate). ADR 0065 (engine) forward-pointer 'Coverage gating arrives in a follow-up Issue (#71 pytest-cov)' honored; ADR 0068 Tier 3 forward-pointer 'Coverage gate composition with #71 pytest-cov' honored. Trigger criterion evaluation per ADR 0053: criterion 4 satisfied (6 surfaces touched — pyproject.toml + uv.lock + validate.yml + PR template + ADR + readiness note); readiness note authored at engine/build_readiness/pytest_cov_first_exercise.md with Tier 2 forward-pointers (first natural floor breach; first floor-raise ADR amendment; pytest-cov/coverage major-version drift) and Tier 3 (branch coverage; hooks/sh coverage; SQL coverage; Phase 6+ SwiftUI coverage; CI runtime budget composition with bandit currently ~3:46 combined, well under 10-minute cap). MemPalace decision drawer drawer_paideia_decisions_56caa016b49491e0c90e3eee captures conversational form (pickup decision, alternatives considered, baseline numbers, empirical gate verification, floor procedure posture). Standing memories honored: feedback_no_pilot_wait_and_see.md (adoption ships with its own mechanical adoption-check in the same session — CI gate + T1-A/T1-B empirically closed); feedback_check_existing_discipline_first.md (coverage config in pyproject.toml over new .coveragerc per existing pattern); feedback_no_preemptive_deferral.md (single-session full execution, no splits proposed); feedback_engine_log_no_invented_sections.md (Keep-a-Changelog Added/Changed only). Three commits this session: eager-claim 14377b9 + deliverable batch aa202a2 + .gitignore follow-up 9f8ea63 (+ this closeout pending). ADR collection 75 -> 76 (Accepted 71 -> 72; Superseded 4 stable; engine 38 -> 39; product 37 stable). Soft-warns persistent only — issue_collision 22 (down 1 from S-0135 because #71 auto-closes via Closes #71 footer on merge), missing_rigor_score 360 (stable Phase 6 surface), orphan_leaf 1 (stable). No new categories. Pattern source: addyosmani/agent-skills/ci-cd-and-automation + project precedent in ADR 0068.",
+  "outcome_summary_soft_warns": {
+    "issue_collision": 22,
+    "missing_rigor_score": 360,
+    "orphan_leaf": 1
+  },
+  "approved_plan": "~/.claude/plans/radiant-booping-pixel.md",
+  "branch": "claude/pedantic-stonebraker-1e1d42",
+  "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/pedantic-stonebraker-1e1d42",
+  "mempalace_activity": {
+    "search_calls": 3,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 1,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 6,
+    "first_call_ts": "2026-05-12T17:52:45Z",
+    "last_call_ts": "2026-05-12T18:16:29Z",
+    "mempalace_citations": {
+      "drawer_id_refs": 1,
+      "session_archive_refs": 1,
+      "tag_named_refs": 0,
+      "total": 2
+    }
+  },
+  "mode": "build",
+  "next_session_handle": null
+}
