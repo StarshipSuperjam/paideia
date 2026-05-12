@@ -10,6 +10,33 @@ This project does not yet follow [Semantic Versioning](https://semver.org/) — 
 
 ## [Unreleased]
 
+### Changed (S-0143 — ADR 0076 Amendment v2 reverses post-close self-sweep; ADR 0057 revised Decision 1 permits inline adjudication; close-side worktree preservation)
+
+- **[`engine/adr/0076-build-mode-lifecycle-push-wrapping.md`](adr/0076-build-mode-lifecycle-push-wrapping.md)** — Consequences "Post-close worktree sweep" subsection rewritten in present-truth form to reflect the reversal. Both build and routine close ceremonies NO LONGER sweep the caller's own worktree (the pre-S-0143 wiring destroyed S-0142's own working folder before the user could follow up). Two coupled defenses: per-worktree tool refuses self-sweep with structured preserve-report; bulk utility carries the same skip-caller check. Cleanup shifts to **next-session boot** via `engine/tools/hooks/session-start.sh` invoking `sweep_worktrees.sh --apply --quiet` (gated on no-conflict).
+- **[`engine/tools/routine_worktree_sweep.py`](tools/routine_worktree_sweep.py)** — Adds `caller's-own-worktree` pre-flight, `collect_preserve_info()` + `format_preserve_report()` helpers, opt-in `--allow-caller-self` flag for tests + manual recovery. Refusal path emits multi-line structured report with actionable per-class guidance (caller-self: preserve for follow-up; dirty: review then checkout + remove; unmerged: investigate before discarding).
+- **[`engine/tools/sweep_worktrees.sh`](tools/sweep_worktrees.sh)** — `emit_preserve_report()` helper emits the same enriched shape (multi-line default; one-line in `--quiet`). Final summary now reports `removed N, preserved K` rather than `removed N, skipped K` since preserved is more semantically accurate.
+- **[`engine/tools/hooks/session-start.sh`](tools/hooks/session-start.sh)** — Boot-time bulk sweep wired between concurrent-session check and shared-state health probe. `boot_sweep` disposition added to all `log_ok` summary lines.
+- **[`engine/operations/session-shutdown-sequence.md`](operations/session-shutdown-sequence.md)** — Step 11 rewritten to "Close-side worktree preservation" (no more close-side sweep invocation; preserves the user's follow-up window).
+- **[`.claude/skills/session-shutdown-sequence/SKILL.md`](../.claude/skills/session-shutdown-sequence/SKILL.md)** + **[`.claude/skills/routine-mode-lifecycle/SKILL.md`](../.claude/skills/routine-mode-lifecycle/SKILL.md)** + **[`engine/operations/routine-mode-operations.md`](operations/routine-mode-operations.md)** — Both Skills and the routine ops doc updated per ADR 0044 doc → skill direction.
+- **[`engine/adr/0057-adversarial-stance-for-health-check-audits.md`](adr/0057-adversarial-stance-for-health-check-audits.md)** — Decision 1 revised in present-truth form. Interactive health-check audits MAY adjudicate findings inline (AskUserQuestion + file `health-check-finding` Issues in same session; pattern mirrors ADR 0040 build-readiness gate). Routine-fired audits keep user-buffered shape (table blank on arrival). Mode determination by user-presence proxy.
+- **[`engine/operations/health-check.md`](operations/health-check.md)** + **[`docs/health-checks/TEMPLATE.md`](../docs/health-checks/TEMPLATE.md)** — "User-adjudicated execution" subsection rewritten; per-mode procedure documented. The trigger-shape vocabulary for forward-pin classification documented in health-check.md's dead-weight-scanner section.
+- **[`CLAUDE.md`](../CLAUDE.md)** — "Posture vs machinery" bullet for ADR 0076 updated: "post-close worktree sweep" → "close-side worktree preservation + boot-time bulk sweep".
+- **[`engine/tools/test_routine_worktree_sweep.py`](tools/test_routine_worktree_sweep.py)** — 30 pytests including 11 new tests for skip-caller default + opt-in + preserve-report shape + caller-self CWD detection.
+
+### Fixed (S-0143 — health-check finding bundle: Issues #109, #110, #111 closed)
+
+- **[Issue #109](https://github.com/StarshipSuperjam/paideia/issues/109) closed** — `engine/tools/validate.py` records `mempalace_hnsw_divergence` (and `mempalace_wing_count_growth`) in `checks_run` unconditionally whenever the palace probe runs (not only when divergence is detected). Closes the ADR 0042 archive-telemetry composition gap. **[`engine/operations/tools-validate-interpretation.md`](operations/tools-validate-interpretation.md)** — entry for `mempalace_hnsw_divergence` updated to note the unconditional-check posture.
+- **[Issue #110](https://github.com/StarshipSuperjam/paideia/issues/110) closed** — `engine/tools/scan_issue_collisions.py` filters Issues with the `upstream` label and Issues whose titles match `[TRIGGER: ...]`. Implementation: new `is_actionable_now()` predicate; `fetch_open_issues()` now requests the `labels` field. Empirical effect: `issue_collision` dropped from 17 → 11 in-session. 6 new pytests cover the filter shape + integration. `tools-validate-interpretation.md` documents the filter.
+- **[Issue #111](https://github.com/StarshipSuperjam/paideia/issues/111) closed** — `engine/tools/scan_orphans.py` adds `is_marker_line_back_pinned()` classifier with forward-pin trigger vocabulary (`decide-before Phase N`, `decide-by S-NNNN`, `Phase N+`, `[TRIGGER: ...]`, `OQ-XXXXX`). Lines without any of these annotations are back-pinned (stale by default). `axis_stale_marker()` refactored to use the classifier; only back-pinned lines contribute to the flag. `engine/tools/health_check.py`'s TBD/TODO/FIXME marker scan uses the same classifier; the ad-hoc skip list retained only for files where the markers are talked about (definitional). 11 new pytests; verified expression-contract-instantiation.md no longer false-flags via scan_orphans.
+
+### Removed (S-0143 — 3 stale worktrees cleaned up with per-worktree user confirmation)
+
+- **`.claude/worktrees/admiring-faraday-020026`** (S-0121 health-check audit, 2 days stale; merged into main; dirty: HANDOFF.md + STATE.md) — removed.
+- **`.claude/worktrees/crazy-ritchie-db0791`** (S-0103 routine session, 4 days stale; merged into main; dirty: current_plan.md) — removed.
+- **`.claude/worktrees/vibrant-antonelli-850599`** (S-0128 OSS pivot session, 1 day stale; merged into main; dirty: ENGINE_LOG.md + STATE.md) — removed.
+
+Post-cleanup worktree list: main + active S-0143 worktree only. Branches `claude/admiring-faraday-020026` / `claude/crazy-ritchie-db0791` / `claude/vibrant-antonelli-850599` also deleted.
+
 ### Added (S-0142 — S-0141 audit adjudication + 4 health-check-finding Issues + structural close of build-mode worktree-accumulation gap)
 
 - **4 new `health-check-finding` Issues** routed per ADR 0048 default lane:
