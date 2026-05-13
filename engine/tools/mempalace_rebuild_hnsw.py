@@ -587,6 +587,26 @@ def main(argv: list[str] | None = None) -> int:
     )
     if pct >= POST_REBUILD_DIVERGENCE_PCT:
         return 3
+
+    # Forward-pointer: per ADR 0079, the rebuild produces fresh collections
+    # that inherit mempalace's _HNSW_BLOAT_GUARD default (50_000) on
+    # sync_threshold. After the user swaps the rebuilt palace into live,
+    # the steady-state threshold (100) should be set via
+    # mempalace_set_sync_threshold.py. The rebuild tool does NOT auto-apply
+    # this — the post-swap operation requires its own backup discipline
+    # (per the user-directed safeguard at S-0145 plan time) and the swap
+    # itself is manual. This pointer makes the next step discoverable.
+    _emit(
+        "err",
+        "\n[rebuild] post-rebuild forward-pointer (per ADR 0079):\n"
+        "  The rebuilt collections inherit mempalace's 50_000 sync_threshold\n"
+        "  (_HNSW_BLOAT_GUARD default). After the swap into live, set the\n"
+        "  project steady-state threshold (100) with backup:\n"
+        "    python3 engine/tools/mempalace_set_sync_threshold.py \\\n"
+        "      --threshold 100 \\\n"
+        "      --backup-dir ~/.mempalace/palace.S-NNNN-post-rebuild-pre-threshold-switch\n"
+        "  This is a separate operation with its own safeguards; do NOT skip.",
+    )
     return 0
 
 

@@ -641,6 +641,79 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# MemPalace HNSW sync_threshold consistency probe (per ADR 0079, S-0145)
+# ---------------------------------------------------------------------------
+#
+# Runs `mempalace_set_sync_threshold.py --verify-only` to detect drift
+# from the project-tuned 100 steady-state value. Three failure modes
+# the probe distinguishes:
+#
+#   1. Both collections at mempalace's _HNSW_BLOAT_GUARD 50_000 default
+#      — fresh rebuild OR rebuild ran without the post-swap threshold-
+#      set step. Surface a pointer to run the tool with --backup-dir.
+#   2. One collection at 100, the other at 50_000 — divergent state
+#      (one rebuild-related, one tuned). Surface the divergence; the
+#      user must adjudicate.
+#   3. Both at 100 — steady-state ok; one-line silent OK.
+#
+# Best-effort: the probe never auto-applies. Threshold modification
+# requires explicit `--backup-dir` invocation per the user-directed
+# safeguard. Hook always exits 0; surface findings are informational.
+
+THRESHOLD_TOOL="$REPO_ROOT/engine/tools/mempalace_set_sync_threshold.py"
+THRESHOLD_PROBE_STATUS="not-run"
+if [ "$MCP_PROBE_STATUS" = "ok" ] && [ -x "$(command -v python3)" ] && [ -f "$THRESHOLD_TOOL" ]; then
+    THRESHOLD_TMP="$(mktemp 2>/dev/null || echo "/tmp/session-start-threshold.$$")"
+    python3 "$THRESHOLD_TOOL" --verify-only \
+        >"$THRESHOLD_TMP" 2>&1
+    THRESHOLD_EXIT=$?
+    case "$THRESHOLD_EXIT" in
+        0)
+            # Consistent state. Surface only if not at project target (100);
+            # otherwise stay silent. The tool already emits one-line summary
+            # to stderr — capture and pass through only the summary line.
+            if grep -q "Consistent but not at target" "$THRESHOLD_TMP" 2>/dev/null; then
+                cat "$THRESHOLD_TMP" >&2 2>/dev/null
+                THRESHOLD_PROBE_STATUS="consistent-but-not-at-target"
+            else
+                # Match expected steady-state at 100; one-line OK.
+                grep "consistent: all collections" "$THRESHOLD_TMP" >&2 2>/dev/null
+                THRESHOLD_PROBE_STATUS="at-target"
+            fi
+            ;;
+        1)
+            # Divergent. Pass full stderr through.
+            {
+                echo ""
+                echo "============================================================"
+                echo "[session-start] MemPalace sync_threshold: DIVERGENT"
+                echo "============================================================"
+                cat "$THRESHOLD_TMP" 2>/dev/null | sed 's/^/  /'
+                echo "------------------------------------------------------------"
+                echo "  Run with backup to converge to the project target (100):"
+                echo "    python3 engine/tools/mempalace_set_sync_threshold.py \\"
+                echo "      --threshold 100 \\"
+                echo "      --backup-dir ~/.mempalace/palace.S-NNNN-pre-threshold-switch"
+                echo "  See ADR 0079 for the threshold-value deliberation."
+                echo "============================================================"
+                echo ""
+            } >&2
+            THRESHOLD_PROBE_STATUS="divergent"
+            ;;
+        *)
+            # Probe error — log and continue. Don't surface noisily;
+            # the substrate may be transiently unhappy and a noisy
+            # surface every boot would dilute signal.
+            log_fail "threshold-probe-exit-$THRESHOLD_EXIT"
+            THRESHOLD_PROBE_STATUS="exit-$THRESHOLD_EXIT"
+            ;;
+    esac
+    rm -f "$THRESHOLD_TMP" 2>/dev/null
+else
+    THRESHOLD_PROBE_STATUS="skipped-prereq-or-mcp"
+fi
+
+# ---------------------------------------------------------------------------
 # Pending mempalace diary writes (per ADR 0056, S-0091 routine-protection
 # refinement)
 # ---------------------------------------------------------------------------
@@ -902,5 +975,5 @@ if [ -f "$SCHEDULED_AUDITS_FILE" ]; then
     fi
 fi
 
-log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=$PERSISTENT_FOUND scheduled=$SCHEDULED_FOUND probe=$PROBE_STATUS mcp=$MCP_PROBE_STATUS backlog=$BACKLOG_STATUS scope_non_yes=$SCOPE_NON_YES conflict=$CONFLICT_STATUS env_pointer=$ENV_POINTER_STATUS stale_check=$STALE_CHECK_STATUS boot_sweep=$SWEEP_STATUS"
+log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=$PERSISTENT_FOUND scheduled=$SCHEDULED_FOUND probe=$PROBE_STATUS mcp=$MCP_PROBE_STATUS threshold=$THRESHOLD_PROBE_STATUS backlog=$BACKLOG_STATUS scope_non_yes=$SCOPE_NON_YES conflict=$CONFLICT_STATUS env_pointer=$ENV_POINTER_STATUS stale_check=$STALE_CHECK_STATUS boot_sweep=$SWEEP_STATUS"
 exit 0
