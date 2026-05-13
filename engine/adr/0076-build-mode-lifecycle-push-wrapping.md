@@ -124,13 +124,32 @@ ADR 0053 trigger evaluation: no new mechanism class — both the per-worktree to
 
 Cascade landings: [`engine/operations/cross-references.md`](../operations/cross-references.md) gains a row for `session-start.sh` ↔ `sweep_worktrees.sh` and updates the `session-shutdown-sequence.md` ↔ `routine_worktree_sweep.py` row to reflect non-invocation at close. [`CLAUDE.md`](../../CLAUDE.md) "Posture vs machinery" updates the build-mode lifecycle-push + post-close-sweep bullet to name skip-caller defense + boot-time bulk sweep.
 
+### Catchup-aware deliverable + close verifiers — recovery path for batched commits
+
+Build-mode `deliverable` and `close` verifiers accept N>1 unpushed commits without weakening per-commit shape rigor. Pre-S-0146 the strict `ahead == 1` check refused with no recovery path when a session batched multiple commits before pushing (e.g., eager-claim → docs deliverable → feat deliverable → close, all committed before any push). The only fix was manual user intervention OR detached-HEAD bypass that the harness classifier correctly blocks (it sidesteps per-commit shape verification). S-0146 hit this pattern at close-time and surfaced it as a recurring friction point: the strict check is a SAFETY feature (each commit's shape gets verified individually before push), but the absence of a recovery mechanism made the safety property feel like a bug.
+
+The catchup-aware verifiers preserve the safety property exactly:
+
+- **For each non-HEAD commit in the unpushed batch**: subject pattern must match eager-claim shape (only at index 0) OR deliverable shape (any index). Subject-only validation is sufficient because deliverable mode's strict check is also subject-only ("loose by design" per the verifier docstring) — same rigor.
+- **For the HEAD commit**: full shape verification against its parent (HEAD vs HEAD~1), preserving per-commit path-set / register-state / archive-add rigor. The `verify_close_shape_at_head_with_base` helper inlines the existing `verify_close_shape` logic with an explicit `base_ref` parameter — no refactor of `routine_lifecycle_push.py` (preserves routine-mode contract).
+
+Strict mode (`ahead == 1`) remains the default lifecycle path — sessions that push per-commit get the same behavior they always had. Catchup is the recovery path for batched-commit cases, not a license to skip the per-commit push discipline.
+
+Implementation: [`engine/tools/build_lifecycle_push.py`](../tools/build_lifecycle_push.py) defines `verify_deliverable_catchup` and `verify_close_catchup` which delegate to the existing strict verifiers when ahead == 1 and run the catchup logic otherwise. The verifier dict in `main()` wires the catchup-aware functions for `deliverable` and `close` modes; `eager-claim` mode is unchanged (eager-claim is always the first commit of a session, never batched with prior unpushed commits). Helper functions `get_unpushed_commits`, `get_commit_subject_at`, `get_changed_paths_between`, `get_register_state_diff_between`, `verify_close_shape_at_head_with_base`, and `verify_intermediate_commit` are all build-wrapper-local additions.
+
+Test coverage: [`engine/tools/test_build_lifecycle_push.py`](../tools/test_build_lifecycle_push.py) gains 8 new pytests against tmp-dir bare-repo + clone fixtures: 3-commits-accepts-and-pushes, eager+deliverable+close stacked accepts, eager-after-index-zero rejects, intermediate-with-lifecycle-prefix rejects, non-conventional-intermediate rejects, deliverable-mode 2-commits accepts, ahead==1 backward-compat delegates to strict, zero-ahead refuses. Total wrapper test suite: 20 pytests (was 12).
+
+The S-0146 in-session experience is the first natural exercise: the session that introduces the mechanism is also the session that needed it. The wrapper extension's own deliverable commit + the S-0146 close commit both exercise the catchup path (3 deliverables ahead at deliverable push of the wrapper extension; 1 ahead at close push, delegating to strict). Tier 1 readiness criteria (well-formed catchup accept + push succeeds) close in-session.
+
+ADR 0053 trigger evaluation: no new mechanism class — this extends an existing wrapper. Criterion 4 (≥5 tooling files OR ≥3 ops docs) evaluates NO: 2 tooling files (`build_lifecycle_push.py`, `test_build_lifecycle_push.py`) + 1 ADR amendment. No first-exercise readiness note required separately; the in-session exercise is documented here.
+
 ## See also
 
 - [ADR 0054](0054-lifecycle-push-wrapping-against-default-branch-push-gate.md) — sibling for routine-mode; the falsified "interactive sessions don't trigger the gate" assertion is updated here.
 - [ADR 0044](0044-skill-conversion-recipe-vs-reference.md) — doc → skill update direction.
 - [ADR 0053](0053-mechanism-first-exercise-gate.md) — first-exercise readiness note triggered.
 - [`engine/tools/build_lifecycle_push.py`](../tools/build_lifecycle_push.py) — the wrapper.
-- [`engine/tools/test_build_lifecycle_push.py`](../tools/test_build_lifecycle_push.py) — 12 pytests covering well-formed accepts + per-predicate rejects + push-failure paths + dry-run + non-fast-forward.
+- [`engine/tools/test_build_lifecycle_push.py`](../tools/test_build_lifecycle_push.py) — 20 pytests covering well-formed accepts + per-predicate rejects + push-failure paths + dry-run + non-fast-forward + 8 catchup-mode tests (deliverable + close N-ahead behavior).
 - [`engine/operations/session-build-lifecycle.md`](../operations/session-build-lifecycle.md) — Layer 1 source-of-truth, updated to invoke wrapper.
 - [`.claude/skills/session-build-lifecycle/SKILL.md`](../../.claude/skills/session-build-lifecycle/SKILL.md) — Skill body, regenerated from ops doc.
 - [`engine/build_readiness/build_lifecycle_push_first_exercise.md`](../build_readiness/build_lifecycle_push_first_exercise.md) — first-exercise readiness note.

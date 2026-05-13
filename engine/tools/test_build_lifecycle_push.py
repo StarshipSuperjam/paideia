@@ -375,6 +375,141 @@ def test_dry_run_does_not_push(tmp_path: Path) -> None:
     assert head_before_origin == head_after_origin
 
 
+# ---------------------------------------------------------------------------
+# Catchup-aware verifiers (per ADR 0076 Amendment v3, S-0146)
+# ---------------------------------------------------------------------------
+
+
+def test_catchup_close_three_commits_accepts_and_pushes(tmp_path: Path) -> None:
+    """Eager-claim already pushed; deliverable + deliverable + close stacked
+    locally. Catchup close mode validates each, pushes all 3 together."""
+    origin, clone = _make_origin_with_clone(tmp_path)
+    _make_build_eager_claim_commit(clone)
+    _git(["push", "origin", "main"], clone)
+    _make_build_deliverable_commit(clone, path="engine/some/a.md")
+    _make_build_deliverable_commit(clone, path="engine/some/b.md")
+    _make_build_close_commit(clone)
+    rc = main(["close", "--repo-root", str(clone)])
+    assert rc == 0
+    head_after_origin = subprocess.run(
+        ["git", "-C", str(origin), "rev-parse", "main"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    head_after_clone = subprocess.run(
+        ["git", "-C", str(clone), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert head_after_origin == head_after_clone
+
+
+def test_catchup_close_with_eager_at_index_zero_accepts(tmp_path: Path) -> None:
+    """No prior push; eager + deliverable + close stacked locally. Catchup
+    close mode allows eager-claim shape only at index 0."""
+    origin, clone = _make_origin_with_clone(tmp_path)
+    _make_build_eager_claim_commit(clone)
+    _make_build_deliverable_commit(clone, path="engine/some/a.md")
+    _make_build_close_commit(clone)
+    rc = main(["close", "--repo-root", str(clone)])
+    assert rc == 0
+
+
+def test_catchup_close_rejects_eager_after_index_zero(tmp_path: Path) -> None:
+    """Two eager-claim commits before close — invalid; eager-claim shape only
+    allowed at batch index 0."""
+    origin, clone = _make_origin_with_clone(tmp_path)
+    _make_build_eager_claim_commit(clone)  # legitimate eager (idx 0)
+    # Synthesize a second eager-claim commit at idx 1 — invalid shape
+    sess = clone / "engine" / "session"
+    state = json.loads((sess / "register_state.json").read_text())
+    state["next_id"] = "0140"
+    state["last_claimed"] = "S-0139"
+    (sess / "register_state.json").write_text(json.dumps(state) + "\n")
+    _git(["add", "."], clone)
+    _git(
+        ["commit", "-m", "chore(session): eager-claim S-0139 — illegal second eager"],
+        clone,
+    )
+    _make_build_close_commit(clone, slot="S-0139")
+    rc = main(["close", "--repo-root", str(clone)])
+    assert rc == 2
+
+
+def test_catchup_close_rejects_intermediate_with_lifecycle_prefix(
+    tmp_path: Path,
+) -> None:
+    """An intermediate commit with chore(session): prefix that isn't eager-claim
+    — invalid (lifecycle prefix is reserved)."""
+    origin, clone = _make_origin_with_clone(tmp_path)
+    _make_build_eager_claim_commit(clone)
+    _git(["push", "origin", "main"], clone)
+    # Author intermediate with reserved prefix
+    (clone / "weird.md").write_text("weird\n")
+    _git(["add", "weird.md"], clone)
+    _git(["commit", "-m", "chore(session): something weird"], clone)
+    _make_build_close_commit(clone)
+    rc = main(["close", "--repo-root", str(clone)])
+    assert rc == 2
+
+
+def test_catchup_close_rejects_non_conventional_intermediate(tmp_path: Path) -> None:
+    """An intermediate commit whose subject isn't conventional-commits
+    — invalid (catchup batch must be all lifecycle-shaped)."""
+    origin, clone = _make_origin_with_clone(tmp_path)
+    _make_build_eager_claim_commit(clone)
+    _git(["push", "origin", "main"], clone)
+    (clone / "weird.md").write_text("weird\n")
+    _git(["add", "weird.md"], clone)
+    _git(["commit", "-m", "WIP scratch commit"], clone)  # non-conventional
+    _make_build_close_commit(clone)
+    rc = main(["close", "--repo-root", str(clone)])
+    assert rc == 2
+
+
+def test_catchup_deliverable_two_commits_accepts(tmp_path: Path) -> None:
+    """Two deliverables stacked, no close yet. Catchup deliverable mode
+    validates and pushes both."""
+    origin, clone = _make_origin_with_clone(tmp_path)
+    _make_build_eager_claim_commit(clone)
+    _git(["push", "origin", "main"], clone)
+    _make_build_deliverable_commit(clone, path="engine/some/a.md")
+    _make_build_deliverable_commit(clone, path="engine/some/b.md")
+    rc = main(["deliverable", "--repo-root", str(clone)])
+    assert rc == 0
+
+
+def test_catchup_close_one_ahead_delegates_to_strict(tmp_path: Path) -> None:
+    """Backward-compat: when ahead == 1, catchup close delegates to strict
+    close. A malformed close commit (wrong subject) still rejects."""
+    origin, clone = _make_origin_with_clone(tmp_path)
+    _make_build_eager_claim_commit(clone)
+    _git(["push", "origin", "main"], clone)
+    # Author a commit with the right close-shape touches but a deliverable subject
+    sess = clone / "engine" / "session"
+    state = json.loads((sess / "register_state.json").read_text())
+    state["current_status"] = "closed"
+    (sess / "register_state.json").write_text(json.dumps(state) + "\n")
+    (sess / "archive").mkdir(exist_ok=True)
+    (sess / "archive" / "S-0138.json").write_text(
+        json.dumps({"id": "S-0138", "status": "closed"}) + "\n"
+    )
+    (sess / "current.json").unlink()
+    _git(["add", "-A", "engine/session"], clone)
+    _git(["commit", "-m", "feat: not the right close subject"], clone)
+    rc = main(["close", "--repo-root", str(clone)])
+    assert rc == 2  # close-shape verifier rejects on subject mismatch
+
+
+def test_catchup_zero_ahead_refuses(tmp_path: Path) -> None:
+    """No unpushed commits — catchup refuses with exit 2."""
+    origin, clone = _make_origin_with_clone(tmp_path)
+    rc = main(["close", "--repo-root", str(clone)])
+    assert rc == 2
+
+
 def test_push_rejected_non_fast_forward_returns_3(tmp_path: Path) -> None:
     """When origin has a commit the clone doesn't, the push is rejected
     with exit code 3 (non-fast-forward)."""
