@@ -223,6 +223,8 @@ Entity resolution — mapping a freeform string like "Kant's epistemology" or "t
 
 The entity resolution service is shared infrastructure. The teaching session uses it against the two-hop neighborhood (lightweight, low-latency). The close reading and syllabus pipelines use it against the full graph (heavier, but these are ingestion-time operations, not real-time). The same resolution logic scales to both contexts by accepting a node set as input rather than always querying the full graph.
 
+The embedding-storage shape that backs the entity resolution service is committed in [ADR 0086](../adr/0086-model-agnostic-embedding-storage-architecture.md): per-user `embedding_model` + `embedding_dims` metadata, with `node_embeddings_<dim>` partition tables keyed by the user's chosen dimensionality. Application-code routes each lookup to the correct partition. The model itself is the user's BYOK choice (per [ADR 0065](../adr/0065-oss-pivot-and-byok-disposition.md)); the project commits to the storage shape, not to a specific embedding provider.
+
 ## Syllabus Upload Pipeline
 
 A professor (or autodidact following an online course) uploads a course syllabus. The system parses it, maps it to the mastery graph, identifies prerequisite gaps, and generates a constrained learning path. The syllabus is a constraint on graph traversal, not a replacement for it — the professor's sequencing is respected, and the system catches learners who can't make the inferential leaps the syllabus silently demands.

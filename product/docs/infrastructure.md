@@ -52,6 +52,8 @@ Chosen stack: **Vercel + Supabase + Anthropic API**. Three managed services, no 
 
 Supabase (managed Postgres) handles both the relational learner state and vector search via pgvector, consolidating two concerns into one service. This eliminates Neo4j Aura as a separate graph database. The prerequisite graph lives as a nodes/edges table structure in Postgres; traversal logic runs in application code. A dedicated graph database adds migration complexity (Cypher, no universal export standard) with no performance benefit at projected scale.
 
+The pgvector storage shape that backs entity resolution and close-reading embeddings is committed in [ADR 0086](../adr/0086-model-agnostic-embedding-storage-architecture.md): per-user `embedding_model` + `embedding_dims` metadata, with `node_embeddings_<dim>` and `chunk_embeddings_<dim>` partition tables keyed by dimensionality. The first Phase 6 migration to author entity-resolution infrastructure picks the initial dim values; new dims arrive as additive partition migrations without disturbing prior partitions.
+
 Claude Code interacts with all three services directly during build-tooling work — Supabase via CLI and SDK for migration / seed work, Vercel via CLI where it serves build-side tooling, Anthropic API natively in engine-side scripts. The user-facing iOS app under BYOK does *not* consume Vercel-hosted endpoints for AI inference — the iOS client calls Anthropic directly with the user's own key per the Deployment Target section above. The Vercel surface remains relevant only to engine-side build tooling, not to the deployed user surface.
 
 ## Build Approach

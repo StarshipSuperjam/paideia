@@ -145,9 +145,9 @@ Resolved as **confirm server-side**. Mastery computation runs server-side per `l
 ---
 
 ## OQ-DEC1-C: Embedding strategy for entity resolution
-**Added: 2026-04-29 (S-0001) | Status: Open | Decide before: Phase 6**
+**Added: 2026-04-29 (S-0001) | Resolved by [ADR 0086](../adr/0086-model-agnostic-embedding-storage-architecture.md) — 2026-05-13 (S-0152)**
 
-The entity-resolution service (per `architecture.md`) needs embeddings to map spontaneous learner references ("the categorical imperative") onto graph node IDs. pgvector is the leaning option (already a Supabase extension, already enabled). Open question: which embedding model? OpenAI ada-002, voyage-3, claude-3-5-sonnet-embeddings, or open-weights (BGE / Nomic / Stella)? Trade-offs: API cost, dimensionality (storage), domain-fit for philosophical vocabulary, control over future model changes. Decision lands as an ADR.
+Resolved as **model-agnostic schema with per-dim partition tables**. The original "pick a model" framing was reshaped by [ADR 0065](../adr/0065-oss-pivot-and-byok-disposition.md)'s BYOK regime — under BYOK, users may bring different embedding providers (Anthropic / Voyage / OpenAI / open-weights), so the project commits to a *storage shape* (per-user `embedding_model` + `embedding_dims` metadata; partition tables `node_embeddings_<dim>` and `chunk_embeddings_<dim>`) rather than a single model choice. The schema-level commitment is the partition-by-dim shape; concrete dim values are picked by the first Phase 6 migration that authors entity-resolution infrastructure. Application-code routes each query to the correct partition by reading the user's metadata. First-exercise readiness criteria captured in [`engine/build_readiness/embedding_storage_first_exercise.md`](../../engine/build_readiness/embedding_storage_first_exercise.md).
 
 ---
 
