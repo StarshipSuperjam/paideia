@@ -8,9 +8,9 @@
 
 Pre-S-0136, the engine corpus has 1222 tests across 45 test files (`engine/tools/test_*.py`) covering 38+ production `engine/tools/*.py` modules, but **no coverage measurement.** `pytest engine/tools/` returns binary success/failure; no visibility into what fraction of production code is exercised, no regression alarm when coverage drops.
 
-[Issue #71](https://github.com/StarshipSuperjam/paideia/issues/71) named the adoption as Tier 2 of the SWE-hardening rollout. [ADR 0065 (engine)](0065-validate-py-mirror-to-ci.md) S-0131 explicitly named pytest-cov as the follow-up gated on CI workflow existence (validate.yml's pytest step comment: *"Coverage gating arrives in a follow-up Issue (#71 pytest-cov), gated on this CI workflow per ADR 0065"*). [ADR 0068](0068-bandit-sast-pre-commit-and-ci.md) Tier 3 forward-pointer already named "Coverage gate composition with #71 pytest-cov" — the integration shape was anticipated. This ADR honors both pointers.
+[Issue #71](https://github.com/StarshipSuperjam/paideia/issues/71) named the adoption as Tier 2 of the SWE-hardening rollout. [ADR 0083 (engine)](0083-validate-py-mirror-to-ci.md) S-0131 explicitly named pytest-cov as the follow-up gated on CI workflow existence (validate.yml's pytest step comment: *"Coverage gating arrives in a follow-up Issue (#71 pytest-cov), gated on this CI workflow per ADR 0083"*). [ADR 0068](0068-bandit-sast-pre-commit-and-ci.md) Tier 3 forward-pointer already named "Coverage gate composition with #71 pytest-cov" — the integration shape was anticipated. This ADR honors both pointers.
 
-Phase 6+ code surface will grow fast (the SwiftUI codebase is its own coverage frontier per ADR 0065 product; this ADR scopes to the engine corpus). Without a baseline + floor, coverage silently degrades; with one, regressions surface in CI before they merge.
+Phase 6+ code surface will grow fast (the SwiftUI codebase is its own coverage frontier per ADR 0083 product; this ADR scopes to the engine corpus). Without a baseline + floor, coverage silently degrades; with one, regressions surface in CI before they merge.
 
 Pattern source: [`addyosmani/agent-skills`](https://github.com/addyosmani/agent-skills) and the project's existing sister-Tier-2 adoption [ADR 0068](0068-bandit-sast-pre-commit-and-ci.md).
 
@@ -97,15 +97,15 @@ One criterion satisfied (4) → readiness note required. Authored at [`engine/bu
 ### Other consequences
 
 - **Positive — regression alarm.** Coverage measurement provides a concrete signal when refactors silently delete test coverage along with code. The floor catches floor-crossing regressions at PR time before they merge.
-- **Positive — pairing with [ADR 0068](0068-bandit-sast-pre-commit-and-ci.md).** ADR 0068's Tier 3 forward-pointer ("Coverage gate composition with #71 pytest-cov") is now honored. Both gates live in the same `test` and `validate` jobs of `.github/workflows/validate.yml`; the combined CI runtime grows by ~5s (xml report writing + `--cov-fail-under` evaluation) on top of the existing 3:39 pytest runtime. Well within the 10-minute CI budget per ADR 0065 (engine) decision 4.
+- **Positive — pairing with [ADR 0068](0068-bandit-sast-pre-commit-and-ci.md).** ADR 0068's Tier 3 forward-pointer ("Coverage gate composition with #71 pytest-cov") is now honored. Both gates live in the same `test` and `validate` jobs of `.github/workflows/validate.yml`; the combined CI runtime grows by ~5s (xml report writing + `--cov-fail-under` evaluation) on top of the existing 3:39 pytest runtime. Well within the 10-minute CI budget per ADR 0083 (engine) decision 4.
 - **Positive — visibility surface.** `$GITHUB_STEP_SUMMARY` extraction surfaces per-module coverage in every CI run. A reviewer looking at a PR's checks tab sees what fraction of the corpus is exercised and which modules have the lowest coverage, without spelunking through the log.
 - **Cost — uv.lock churn.** Adding pytest-cov pulled in `coverage` v7.14.0 as a transitive (pytest-cov's coverage backend). Lockfile regenerated; 2 new packages in the venv.
-- **Cost — CI runtime.** ~5s added to the pytest step (xml report + term-missing + threshold evaluation). Within the 10-minute CI budget per ADR 0065 (engine) decision 4. Composition with bandit (per ADR 0068 Tier 3) keeps the `validate` + `test` jobs well under the cap; re-evaluate at Phase 6 entry when the corpus is larger.
+- **Cost — CI runtime.** ~5s added to the pytest step (xml report + term-missing + threshold evaluation). Within the 10-minute CI budget per ADR 0083 (engine) decision 4. Composition with bandit (per ADR 0068 Tier 3) keeps the `validate` + `test` jobs well under the cap; re-evaluate at Phase 6 entry when the corpus is larger.
 - **Out-of-scope — branch coverage.** Line coverage only (`branch = false`). Branch coverage adds noise without proportional value at this corpus size; revisit if line-coverage produces too many false-positive passes.
 - **Out-of-scope — coverage on `engine/tools/hooks/*.sh`.** Bash; pytest-cov is Python-only. Tier 3 deferral; could pursue `bashcov` or `shellcheck-coverage` if hook complexity warrants.
 - **Out-of-scope — coverage on `product/seed-graph/migrations/*.sql`.** SQL; not Python.
 - **Out-of-scope — aspirational target (e.g., 90% goal).** Trend-watching, not aspirational. The floor is the regression-alarm threshold, not a target to push toward via test-padding.
-- **Out-of-scope — Phase 6+ application code (SwiftUI).** XCTest + xcov (or equivalent) is its own adoption, gated on Phase 9 entry per ADR 0065 product.
+- **Out-of-scope — Phase 6+ application code (SwiftUI).** XCTest + xcov (or equivalent) is its own adoption, gated on Phase 9 entry per ADR 0083 product.
 
 ### Empirical record of S-0136 baseline measurement
 
@@ -145,7 +145,7 @@ The chosen floor `78%` admits a 2-percentage-point regression budget — small e
 - [ADR 0050](0050-project-venv-and-hook-path-wiring.md) — venv resolution (pytest-cov invoked via `uv run`).
 - [ADR 0053](0053-mechanism-first-exercise-gate.md) — first-exercise readiness gate; this adoption qualifies via criterion 4.
 - [ADR 0064](0064-uv-lockfile-and-reproducible-builds.md) — `pyproject.toml` + `uv.lock` (pytest-cov pinned here; coverage config in pyproject.toml).
-- [ADR 0065 (engine)](0065-validate-py-mirror-to-ci.md) — CI mirror (this gate extends `.github/workflows/validate.yml`'s pytest step; the existing comment naming `#71 pytest-cov` is now honored).
+- [ADR 0083 (engine)](0083-validate-py-mirror-to-ci.md) — CI mirror (this gate extends `.github/workflows/validate.yml`'s pytest step; the existing comment naming `#71 pytest-cov` is now honored).
 - [ADR 0066](0066-pr-template-and-branch-protection.md) — PR template (extended with coverage-delta checkbox).
 - [ADR 0068](0068-bandit-sast-pre-commit-and-ci.md) — sister Tier 2 adoption + Tier 3 forward-pointer "Coverage gate composition with #71 pytest-cov" honored here.
 - [`engine/build_readiness/pytest_cov_first_exercise.md`](../build_readiness/pytest_cov_first_exercise.md) — first-exercise readiness note.

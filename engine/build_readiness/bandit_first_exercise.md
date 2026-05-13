@@ -64,7 +64,7 @@ Three coupled mechanisms landed in this session:
 - [ADR 0053](../adr/0053-mechanism-first-exercise-gate.md) — the gate itself.
 - [ADR 0067](../adr/0067-gitleaks-pre-commit-secret-scanning.md) — Pairing A sibling (gitleaks).
 - [ADR 0064](../adr/0064-uv-lockfile-and-reproducible-builds.md) — bandit pinned in `pyproject.toml` + `uv.lock`.
-- [ADR 0065 (engine)](../adr/0065-validate-py-mirror-to-ci.md) — CI mirror (this gate extends the workflow).
+- [ADR 0083 (engine)](../adr/0083-validate-py-mirror-to-ci.md) — CI mirror (this gate extends the workflow).
 - [`engine/tools/bandit.yaml`](../tools/bandit.yaml) — config.
 - [`engine/tools/hooks/pre-commit`](../tools/hooks/pre-commit) — host hook.
 - [`engine/operations/dependency-discipline.md`](../operations/dependency-discipline.md) — refresh procedure.

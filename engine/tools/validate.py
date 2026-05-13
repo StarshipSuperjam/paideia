@@ -590,6 +590,7 @@ def validate_repo_structure() -> ValidationResult:
     r.merge(validate_superseded_adr_currency())
     r.merge(validate_adr_back_reference_orphan())
     r.merge(validate_adr_consequences_deliverable_audit())
+    r.merge(validate_duplicate_adr_number())
 
     return r
 
@@ -1468,6 +1469,51 @@ def validate_adr_consequences_deliverable_audit() -> ValidationResult:
                         f"{rel}: Consequences promised {missing} for "
                         f"{target_session} (closed) — file(s) absent on disk",
                     )
+    return r
+
+
+def validate_duplicate_adr_number() -> ValidationResult:
+    """Soft-warn on any ADR number appearing in both engine/adr and product/adr.
+
+    Per ADR 0037 the engine/product partition shares a single ADR numbering
+    sequence — numbers must not duplicate across the partition. The pre-S-0149
+    state carried a collision at slot 0052 (engine 0052 + product 0052) per
+    Issue #91; the renumber at S-0149 closed it. This check is defense-in-depth
+    against recurrence — author-time mistakes in either partition surface here
+    at structural-phase validate time rather than via post-hoc audit.
+
+    Returns:
+        ValidationResult with check ``cascade_duplicate_adr_number`` recorded
+        and soft-warns under category ``duplicate_adr_number``.
+
+    Non-responsibilities:
+        - Does not handle the case of two engine ADRs or two product ADRs
+          sharing a number (within-partition); a file-system glob would
+          fail to write the second file with the same name.
+        - Does not propose a renumber. Reports the collision and exits.
+    """
+    r = ValidationResult()
+    r.add_check("cascade_duplicate_adr_number")
+
+    engine_numbers: dict[str, Path] = {}
+    if ENGINE_ADR_DIR.is_dir():
+        for adr in sorted(ENGINE_ADR_DIR.glob("[0-9][0-9][0-9][0-9]-*.md")):
+            engine_numbers[adr.name[:4]] = adr
+
+    product_numbers: dict[str, Path] = {}
+    if PRODUCT_ADR_DIR.is_dir():
+        for adr in sorted(PRODUCT_ADR_DIR.glob("[0-9][0-9][0-9][0-9]-*.md")):
+            product_numbers[adr.name[:4]] = adr
+
+    for num in sorted(set(engine_numbers) & set(product_numbers)):
+        engine_rel = engine_numbers[num].relative_to(REPO_ROOT)
+        product_rel = product_numbers[num].relative_to(REPO_ROOT)
+        r.soft_warn(
+            "duplicate_adr_number",
+            f"ADR number {num} appears in both partitions — {engine_rel} and "
+            f"{product_rel}. Per ADR 0037 the sequence is shared; renumber one "
+            f"per engine/operations/cascade-discipline.md procedure.",
+        )
     return r
 
 

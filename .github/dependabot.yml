@@ -14,7 +14,7 @@
 #                          Dependabot only reads the repo-root pyproject.toml.
 #   - github-actions     — reads .github/workflows/validate.yml. Bumps action
 #                          version pins; the validate.yml workflow is the
-#                          single CI workflow per ADR 0065 (engine).
+#                          single CI workflow per ADR 0083 (engine).
 #
 # Posture decisions per ADR 0069:
 #   - Weekly cadence on Mondays — Dependabot default; aligns batch review

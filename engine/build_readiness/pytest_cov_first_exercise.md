@@ -42,7 +42,7 @@ A single mechanism landing in CI only:
 
 ### Tier 2 — settle-in-advance, document, non-blocking
 
-- **First natural coverage-floor breach on `main`.** A future commit lands red on CI with coverage below 78%. Cleanup-session signal per ADR 0065 (engine)'s CI-red surface via `engine/tools/hooks/session-start.sh`. Record the trigger + the fix (restore coverage OR amend the floor per ADR 0074 decision 3).
+- **First natural coverage-floor breach on `main`.** A future commit lands red on CI with coverage below 78%. Cleanup-session signal per ADR 0083 (engine)'s CI-red surface via `engine/tools/hooks/session-start.sh`. Record the trigger + the fix (restore coverage OR amend the floor per ADR 0074 decision 3).
 - **First floor-raise ADR amendment.** When coverage rises sustainedly (e.g., a session adds substantial tests for the low-coverage modules and total rises to 84%+), a future session may amend ADR 0074 to raise the floor (e.g., to 82%). Track the time-to-first-amendment as a posture-holding signal: amendments are deliberate locks, not drive-by adjustments.
 - **pytest-cov / coverage version drift.** uv.lock pins exact versions (pytest-cov 7.1.0 + coverage 7.14.0 at S-0136). Major-version bumps may change `--cov-fail-under` semantics OR the `[tool.coverage]` config schema; reviewer regenerates uv.lock + runs full pytest before merging per [`engine/operations/dependency-discipline.md`](../operations/dependency-discipline.md). Per ADR 0069 + dependency-discipline.md major-version-bump rule, major bumps require an ADR amendment.
 
@@ -51,8 +51,8 @@ A single mechanism landing in CI only:
 - **Branch coverage.** Currently `branch = false` (line coverage only) per ADR 0074 decision 2. Revisit if line-coverage gate produces too many false-positive passes (e.g., conditional branches with one side never exercised but the surrounding line marked covered).
 - **Coverage on `engine/tools/hooks/*.sh`.** Bash; out-of-scope for pytest-cov. Would need `bashcov` or `shellcheck-coverage` if hook complexity warrants — deferred.
 - **Coverage on `product/seed-graph/migrations/*.sql`.** SQL; not Python.
-- **Coverage on Phase 6+ application code (SwiftUI).** XCTest + xcov (or equivalent) is its own adoption, gated on Phase 9 entry per ADR 0065 product.
-- **CI runtime budget composition with bandit (per [ADR 0068](../adr/0068-bandit-sast-pre-commit-and-ci.md) Tier 3 forward-pointer).** Bandit ~2s + pytest with coverage ~3:44 (3:39 pytest + ~5s coverage) = ~3:46 in the test+validate jobs. Well within the 10-minute CI budget per ADR 0065 (engine) decision 4. Re-evaluate at Phase 6 entry when the corpus is larger; if combined runtime crosses 5 minutes, ADR-amendment optimization pass (cache, parallelism, path filters) per ADR 0065.
+- **Coverage on Phase 6+ application code (SwiftUI).** XCTest + xcov (or equivalent) is its own adoption, gated on Phase 9 entry per ADR 0083 product.
+- **CI runtime budget composition with bandit (per [ADR 0068](../adr/0068-bandit-sast-pre-commit-and-ci.md) Tier 3 forward-pointer).** Bandit ~2s + pytest with coverage ~3:44 (3:39 pytest + ~5s coverage) = ~3:46 in the test+validate jobs. Well within the 10-minute CI budget per ADR 0083 (engine) decision 4. Re-evaluate at Phase 6 entry when the corpus is larger; if combined runtime crosses 5 minutes, ADR-amendment optimization pass (cache, parallelism, path filters) per ADR 0083.
 
 ## Status
 
@@ -72,14 +72,14 @@ A single mechanism landing in CI only:
 
 **`--cov-fail-under` exit-code discrepancy risk.** Coverage uses exit 2 (not 1) on threshold breach. The CI wrapper's `STATUS != 0` check catches both pytest failure (exit 1) and coverage failure (exit 2). If a future refactor moves to `STATUS == 1` (or similar), coverage failures could escape — mitigation is the existing check shape + a comment in `.github/workflows/validate.yml` naming the exit-2 inheritance.
 
-**Test-suite runtime drift risk.** Current 3:39 pytest runtime. Coverage instrumentation adds ~5s. If the suite grows to 8+ minutes, the 10-minute CI budget tightens. Mitigation: ADR 0065 (engine) decision 4 names the 10-minute budget; ADR 0068 Tier 3 forward-pointer names the combined runtime as a re-evaluation trigger; this readiness note's Tier 3 inherits the trigger.
+**Test-suite runtime drift risk.** Current 3:39 pytest runtime. Coverage instrumentation adds ~5s. If the suite grows to 8+ minutes, the 10-minute CI budget tightens. Mitigation: ADR 0083 (engine) decision 4 names the 10-minute budget; ADR 0068 Tier 3 forward-pointer names the combined runtime as a re-evaluation trigger; this readiness note's Tier 3 inherits the trigger.
 
 ## Cross-references
 
 - [ADR 0074](../adr/0074-pytest-cov-coverage-floor.md) — the contract.
 - [ADR 0053](../adr/0053-mechanism-first-exercise-gate.md) — the gate itself.
 - [ADR 0064](../adr/0064-uv-lockfile-and-reproducible-builds.md) — pytest-cov pinned in `pyproject.toml` + `uv.lock`.
-- [ADR 0065 (engine)](../adr/0065-validate-py-mirror-to-ci.md) — CI mirror (this gate extends the workflow); the pytest step's existing comment naming `#71 pytest-cov` is now honored.
+- [ADR 0083 (engine)](../adr/0083-validate-py-mirror-to-ci.md) — CI mirror (this gate extends the workflow); the pytest step's existing comment naming `#71 pytest-cov` is now honored.
 - [ADR 0066](../adr/0066-pr-template-and-branch-protection.md) — PR template (extended with coverage-delta checkbox).
 - [ADR 0068](../adr/0068-bandit-sast-pre-commit-and-ci.md) — sister Tier 2 adoption; Tier 3 forward-pointer "Coverage gate composition" honored here.
 - [`engine/operations/dependency-discipline.md`](../operations/dependency-discipline.md) — refresh procedure for pytest-cov + coverage.

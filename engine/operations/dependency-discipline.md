@@ -78,7 +78,7 @@ Per [ADR 0069](../adr/0069-dependabot-pip-and-actions-ecosystems.md) (S-0133), [
 1. Bump the floor pin in `pyproject.toml` to a minor/patch release (or above a CVE'd version).
 2. Open a PR with the `pyproject.toml` diff (grouped per ecosystem per ADR 0069 decision 3 — one PR per week per ecosystem for minor/patch; major-version bumps land separately).
 
-**Dependabot does NOT regenerate `uv.lock`.** The `pip` ecosystem reads `pyproject.toml` floors and bumps them; lockfile regen is the reviewer's responsibility. The standard refresh procedure applies (above): pull the Dependabot branch, run `uv lock && uv sync`, amend the PR with the regenerated `uv.lock`, push. The PR template's lockfile-regen reminder line surfaces the step at human-review time. CI hard-fails on `uv lock --check` per [ADR 0065 (engine)](../adr/0065-validate-py-mirror-to-ci.md) decision 3, so a Dependabot PR with stale `uv.lock` cannot merge until regenerated.
+**Dependabot does NOT regenerate `uv.lock`.** The `pip` ecosystem reads `pyproject.toml` floors and bumps them; lockfile regen is the reviewer's responsibility. The standard refresh procedure applies (above): pull the Dependabot branch, run `uv lock && uv sync`, amend the PR with the regenerated `uv.lock`, push. The PR template's lockfile-regen reminder line surfaces the step at human-review time. CI hard-fails on `uv lock --check` per [ADR 0083 (engine)](../adr/0083-validate-py-mirror-to-ci.md) decision 3, so a Dependabot PR with stale `uv.lock` cannot merge until regenerated.
 
 The reviewer accepts the PR. **No auto-merge** per ADR 0069 — user merges; CI green is necessary but not sufficient.
 
@@ -149,7 +149,7 @@ Some gates depend on tools outside the Python venv — non-Python binaries that 
 | Tool | Pinned version | Installation (Darwin/macOS) | Required by | Contract |
 |---|---|---|---|---|
 | `gitleaks` | `8.30.1` | `brew install gitleaks` | `engine/tools/hooks/pre-commit` gitleaks step | [ADR 0067](../adr/0067-gitleaks-pre-commit-secret-scanning.md) |
-| `gh` | (any recent) | `brew install gh` | `engine/tools/hooks/session-start.sh` CI-red surface; routine_lifecycle_push.py admin-bypass; validate.py `issue_collision` | [ADR 0054](../adr/0054-lifecycle-push-wrapping-against-default-branch-push-gate.md) + [ADR 0065 (engine)](../adr/0065-validate-py-mirror-to-ci.md) |
+| `gh` | (any recent) | `brew install gh` | `engine/tools/hooks/session-start.sh` CI-red surface; routine_lifecycle_push.py admin-bypass; validate.py `issue_collision` | [ADR 0054](../adr/0054-lifecycle-push-wrapping-against-default-branch-push-gate.md) + [ADR 0083 (engine)](../adr/0083-validate-py-mirror-to-ci.md) |
 | `uv` | (any recent) | `brew install uv` | every Python invocation (venv resolution + dep install) | [ADR 0064](../adr/0064-uv-lockfile-and-reproducible-builds.md) |
 
 **Version-pin discipline.** External tools pinned to a major version. Substantive version drift (major-version bump) requires an ADR amendment because the tool's config schema may change. Forensic minor-version drift is recorded in the consuming ADR's empirical record, not enforced.

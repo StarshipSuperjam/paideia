@@ -1,5 +1,5 @@
 # CI mirror of engine/tools/validate.py + pytest engine/tools.
-# Authored at S-0131 per engine/adr/0065-validate-py-mirror-to-ci.md (Issue #68).
+# Authored at S-0131 per engine/adr/0083-validate-py-mirror-to-ci.md (Issue #68).
 #
 # What this workflow runs (mirrors engine/tools/hooks/pre-commit):
 #   1. uv lock --check                  — fail-fast on lockfile drift

@@ -10,7 +10,7 @@ Pre-S-0131, the repo had no `.github/PULL_REQUEST_TEMPLATE.md` and no branch-pro
 
 The repo went OSS (Apache 2.0) and publicly visible at S-0130 per [ADR 0065 (product)](../../product/adr/0065-oss-pivot-and-byok-disposition.md). External contributors are now reachable; the PR template needs to encode Paideia's session-discipline contracts so that contributors (and the maintainer) confirm the discipline at PR-author time rather than discovering it at review time.
 
-Co-landing with the CI mirror [ADR 0065 (engine)](0065-validate-py-mirror-to-ci.md) (Pairing B per `engine/STATE.md` SWE-hardening rollout). The branch-protection rule's required-status-checks reference [ADR 0065 (engine)](0065-validate-py-mirror-to-ci.md)'s `validate` and `test` jobs by name; the pairing is hard-sequentially coupled because the protection rule cannot be configured before the CI checks exist.
+Co-landing with the CI mirror [ADR 0083 (engine)](0083-validate-py-mirror-to-ci.md) (Pairing B per `engine/STATE.md` SWE-hardening rollout). The branch-protection rule's required-status-checks reference [ADR 0083 (engine)](0083-validate-py-mirror-to-ci.md)'s `validate` and `test` jobs by name; the pairing is hard-sequentially coupled because the protection rule cannot be configured before the CI checks exist.
 
 ## Decision
 
@@ -98,7 +98,7 @@ The Issue #69 body explicitly named no readiness note required, and this evaluat
 
 - [ADR 0054](0054-lifecycle-push-wrapping-against-default-branch-push-gate.md) — `routine_lifecycle_push.py` admin-bypass interaction (the load-bearing reason `enforce_admins=false`).
 - [ADR 0053](0053-mechanism-first-exercise-gate.md) — first-exercise readiness gate (this adoption does not qualify; evaluation in Consequences).
-- [ADR 0065 (engine)](0065-validate-py-mirror-to-ci.md) — co-landing CI mirror (the protection rule's required status checks).
+- [ADR 0083 (engine)](0083-validate-py-mirror-to-ci.md) — co-landing CI mirror (the protection rule's required status checks).
 - [`engine/operations/code-discipline.md`](../operations/code-discipline.md) — the discipline contracts the template encodes.
 - [Issue #69](https://github.com/StarshipSuperjam/paideia/issues/69) — closes.
 - [Issue #80](https://github.com/StarshipSuperjam/paideia/issues/80) — CODEOWNERS; re-evaluate `enforce_admins` + `required_pull_request_reviews` when this triggers (≥2 collaborators).

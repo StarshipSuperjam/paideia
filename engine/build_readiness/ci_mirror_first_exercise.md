@@ -1,6 +1,6 @@
 # CI mirror — first-exercise readiness
 
-> Per [ADR 0053](../adr/0053-mechanism-first-exercise-gate.md). Tracks readiness criteria for the GitHub Actions CI mirror of `validate.py` landed at S-0131 per [ADR 0065 (engine)](../adr/0065-validate-py-mirror-to-ci.md) (Issue [#68](https://github.com/StarshipSuperjam/paideia/issues/68)).
+> Per [ADR 0053](../adr/0053-mechanism-first-exercise-gate.md). Tracks readiness criteria for the GitHub Actions CI mirror of `validate.py` landed at S-0131 per [ADR 0083 (engine)](../adr/0083-validate-py-mirror-to-ci.md) (Issue [#68](https://github.com/StarshipSuperjam/paideia/issues/68)).
 
 ## Trigger criteria evaluation
 
@@ -59,7 +59,7 @@ Tier 3 (named-and-deferred forward-pointers):
 
 ## Cross-references
 
-- [ADR 0065 (engine)](../adr/0065-validate-py-mirror-to-ci.md) — the contract.
+- [ADR 0083 (engine)](../adr/0083-validate-py-mirror-to-ci.md) — the contract.
 - [ADR 0066](../adr/0066-pr-template-and-branch-protection.md) — co-landing PR template + branch protection (the protection rule's required status checks ARE this workflow's jobs).
 - [ADR 0054](../adr/0054-lifecycle-push-wrapping-against-default-branch-push-gate.md) — `routine_lifecycle_push.py`; preserved by `enforce_admins=false`.
 - [ADR 0053](../adr/0053-mechanism-first-exercise-gate.md) — the gate itself.

@@ -1,4 +1,4 @@
-# ADR 0065 — Mirror `validate.py` gate to GitHub Actions CI
+# ADR 0083 — Mirror `validate.py` gate to GitHub Actions CI
 
 - **Status:** Accepted
 - **Date:** 2026-05-11

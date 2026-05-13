@@ -124,7 +124,7 @@ Post-S-0132 baseline:
 - [ADR 0050](0050-project-venv-and-hook-path-wiring.md) — venv resolution (bandit invoked via `uv run`).
 - [ADR 0053](0053-mechanism-first-exercise-gate.md) — first-exercise readiness gate; this adoption qualifies.
 - [ADR 0064](0064-uv-lockfile-and-reproducible-builds.md) — `pyproject.toml` + `uv.lock` (bandit pinned here).
-- [ADR 0065 (engine)](0065-validate-py-mirror-to-ci.md) — CI mirror (this ADR extends `.github/workflows/validate.yml`).
+- [ADR 0083 (engine)](0083-validate-py-mirror-to-ci.md) — CI mirror (this ADR extends `.github/workflows/validate.yml`).
 - [ADR 0067](0067-gitleaks-pre-commit-secret-scanning.md) — Pairing A sibling (gitleaks secret scanning).
 - [`engine/build_readiness/bandit_first_exercise.md`](../build_readiness/bandit_first_exercise.md) — first-exercise readiness note.
 - [`engine/tools/bandit.yaml`](../tools/bandit.yaml) — config file.

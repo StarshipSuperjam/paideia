@@ -127,7 +127,7 @@ Post-enablement read-back recorded in the S-0132 ENGINE_LOG entry; the gitleaks 
 - [ADR 0038](0038-three-layer-expression-contract-ai-authored-code.md) — three-layer expression contract; this gate is Layer 2 sibling for the secret-scan surface.
 - [ADR 0042](0042-soft-warn-lifecycle-archive-canon.md) — soft-warn lifecycle (the future `gitleaks_config_drift` category will surface here).
 - [ADR 0053](0053-mechanism-first-exercise-gate.md) — first-exercise readiness gate; this adoption qualifies.
-- [ADR 0065 (engine)](0065-validate-py-mirror-to-ci.md) — CI mirror (which intentionally does NOT add a gitleaks step per decision 5).
+- [ADR 0083 (engine)](0083-validate-py-mirror-to-ci.md) — CI mirror (which intentionally does NOT add a gitleaks step per decision 5).
 - [ADR 0068](0068-bandit-sast-pre-commit-and-ci.md) — Pairing A sibling; bandit SAST.
 - [`engine/build_readiness/gitleaks_first_exercise.md`](../build_readiness/gitleaks_first_exercise.md) — first-exercise readiness note.
 - [`engine/tools/gitleaks.toml`](../tools/gitleaks.toml) — config file.

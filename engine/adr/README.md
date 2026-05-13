@@ -57,7 +57,6 @@ The engine collection has **44 ADRs total — all Accepted**. Engine ADRs are ab
 | [0062](0062-retire-adr-inline-amendments-and-governed-doc-soft-warns.md) | Retire ADR inline-amendment pattern + governed-doc validator soft-warns | Accepted |
 | [0063](0063-validator-tiered-runtime-targets-and-regression-soft-warn.md) | Validator tiered runtime targets + per-phase regression soft-warn | Accepted |
 | [0064](0064-uv-lockfile-and-reproducible-builds.md) | `uv` lockfile + reproducible dependency builds | Accepted |
-| [0065](0065-validate-py-mirror-to-ci.md) | Mirror `validate.py` gate to GitHub Actions CI | Accepted |
 | [0066](0066-pr-template-and-branch-protection.md) | PR template + branch protection on `main` | Accepted |
 | [0067](0067-gitleaks-pre-commit-secret-scanning.md) | `gitleaks` pre-commit secret scanning + GitHub-native scanning | Accepted |
 | [0068](0068-bandit-sast-pre-commit-and-ci.md) | `bandit` SAST in pre-commit + CI | Accepted |
@@ -75,6 +74,7 @@ The engine collection has **44 ADRs total — all Accepted**. Engine ADRs are ab
 | [0080](0080-boot-time-dependency-version-visibility.md) | Boot-time dependency version visibility + stale Dependabot PR surface | Accepted |
 | [0081](0081-ship-multi-model-orchestration-skill.md) | `/ship` multi-model orchestration skill | Accepted |
 | [0082](0082-routine-boot-freshness-and-concurrency-defense.md) | Routine-mode boot freshness and concurrency defense (renumbered from 0052 at S-0149 to resolve cross-partition collision with product ADR 0052) | Accepted |
+| [0083](0083-validate-py-mirror-to-ci.md) | Mirror `validate.py` gate to GitHub Actions CI (renumbered from 0065 at S-0149 to resolve cross-partition collision with product ADR 0065) | Accepted |
 
 ## Adding a new engine ADR
 

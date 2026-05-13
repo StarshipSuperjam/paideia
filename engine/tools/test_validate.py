@@ -57,6 +57,7 @@ from validate import (  # noqa: E402
     session_id_from_current,
     validate_adr_back_reference_orphan,
     validate_adr_consequences_deliverable_audit,
+    validate_duplicate_adr_number,
     validate_code_gates,
     validate_graph,
     validate_repo_structure,
@@ -1800,6 +1801,40 @@ class TestAdrConsequencesDeliverableAudit:
         )
         r = validate_adr_consequences_deliverable_audit()
         assert "adr_consequences_deliverable_audit" not in r.soft_warns
+
+
+class TestDuplicateAdrNumber:
+    """validate_duplicate_adr_number: cross-partition collision detection.
+
+    Defense-in-depth landed at S-0149 alongside the engine ADR 0052 → 0082
+    renumber (Issue #91). Catches author-time mistakes in either partition
+    at structural-phase validate time rather than via post-hoc audit.
+    """
+
+    def test_disjoint_partitions_does_not_warn(self, synthetic_repo: Path) -> None:
+        """Engine 0050 + product 0060 (no collision) does not warn."""
+        _write_adr(synthetic_repo, engine=True, num="0050", status="Accepted")
+        _write_adr(synthetic_repo, engine=False, num="0060", status="Accepted")
+        r = validate_duplicate_adr_number()
+        assert "duplicate_adr_number" not in r.soft_warns
+
+    def test_cross_partition_collision_warns(self, synthetic_repo: Path) -> None:
+        """Engine 0050 + product 0050 (collision) warns once for that number."""
+        _write_adr(synthetic_repo, engine=True, num="0050", status="Accepted")
+        _write_adr(synthetic_repo, engine=False, num="0050", status="Accepted")
+        r = validate_duplicate_adr_number()
+        assert "duplicate_adr_number" in r.soft_warns
+        assert len(r.soft_warns["duplicate_adr_number"]) == 1
+        msg = r.soft_warns["duplicate_adr_number"][0]
+        assert "0050" in msg
+        assert "engine/adr/0050" in msg
+        assert "product/adr/0050" in msg
+
+    def test_engine_only_does_not_warn(self, synthetic_repo: Path) -> None:
+        """Engine ADR with no matching product ADR does not warn."""
+        _write_adr(synthetic_repo, engine=True, num="0050", status="Accepted")
+        r = validate_duplicate_adr_number()
+        assert "duplicate_adr_number" not in r.soft_warns
 
 
 # ---------------------------------------------------------------------------

@@ -10,7 +10,7 @@ Pre-S-0137, Paideia documents eight type labels (`bug`, `enhancement`, `tech-deb
 
 [Issue #72](https://github.com/StarshipSuperjam/paideia/issues/72) named the adoption as the last remaining Tier 2 SWE-hardening unit. With this ADR, Tier 2 closes entirely (Pairing A #66 + #70 closed at S-0132 per ADRs 0067 + 0068; #71 pytest-cov at S-0136 per ADR 0074; Pairing C #73 + #74 at S-0134 per ADRs 0070 + 0071; #75 at S-0135 per ADRs 0072 + 0073).
 
-`.github/` precedent: [`PULL_REQUEST_TEMPLATE.md`](../../.github/PULL_REQUEST_TEMPLATE.md) per [ADR 0066](0066-pr-template-and-branch-protection.md) (S-0131); [`dependabot.yml`](../../.github/dependabot.yml) per [ADR 0069](0069-dependabot-pip-and-actions-ecosystems.md) (S-0133); [`workflows/validate.yml`](../../.github/workflows/validate.yml) per [ADR 0065 engine](0065-validate-py-mirror-to-ci.md) (S-0131) — the existing surface is comfortable territory for adding mechanical defaults.
+`.github/` precedent: [`PULL_REQUEST_TEMPLATE.md`](../../.github/PULL_REQUEST_TEMPLATE.md) per [ADR 0066](0066-pr-template-and-branch-protection.md) (S-0131); [`dependabot.yml`](../../.github/dependabot.yml) per [ADR 0069](0069-dependabot-pip-and-actions-ecosystems.md) (S-0133); [`workflows/validate.yml`](../../.github/workflows/validate.yml) per [ADR 0083 engine](0083-validate-py-mirror-to-ci.md) (S-0131) — the existing surface is comfortable territory for adding mechanical defaults.
 
 Pattern source: standard GitHub issue forms (`.yml` config files under `.github/ISSUE_TEMPLATE/`). No project-external authoring pattern is adapted here; the GitHub spec is the spec.
 

@@ -84,6 +84,12 @@ An ADR's Consequences section anticipated a deliverable "around S-NNNN," that se
 
 Recoverable — either land the deliverable (with closing-commit handshake per [`cascade-discipline.md`](cascade-discipline.md): cite the ADR id in the commit message), or amend the ADR's Consequences section to remove the now-obsolete promise, or document the deferral with a new expected session.
 
+### `duplicate_adr_number`
+
+An ADR number (4-digit prefix) appears in both `engine/adr/NNNN-*.md` and `product/adr/NNNN-*.md`. Per [ADR 0037](../adr/0037-engine-product-wall-and-changelog-rename.md) the engine/product partition shares a single ADR numbering sequence — numbers must not duplicate across the partition. Active from S-0149 onward — defense-in-depth landed alongside the engine ADR 0052 → 0082 renumber that closed [Issue #91](https://github.com/StarshipSuperjam/paideia/issues/91)'s collision.
+
+Recoverable — pick one of the two ADRs to renumber (typically the one with the smaller forward-cascade), run the `git grep -l '<old-path>'` rename procedure per [`cascade-discipline.md`](cascade-discipline.md), and land the rename + all present-truth reference updates in a single atomic commit.
+
 ### `chromadb_palace_health`
 
 The shared-state probe at [`engine/tools/probe_palace.py`](../tools/probe_palace.py) reported a level-1 (suspect) condition — palace path missing, no collections, or another anomaly that doesn't constitute outright corruption. Active from S-0035 onward per [ADR 0045](../adr/0045-shared-state-integrity-discipline.md). Probe runs at every `validate.py` invocation in the default check set and in the `--health-probe-only` mode used by the SessionStart hook.
