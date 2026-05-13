@@ -1,0 +1,39 @@
+{
+  "id": "S-0145",
+  "started_at": "2026-05-13T05:23:16Z",
+  "closed_at": "2026-05-13T06:02:48Z",
+  "status": "closed",
+  "mode": "build",
+  "working_on": "Issue #113 HNSW sync_threshold prevention bundled with mempalace 3.3.5 upgrade: project-side wrapper tool + boot/rebuild wiring + ADR 0079 + Issue correction + new upstream Issue",
+  "outcome_summary": "Issue #113 closed via ADR 0079 (HNSW sync_threshold tuning). Hybrid posture: project-side `mempalace_set_sync_threshold.py` sets steady-state 100 on live palace via chromadb 1.5.x's `configuration` channel; bulk rebuilds inherit mempalace's `_HNSW_BLOAT_GUARD` 50_000 default. Phase 1.5a empirical verification surfaced Issue #113's three premise errors (mechanism: mempalace's 50_000, not chromadb's 1000; version: 3.3.4, not 3.3.5; line numbers stale); four-section correction comment posted before close. User-directed safeguards: mandatory --backup-dir, pre/post-switch verification, palace health probe. 27 pytests green; live palace converged from 50_000 to 100 (backup at ~/.mempalace/palace.S-0145-pre-threshold-switch). Mempalace 3.3.4 → 3.3.5 + chromadb 1.5.9 (transitive) bundled via in-session pyproject + uv.lock edit (Dependabot PR #104 closed stale, 19 commits behind main). New upstream Issue MemPalace/mempalace#1489 proposes `--hnsw-sync-threshold N` flag. 10th consecutive ADR 0053 negative finding (0/4 criteria satisfied). 4 commits: eager-claim be4574c + dep-bump 394fc52 + deliverable 8e10416 + close (pending). mempalace_unavailable_acknowledged: mempalace_diary_write returned MCP error -32000 throughout shutdown despite mempalace_status, mempalace_add_drawer, and mempalace_search all working — substrate intermittent at diary_write specifically. Diary content preserved as a `wing_claude/diary`-room drawer via mempalace_add_drawer fallback (drawer_wing_claude_diary_ff8f23ac5c052a96e276cbbc).",
+  "outcome_summary_soft_warns": {
+    "issue_collision": 14,
+    "missing_rigor_score": 360,
+    "orphan_leaf": 1,
+    "mempalace_diary_write_skipped_substrate_intermittent": 1,
+    "session_dir_strays": 1,
+    "mempalace_wing_count_growth": 1
+  },
+  "scope_delivery": {
+    "delivered": true,
+    "note": "All approved-plan phases landed: Phase 1 upgrade + Phase 1.5a/b empirical verification + Phase 2 tool + tests + Phase 3 boot/rebuild wiring + Phase 4 in-session empirical exercise (verify-only → apply with backup → idempotency → direct chromadb inspection) + Phase 5 ADR + ops doc + adr/README + ENGINE_LOG + STATE.md + Issue #113 correction comment + Issue #113 close summary + new upstream Issue #1489 + MemPalace decision drawer + diary-equivalent drawer (fallback due to diary_write -32000). Plan revised mid-session at Phase 1.5a per user pushback when the empirical verification surfaced the deeper mechanism premise error (50_000 vs 1000); user directed hybrid posture + safeguards. Three layers of user-pushback-driven scope correction preserved across plan revision."
+  },
+  "approved_plan": "~/.claude/plans/twinkling-finding-kitten.md",
+  "branch": "claude/charming-saha-ed3849",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/charming-saha-ed3849",
+  "next_session_handle": null,
+  "mempalace_activity": {
+    "search_calls": 4,
+    "diary_read_calls": 1,
+    "diary_write_calls": 0,
+    "add_drawer_calls": 2,
+    "status_calls": 1,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 8,
+    "first_call_ts": "2026-05-13T05:07:06Z",
+    "last_call_ts": "2026-05-13T06:01:29Z"
+  }
+}
