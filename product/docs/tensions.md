@@ -131,9 +131,9 @@ Resolved. Mastery is portable — per-concept, not per-concept-per-path. One mas
 ---
 
 ## OQ-DEC1-A: Server-side mastery computation — confirm or revisit?
-**Added: 2026-04-29 (S-0001) | Status: Open | Decide before: Phase 6**
+**Added: 2026-04-29 (S-0001) | Resolved by [ADR 0085](../adr/0085-server-side-mastery-computation-confirmed.md) — 2026-05-13 (S-0152)**
 
-Current architecture (per `learner-model.md`) computes mastery server-side with thin native clients (event emitters and snapshot consumers). Phase DEC.1 (between Phase 5 and Phase 6) is the natural moment to revisit. Reasons to confirm: keeps clients thin, allows mastery formula updates without client deploys, single source of truth. Reasons to revisit: client-side could enable richer offline UX, lower API cost. Decision lands as an ADR with Status: Accepted, implementation tag Phase 6.
+Resolved as **confirm server-side**. Mastery computation runs server-side per `learner-model.md:202` ("No client-side mastery computation"); native clients remain thin event emitters and snapshot consumers. The original revisit motivations no longer survive post-S-0128 reality: "lower API cost" evaporated under [ADR 0065](../adr/0065-oss-pivot-and-byok-disposition.md)'s BYOK regime (Paideia is out of the API path; per-turn back-end calls hit Paideia's own Supabase backend, not Anthropic), and "richer offline UX" is already met by the existing snapshot-cache + event-queue offline design without moving the computation. ADR 0065 commitment 8 had already pre-committed server-side mastery; ADR 0085 makes that binding explicit as the decide-before-Phase-6 settlement. The Phase 7 formula-stability review is the post-deploy verification trigger for the formula-tunability premise.
 
 ---
 

@@ -25,7 +25,7 @@ The `Status:` field is required; `engine/tools/validate.py` soft-warns on ADR fi
 
 ## Index
 
-The product collection has **37 ADRs total — 33 Accepted plus 4 Superseded** ([ADR 0002](0002-commercial-sustainability-without-pedagogical-compromise.md) by [ADR 0032](0032-personal-project-disposition.md); [ADR 0029](0029-personal-financial-cost-ceiling.md) by [ADR 0065](0065-oss-pivot-and-byok-disposition.md); [ADR 0032](0032-personal-project-disposition.md) by [ADR 0035](0035-multi-platform-apple-expansion.md); [ADR 0035](0035-multi-platform-apple-expansion.md) by [ADR 0065](0065-oss-pivot-and-byok-disposition.md)). The canonical project-wide ADR count lives in [`engine/STATE.md`](../../engine/STATE.md); the engine subtree carries the engine-side ADRs in [`engine/adr/`](../../engine/adr/). ADR numbers are drawn from a single shared sequence and do not duplicate across the partition. ADRs are grouped below by the structural role they play in the project.
+The product collection has **38 ADRs total — 34 Accepted plus 4 Superseded** ([ADR 0002](0002-commercial-sustainability-without-pedagogical-compromise.md) by [ADR 0032](0032-personal-project-disposition.md); [ADR 0029](0029-personal-financial-cost-ceiling.md) by [ADR 0065](0065-oss-pivot-and-byok-disposition.md); [ADR 0032](0032-personal-project-disposition.md) by [ADR 0035](0035-multi-platform-apple-expansion.md); [ADR 0035](0035-multi-platform-apple-expansion.md) by [ADR 0065](0065-oss-pivot-and-byok-disposition.md)). The canonical project-wide ADR count lives in [`engine/STATE.md`](../../engine/STATE.md); the engine subtree carries the engine-side ADRs in [`engine/adr/`](../../engine/adr/). ADR numbers are drawn from a single shared sequence and do not duplicate across the partition. ADRs are grouped below by the structural role they play in the project.
 
 ### Strong working commitments (ADRs 0001–0012)
 
@@ -115,6 +115,14 @@ The product collection has **37 ADRs total — 33 Accepted plus 4 Superseded** (
 | [0065](0065-oss-pivot-and-byok-disposition.md) | OSS pivot and BYOK disposition; open-source under Apache 2.0, users bring their own Anthropic key (supersedes ADRs 0029 + 0035) | Accepted |
 
 > ADRs 0062–0064 sit in the numerical range between the production-audit closeout and the OSS pivot but file under `engine/adr/` (retire-ADR-inline-amendments + governed-doc soft-warns; validator tiered runtime targets; uv lockfile + reproducible builds); see [`engine/adr/README.md`](../../engine/adr/README.md) for the engine collection.
+
+### Phase 6 entry — OQ-DEC1 tension-set settlement (ADRs 0085–0088, product-side)
+
+| ADR | Title | Status |
+|---|---|---|
+| [0085](0085-server-side-mastery-computation-confirmed.md) | Server-side mastery computation confirmed (settles OQ-DEC1-A) | Accepted |
+
+> The next available shared ADR number entering S-0152 was 0085 (engine ADRs 0066–0084 already occupied 0066–0084 in the shared sequence per ADR 0037). The four OQ-DEC1 settlements draw from the 0085–0088 range accordingly.
 
 ## Adding a new product ADR
 
