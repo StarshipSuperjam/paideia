@@ -18,7 +18,7 @@ The skill is the depth pass for security. It is orthogonal to:
 - **bandit** ([ADR 0068](../../../engine/adr/0068-bandit-sast-pre-commit-and-ci.md)) — pre-commit + CI SAST. Catches insecure code patterns (B-codes). `/security-review` reads for *semantic* security: is the bcrypt rounds-count above the threshold? Is the JWT verification order correct? Is the CSP allowlist actually scoped?
 - **Dependabot** ([ADR 0069](../../../engine/adr/0069-dependabot-pip-and-actions-ecosystems.md)) — weekly vulnerable-dep surfacing. `/security-review` reads for new dependencies' security posture *before* the version bump matters.
 
-None of those three substitutes for `/security-review`. The skill composes with future `/ship` per [Issue #76](https://github.com/StarshipSuperjam/paideia/issues/76) as the reviewer-side counterpart to [`/review`](../review/SKILL.md)'s writer-side.
+None of those three substitutes for `/security-review`. The skill composes with [`/ship`](../ship/SKILL.md) per [ADR 0081](../../../engine/adr/0081-ship-multi-model-orchestration-skill.md) (landed at S-0148) as the security-depth sub-agent alongside [`/review`](../review/SKILL.md) (writer-side) and a coverage-delta check. `/ship` runs all three as parallel sub-agents and synthesizes a GO / GO-WITH-CAVEATS / NO-GO verdict. Use `/security-review` directly for narrow security-only passes; use `/ship` for the full pre-merge composition.
 
 ## OWASP Top 10 walk
 
@@ -187,7 +187,7 @@ N-A is a real verdict — most OWASP items will be N-A on most pre-Phase-6 chang
 - [`../review/anti-rationalization.md`](../review/anti-rationalization.md) — shared with [`/review`](../review/SKILL.md).
 - [ADR 0071](../../../engine/adr/0071-project-wired-security-review-skill.md) — the citable contract.
 - [`/review`](../review/SKILL.md) — five-axis code review (depth-0 security pass is one of its axes; this is the depth-N pass).
-- [Issue #76](https://github.com/StarshipSuperjam/paideia/issues/76) — `/ship` orchestrator that will compose this skill.
+- [`/ship`](../ship/SKILL.md) — multi-model orchestrator composing this skill (landed at S-0148 per [ADR 0081](../../../engine/adr/0081-ship-multi-model-orchestration-skill.md)).
 - [ADR 0044](../../../engine/adr/0044-skill-conversion-recipe-vs-reference.md) — recipe-vs-reference partition.
 - [ADR 0055](../../../engine/adr/0055-apply-migration-wrapping-against-production-reads-gate.md) — postcondition-assertion block (Layer 2.5).
 - [ADR 0067](../../../engine/adr/0067-gitleaks-pre-commit-secret-scanning.md), [ADR 0068](../../../engine/adr/0068-bandit-sast-pre-commit-and-ci.md), [ADR 0069](../../../engine/adr/0069-dependabot-pip-and-actions-ecosystems.md) — defense-in-depth siblings.

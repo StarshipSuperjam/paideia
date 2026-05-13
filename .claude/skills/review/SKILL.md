@@ -10,7 +10,7 @@ disable-model-invocation: true
 
 ## When to invoke
 
-A `/review` pass is warranted on any non-trivial change before merge — the writer's pre-merge self-review and the reviewer's PR-time pass. "Non-trivial" is judgment-bound; the change-size discipline below gives the operational test. The skill composes with future `/ship` per [Issue #76](https://github.com/StarshipSuperjam/paideia/issues/76) (this is the writer-side; a second model performs the reviewer-side; user adjudicates).
+A `/review` pass is warranted on any non-trivial change before merge — the writer's pre-merge self-review and the reviewer's PR-time pass. "Non-trivial" is judgment-bound; the change-size discipline below gives the operational test. The skill composes with [`/ship`](../ship/SKILL.md) per [ADR 0081](../../../engine/adr/0081-ship-multi-model-orchestration-skill.md) (landed at S-0148) as `/ship`'s code-review sub-agent; use `/review` directly for narrow writer-side passes, or `/ship` for the full pre-merge composition with `/security-review` and coverage-delta.
 
 Trivial changes that do NOT warrant `/review`:
 
@@ -130,9 +130,9 @@ Missing any of these is a `Required` finding.
 
 If a new ADR was authored in this session: confirm a matching `decision`-tagged drawer in MemPalace via `mempalace_search`. The post-adr-write hook reminds, but the reminder is non-blocking; the review verifies.
 
-### Multi-model writer/reviewer pattern (forward-pointer)
+### Multi-model writer/reviewer pattern (landed at S-0148 per ADR 0081)
 
-This skill is the writer-side. `/ship` (per Issue #76) will compose it with a reviewer-side run on a different model. Until `/ship` lands, the multi-model pattern is unavailable; `/review` runs as a single-model self-review or human-PR review.
+This skill is the writer-side. [`/ship`](../ship/SKILL.md) per [ADR 0081](../../../engine/adr/0081-ship-multi-model-orchestration-skill.md) composes this skill as its code-review sub-agent alongside [`/security-review`](../security-review/SKILL.md) (security depth) and a coverage-delta check, runs all three as parallel sub-agents, and synthesizes a GO / GO-WITH-CAVEATS / NO-GO verdict. The multi-model framing remains aspirational — all three sub-agents currently run on the parent's model — but the perspective-separation (three independent sub-agents from fresh context) provides the anti-rationalization-by-perspective-separation property even without per-Agent model heterogeneity. Use `/review` directly for narrow writer-side passes; use `/ship` for the full pre-merge composition.
 
 ## Review process sequence
 
@@ -199,7 +199,7 @@ Empty findings rows are fine — a clean review is a real result. Do not invent 
 - [`anti-rationalization.md`](anti-rationalization.md) — companion reference card; shared with [`/security-review`](../security-review/SKILL.md).
 - [ADR 0070](../../../engine/adr/0070-project-wired-review-skill.md) — the citable contract this skill operationalizes.
 - [`/security-review`](../security-review/SKILL.md) — depth pass for security findings.
-- [Issue #76](https://github.com/StarshipSuperjam/paideia/issues/76) — `/ship` orchestrator that will compose this skill.
+- [`/ship`](../ship/SKILL.md) — multi-model orchestrator composing this skill (landed at S-0148 per [ADR 0081](../../../engine/adr/0081-ship-multi-model-orchestration-skill.md)).
 - [ADR 0044](../../../engine/adr/0044-skill-conversion-recipe-vs-reference.md) — recipe-vs-reference partition this skill instantiates.
 - [`engine/operations/code-discipline.md`](../../../engine/operations/code-discipline.md) — Layer 3 cold-review pass for Python; this skill overlaps but is not redundant (cold-review is shutdown-time on engine/Python; `/review` is anytime on any change).
 - [`engine/operations/issue-discipline.md`](../../../engine/operations/issue-discipline.md) — where out-of-scope findings route.

@@ -74,6 +74,7 @@ The engine collection has **44 ADRs total — all Accepted**. Engine ADRs are ab
 | [0078](0078-revert-and-rollback-discipline.md) | Revert and rollback discipline | Accepted |
 | [0079](0079-hnsw-sync-threshold-tuning.md) | HNSW sync_threshold tuning for cross-session metadata persistence | Accepted |
 | [0080](0080-boot-time-dependency-version-visibility.md) | Boot-time dependency version visibility + stale Dependabot PR surface | Accepted |
+| [0081](0081-ship-multi-model-orchestration-skill.md) | `/ship` multi-model orchestration skill | Accepted |
 
 ## Adding a new engine ADR
 
