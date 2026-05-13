@@ -168,6 +168,26 @@ ln -s ../../tools/hooks/pre-commit pre-commit
 
 Verify: `head -3 .git/hooks/pre-commit` resolves and prints the bash shebang plus the Paideia hook header.
 
+### Parent-FF refusal on `.claude/settings.json` edits from worktrees
+
+When a build session edits `.claude/settings.json` via the harness Write/Edit tools, the harness lands the change on the parent repo's tracked copy. The worktree's tracked copy stays stale, and the pre-commit [`check_settings_sync.py`](../tools/check_settings_sync.py) hard-fails the close commit until the worktree's copy is brought into sync. The documented remediation is `cp <parent>/.claude/settings.json .claude/settings.json && git add .claude/settings.json` — or, mechanized at S-0150, `python3 engine/tools/update_settings.py` from inside the worktree (resolves both paths, copies, stages, emits the post-push reminder).
+
+After the worktree commit succeeds, a second surface fires: `build_lifecycle_push.py` (and `routine_lifecycle_push.py`'s sibling helper) run a best-effort parent-side `git -C <parent> merge --ff-only origin/<target>` to advance the parent's local main. Git's safety check refuses with *"Your local changes to the following files would be overwritten by merge: .claude/settings.json"* even though the FF would land byte-identical content — git doesn't know the cp made the working-tree copy match the incoming commit.
+
+[ADR 0054 Consequences amendment landed at S-0150](../adr/0054-lifecycle-push-wrapping-against-default-branch-push-gate.md) extends `parent_ff()` with a bounded auto-recovery for this specific signature. On the *"would be overwritten by merge"* refusal, the function parses the affected file list, compares each working-tree copy to its `origin/<target>` version via `git diff --quiet`, and when every file is byte-identical runs `git checkout -- <files>` followed by a retry FF. The wrapper's stdout reads *"parent main FF'd to <short>; auto-recovered from identical-content overwrite refusal on N file(s)"*.
+
+When **any** affected file diverges from `origin/<target>`, the auto-recovery bails without mutating state, returning *"working-tree diverges from origin/<target> on <files>; manual recovery required"*. This is the case to investigate by hand:
+
+```bash
+git -C <parent-repo-path> diff HEAD origin/main -- .claude/settings.json
+git -C <parent-repo-path> checkout .claude/settings.json   # only if discard is intentional
+git -C <parent-repo-path> merge --ff-only origin/main
+```
+
+The `diff` step lets you compare the diverged content to the incoming commit. If the parent's working-tree copy is residual stale state from a prior session (no current work depends on it), `git checkout` discards it safely. If the working-tree copy is in-flight uncommitted work, preserve it via `git stash` or by committing in the parent before retrying the FF.
+
+The `parent_ff()` failure is non-fatal — the wrapper exits 0 (push succeeded). The push itself landed; the parent's stale HEAD is a separate problem the next session's boot-freshness gate ([ADR 0082](../adr/0082-routine-boot-freshness-and-concurrency-defense.md)) will catch.
+
 ### MemPalace capture-hook failure log
 
 The Stop and PreCompact hooks invoke [`tools/hooks/mempalace-hook-wrapper.sh`](../tools/hooks/mempalace-hook-wrapper.sh), which always exits 0 to the harness and routes capture failures (binary missing, daemon down, capture errored) to `.claude/logs/mempalace-hook.log`. The log is gitignored per-clone state.

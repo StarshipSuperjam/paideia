@@ -145,7 +145,7 @@ ADR 0053 trigger evaluation: no new mechanism class — this extends an existing
 
 ## See also
 
-- [ADR 0054](0054-lifecycle-push-wrapping-against-default-branch-push-gate.md) — sibling for routine-mode; the falsified "interactive sessions don't trigger the gate" assertion is updated here.
+- [ADR 0054](0054-lifecycle-push-wrapping-against-default-branch-push-gate.md) — sibling for routine-mode; the falsified "interactive sessions don't trigger the gate" assertion is updated here. The S-0150 Consequences amendment on `parent_ff()` (bounded auto-recovery for the identical-content overwrite refusal class, per [Issue #107](https://github.com/StarshipSuperjam/paideia/issues/107)) propagates to this wrapper unchanged — `build_lifecycle_push.py` re-imports `parent_ff` from `routine_lifecycle_push.py` per decision 1.
 - [ADR 0044](0044-skill-conversion-recipe-vs-reference.md) — doc → skill update direction.
 - [ADR 0053](0053-mechanism-first-exercise-gate.md) — first-exercise readiness note triggered.
 - [`engine/tools/build_lifecycle_push.py`](../tools/build_lifecycle_push.py) — the wrapper.
