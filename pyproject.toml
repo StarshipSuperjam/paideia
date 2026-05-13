@@ -42,7 +42,7 @@ dependencies = [
 
     # Phase 4.6+ structural-reference parser per ADR 0047. HTMLInputAdapter
     # uses BeautifulSoup4 for SEP/IEP HTML normalization.
-    "beautifulsoup4>=4.12.0",
+    "beautifulsoup4>=4.14.3",
 
     # Phase 5+ structural-reference parser PDF adapter per ADR 0047 decision 6
     # + Issue #34 (S-0096). pdfplumber for outline/font-metrics, pypdfium2 for
