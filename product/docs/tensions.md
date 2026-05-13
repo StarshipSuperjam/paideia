@@ -152,9 +152,9 @@ Resolved as **model-agnostic schema with per-dim partition tables**. The origina
 ---
 
 ## OQ-DEC1-D: Chunk-resolver index vs direct SEP URL pointers
-**Added: 2026-04-29 (S-0001) | Status: Open | Decide before: Phase 6**
+**Added: 2026-04-29 (S-0001) | Resolved by [ADR 0088](../adr/0088-sep-chunk-resolver-index.md) — 2026-05-13 (S-0152)**
 
-When the teaching layer wants to point a learner at SEP for onward reading, two options: (a) maintain a chunk-resolver index that maps node IDs → SEP article section anchors (more retrieval precision, more upfront indexing work), or (b) store direct SEP URL pointers per node and let the learner browse from the section landing (simpler, less precise). Decision lands as an ADR.
+Resolved as **chunk-resolver index**. New `sep_chunks(node_id, sep_url, section_anchor, section_title, position, …)` junction table with one-to-many cardinality (a node may map to multiple SEP sections) and graceful degradation to article-level pointers (nullable `section_anchor` + `section_title`). 380-node backfill estimated at ~19 hours of dedicated work; a one-time Phase 6 session (or batch within Phase 6 self-correction) populates rows for ≥80% of existing nodes. Section-anchor precision provides measurable pedagogical lift: teaching prose can say "see SEP section 3.2 of Kant's epistemology" rather than "see SEP on Kant." SEP URL scheme stability (premise 1) confirmed by 30-year URL-format consistency since 1995. Schema includes `CASCADE ON DELETE` per [ADR 0031](../adr/0031-erasure-mechanism-and-individual-only-regime.md). First-exercise readiness criteria captured in [`engine/build_readiness/sep_chunk_resolver_first_exercise.md`](../../engine/build_readiness/sep_chunk_resolver_first_exercise.md).
 
 ---
 

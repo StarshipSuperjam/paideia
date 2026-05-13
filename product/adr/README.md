@@ -25,7 +25,7 @@ The `Status:` field is required; `engine/tools/validate.py` soft-warns on ADR fi
 
 ## Index
 
-The product collection has **40 ADRs total — 36 Accepted plus 4 Superseded** ([ADR 0002](0002-commercial-sustainability-without-pedagogical-compromise.md) by [ADR 0032](0032-personal-project-disposition.md); [ADR 0029](0029-personal-financial-cost-ceiling.md) by [ADR 0065](0065-oss-pivot-and-byok-disposition.md); [ADR 0032](0032-personal-project-disposition.md) by [ADR 0035](0035-multi-platform-apple-expansion.md); [ADR 0035](0035-multi-platform-apple-expansion.md) by [ADR 0065](0065-oss-pivot-and-byok-disposition.md)). The canonical project-wide ADR count lives in [`engine/STATE.md`](../../engine/STATE.md); the engine subtree carries the engine-side ADRs in [`engine/adr/`](../../engine/adr/). ADR numbers are drawn from a single shared sequence and do not duplicate across the partition. ADRs are grouped below by the structural role they play in the project.
+The product collection has **41 ADRs total — 37 Accepted plus 4 Superseded** ([ADR 0002](0002-commercial-sustainability-without-pedagogical-compromise.md) by [ADR 0032](0032-personal-project-disposition.md); [ADR 0029](0029-personal-financial-cost-ceiling.md) by [ADR 0065](0065-oss-pivot-and-byok-disposition.md); [ADR 0032](0032-personal-project-disposition.md) by [ADR 0035](0035-multi-platform-apple-expansion.md); [ADR 0035](0035-multi-platform-apple-expansion.md) by [ADR 0065](0065-oss-pivot-and-byok-disposition.md)). The canonical project-wide ADR count lives in [`engine/STATE.md`](../../engine/STATE.md); the engine subtree carries the engine-side ADRs in [`engine/adr/`](../../engine/adr/). ADR numbers are drawn from a single shared sequence and do not duplicate across the partition. ADRs are grouped below by the structural role they play in the project.
 
 ### Strong working commitments (ADRs 0001–0012)
 
@@ -123,6 +123,7 @@ The product collection has **40 ADRs total — 36 Accepted plus 4 Superseded** (
 | [0085](0085-server-side-mastery-computation-confirmed.md) | Server-side mastery computation confirmed (settles OQ-DEC1-A) | Accepted |
 | [0086](0086-model-agnostic-embedding-storage-architecture.md) | Model-agnostic embedding storage architecture (per-dim partition tables; settles OQ-DEC1-C) | Accepted |
 | [0087](0087-two-hop-neighborhood-retrieval-shape.md) | Two-hop neighborhood retrieval shape (prereq+historical_influence edge filter; presumed-match alias resolution; settles OQ-DEC1-B) | Accepted |
+| [0088](0088-sep-chunk-resolver-index.md) | SEP chunk-resolver index for node-level onward-reading pointers (`sep_chunks` junction table with graceful article-level degradation; settles OQ-DEC1-D) | Accepted |
 
 > The next available shared ADR number entering S-0152 was 0085 (engine ADRs 0066–0084 already occupied 0066–0084 in the shared sequence per ADR 0037). The four OQ-DEC1 settlements draw from the 0085–0088 range accordingly.
 
