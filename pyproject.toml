@@ -16,7 +16,7 @@ dependencies = [
     # Code-discipline gate stack per ADR 0038 (Layer 2 mechanical gates).
     "ruff>=0.15.12",
     "mypy>=2.1.0",
-    "pytest>=8.0.0",
+    "pytest>=9.0.3",
 
     # Coverage gate per ADR 0074 (S-0136, Issue #71). Measures fraction of
     # engine/tools/ exercised by the pytest suite; CI fails below
