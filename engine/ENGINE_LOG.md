@@ -10,6 +10,39 @@ This project does not yet follow [Semantic Versioning](https://semver.org/) — 
 
 ## [Unreleased]
 
+### Added (S-0149 — `--bump-only` flag for `health_check.py`; closes Issue #108)
+
+- **[`engine/tools/health_check.py`](tools/health_check.py)** — new `--bump-only` CLI flag (argparse mutually-exclusive group with `--dry-run`). When set, `main()` skips the audit pipeline + render and calls `bump_last_audit_session(args.session)` directly. Hand-authoring an audit report no longer requires the cp-aside-then-restore workaround the S-0077 + S-0141 audit-authors had to remember.
+- **[`engine/tools/test_health_check.py`](tools/test_health_check.py)** — 3 new pytests (`test_main_bump_only_skips_file_write`, `test_main_bump_only_bumps_without_existing_report`, `test_main_bump_only_and_dry_run_mutually_exclusive`). Total 9 emit_report/bump_only tests green.
+- **[`engine/adr/0022-periodic-project-health-checks.md`](adr/0022-periodic-project-health-checks.md)** — Consequences amendment (declarative present-truth per [ADR 0062](adr/0062-retire-adr-inline-amendments-and-governed-doc-soft-warns.md)) documenting the two-step hand-authoring workflow. The emit-time-bump contract is preserved verbatim; only the file render is made optional.
+- **[`engine/operations/health-check.md`](operations/health-check.md)** — new "Hand-authoring an audit report" subsection naming the two-step workflow and citing Issue #108 closure.
+
+### Changed (S-0149 — engine ADR 0052 → 0082 renumber to resolve cross-partition collision; closes Issue #91)
+
+- **renamed: [`engine/adr/0082-routine-boot-freshness-and-concurrency-defense.md`](adr/0082-routine-boot-freshness-and-concurrency-defense.md)** (was `0052-...`) — collision with `product/adr/0052-phase-5-philosophy-subdomain-decomposition.md` violated the [ADR 0037](adr/0037-engine-product-wall-and-changelog-rename.md) shared-sequence discipline. Cascade triage per [ADR 0042](adr/0042-soft-warn-lifecycle-archive-canon.md) canon: UPDATE present-truth (~28 files), RETAIN historical canon (session archives, ENGINE_LOG historical entries, docs/health-checks/*, Phase 5 build_readiness historical records, build_plan/P_4_seed_graph_build.md, MemPalace decision drawers).
+- **Engine ADRs 0053, 0054, 0055, 0060, 0076, 0078, README.md** — forward-pointer text + link targets updated to `0082-...`.
+- **`engine/operations/{cross-references.md, mechanism-first-exercise-gate.md, routine-mode-operations.md}`** — citations + link targets updated.
+- **Engine tools `build_lifecycle_push.py`, `routine_boot_freshness.py`, `routine_eager_claim_recovery.py`, `routine_lifecycle_push.py`, `routine_lock.py`, `routine_wedge_detect.py`** — docstring + comment citations updated.
+- **[`engine/tools/check_target.py`](tools/check_target.py)** — `find_adr_by_number` docstring updated (the historical Issue #19 collision case now references the S-0149 renumber).
+- **`.claude/skills/routine-mode-lifecycle/SKILL.md`** — boot-step citations updated.
+- **`CLAUDE.md`** — `routine_eager_claim_recovery.py` authorization carve-out citation updated.
+- **3 build_readiness first-exercise notes (`apply_migration`, `routine_lifecycle_push`, `routine_wedge_detect`)** — forward-pointer citations updated.
+- **[`product/seed-graph/migrations/ROUTING.md`](../product/seed-graph/migrations/ROUTING.md)** — 2 boot-freshness historical narrative entries' link targets updated (prose preserved per ADR 0062).
+
+### Added (S-0149 — `duplicate_adr_number` validator soft-warn; defense-in-depth for ADR 0037 shared-sequence)
+
+- **[`engine/tools/validate.py`](tools/validate.py)** — new `validate_duplicate_adr_number()` check, structural-phase per [ADR 0063](adr/0063-validator-tiered-runtime-targets-and-regression-soft-warn.md). Scans `engine/adr/NNNN-*.md` + `product/adr/NNNN-*.md`; soft-warns any 4-digit number appearing in both partitions. Wired into the structural pass alongside ADR 0041's three cascade checks. 3 new pytests in [`engine/tools/test_validate.py`](tools/test_validate.py).
+- **[`engine/operations/tools-validate-interpretation.md`](operations/tools-validate-interpretation.md)** — new `duplicate_adr_number` row naming the diagnostic and the rename procedure.
+
+### Changed (S-0149 — engine ADR 0065 → 0083 renumber; immediate payoff of the new `duplicate_adr_number` check)
+
+- **renamed: [`engine/adr/0083-validate-py-mirror-to-ci.md`](adr/0083-validate-py-mirror-to-ci.md)** (was `0065-...`) — second pre-existing collision surfaced by the new `duplicate_adr_number` soft-warn at first invocation. Engine 0065 (S-0131) collided with product 0065 (OSS pivot + BYOK, S-0128); the engine ADR was authored 3 sessions after the product ADR without anyone noticing the shared-sequence violation. Fix-in-context per the "no session cascade for in-band bugs" rule. Engine 0065 chosen for renumber (not product 0065) because product 0065 has the larger forward-cascade (supersedes ADRs 0029 + 0035; load-bearing for the OSS pivot narrative).
+- **Engine ADRs 0066, 0067, 0068, 0069, 0070, 0074, 0075** — forward-pointer text + link targets updated to `0083-...`.
+- **3 build_readiness first-exercise notes (`bandit`, `ci_mirror`, `pytest_cov`)** — citations + link targets updated.
+- **[`engine/operations/dependency-discipline.md`](operations/dependency-discipline.md)** — CI-workflow reference updated.
+- **[`.github/workflows/validate.yml`](../.github/workflows/validate.yml)** — header comment updated.
+- **[`.github/dependabot.yml`](../.github/dependabot.yml)** — header comment updated.
+
 ### Added (S-0148 — `/ship` multi-model orchestration skill; closes Issue #76)
 
 - **New: [`.claude/skills/ship/SKILL.md`](../.claude/skills/ship/SKILL.md)** — project-wired `/ship` slash command per [ADR 0081](adr/0081-ship-multi-model-orchestration-skill.md). Runs `/review` + `/security-review` + coverage-delta as three parallel sub-agents via single-message-multiple-Agent-calls (pattern precedented by `build-readiness-gate/SKILL.md:31-44`), then synthesizes a structured GO / GO-WITH-CAVEATS / NO-GO verdict. Four Paideia overlays applied at synthesis-time (scope_lock per ADR 0051, ADR-touch, MemPalace decision-drawer per ADR 0056, first-exercise readiness note per ADR 0053). Sub-agent failure mode is explicit `gap-pending` NO-GO; anti-rationalization rebuttal on override attempts cites the shared `.claude/skills/review/anti-rationalization.md`. Recommendation gate, NOT merge gate — CI per ADR 0066 remains the hard merge gate.

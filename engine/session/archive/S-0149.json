@@ -1,0 +1,70 @@
+{
+  "id": "S-0149",
+  "started_at": "2026-05-13T19:39:59Z",
+  "closed_at": "2026-05-13T20:05:00Z",
+  "status": "closed",
+  "mode": "build",
+  "working_on": "Issue #108 (health_check.py --bump-only flag) + Issue #91 (engine ADR 0052 → 0082 renumber) + new duplicate_adr_number validator soft-warn",
+  "approved_plan": "/Users/shanekidd/.claude/plans/sunny-knitting-tower.md",
+  "branch": "claude/magical-bose-e88b46",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/magical-bose-e88b46",
+  "outcome_summary": "Issue #108 closed: health_check.py --bump-only flag (argparse mutually-exclusive with --dry-run) decouples last_audit_session field-bump from file render so hand-authored audit reports (S-0077, S-0141 flow) are no longer overwritten. 3 new pytests (9 emit_report/bump_only total green); ADR 0022 Consequences amendment declarative-present-truth per ADR 0062; engine/operations/health-check.md gains Hand-authoring an audit report subsection. Issue #91 closed: engine ADR 0052-routine-boot-freshness-and-concurrency-defense.md renamed to 0082- to resolve cross-partition collision with product ADR 0052 (Phase 5 decomposition). ~28 present-truth files swept (ADRs, ops docs, tools, Skill, CLAUDE.md, build_readiness notes, ROUTING.md narrative entries); historical canon retained (archives, ENGINE_LOG history, audit snapshots, Phase 5 build_readiness records, MemPalace drawers). check_target.py docstring updated to reflect post-renumber state. New duplicate_adr_number validator soft-warn (structural-phase per ADR 0063) detects cross-partition collisions; 3 pytests green; ops-doc row added. Defense-in-depth payoff at first invocation: surfaced second pre-existing collision (engine 0065 + product 0065). Per no-session-cascade-for-in-band-bugs rule, fixed in-session: engine 0065 → engine 0083 renumber, same procedure as 0052 → 0082 (~14 files). Both collisions cleared at session close (duplicate_adr_number: 0). 3 MemPalace decision drawers authored per ADR 0056. Validator: 0 hard-fails; baseline soft-warns + Issue #116 validator_runtime_phase_regression carryover. Per pushback drawer: not applicable (no surfaced unnamed risk warranted formal capture beyond the in-band 0065 collision fix). Per lesson drawer: not applicable (the cross-partition collision pattern is now mechanically detected by the new soft-warn; no procedural-failure-with-non-obvious-cause to capture). 5+ commits: eager-claim b638c14 + Issue #108 60dabc6 + engine 0052→0082 8188343 + validator + engine 0065→0083 5d48b84 + close (pending).",
+  "outcome_summary_soft_warns": {
+    "expected_future_file_missing": 0,
+    "adr_missing_status": 0,
+    "adr_index_inconsistent": 0,
+    "cross_reference_broken": 0,
+    "engine_log_format": 0,
+    "state_format": 0,
+    "superseded_adr_currency": 0,
+    "adr_back_reference_orphan": 0,
+    "adr_consequences_deliverable_audit": 0,
+    "duplicate_adr_number": 0,
+    "chromadb_palace_health": 0,
+    "repo_config_health": 0,
+    "mempalace_boot_query_skipped": 0,
+    "mempalace_diary_read_skipped": 0,
+    "mempalace_diary_write_skipped": 0,
+    "mempalace_zero_citations_after_search": 0,
+    "outcome_summary_unhandled_defer": 0,
+    "next_session_handle_unknown_issue": 0,
+    "next_session_handle_unknown_session": 0,
+    "next_session_handle_malformed": 0,
+    "timestamp_helper_bypass": 2,
+    "mempalace_wing_count_growth": 1,
+    "issue_collision": 14,
+    "missing_rigor_score": 360,
+    "orphan_leaf": 1,
+    "edge_evidence_empty": 46,
+    "validator_runtime_phase_regression": 1,
+    "dependabot_pr_stale": 0
+  },
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": false,
+    "explanation": "All planned deliverables landed end-to-end per the user-approved plan: (1) Issue #108 --bump-only flag + tests + ADR 0022 amendment + ops doc; (2) Issue #91 engine ADR 0052 → 0082 rename + cascade sweep; (3) new duplicate_adr_number validator soft-warn + tests + ops-doc row. The plan's verification section's checks all pass: no present-truth references to engine 0052 survive (only retained historical files); 193 validate-tests green (was 190); duplicate_adr_number cleared to 0. Scope EXPANDED in-session per the no-session-cascade-for-in-band-bugs rule when the new soft-warn surfaced a second pre-existing collision (engine 0065 + product 0065); engine 0065 → engine 0083 renumber landed in same session in commit 4 alongside the validator deliverable. No scope reduction; no reordering; explicit scope expansion documented in the validator commit body and the MemPalace decision drawer."
+  },
+  "next_session_handle": null,
+  "side_discoveries": [
+    {
+      "commit": "5d48b84",
+      "marker": "in-session-scope-expansion",
+      "disposition_type": "addressed_inline",
+      "description": "Second cross-partition ADR collision (engine 0065 + product 0065) surfaced by the new duplicate_adr_number validator soft-warn at its first invocation. Engine 0065 (validate.py mirror to CI, S-0131) and product 0065 (OSS pivot + BYOK disposition, S-0128) both occupied slot 0065 in violation of ADR 0037 shared-sequence discipline. Engine 0065 was authored 3 sessions after product 0065 without anyone catching the partition collision. Per no-session-cascade-for-in-band-bugs rule (feedback_no_session_cascade.md), the fix was applied in this same session: engine 0065 → engine 0083 renumber following the same atomic procedure as 0052 → 0082. ~14 present-truth files swept (engine ADRs 0066, 0067, 0068, 0069, 0070, 0074, 0075; build_readiness/{bandit, ci_mirror, pytest_cov}_first_exercise.md; engine/operations/dependency-discipline.md; .github/workflows/validate.yml; .github/dependabot.yml). MemPalace decision drawer drawer_paideia_decisions_edde66969cbc9e36b1d77f96 captures the mechanism + the in-session payoff + the cascade triage rule's generalization."
+    }
+  ],
+  "mempalace_activity": {
+    "search_calls": 1,
+    "diary_read_calls": 1,
+    "diary_write_calls": 2,
+    "add_drawer_calls": 3,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 7,
+    "first_call_ts": "2026-05-13T19:42:57Z",
+    "last_call_ts": "2026-05-13T20:03:26Z"
+  }
+}
