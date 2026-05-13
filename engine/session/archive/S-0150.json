@@ -1,0 +1,56 @@
+{
+  "id": "S-0150",
+  "started_at": "2026-05-13T20:20:13Z",
+  "closed_at": "2026-05-13T20:45:00Z",
+  "status": "closed",
+  "mode": "build",
+  "working_on": "Backlog batch close (5 items): admin closes #66 + #70 + #92; .editorconfig (#78); #107 option A (parent_ff() identical-content auto-recovery + update_settings.py + ADR 0054 amendment + first-exercise readiness note).",
+  "approved_plan": "~/.claude/plans/i-need-to-clear-keen-prism.md",
+  "branch": "claude/laughing-hermann-a023e5",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/laughing-hermann-a023e5",
+  "outcome_summary": "Backlog batch closed 5 of 21 open Issues (21 -> 16): #66 + #70 admin-closed (already-landed at S-0132 per ADRs 0067/0068), #92 closed not-a-bug (cohort_id foreclosed-at-design-time per ADR 0031, comments are intentional documentation), #78 .editorconfig at repo root + targeted 9-file final-newline normalization on pre-S-0104 archives, #107 option A landed in full per decision drawer drawer_paideia_decisions_129149ab1527a78e85e647b7: parent_ff() identical-content auto-recovery in routine_lifecycle_push.py (inherited by build_lifecycle_push.py via existing import) + new engine/tools/update_settings.py companion tool + ADR 0054 Consequences amendment (present-truth declarative per ADR 0062) + ADR 0076 cross-reference + new Recovery subsection in session-build-lifecycle.md + new first-exercise readiness note. 11 new pytests (5 parent_ff auto-recovery paths + 6 update_settings dispositions); 37/37 routine_lifecycle + 20/20 build_lifecycle + 6/6 update_settings all green. T1-B of the new readiness note closed in-session naturally - the deliverable push's parent-FF stderr matched the readiness-note prediction byte-for-byte against the parent's pre-existing pyproject.toml residual divergence ('working-tree diverges from origin/main on [pyproject.toml]; manual recovery required'); state NOT mutated. T1-A defers to next clean-parent session. Pre-existing parent residual flagged for user adjudication in STATE.md. 4 commits batched via build_lifecycle_push.py deliverable catchup-aware mode (eager-claim + .editorconfig + parent_ff + update_settings + docs). Validator: 0 hard-fails; issue_collision 14 -> 9 (5 closed Issues no longer collide).",
+  "outcome_summary_soft_warns": {
+    "timestamp_helper_bypass": 2,
+    "mempalace_wing_count_growth": 1,
+    "issue_collision": 9,
+    "missing_rigor_score": 360,
+    "orphan_leaf": 1,
+    "edge_evidence_empty": 46,
+    "validator_runtime_phase_regression": 1
+  },
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": false,
+    "explanation": "All 5 planned Issue closures landed end-to-end per the user-approved plan (Batch scope: 5 items via AskUserQuestion, then upgraded to #107 option A per explicit user direction at ExitPlanMode rejection). Closures: #66 + #70 admin via gh issue close + comment; #92 audit-finding close with case-(c) explanation; #78 .editorconfig per spec + 9-file targeted final-newline normalization on pre-S-0104 archives; #107 option A in full — parent_ff() auto-recovery extension + update_settings.py companion + ADR 0054 present-truth amendment + ADR 0076 cross-reference + session-build-lifecycle.md Recovery subsection + first-exercise readiness note. Plan's verification section's checks all pass: 3 gh issue close exits 0; .editorconfig present at repo root matching spec; new tests green (11 new, 63 total across the 3 affected suites); validate.py exits with 0 hard-fails. Scope NOT reduced; scope EXPANDED at plan-revision step (option B -> option A) per user direction. T1-B of the new readiness note closed in-session as a natural byproduct.",
+    "spot_check_complete": true
+  },
+  "next_session_handle": null,
+  "side_discoveries": [
+    {
+      "commit": "6f67b9b",
+      "marker": "parent-residual-flagged-for-user-adjudication",
+      "disposition_type": "user_adjudication_required",
+      "description": "Parent repo (/Users/shanekidd/Documents/Claude_Files/Paideia/) carries a pre-existing uncommitted modification to pyproject.toml: a 4-line documentation comment block (lines 17-20) reading 'Floors bumped at S-0147 to current installed transitive (Dependabot batch #94-#105; consolidated into a single floor-alignment commit per ADR 0080's Phase B exercise; the installed transitive predates the floor bumps - the lockfile already records these versions).' Present in parent's working tree; absent from origin/main. Was the diverged-content blocker for in-session T1-A closure of the new parent_ff auto-recovery readiness note. Recommendation: either (1) commit the comment block from the parent (matches the floor-bump rationale already in origin/main; supplemental documentation), or (2) discard via git -C /Users/shanekidd/Documents/Claude_Files/Paideia checkout pyproject.toml. Until resolved, every parent-FF in this worktree exercises the diverged-content bail path of the new auto-recovery (correctly — wrapper exits 0; state not mutated). Closes T1-A path of engine/build_readiness/parent_ff_auto_recovery_first_exercise.md when resolved."
+    },
+    {
+      "commit": "088b84c",
+      "marker": "first-exercise-readiness-note-T1-B-empirical-closure",
+      "disposition_type": "in_session_closure",
+      "description": "The deliverable push (build_lifecycle_push.py deliverable mode, 4 commits batched via catchup-aware shape per ADR 0076 Amendment v3) naturally exercised the new parent_ff() auto-recovery's diverged-content bail path. Wrapper stderr reported exactly the diagnostic predicted in the readiness note: 'parent FF best-effort failed: working-tree diverges from origin/main on [pyproject.toml]; manual recovery required'. State not mutated; wrapper exit 0; push succeeded (deliverables landed on origin/main). T1-B of engine/build_readiness/parent_ff_auto_recovery_first_exercise.md closes in-session. T1-A defers to a future session whose parent repo is clean (or to a session where .claude/settings.json is edited + update_settings.py is invoked AND the pyproject.toml residual is no longer the diverged blocker)."
+    }
+  ],
+  "mempalace_activity": {
+    "search_calls": 1,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 1,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 4,
+    "first_call_ts": "2026-05-13T20:11:29Z",
+    "last_call_ts": "2026-05-13T20:40:13Z"
+  }
+}
