@@ -10,6 +10,24 @@ This project does not yet follow [Semantic Versioning](https://semver.org/) — 
 
 ## [Unreleased]
 
+### Changed (S-0147 — first exercise of ADR 0080 mechanism: 11 Dependabot PRs merged + floor pins tightened)
+
+- **[`pyproject.toml`](../pyproject.toml) + [`uv.lock`](../uv.lock)** — 9 pip floor pins bumped to current installed transitive in 9 separate squash-merged Dependabot PRs (#94–#105 excluding the 2 action PRs):
+  - chromadb >=0.5.0 → >=1.5.9 (#94)
+  - beautifulsoup4 >=4.12.0 → >=4.14.3 (#105)
+  - mypy >=1.10.0 → >=2.1.0 (#103)
+  - bandit >=1.7.0 → >=1.9.4 (#102)
+  - ruff >=0.4.0 → >=0.15.12 (#101)
+  - psycopg >=3.1.0 → >=3.3.4 (#100)
+  - pytest >=8.0.0 → >=9.0.3 (#99)
+  - reportlab >=4.0.0 → >=4.5.1 (#97; also moved installed 4.5.0→4.5.1)
+  - pypdfium2 >=4.0.0 → >=5.8.0 (#96)
+- **[`.github/workflows/validate.yml`](../.github/workflows/validate.yml)** — action pins bumped:
+  - astral-sh/setup-uv@v3 → @v7 (#98)
+  - actions/checkout@v4 → @v6 (#95)
+- **Procedure (per-PR):** `gh pr checkout` → `git rebase origin/main` → `uv lock` (skipped for action PRs) → `git commit --amend --no-edit` → `git push --force-with-lease` → wait CI green → `gh pr merge --squash --delete-branch`. Each PR rebased onto current `origin/main` (which advances with each prior merge) so the resulting squash commits compose cleanly. CI (validate.py + pytest engine/tools + bandit) green on all 11.
+- **[`engine/build_readiness/dependabot_visibility_first_exercise.md`](build_readiness/dependabot_visibility_first_exercise.md)** — T1-A/T1-B/T1-C empirical-record subsection populated with the in-session evidence (boot surface output, MISCONFIGURED-branch verification under system Python, --simulate-age injection, soft-warn 0/non-zero verification) + Phase B closeout naming the 11 merged PRs.
+
 ### Added (S-0147 — boot-time dependency version visibility + stale Dependabot PR surface; ADR 0080)
 
 - **New: [`engine/adr/0080-boot-time-dependency-version-visibility.md`](adr/0080-boot-time-dependency-version-visibility.md)** — Layer 1 contract. Closes the two-gap diagnosis from the S-0144→S-0146 MemPalace troubleshooting arc: (a) Dependabot PRs sitting invisible after [ADR 0069](adr/0069-dependabot-pip-and-actions-ecosystems.md) adoption ("user merges" with no escalation; the boot surface counted Issues, never queried `gh pr list`); (b) AI cannot verify which Python/chromadb/mempalace versions it's actually running (`scrub_env.sh` PATH wiring per [ADR 0050](adr/0050-project-venv-and-hook-path-wiring.md) is opaque without a visibility surface). ADR 0053 criteria-2-and-3 evaluation: validator soft-warn `dependabot_pr_stale` + boot-time `gh pr list` state → first-exercise readiness note required.
