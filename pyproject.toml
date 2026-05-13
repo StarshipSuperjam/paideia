@@ -38,7 +38,7 @@ dependencies = [
     # MemPalace shared-state probe — engine/tools/probe_palace.py per ADR 0045.
     # Pinned explicitly even though mempalace re-exposes it transitively, so
     # probe_palace's expected version is independent of mempalace's pin.
-    "chromadb>=0.5.0",
+    "chromadb>=1.5.9",
 
     # Phase 4.6+ structural-reference parser per ADR 0047. HTMLInputAdapter
     # uses BeautifulSoup4 for SEP/IEP HTML normalization.
