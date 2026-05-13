@@ -58,7 +58,7 @@ dependencies = [
     # dep set rather than split into a dev-deps group — splitting via
     # PEP 735 dependency-groups is a deferred refinement when the test
     # surface justifies the indirection.
-    "reportlab>=4.0.0",
+    "reportlab>=4.5.1",
 
     # MemPalace — semantic-memory store, MCP server, Stop/PreCompact hook
     # capture. Per ADR 0050 mempalace runs from the project venv. Floor
