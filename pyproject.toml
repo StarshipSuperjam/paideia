@@ -62,11 +62,14 @@ dependencies = [
 
     # MemPalace — semantic-memory store, MCP server, Stop/PreCompact hook
     # capture. Per ADR 0050 mempalace runs from the project venv. Floor
-    # bumped at S-0084 to capture `mempalace repair-status` (3.3.4). Per
-    # the S-0084 user directive, mempalace version strings live only here
-    # — ADR/ops-doc prose references the version as a forensic timestamp
-    # ("as observed at S-NNNN") rather than asserting a specific version.
-    "mempalace>=3.3.4",
+    # bumped at S-0084 to capture `mempalace repair-status` (3.3.4). Floor
+    # bumped at S-0145 to 3.3.5 for the recovery-side improvements (#1342
+    # quarantine_stale_hnsw + #1396 tool_search retry + #1322 client-side
+    # quarantine wiring) — see ADR 0079. Per the S-0084 user directive,
+    # mempalace version strings live only here — ADR/ops-doc prose
+    # references the version as a forensic timestamp ("as observed at
+    # S-NNNN") rather than asserting a specific version.
+    "mempalace>=3.3.5",
 ]
 
 [tool.uv]
