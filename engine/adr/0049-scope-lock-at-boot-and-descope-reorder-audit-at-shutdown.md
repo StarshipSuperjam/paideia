@@ -103,3 +103,4 @@ The intervention does **not** fix the underlying LLM-trained tendency toward tas
 - [ADR 0043](0043-hook-architecture.md) — the `SessionStart` hook this ADR extends with the multi-session scope-erosion surface.
 - [ADR 0044](0044-skill-conversion-recipe-vs-reference.md) — the three Skill mirrors (session-build-lifecycle, session-shutdown-sequence, build-readiness-gate) follow the recipe-shape partition; updates flow doc → skill, never the reverse.
 - [ADR 0048](0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md) — sibling intervention authored in the same session; the `declared_scope` field this ADR introduces is consumed by ADR 0048's collision-detection scanner.
+- [ADR 0084](0084-pushback-rule-extraction-step-for-high-stakes-decisions.md) — applies the doubt-driven extraction step retrospectively to this ADR as historical workflow application #1; per ADR 0036 the ADR text is not retroactively migrated.
