@@ -138,6 +138,45 @@ def _count_wings(palace_path: Path) -> int | None:
         return None
 
 
+def _count_quarantine_dirs(palace_path: Path) -> tuple[int, int] | None:
+    """Count ``.drift-*`` / ``.corrupt-*`` sibling dirs under the palace root.
+
+    Returns ``(drift_count, corrupt_count)`` or ``None`` if the palace
+    path doesn't exist. Both classes are placed by upstream
+    ``quarantine_stale_hnsw`` (MemPalace/mempalace#1322 + #1342) when a
+    backend client open sees a segment dir with absent
+    ``index_metadata.pickle``: ``.drift-*`` for the never-flushed-metadata
+    shape (PR #344 / Issue #1489), ``.corrupt-*`` for harder failure
+    shapes the rename-aside intercepts before chromadb's native HNSW
+    reader can fault on them. Each open replaces the bad segment with a
+    fresh-empty placeholder; the next open sees the placeholder and
+    quarantines it too, so the dirs compound silently across cold starts
+    (the upstream MemPalace/mempalace#1489 comment thread records 9 dirs
+    accumulated in one day on a 28K-drawer palace).
+
+    Project-side relevance: ADR 0079's hybrid posture (live palace at
+    threshold=100; bulk rebuilds keep mempalace's 50_000 anti-bloat
+    default on scratch) reduces the rate at which the project palace
+    can land in the never-flushed-metadata state, but the underlying
+    quarantine mechanism runs on every backend client open regardless,
+    so the surface is worth watching. Snapshot (not growth) — the
+    measure is "how many dirs are accumulated right now"; the
+    persistent-warn lifecycle (ADR 0042) handles cross-session signal.
+    """
+    if not palace_path.is_dir():
+        return None
+    drift = 0
+    corrupt = 0
+    for entry in palace_path.iterdir():
+        if not entry.is_dir():
+            continue
+        if entry.name.startswith(".drift-"):
+            drift += 1
+        elif entry.name.startswith(".corrupt-"):
+            corrupt += 1
+    return (drift, corrupt)
+
+
 def _check_divergence(palace_path: Path) -> tuple[int, int, float] | None:
     """Run ``mempalace repair-status --palace <path>`` and parse divergence.
 
@@ -246,6 +285,22 @@ def main() -> int:
     wing_count = _count_wings(PALACE_PATH)
     if wing_count is not None:
         _emit("err", f"[probe-palace] wings: {wing_count} (total)")
+
+    # Quarantine accumulation surface (corroborating
+    # MemPalace/mempalace#1489 Sarah Novotny comment, 2026-05-13).
+    # Always emit on stderr when measurable so validate.py can apply the
+    # configured threshold. Snapshot count (not growth); severity is
+    # validate.py's call — this matches the wing-count pattern, not the
+    # divergence pattern (no exit-code promotion from probe_palace
+    # itself; the persistent-warn lifecycle per ADR 0042 handles
+    # cross-session signal).
+    quarantine = _count_quarantine_dirs(PALACE_PATH)
+    if quarantine is not None:
+        drift_count, corrupt_count = quarantine
+        _emit(
+            "err",
+            f"[probe-palace] quarantine: drift={drift_count} corrupt={corrupt_count}",
+        )
 
     # Divergence check: read-only via upstream `mempalace repair-status`.
     # Always emit on stderr when parseable so validate.py can promote

@@ -194,6 +194,16 @@ Threshold reader silently falls back to the bootstrap defaults (60 / 100) when t
 
 Recoverable — run [`engine/tools/prune_mempalace.py`](../tools/prune_mempalace.py) per the procedure in [`engine/operations/mempalace-operations.md`](mempalace-operations.md) "Prune procedure"; the LOUD-tier finding clears once the count drops below the informational threshold.
 
+### `mempalace_quarantine_accumulation`
+
+Quarantine-directory accumulation under the MemPalace palace root. Active from S-0153 onward, corroborating Sarah Novotny's [MemPalace/mempalace#1489](https://github.com/MemPalace/mempalace/issues/1489) comment (2026-05-13). The signal is sourced from `probe_palace.py`'s `[probe-palace] quarantine: drift=N corrupt=N` line, which counts immediate-child directories under the palace root matching `.drift-*` and `.corrupt-*` (placed by upstream `quarantine_stale_hnsw` per MemPalace/mempalace#1322 + #1342 when a backend client open sees a segment dir with absent `index_metadata.pickle`).
+
+Threshold is hardcoded at `total >= 1` for first-cut — any quarantine event is signal worth seeing. The dir count itself is bounded operationally; the cross-session rate is the lifecycle measure governed by the persistent-warn 3-of-5 surface and ≥10-session escalation per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md). Migrating to a register-state thresholds block (per the wing-count pattern at Issue #46 / S-0088) is a future tuning concern.
+
+The accumulation mechanism (per Sarah's comment thread): each backend client open sees the missing pickle and quarantines the bad segment via rename-aside, leaving a fresh-empty placeholder that the next open also quarantines. One `mempalace status` invocation can trigger a 3-segment cycle in a single command; 9 directories accumulated in one day on a 28K-drawer palace post-rebuild. Project-side relevance reduced by [ADR 0079](../adr/0079-hnsw-sync-threshold-tuning.md)'s hybrid posture (threshold=100 on live palace), but the underlying quarantine mechanism runs on every backend client open regardless.
+
+Recoverable — inspect the `.drift-*` / `.corrupt-*` directories under `~/.mempalace/palace/`. Empty placeholders (zero-byte `link_lists.bin`, absent `index_metadata.pickle`) are safe to remove; segments carrying real `data_level0.bin` data should be preserved pending recovery decision. Pruning is intentionally not auto-executed — the directories may carry recoverable state.
+
 ### `health_check_overdue`
 
 The cadence-aligned health-check audit slot has been consumed by other work and the audit slid past one full cadence. Active from S-0041 onward per [ADR 0022](../adr/0022-periodic-project-health-checks.md) Consequences amendment (overdue-catchup logic).
@@ -413,6 +423,7 @@ The since-date matches the calendar span of the cadence-20 window. The `git log 
 | `mempalace_diary_write_skipped_routine` | Actively-tracked | 0 | 0 | 3 | Routine-mode no-token-no-diary soft-warn per S-0091 routine-protection |
 | `mempalace_diary_write_skipped_substrate_intermittent` | Actively-tracked | 0 | 0 | 1 | Substrate-down contradiction case per ADR 0056 amendment (S-0089) |
 | `mempalace_hnsw_divergence` | Actively-tracked | 0 | 0 | 2 | Palace HNSW vs SQLite divergence per ADR 0045 amendment (S-0084) |
+| `mempalace_quarantine_accumulation` | Actively-tracked | 0 | 0 | 0 | `.drift-*` / `.corrupt-*` accumulation under palace root (S-0153, corroborating MemPalace/mempalace#1489) |
 | `mempalace_retired_surface_used` | Actively-tracked | 0 | 0 | 3 | KG / tunnels usage defense per S-0087 retirement |
 | `mempalace_substrate_at_close` | Actively-tracked | 0 | 0 | 2 | Substrate-down at close defense per ADR 0056 amendment (S-0089) |
 | `mempalace_wing_count_growth` | Actively-tracked | 0 | 0 | 4 | Wing accumulation per Issue #46 (S-0088) |

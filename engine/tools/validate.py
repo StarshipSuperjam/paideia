@@ -710,6 +710,19 @@ def validate_shared_state_health() -> ValidationResult:
             if wing_count_msg is not None:
                 r.soft_warn("mempalace_wing_count_growth", wing_count_msg)
 
+            # Quarantine-directory accumulation surface (corroborating
+            # upstream MemPalace/mempalace#1489 Sarah Novotny comment,
+            # 2026-05-13). Snapshot count of `.drift-*` / `.corrupt-*`
+            # siblings under the palace root left behind by upstream
+            # `quarantine_stale_hnsw` (MemPalace/mempalace#1322 + #1342).
+            # add_check is unconditional (same rationale as
+            # mempalace_hnsw_divergence above per Issue #109); soft_warn
+            # fires only when at least one dir is present.
+            r.add_check("mempalace_quarantine_accumulation")
+            quarantine_msg = _extract_palace_quarantine_count(proc.stderr)
+            if quarantine_msg is not None:
+                r.soft_warn("mempalace_quarantine_accumulation", quarantine_msg)
+
         if proc.returncode == 0:
             continue
         if proc.returncode == 1:
@@ -872,6 +885,54 @@ def _extract_palace_wing_count(stderr: str) -> str | None:
             f"surface."
         )
     return base
+
+
+# Regex matching the quarantine-accumulation line probe_palace.py emits
+# (corroborating upstream MemPalace/mempalace#1489 Sarah Novotny comment).
+# Form: "[probe-palace] quarantine: drift=N corrupt=M".
+_PROBE_QUARANTINE_RE = re.compile(
+    r"\[probe-palace\]\s+quarantine:\s+drift=(\d+)\s+corrupt=(\d+)"
+)
+
+
+def _extract_palace_quarantine_count(stderr: str) -> str | None:
+    """Parse probe_palace.py's quarantine line; return formatted soft-warn body.
+
+    Returns ``None`` when the line is absent, malformed, or both counts
+    are zero (the healthy steady state — no surface needed). Returns a
+    formatted body otherwise. Threshold is intentionally hardcoded at
+    ``>=1`` total for first-cut: a single quarantine event is signal
+    worth seeing, and the cross-session rate (not the per-session count)
+    is the lifecycle measure governed by the persistent-warn 3-of-5
+    surface + ≥10-session escalation per ADR 0042. Migrating to a
+    register-state thresholds block (per the Issue #46 / S-0088 wing-count
+    pattern) is a future tuning concern; not load-bearing here.
+    """
+    match = _PROBE_QUARANTINE_RE.search(stderr or "")
+    if match is None:
+        return None
+    try:
+        drift = int(match.group(1))
+        corrupt = int(match.group(2))
+    except ValueError:
+        return None
+    total = drift + corrupt
+    if total <= 0:
+        return None
+    return (
+        f"MemPalace palace root carries {total} quarantine "
+        f"director{'y' if total == 1 else 'ies'} "
+        f"(drift={drift}, corrupt={corrupt}). Upstream "
+        f"`quarantine_stale_hnsw` (MemPalace/mempalace#1322 + #1342) "
+        f"renames a segment dir aside when it sees a missing "
+        f"`index_metadata.pickle`; each open can leave a fresh-empty "
+        f"placeholder the next open also quarantines, so the dirs "
+        f"compound silently. Project-side workaround at ADR 0079 "
+        f"(threshold=100 on live palace) reduces the rate; upstream "
+        f"fix is tracked at MemPalace/mempalace#1489. Inspect the "
+        f"dirs under `~/.mempalace/palace/` and prune if no recovery "
+        f"is needed."
+    )
 
 
 # ---------------------------------------------------------------------------

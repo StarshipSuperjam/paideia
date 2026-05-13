@@ -2122,6 +2122,57 @@ class TestExtractPalaceWingCount:
         assert body is not None
 
 
+class TestExtractPalaceQuarantineCount:
+    """Quarantine-accumulation extractor: parses `[probe-palace] quarantine: drift=N corrupt=N`.
+
+    Threshold is hardcoded at ``>=1 total`` for first-cut — any
+    quarantine event is signal worth seeing. Cross-session rate is
+    governed by the persistent-warn lifecycle per ADR 0042, not by
+    this per-call threshold.
+    """
+
+    def test_no_quarantine_line_returns_none(self) -> None:
+        """Stderr without a quarantine line yields None."""
+        body = validate._extract_palace_quarantine_count(
+            "[probe-palace] healthy: 2 collections, 100 drawers, 0.50s\n"
+        )
+        assert body is None
+
+    def test_zero_total_returns_none(self) -> None:
+        """Both counts at zero — healthy steady state — no surface needed."""
+        body = validate._extract_palace_quarantine_count(
+            "[probe-palace] quarantine: drift=0 corrupt=0\n"
+        )
+        assert body is None
+
+    def test_one_drift_emits_singular_body(self) -> None:
+        """A single drift dir surfaces with correct grammar."""
+        body = validate._extract_palace_quarantine_count(
+            "[probe-palace] quarantine: drift=1 corrupt=0\n"
+        )
+        assert body is not None
+        assert "1 quarantine directory" in body
+        assert "drift=1, corrupt=0" in body
+        assert "MemPalace/mempalace#1489" in body
+        assert "ADR 0079" in body
+
+    def test_mixed_counts_emit_plural_body(self) -> None:
+        """Mixed drift + corrupt with plural grammar."""
+        body = validate._extract_palace_quarantine_count(
+            "[probe-palace] quarantine: drift=3 corrupt=2\n"
+        )
+        assert body is not None
+        assert "5 quarantine directories" in body
+        assert "drift=3, corrupt=2" in body
+
+    def test_malformed_line_returns_none(self) -> None:
+        """Malformed numeric portion yields None (best-effort parser)."""
+        body = validate._extract_palace_quarantine_count(
+            "[probe-palace] quarantine: drift=foo corrupt=bar\n"
+        )
+        assert body is None
+
+
 class TestReadWingCountThresholds:
     """Threshold reader: every fallback path returns the bootstrap defaults."""
 

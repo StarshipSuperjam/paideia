@@ -30,6 +30,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
@@ -333,6 +334,119 @@ def test_probe_skips_wing_count_line_when_sqlite_absent(tmp_path: Path) -> None:
     spec.loader.exec_module(module)
 
     assert module._count_wings(palace_dir) is None
+
+
+def _load_probe_module() -> ModuleType:
+    """Import probe_palace.py for direct function-level tests."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("probe_palace", PROBE_PATH)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_count_quarantine_dirs_empty_palace_returns_zero(tmp_path: Path) -> None:
+    """An empty palace directory carries zero quarantine dirs."""
+    palace_dir = tmp_path / ".mempalace" / "palace"
+    palace_dir.mkdir(parents=True)
+    module = _load_probe_module()
+    assert module._count_quarantine_dirs(palace_dir) == (0, 0)
+
+
+def test_count_quarantine_dirs_mixed(tmp_path: Path) -> None:
+    """Mixed `.drift-*`, `.corrupt-*`, segment dirs, and files counted correctly."""
+    palace_dir = tmp_path / ".mempalace" / "palace"
+    palace_dir.mkdir(parents=True)
+    (palace_dir / ".drift-abc-001").mkdir()
+    (palace_dir / ".drift-def-002").mkdir()
+    (palace_dir / ".drift-ghi-003").mkdir()
+    (palace_dir / ".corrupt-xyz-001").mkdir()
+    (palace_dir / ".corrupt-uvw-002").mkdir()
+    # Ordinary segment dir (UUID-like) — must not be counted.
+    (palace_dir / "abcdef01-2345-6789-abcd-ef0123456789").mkdir()
+    # chroma.sqlite3 placeholder — file, must not match drift/corrupt.
+    (palace_dir / "chroma.sqlite3").write_bytes(b"")
+    module = _load_probe_module()
+    assert module._count_quarantine_dirs(palace_dir) == (3, 2)
+
+
+def test_count_quarantine_dirs_only_drift(tmp_path: Path) -> None:
+    """Drift-only state — typical never-flushed-metadata accumulation."""
+    palace_dir = tmp_path / ".mempalace" / "palace"
+    palace_dir.mkdir(parents=True)
+    for i in range(7):
+        (palace_dir / f".drift-seg{i:03d}").mkdir()
+    module = _load_probe_module()
+    assert module._count_quarantine_dirs(palace_dir) == (7, 0)
+
+
+def test_count_quarantine_dirs_only_corrupt(tmp_path: Path) -> None:
+    """Corrupt-only state — harder-failure intercepts."""
+    palace_dir = tmp_path / ".mempalace" / "palace"
+    palace_dir.mkdir(parents=True)
+    for i in range(2):
+        (palace_dir / f".corrupt-seg{i:03d}").mkdir()
+    module = _load_probe_module()
+    assert module._count_quarantine_dirs(palace_dir) == (0, 2)
+
+
+def test_count_quarantine_dirs_palace_missing(tmp_path: Path) -> None:
+    """Non-existent palace path returns None, not (0, 0)."""
+    module = _load_probe_module()
+    assert module._count_quarantine_dirs(tmp_path / "nonexistent") is None
+
+
+def test_count_quarantine_dirs_ignores_matching_files(tmp_path: Path) -> None:
+    """A FILE named `.drift-foo` is not a quarantine dir — must not be counted."""
+    palace_dir = tmp_path / ".mempalace" / "palace"
+    palace_dir.mkdir(parents=True)
+    (palace_dir / ".drift-foo").write_bytes(b"not a dir")
+    (palace_dir / ".corrupt-bar").write_bytes(b"not a dir")
+    module = _load_probe_module()
+    assert module._count_quarantine_dirs(palace_dir) == (0, 0)
+
+
+def test_probe_emits_quarantine_line_when_dirs_present(tmp_path: Path) -> None:
+    """Full probe run emits the quarantine line on stderr when dirs are present."""
+    chromadb = pytest.importorskip("chromadb")
+    palace_dir = tmp_path / ".mempalace" / "palace"
+    palace_dir.mkdir(parents=True)
+    # Init chromadb so the probe reaches the post-wing emission block.
+    client = chromadb.PersistentClient(path=str(palace_dir))
+    client.get_or_create_collection("mempalace_drawers")
+    del client
+    # Seed two drift dirs + one corrupt dir.
+    (palace_dir / ".drift-aaa-001").mkdir()
+    (palace_dir / ".drift-bbb-002").mkdir()
+    (palace_dir / ".corrupt-ccc-001").mkdir()
+
+    proc = _run_probe(palace_dir)
+
+    assert proc.returncode == 0
+    assert "[probe-palace] quarantine: drift=2 corrupt=1" in proc.stderr
+
+
+def test_probe_emits_quarantine_zero_on_healthy_palace(tmp_path: Path) -> None:
+    """Healthy palace emits the quarantine line with both counts at zero.
+
+    Always emitting (even at zero) lets validate.py's add_check be
+    unconditional — the in-session checks_run array always records that
+    the check ran, even when the soft-warn doesn't fire. Mirrors the
+    wing-count contract.
+    """
+    chromadb = pytest.importorskip("chromadb")
+    palace_dir = tmp_path / ".mempalace" / "palace"
+    palace_dir.mkdir(parents=True)
+    client = chromadb.PersistentClient(path=str(palace_dir))
+    client.get_or_create_collection("mempalace_drawers")
+    del client
+
+    proc = _run_probe(palace_dir)
+
+    assert proc.returncode == 0
+    assert "[probe-palace] quarantine: drift=0 corrupt=0" in proc.stderr
 
 
 def test_probe_never_invokes_mempalace_repair(tmp_path: Path) -> None:
