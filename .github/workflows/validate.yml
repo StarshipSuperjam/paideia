@@ -58,7 +58,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout (full history for diff)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # fetch-depth: 0 lets us diff PR base...HEAD (PRs) and HEAD~1...HEAD
           # (push). Repo is small enough that full-history clone fits well
@@ -170,7 +170,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up uv with cache keyed on uv.lock
         uses: astral-sh/setup-uv@v7
