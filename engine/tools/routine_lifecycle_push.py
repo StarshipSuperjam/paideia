@@ -47,7 +47,7 @@ already runs the parent-side FF *before* push; this is the routine-side
 equivalent, run *after* push. Failure to FF (parent on a non-target
 branch, uncommitted changes that conflict, etc.) is logged but does
 NOT propagate to the wrapper exit code — boot-freshness remains the
-safety net per ADR 0052.
+safety net per ADR 0082.
 
 Exit codes
 ----------
@@ -73,7 +73,7 @@ Out of scope
 - Interactive ``/start-engine`` push path. Interactive sessions don't
   trigger the gate (user-presence heuristic). They continue using raw
   ``git push origin main``. The wrapper is routine-only by design.
-- Cross-machine concurrency. Same residual as ADR 0052 — first-push-wins.
+- Cross-machine concurrency. Same residual as ADR 0082 — first-push-wins.
 - Destructive recovery. The wrapper does NOT amend, reset, or otherwise
   modify the repository on verification failure. Author adjudicates.
 """

@@ -80,7 +80,7 @@ Before pushing the S-0060 close commit raw (interactive sessions don't trigger t
 
 - **T3-A — Probe-at-boot for harness gate behavior changes.** A future enhancement could add a `routine_push_capability` predicate to `check_target.py` that performs a probe-push at boot to surface harness behavior changes (e.g., a Claude Code update that adds a hook at the subprocess level). Defer; only act if the wrapper assumption breaks at some future point. The current Phase 2 verification provides the initial confidence.
 
-- **T3-B — Multi-machine concurrency.** Same residual as ADR 0052: cross-machine pushes still rely on first-push-wins. Wrapper doesn't change this. No mitigation needed in scope.
+- **T3-B — Multi-machine concurrency.** Same residual as ADR 0082: cross-machine pushes still rely on first-push-wins. Wrapper doesn't change this. No mitigation needed in scope.
 
 - **T3-C — Future Claude Code update could close the subprocess-bypass.** If Anthropic adds a hook that catches subprocess-spawned git operations, the wrapper stops working. The Phase 2 verification provides the initial signal; subsequent routine pushes that fail would surface immediately. Mitigation: the optional T3-A predicate above provides early detection.
 
@@ -91,14 +91,14 @@ Before pushing the S-0060 close commit raw (interactive sessions don't trigger t
 Run after the wrapper code lands (per ADR 0053's gate-session structure). Inspect:
 - Tool's per-mode shape verifiers — do they reject the cases the test suite covers? Do the reject reasons name the specific predicate violated?
 - Skill body's three call sites — do they hand exit-2 (verification refused) and exit-3 (push refused) to HANDOFF correctly?
-- ADR 0054 cross-references — do they back-link to ADR 0052 (Layer pattern) and ADR 0053 (gate trigger)?
+- ADR 0054 cross-references — do they back-link to ADR 0082 (Layer pattern) and ADR 0053 (gate trigger)?
 - This report — does Phase 2 result get appended (success/failure) before S-0060 closes?
 
 ## Cross-references
 
 - [ADR 0053](../adr/0053-mechanism-first-exercise-gate.md) — the gate's authoring contract.
 - [ADR 0054](../adr/0054-lifecycle-push-wrapping-against-default-branch-push-gate.md) — the wrapper's authoring ADR.
-- [ADR 0052](../adr/0052-routine-boot-freshness-and-concurrency-defense.md) — the layered-defense pattern this wrapper extends.
+- [ADR 0082](../adr/0082-routine-boot-freshness-and-concurrency-defense.md) — the layered-defense pattern this wrapper extends.
 - [ADR 0051](../adr/0051-routine-mode-and-engine-loop.md) — routine-mode foundation; lifecycle-push contract.
 - [`engine/tools/probe_push_gate.py`](../tools/probe_push_gate.py) — Phase 0 probe.
 - [`engine/tools/routine_lifecycle_push.py`](../tools/routine_lifecycle_push.py) — Phase 1 wrapper.

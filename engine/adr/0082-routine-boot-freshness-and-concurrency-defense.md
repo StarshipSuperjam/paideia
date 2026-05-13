@@ -1,4 +1,4 @@
-# ADR 0052 — Routine-mode boot freshness and concurrency defense
+# ADR 0082 — Routine-mode boot freshness and concurrency defense
 
 - **Status:** Accepted
 - **Date:** 2026-05-04

@@ -61,7 +61,7 @@ Three places, each playing a distinct role:
 
 The gate fires **once per qualifying mechanism**, not per-phase or per-session. The routine-mode case had 5 missed prerequisites; one mechanism with that miss rate justifies the gate. Build-readiness exercises (per ADR 0040) remain phase-triggered and distinct — that gate is for *substantive build sessions* (schema, content, code), not *cross-cutting mechanisms*. The two gates can both apply to a single phase: a Phase N may have a build-readiness gate (for the substantive work) AND, if a new mechanism lands as part of that phase, a mechanism-first-exercise gate (for the mechanism). They're orthogonal triggers.
 
-Estimated frequency: cross-cutting mechanisms land roughly every 1–2 phases (ADR 0044 routine-mode, ADR 0045 shared-state, ADR 0049 scope-lock, ADR 0050 venv, ADR 0051 routine-mode foundation, ADR 0052 routine-boot hardening — 6 in the last ~25 sessions). Of those, 2–3 would have qualified under the trigger criterion. Amortization rate: one gate session per ~10 build sessions. Acceptable.
+Estimated frequency: cross-cutting mechanisms land roughly every 1–2 phases (ADR 0044 routine-mode, ADR 0045 shared-state, ADR 0049 scope-lock, ADR 0050 venv, ADR 0051 routine-mode foundation, ADR 0082 routine-boot hardening — 6 in the last ~25 sessions). Of those, 2–3 would have qualified under the trigger criterion. Amortization rate: one gate session per ~10 build sessions. Acceptable.
 
 ## Consequences
 
@@ -76,7 +76,7 @@ Estimated frequency: cross-cutting mechanisms land roughly every 1–2 phases (A
 - The trigger criterion is judgment-dependent. The disjunctive form is intended to bias toward "trigger when in doubt" since the cost of a mistaken trigger (one extra gate session) is much smaller than the cost of a missed trigger (the S-0048 → S-0055 pattern).
 
 **Out of scope:**
-- **Back-port to existing cross-cutting ADRs** (ADR 0037, 0043, 0045, 0049, 0050, 0051, 0052). The trigger criterion applies to *new* ADRs only. Back-port lands on next-touch (when an existing ADR is amended, the amendment session adds the trigger-criterion evaluation block). No retroactive sweep.
+- **Back-port to existing cross-cutting ADRs** (ADR 0037, 0043, 0045, 0049, 0050, 0051, 0082). The trigger criterion applies to *new* ADRs only. Back-port lands on next-touch (when an existing ADR is amended, the amendment session adds the trigger-criterion evaluation block). No retroactive sweep.
 - **Mechanism deprecation gate.** This ADR addresses adoption only. Removing or replacing a cross-cutting mechanism is a different shape of risk and gets its own future treatment if needed.
 - **Gate report archive policy.** Reports live at `engine/build_readiness/<mechanism>_first_exercise.md` and persist; no rotation or archival logic. The reports are the canonical record of what was checked and decided.
 
@@ -84,7 +84,7 @@ Estimated frequency: cross-cutting mechanisms land roughly every 1–2 phases (A
 
 - [Issue #12](https://github.com/StarshipSuperjam/paideia/issues/12) — the open question this ADR resolves.
 - [ADR 0040](0040-build-readiness-gate-before-substantive-build-sessions.md) — the architectural precursor (phase-triggered build-readiness gate).
-- [ADR 0051](0051-routine-mode-and-engine-loop.md), [ADR 0052](0052-routine-boot-freshness-and-concurrency-defense.md) — the case study (routine-mode + corrected diagnosis).
+- [ADR 0051](0051-routine-mode-and-engine-loop.md), [ADR 0082](0082-routine-boot-freshness-and-concurrency-defense.md) — the case study (routine-mode + corrected diagnosis).
 - Issues [#7](https://github.com/StarshipSuperjam/paideia/issues/7), [#8](https://github.com/StarshipSuperjam/paideia/issues/8), [#9](https://github.com/StarshipSuperjam/paideia/issues/9), [#10](https://github.com/StarshipSuperjam/paideia/issues/10), [#15](https://github.com/StarshipSuperjam/paideia/issues/15) — the five routine-mode infrastructure gaps the case study draws from.
 - `docs/health-checks/S-0052.md` Finding A — the audit finding that surfaced this question.
 - [`engine/operations/mechanism-first-exercise-gate.md`](../operations/mechanism-first-exercise-gate.md) — Layer 1 procedure doc.

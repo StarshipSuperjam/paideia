@@ -16,7 +16,7 @@ The S-0117 wedge itself was resolved at S-0118 boot via an administrative-close 
 
 ## Decision
 
-Insert a new boot step `0c. Wedge detection` between step 0b (concurrency lock acquisition per ADR 0052) and step 1 (target precondition check) in the routine-mode-lifecycle skill body. The step delegates to a new mechanical tool, `engine/tools/routine_wedge_detect.py`, which inspects shared state for the wedge shape and routes the routine to a clean exit when detected.
+Insert a new boot step `0c. Wedge detection` between step 0b (concurrency lock acquisition per ADR 0082) and step 1 (target precondition check) in the routine-mode-lifecycle skill body. The step delegates to a new mechanical tool, `engine/tools/routine_wedge_detect.py`, which inspects shared state for the wedge shape and routes the routine to a clean exit when detected.
 
 The mechanism is **detect-and-pause**, not auto-administrative-close. See "Alternatives considered" below for why.
 
@@ -27,9 +27,9 @@ A halted-routine wedge is detected when ALL of the following hold:
 1. `engine/session/register_state.json` exists and parses, with `current_status == "in_progress"`.
 2. `engine/session/current.json` exists and parses, with `id` matching `^S-\d{4}$` and `status == "in_progress"`.
 3. The current.json's `id` does NOT have a corresponding `engine/session/archive/<id>.json` at HEAD.
-4. The lock at the path `routine_lock.py` uses (per ADR 0052) is acquirable — i.e., no other routine session currently holds the worktree.
+4. The lock at the path `routine_lock.py` uses (per ADR 0082) is acquirable — i.e., no other routine session currently holds the worktree.
 5. The current.json names a `task_id` (routine-mode session field), AND `auto_target.json[task_id].status == "in_progress"`.
-6. HEAD is at-or-behind `origin/main` with no local commits ahead. (If HEAD is ahead, the calling routine has uncommitted lifecycle work; that's not a wedge — it's a partial-shutdown edge case the boot-freshness gate handles per ADR 0052.)
+6. HEAD is at-or-behind `origin/main` with no local commits ahead. (If HEAD is ahead, the calling routine has uncommitted lifecycle work; that's not a wedge — it's a partial-shutdown edge case the boot-freshness gate handles per ADR 0082.)
 
 Any conjunct missing → not a wedge → tool exits 0 → routine boot proceeds to step 1 normally.
 
@@ -63,7 +63,7 @@ The tool does NOT modify `register_state.json`, `current.json`, `auto_target.jso
 - **The wedge state itself remains for human adjudication.** This is deliberate. Auto-administrative-close (the alternative) would synthesize an archive without the halted session's `outcome_summary` input — that's the load-bearing field for downstream telemetry (soft-warn lifecycle per ADR 0042, scope-erosion signal per ADR 0049). Synthesizing it from cold context produces incorrect telemetry that downstream sessions read as truth.
 - **First-exercise readiness gate per [ADR 0053](0053-mechanism-first-exercise-gate.md).** A new readiness note at `engine/build_readiness/routine_wedge_detect_first_exercise.md` records the trigger criterion (next routine fire that would otherwise hit a wedge condition) and the Tier 1 / Tier 2 / Tier 3 triage. The first real-world exercise of the wedge-detect path closes the readiness note.
 - **`engine/operations/routine-mode-operations.md` is the Layer 1 source-of-truth doc** for the boot step; the skill body at `.claude/skills/routine-mode-lifecycle/SKILL.md` mirrors the doc per ADR 0044 (doc → skill, never reverse).
-- **Defense-in-depth coverage.** The S-0117 wedge had no detection at any layer: the boot-freshness gate (ADR 0052) checked `origin/main` freshness but not whether `register_state.in_progress` reflected an active session; the concurrency lock (ADR 0052) only matched true concurrent fires; `validate.py --health-probe-only` checked palace and repo health but not session-state coherence. This ADR closes the coherence gap.
+- **Defense-in-depth coverage.** The S-0117 wedge had no detection at any layer: the boot-freshness gate (ADR 0082) checked `origin/main` freshness but not whether `register_state.in_progress` reflected an active session; the concurrency lock (ADR 0082) only matched true concurrent fires; `validate.py --health-probe-only` checked palace and repo health but not session-state coherence. This ADR closes the coherence gap.
 - **MemPalace `decision`-tagged drawer** captured at S-0118 close per the project's two-layer decision-recording rule, summarizing the wedge-detect-and-pause approach and why auto-administrative-close was rejected.
 
 ### Files affected
@@ -96,11 +96,11 @@ The auto-close path could be revisited if (a) detect-and-pause produces enough w
 
 **Why rejected.** The current behavior IS this — and it produces HANDOFF spam. The point of step 0c is to stop step 5 from re-firing the spam path. Detect-and-pause is the minimum mechanism that suppresses the spam; detect-only doesn't.
 
-### Boot-freshness-gate amendment (extend ADR 0052 instead)
+### Boot-freshness-gate amendment (extend ADR 0082 instead)
 
 **What it would do.** Add the wedge-shape check inside `routine_boot_freshness.py` as another conjunct of "fresh state."
 
-**Why rejected.** The boot-freshness gate's contract is narrow: HEAD is at `origin/main` (mechanically advanced via `git merge --ff-only`). Adding shape conjuncts that aren't about HEAD freshness expands the tool's responsibility surface in a way ADR 0052 deliberately bounded ("eliminating the staleness vector"). A separate tool with a separate ADR keeps each mechanism's contract reviewable.
+**Why rejected.** The boot-freshness gate's contract is narrow: HEAD is at `origin/main` (mechanically advanced via `git merge --ff-only`). Adding shape conjuncts that aren't about HEAD freshness expands the tool's responsibility surface in a way ADR 0082 deliberately bounded ("eliminating the staleness vector"). A separate tool with a separate ADR keeps each mechanism's contract reviewable.
 
 ## References
 
@@ -110,6 +110,6 @@ The auto-close path could be revisited if (a) detect-and-pause produces enough w
 - [ADR 0044](0044-skill-conversion-recipe-vs-reference.md) — Layer 1 doc → Skill mirror policy.
 - [ADR 0048](0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md) — issue-discipline + HANDOFF disposition contract.
 - [ADR 0051](0051-routine-mode-and-engine-loop.md) — routine-mode posture (master-plan revision restriction).
-- [ADR 0052](0052-routine-boot-freshness-and-concurrency-defense.md) — three-layer routine-boot defense; companion mechanism.
+- [ADR 0082](0082-routine-boot-freshness-and-concurrency-defense.md) — three-layer routine-boot defense; companion mechanism.
 - [ADR 0053](0053-mechanism-first-exercise-gate.md) — mechanism-first-exercise gate.
 - [ADR 0056](0056-mempalace-mechanical-adoption-checks.md) — mempalace adoption checks (load-bearing for outcome-summary synthesis rejection).

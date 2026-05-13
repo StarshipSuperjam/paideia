@@ -12,7 +12,7 @@ The gate fires when a new mechanism qualifies as "novel cross-cutting" per ADR 0
 |---|---|
 | Introduces a new session mode | `routine` joining `build`/`exploration` (ADR 0051 — would have qualified) |
 | Introduces a new validator soft-warn category that depends on session-side discipline | `descope_unflagged` (ADR 0049 — qualified) |
-| Introduces a new state file the boot procedure reads | `auto_target.json` (ADR 0051 — qualified), `routine.lock` (ADR 0052 — qualified) |
+| Introduces a new state file the boot procedure reads | `auto_target.json` (ADR 0051 — qualified), `routine.lock` (ADR 0082 — qualified) |
 | Authoring ADR's Consequences list spans ≥ 3 ops docs OR ≥ 5 tooling files | ADR 0045 shared-state integrity (would have qualified — touches scrub_env, mempalace-hook-wrapper, validate.py health probes, plus 3 ops docs) |
 
 The check happens at ADR authoring time. Cross-cutting ADRs must include a trigger-criterion evaluation block in their Consequences section — either declaring "qualifies; gate session needed before unattended use" with the mechanism named, or "does not qualify because [criterion check]" with the negative finding stated. Silent omission is the failure mode this gate exists to prevent.
@@ -129,5 +129,5 @@ The verdict line is the operational surface the next session reads. Sessions usi
 - [ADR 0053](../adr/0053-mechanism-first-exercise-gate.md) — the contract this procedure instantiates.
 - [ADR 0040](../adr/0040-build-readiness-gate-before-substantive-build-sessions.md) — the analogous phase-triggered gate.
 - [`build-readiness-gate.md`](build-readiness-gate.md) — sibling procedure (phase-triggered).
-- [ADR 0051](../adr/0051-routine-mode-and-engine-loop.md), [ADR 0052](../adr/0052-routine-boot-freshness-and-concurrency-defense.md) — the routine-mode case study.
+- [ADR 0051](../adr/0051-routine-mode-and-engine-loop.md), [ADR 0082](../adr/0082-routine-boot-freshness-and-concurrency-defense.md) — the routine-mode case study.
 - Issues [#7](https://github.com/StarshipSuperjam/paideia/issues/7), [#8](https://github.com/StarshipSuperjam/paideia/issues/8), [#9](https://github.com/StarshipSuperjam/paideia/issues/9), [#10](https://github.com/StarshipSuperjam/paideia/issues/10), [#15](https://github.com/StarshipSuperjam/paideia/issues/15) — the five routine-mode infrastructure gaps a pre-flight gate would have caught.

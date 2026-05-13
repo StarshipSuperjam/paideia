@@ -1,6 +1,6 @@
 """Mechanically-verified loser recovery for the routine eager-claim race.
 
-Layer 1 contract per ADR 0052 (Issue #15 residual defense).
+Layer 1 contract per ADR 0082 (Issue #15 residual defense).
 
 Purpose
 -------
@@ -179,7 +179,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Mechanically-verified loser recovery for the routine eager-claim "
-            "race. Per ADR 0052; whitelisted exception to the routine-mode "
+            "race. Per ADR 0082; whitelisted exception to the routine-mode "
             "destructive-action posture."
         ),
     )

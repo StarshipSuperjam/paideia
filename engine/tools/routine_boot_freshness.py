@@ -1,6 +1,6 @@
 """Mechanical boot-freshness gate for routine-mode sessions.
 
-Layer 1 contract per ADR 0052 (Issue #15 corrected diagnosis).
+Layer 1 contract per ADR 0082 (Issue #15 corrected diagnosis).
 
 Purpose
 -------
@@ -57,7 +57,7 @@ CLI
 
 Out of scope
 ------------
-- Concurrency control. ADR 0052 covers serialization
+- Concurrency control. ADR 0082 covers serialization
   (``routine_lock.py``) and loser recovery
   (``routine_eager_claim_recovery.py``) as separate layers.
 - Interactive ``/start-engine`` boot. The informational-warning

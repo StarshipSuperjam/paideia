@@ -89,7 +89,7 @@ CLI
 Out of scope
 ------------
 - Routine sessions. Continue using ``routine_lifecycle_push.py``.
-- Cross-machine concurrency. Same residual as ADR 0052 — first-push-wins.
+- Cross-machine concurrency. Same residual as ADR 0082 — first-push-wins.
 - Destructive recovery. The wrapper does NOT amend, reset, or otherwise
   modify the repository on verification failure. Author adjudicates.
 """

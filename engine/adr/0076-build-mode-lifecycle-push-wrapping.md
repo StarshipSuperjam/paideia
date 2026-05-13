@@ -99,7 +99,7 @@ One criterion satisfied → **readiness note required**. Authored at [`engine/bu
 
 - **Refactor to single `lifecycle_push.py`.** Deferred — sibling composition is correct for S-0138's scope.
 - **Validator soft-warn on un-wrapped pushes.** Could mechanize "the AI invoked `git push origin main` in a build session"; deferred — the allowlist revert plus the harness classifier together make raw push impossible from sanctioned paths.
-- **Cross-machine concurrency.** Same residual as ADR 0052 — first-push-wins.
+- **Cross-machine concurrency.** Same residual as ADR 0082 — first-push-wins.
 - **Destructive recovery.** Wrapper does NOT amend, reset, or otherwise modify the repository on verification failure. Author adjudicates.
 
 ### Empirical record

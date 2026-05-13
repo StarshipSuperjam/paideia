@@ -66,7 +66,7 @@ A failure-mode probe (intentionally malformed migration; intentional FK violatio
 
 - **T3-B — Migration rollback automation.** The wrapper currently does not consume the rollback SQL named in the migration's contract block. A future enhancement could parse and execute the rollback section on `--rollback` mode. Defer to a concrete need.
 
-- **T3-C — Cross-machine concurrency.** Same residual as ADR 0052: cross-machine apply races are not modeled. The wrapper's `check_already_applied` step catches the case where another process applied the migration first, but the gap between check and INSERT is not transactional.
+- **T3-C — Cross-machine concurrency.** Same residual as ADR 0082: cross-machine apply races are not modeled. The wrapper's `check_already_applied` step catches the case where another process applied the migration first, but the gap between check and INSERT is not transactional.
 
 - **T3-D — Migration body chunking.** S-0058+'s chunked-execute_sql pattern existed because MCP supabase had a per-call payload limit. The wrapper does not have that limit (psycopg can handle multi-MB statements). A future migration that exceeds psycopg's practical limit (10s of MB?) would need chunking; for now no Phase 5 migration approaches that scale.
 
@@ -77,7 +77,7 @@ A failure-mode probe (intentionally malformed migration; intentional FK violatio
 Run after the wrapper code lands. Inspect:
 - Tool's per-mode shape verifiers — do they reject the cases the test suite covers? Do the reject reasons name the specific predicate violated?
 - Skill body's step 9 — does it hand exit-2 (verification refused) and exit-3/4/5/6/7 (apply failures) to HANDOFF correctly?
-- ADR 0055 cross-references — do they back-link to ADR 0052 (Layer pattern), ADR 0053 (gate trigger), ADR 0054 (precursor wrapper)?
+- ADR 0055 cross-references — do they back-link to ADR 0082 (Layer pattern), ADR 0053 (gate trigger), ADR 0054 (precursor wrapper)?
 - This report — does Phase 1 result (24 tests green) get captured before S-0064 closes?
 
 ## Cross-references
@@ -85,7 +85,7 @@ Run after the wrapper code lands. Inspect:
 - [ADR 0053](../adr/0053-mechanism-first-exercise-gate.md) — the gate's authoring contract.
 - [ADR 0055](../adr/0055-apply-migration-wrapping-against-production-reads-gate.md) — the wrapper's authoring ADR.
 - [ADR 0054](../adr/0054-lifecycle-push-wrapping-against-default-branch-push-gate.md) — precursor wrapper for git push; same subprocess-bypass pattern.
-- [ADR 0052](../adr/0052-routine-boot-freshness-and-concurrency-defense.md) — three-layer routine-boot defense pattern this wrapper extends as a fifth layer (alongside ADR 0054's lifecycle-push wrapper).
+- [ADR 0082](../adr/0082-routine-boot-freshness-and-concurrency-defense.md) — three-layer routine-boot defense pattern this wrapper extends as a fifth layer (alongside ADR 0054's lifecycle-push wrapper).
 - [ADR 0051](../adr/0051-routine-mode-and-engine-loop.md) — routine-mode foundation.
 - [`engine/tools/apply_migration.py`](../tools/apply_migration.py) — the wrapper.
 - [`engine/tools/test_apply_migration.py`](../tools/test_apply_migration.py) — test suite.

@@ -36,7 +36,7 @@ The user adjudicated at S-0063 close: combined fix (Option B from the close-turn
 
 A new mechanical layer in the routine-mode seed-authoring workflow: **all routine-mode migration applies route through `engine/tools/apply_migration.py`**. The wrapper performs `psycopg.connect()` and `cur.execute()` from inside the allowlisted python tool, mechanically shape-verifies the migration before applying, and records the migration in `supabase_migrations.schema_migrations`.
 
-This adds a fourth mechanical layer in the same family as the freshness/lock/recovery/lifecycle-push wrappers ADR 0052 and ADR 0054 establish, aligned to the same "mechanically-verified bounded shape" posture.
+This adds a fourth mechanical layer in the same family as the freshness/lock/recovery/lifecycle-push wrappers ADR 0082 and ADR 0054 establish, aligned to the same "mechanically-verified bounded shape" posture.
 
 ### Wrapper tool — `engine/tools/apply_migration.py`
 
@@ -143,7 +143,7 @@ The wrapper qualifies as a *novel cross-cutting mechanism* under ADR 0053's trig
 
 - [ADR 0054](0054-lifecycle-push-wrapping-against-default-branch-push-gate.md) — the precursor; same subprocess-bypass pattern for `git push`.
 - [ADR 0053](0053-mechanism-first-exercise-gate.md) — gate trigger criterion this ADR satisfies; mandates the first-exercise readiness note.
-- [ADR 0052](0052-routine-boot-freshness-and-concurrency-defense.md) — three-layer routine-boot defense; this ADR adds a parallel layer for migration applies.
+- [ADR 0082](0082-routine-boot-freshness-and-concurrency-defense.md) — three-layer routine-boot defense; this ADR adds a parallel layer for migration applies.
 - [ADR 0051](0051-routine-mode-and-engine-loop.md) — routine-mode foundation.
 - [ADR 0044](0044-skill-conversion-recipe-vs-reference.md) — doc-then-skill flow; ops doc updated before Skill body.
 - [Issue #18](https://github.com/StarshipSuperjam/paideia/issues/18) — the regression report this ADR resolves.

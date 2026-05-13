@@ -15,7 +15,7 @@ eligible task at step 5, wrote a HANDOFF entry, and exited — producing
 HANDOFF spam until a human paused the routine and adjudicated.
 
 This tool runs at boot step ``0c``, between concurrency-lock acquire
-(per ADR 0052) and target precondition (step 1). When the wedge shape
+(per ADR 0082) and target precondition (step 1). When the wedge shape
 matches, it idempotently authors a single Issue (via ``gh issue
 create``) and a single HANDOFF.md section, then exits 2 — the routine
 boot reads exit 2 and exits cleanly without claiming. Subsequent fires
@@ -70,7 +70,7 @@ Out of scope
   per ADR 0060 + ADR 0042.
 - Cross-checkout wedge detection. The tool inspects the local
   repo's shared state. A wedge that lives only on origin/main but
-  not the local checkout is a freshness-gate concern (ADR 0052),
+  not the local checkout is a freshness-gate concern (ADR 0082),
   not this tool's concern.
 """
 

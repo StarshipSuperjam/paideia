@@ -1,6 +1,6 @@
 """Atomic-write lockfile for routine-mode session serialization.
 
-Layer 1 contract per ADR 0052 (Issue #15 belt-and-suspenders).
+Layer 1 contract per ADR 0082 (Issue #15 belt-and-suspenders).
 
 Purpose
 -------
@@ -157,7 +157,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Atomic-write lockfile for routine-mode session serialization. "
-            "Defense-in-depth per ADR 0052."
+            "Defense-in-depth per ADR 0082."
         ),
     )
     parser.add_argument(

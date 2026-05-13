@@ -163,12 +163,18 @@ def _check_adr_status(
     constrains the search to a single ADR registry, disambiguating
     the case where both registries carry an ADR with the same id (per
     [ADR 0037](engine/adr/0037-engine-product-wall-and-changelog-rename.md)
-    the partition allows id reuse — engine/adr/0052 (S-0055) and
-    product/adr/0052 (S-0045) both exist). When omitted, both registries
+    the partition allows id reuse — engine/adr/0052 (S-0055; renumbered
+    to engine/adr/0082 at S-0149 per Issue #91 to resolve a cross-partition
+    collision with product/adr/0052 (S-0045)). When omitted, both registries
     are searched and a duplicate-id match returns the multiple-files
     failure that surfaces the collision.
 
-    Per [Issue #19](https://github.com/StarshipSuperjam/paideia/issues/19).
+    Per [Issue #19](https://github.com/StarshipSuperjam/paideia/issues/19)
+    (origin) and [Issue #91](https://github.com/StarshipSuperjam/paideia/issues/91)
+    (collision resolution). The ``directory`` parameter remains as
+    defense-in-depth against future cross-partition collisions; a new
+    ``duplicate_adr_number`` validator soft-warn (per S-0149) flags any
+    recurrence at structural-phase validate time.
     """
     if directory is not None and directory not in ("engine", "product"):
         return False, (

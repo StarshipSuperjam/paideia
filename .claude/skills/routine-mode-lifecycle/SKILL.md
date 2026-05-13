@@ -16,14 +16,14 @@ A routine-mode session is any conversation spawned by a Claude Code Routine that
 
 ## Boot procedure (run in order)
 
-### 0a. Boot-freshness gate (per ADR 0052)
+### 0a. Boot-freshness gate (per ADR 0082)
 
 Run `python3 engine/tools/routine_boot_freshness.py`. Mechanically fast-forwards the worktree to `origin/main` before any shared-state read. Per Issue #15 — the S-0054 loser session read stale `register_state.json` and re-claimed an already-taken slot.
 
 - Exit 0 → proceed to step 0b.
 - Exit 2 → HEAD has diverged from origin/main (real anomaly, not auto-recoverable). Write HANDOFF "routine boot refused: HEAD diverged from origin/main; needs human adjudication" with `**Disposition:** out-of-scope` → exit 0 without claiming.
 
-### 0b. Concurrency lock (per ADR 0052)
+### 0b. Concurrency lock (per ADR 0082)
 
 Run `python3 engine/tools/routine_lock.py acquire`. Defense-in-depth against true concurrent fires (the residual case the freshness gate doesn't cover).
 
@@ -114,7 +114,7 @@ python3 engine/tools/routine_lifecycle_push.py eager-claim
 - `4` → network failure. Retry once after 5s; halt on second failure with HANDOFF.
 - `5` → generic git error. Halt with HANDOFF.
 
-**Push-rejection branch (per ADR 0052):** the wrapper's exit-3 path runs `python3 engine/tools/routine_eager_claim_recovery.py` to handle the eager-claim race shape.
+**Push-rejection branch (per ADR 0082):** the wrapper's exit-3 path runs `python3 engine/tools/routine_eager_claim_recovery.py` to handle the eager-claim race shape.
 
 - Exit 0 → recovery complete (HEAD reset to origin/main; loser commit gone). Run `python3 engine/tools/routine_lock.py release` and exit cleanly without re-claiming.
 - Exit 2 → ambiguous state (multiple commits ahead, or shape doesn't match). Write HANDOFF "eager-claim race recovery refused: ambiguous state" with `**Disposition:** out-of-scope`, run `routine_lock.py release`, exit 0.
@@ -186,7 +186,7 @@ Same as `/start-engine` close per [`session-shutdown-sequence`](../session-shutd
 
   The wrapper verifies the close commit shape (subject `^chore\(session\): close S-NNNN`; archive file created; current.json deleted; register_state flips `in_progress → closed`; any other touched paths are in the operational allowlist). Exit codes 0/2/3/4/5 same as the other wrapper modes — exit 2 means the close commit is malformed; write HANDOFF naming the reject reason. (Note: an exit 2 mid-shutdown is rare, but if it happens DO NOT amend the close commit — the partial-shutdown state is the artifact future sessions will pick up.)
 
-- **Lock release**: `python3 engine/tools/routine_lock.py release` (per ADR 0052; releases the lock acquired at step 0b so the next routine fire can claim it). Do NOT release the lock until after the close push has succeeded.
+- **Lock release**: `python3 engine/tools/routine_lock.py release` (per ADR 0082; releases the lock acquired at step 0b so the next routine fire can claim it). Do NOT release the lock until after the close push has succeeded.
 
 - **Last action — close-side worktree preservation** (S-0143 / ADR 0076 Amendment v2):
 

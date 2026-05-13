@@ -46,7 +46,6 @@ The engine collection has **44 ADRs total — all Accepted**. Engine ADRs are ab
 | [0049](0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md) | Scope-lock at boot, descope/reorder audit at shutdown, session-end context telemetry | Accepted |
 | [0050](0050-project-venv-and-hook-path-wiring.md) | Project venv (uv-managed) at main repo root with hook PATH wiring | Accepted |
 | [0051](0051-routine-mode-and-engine-loop.md) | Routine-mode session pattern and engine-loop foundation | Accepted |
-| [0052](0052-routine-boot-freshness-and-concurrency-defense.md) | Routine-mode boot freshness and concurrency defense | Accepted |
 | [0053](0053-mechanism-first-exercise-gate.md) | Mechanism-first-exercise gate for novel cross-cutting mechanisms | Accepted |
 | [0054](0054-lifecycle-push-wrapping-against-default-branch-push-gate.md) | Lifecycle-push wrapping against the Default Branch Push gate | Accepted |
 | [0055](0055-apply-migration-wrapping-against-production-reads-gate.md) | Apply-migration wrapping against the Production Reads gate | Accepted |
@@ -75,6 +74,7 @@ The engine collection has **44 ADRs total — all Accepted**. Engine ADRs are ab
 | [0079](0079-hnsw-sync-threshold-tuning.md) | HNSW sync_threshold tuning for cross-session metadata persistence | Accepted |
 | [0080](0080-boot-time-dependency-version-visibility.md) | Boot-time dependency version visibility + stale Dependabot PR surface | Accepted |
 | [0081](0081-ship-multi-model-orchestration-skill.md) | `/ship` multi-model orchestration skill | Accepted |
+| [0082](0082-routine-boot-freshness-and-concurrency-defense.md) | Routine-mode boot freshness and concurrency defense (renumbered from 0052 at S-0149 to resolve cross-partition collision with product ADR 0052) | Accepted |
 
 ## Adding a new engine ADR
 
