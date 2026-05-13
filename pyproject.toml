@@ -29,7 +29,7 @@ dependencies = [
     # vulnerabilities (eval, subprocess shell=True, weak random for tokens,
     # hardcoded credentials) that ruff/mypy don't. Pre-commit + CI gate;
     # config at engine/tools/bandit.yaml. Floor pinned; uv.lock holds exact.
-    "bandit>=1.7.0",
+    "bandit>=1.9.4",
 
     # Phase 4+ live-graph audit per ADR 0016. psycopg v3 binary build
     # (zero-toolchain install). Activated only when SUPABASE_DB_URL is set.
