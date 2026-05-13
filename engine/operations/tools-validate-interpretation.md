@@ -429,6 +429,7 @@ The since-date matches the calendar span of the cadence-20 window. The `git log 
 | `next_session_handle_malformed` | Actively-tracked, deferred (S-0100) | 0 | 0 | 2 | ADR 0049 Decision 6 — handle malformed (not `#NN` or `S-NNNN`) |
 | `validator_runtime_phase_regression` | Actively-tracked, deferred (S-0126) | 0 | 0 | 1 | Per-phase runtime regression per ADR 0063 four-phase model (S-0127 fold) |
 | `uv_lock_out_of_date` | Actively-tracked, deferred (S-0127) | 0 | 0 | 0 | uv.lock vs pyproject.toml staleness per ADR 0064 |
+| `dependabot_pr_stale` | Actively-tracked, deferred (S-0147) | 0 | 0 | 0 | Open Dependabot PR aged ≥ 7 days per ADR 0080 (engine); one fire per stale PR |
 
 **Coverage check:** 42 rows above; 40 static-emission category strings (per `grep -oE 'r\.soft_warn\(\s*"[a-z_]+"' engine/tools/validate.py | sort -u`) plus 2 dynamic-emission categories (`chromadb_palace_health`, `repo_config_health`) emitted from the probe loop at `validate.py:687`. Two ghost keys appear in some historical archives (`graph_audit_skipped` is an `add_check` not a `soft_warn`; `mempalace_diary_write_skipped` is a hard-fail not a soft-warn) — both excluded from this map by design.
 

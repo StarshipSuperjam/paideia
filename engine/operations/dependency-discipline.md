@@ -98,6 +98,42 @@ Out-of-cadence CVE response: a session that wants to apply a CVE fix mid-week (b
 
 Per [`tools-validate-interpretation.md`](tools-validate-interpretation.md) "Persistent-warn annotation": this soft-warn should NOT persist across sessions — every fire indicates a missing `uv lock` step that the session author should address inline. If it persists across 10 sessions per `soft-warn-lifecycle.md`, escalate as either: (a) the dep change was wrong and should be reverted; (b) a CI regeneration job should be added so the lockfile updates automatically on dep changes.
 
+## Stale Dependabot PR handling
+
+Per [ADR 0080](../adr/0080-boot-time-dependency-version-visibility.md) (S-0147), every session boot surfaces open Dependabot PRs via [`engine/tools/scan_dependabot_prs.py`](../tools/scan_dependabot_prs.py). The surface has three modes:
+
+- **Quiet** (0 open PRs) — no line at boot.
+- **FYI** (1–4 open PRs, all <7 days old) — single line: `[session-start] Dependabot PRs: N open (oldest M day(s); review at convenience).`
+- **LOUD** (≥5 open PRs OR any PR ≥7 days old) — multi-line block listing each PR with age + mergeable status + a one-line next-action hint.
+
+Threshold: **7 days = one full Dependabot weekly cadence.** A PR open across one Monday refresh is stale by definition.
+
+Defense-in-depth: `validate_dependabot_pr_stale` in [`validate.py`](../tools/validate.py) emits one soft-warn per stale PR. The soft-warn lands in `outcome_summary_soft_warns` so the persistent-warn 3-of-5 surface per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md) fires at the next boot if stale PRs accumulate across sessions.
+
+**Valid responses on encountering a stale Dependabot PR:**
+
+1. **Process the PR** (default). Per the "Security-update workflow" section above: pull the branch, run `uv lock && uv sync`, push the regen, wait for CI green, merge.
+
+2. **Close-with-justification** when the dep should not bump (the bump introduces an incompatible contract change without an offsetting safety improvement; the dep is being intentionally pinned at an older version for a documented reason). Close via `gh pr close --comment "<justification>"`; the AI-or-human reviewer records the reason in the comment.
+
+3. **File a follow-up Issue and defer** when a single session genuinely cannot triage the backlog (≥10 stale PRs each requiring per-major-bump review per [ADR 0069](../adr/0069-dependabot-pip-and-actions-ecosystems.md)). Open one tracking Issue labeled `cleanup` referencing the backlog; the next session sees it in the boot surface alongside the stale PRs themselves.
+
+**Anti-pattern:** suppressing the soft-warn by hand-editing `outcome_summary_soft_warns` without addressing the PRs themselves. The persistent-warn surface exists specifically to make this lapse visible across sessions.
+
+## Boot-time version telemetry
+
+Per [ADR 0080](../adr/0080-boot-time-dependency-version-visibility.md), every session boot also surfaces the active venv's Python + chromadb + mempalace versions via [`engine/tools/probe_versions.py`](../tools/probe_versions.py):
+
+```
+[session-start] Versions: python=3.12.13 chromadb=1.5.9 mempalace=3.3.5 venv=<path> (worktree-local|main-repo|MISCONFIGURED)
+```
+
+The `(worktree-local|main-repo|MISCONFIGURED)` label verifies that [`scrub_env.sh`](../tools/scrub_env.sh)'s PATH-prepend (per [ADR 0050](../adr/0050-project-venv-and-hook-path-wiring.md)) actually won — when `sys.prefix` matches neither the worktree-local `.venv/` nor the main-repo `.venv/`, the surface emits a LOUD `MISCONFIGURED` marker indicating system Python silently resolved.
+
+**On MISCONFIGURED:** stop substantive work, verify `<repo>/.venv/` exists (run `uv sync` if not), confirm `scrub_env.sh` is sourcing (the wiring is idempotent — re-sourcing won't break anything), and verify the next boot's surface reads `worktree-local` or `main-repo`.
+
+**On version drift between sessions** (chromadb or mempalace version changes without an accompanying ADR amendment or commit referenced in the citing ADR's empirical record): investigate before assuming behavior. A version that changed silently is a clue to a `uv sync` that happened without a `pyproject.toml` commit — likely a Dependabot PR that's been merged or an out-of-band `uv lock` invocation.
+
 ## Interaction with other ADRs
 
 - [ADR 0050](../adr/0050-project-venv-and-hook-path-wiring.md) — the venv exists at `<repo-root>/.venv/` (Python 3.12 pinned via `.python-version`). `uv sync` populates it from the lockfile. `scrub_env.sh` prepends `.venv/bin/` to PATH so all subprocess invocations resolve to the venv-installed binaries.

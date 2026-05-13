@@ -146,6 +146,7 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -3977,6 +3978,74 @@ def validate_handoff_long_resolved_sections(
     return r
 
 
+_DEPENDABOT_PR_STALE_THRESHOLD_DAYS = 7
+
+
+def validate_dependabot_pr_stale(
+    now: datetime | None = None,
+    repo: str | None = None,
+    _scanner_module: Any = None,
+) -> ValidationResult:
+    """Soft-warn for each open Dependabot PR aged ≥ 7 days.
+
+    Per ADR 0080 (engine), S-0147. Companion to the boot-time surface
+    in ``scan_dependabot_prs.py``: this check records per-session counts
+    into ``outcome_summary_soft_warns`` so the persistent-warn 3-of-5
+    surface escalates if Dependabot PRs accumulate across sessions.
+
+    Three no-op cases (return clean, no soft-warn registered as fired):
+
+    - ``gh`` binary not on PATH (clone hasn't installed prerequisites).
+    - ``gh pr list`` failure (auth, network).
+    - No open Dependabot PRs.
+
+    The soft-warn fires per stale PR with its number, age, and a
+    next-action hint, sharing the per-PR formatting with
+    ``scan_dependabot_prs.py``'s ``next_action_hint``.
+
+    Inputs:
+        now: Override datetime.now(UTC). Test injection point.
+        repo: Pass-through to gh -R; production omits.
+        _scanner_module: Test injection for the scanner module reference;
+            production resolves via lazy import.
+
+    Returns:
+        ValidationResult with ``dependabot_pr_stale`` registered as a
+        check. Soft-warn fires for each open PR ≥ 7 days old.
+    """
+    r = ValidationResult()
+    r.add_check("dependabot_pr_stale")
+    if shutil.which("gh") is None:
+        return r
+
+    if _scanner_module is None:
+        try:
+            import importlib
+
+            _scanner_module = importlib.import_module("scan_dependabot_prs")
+        except ImportError:
+            return r
+
+    prs = _scanner_module.fetch_open_prs(repo)
+    if prs is None or not prs:
+        return r
+
+    threshold = _DEPENDABOT_PR_STALE_THRESHOLD_DAYS
+    for pr in prs:
+        days = _scanner_module.age_days(pr["createdAt"], now=now)
+        if days >= threshold:
+            num = pr.get("number", "?")
+            title = pr.get("title", "(no title)")
+            hint = _scanner_module.next_action_hint(pr)
+            r.soft_warn(
+                "dependabot_pr_stale",
+                f"Dependabot PR #{num} open for {days} days "
+                f"(threshold {threshold}d): {title}. → {hint}. "
+                "Per engine/operations/dependency-discipline.md.",
+            )
+    return r
+
+
 def validate_uv_lock_freshness(repo_root: Path | None = None) -> ValidationResult:
     """Soft-warn when ``uv.lock`` is out of date relative to ``pyproject.toml``.
 
@@ -4342,6 +4411,9 @@ def main(argv: list[str] | None = None) -> int:
         # Lockfile-staleness check per ADR 0064 (S-0127; Issue #65). Fits
         # health_probe rather than structural because it shells out to `uv`.
         overall.merge(validate_uv_lock_freshness())
+        # Stale Dependabot PR check per ADR 0080 engine (S-0147). Fits
+        # health_probe — shells out to `gh pr list`.
+        overall.merge(validate_dependabot_pr_stale())
         t_health_probe_end = time.monotonic()
         duration_health_probe_ms = (t_health_probe_end - t_structural_end) * 1000
 

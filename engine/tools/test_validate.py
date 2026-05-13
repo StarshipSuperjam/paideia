@@ -2582,3 +2582,131 @@ class TestValidateUvLockFreshness:
         monkeypatch.setattr(subprocess, "run", _raise_timeout)
         r = validate.validate_uv_lock_freshness(repo_root=tmp_path)
         assert r.soft_warns == {}
+
+
+# ---------------------------------------------------------------------------
+# validate_dependabot_pr_stale (ADR 0080 engine, S-0147)
+# ---------------------------------------------------------------------------
+
+
+class TestValidateDependabotPrStale:
+    """Per-PR soft-warn for Dependabot PRs aged ≥ 7 days.
+
+    Verified shapes:
+    - gh binary missing → no-op
+    - gh fails (returns None) → no-op
+    - no open PRs → no-op
+    - all PRs fresh → no soft-warn
+    - one stale PR → one soft-warn
+    - multiple stale PRs → multiple soft-warns
+    - threshold boundary (exactly 7d) → fires
+    """
+
+    def _make_scanner_stub(self, prs: list[dict[str, Any]]) -> object:
+        """Return an object that quacks like the scan_dependabot_prs module."""
+        from datetime import datetime as _dt
+        from datetime import timezone as _tz
+
+        class _Stub:
+            @staticmethod
+            def fetch_open_prs(repo: Any = None) -> list[dict[str, Any]]:
+                return prs
+
+            @staticmethod
+            def age_days(created_at: str, now: Any = None) -> int:
+                now = now or _dt.now(_tz.utc)
+                created = _dt.fromisoformat(created_at.replace("Z", "+00:00"))
+                return int((now - created).days)
+
+            @staticmethod
+            def next_action_hint(pr: dict[str, Any]) -> str:
+                return "test-hint"
+
+        return _Stub()
+
+    def _pr(self, num: int, days_old: int, title: str = "test") -> dict[str, Any]:
+        from datetime import datetime as _dt
+        from datetime import timedelta, timezone as _tz
+
+        created = (
+            (_dt.now(_tz.utc) - timedelta(days=days_old))
+            .isoformat()
+            .replace("+00:00", "Z")
+        )
+        return {
+            "number": num,
+            "title": title,
+            "createdAt": created,
+            "mergeable": "MERGEABLE",
+            "headRefName": "dependabot/pip/foo",
+        }
+
+    def test_gh_missing_returns_clean(self, monkeypatch: Any) -> None:
+        monkeypatch.setattr("shutil.which", lambda _name: None)
+        r = validate.validate_dependabot_pr_stale()
+        assert r.soft_warns == {}
+        assert "dependabot_pr_stale" in r.checks_run
+
+    def test_no_open_prs_returns_clean(self, monkeypatch: Any) -> None:
+        monkeypatch.setattr(
+            "shutil.which", lambda name: "/usr/bin/gh" if name == "gh" else None
+        )
+        stub = self._make_scanner_stub([])
+        r = validate.validate_dependabot_pr_stale(_scanner_module=stub)
+        assert r.soft_warns == {}
+
+    def test_gh_fetch_failure_returns_clean(self, monkeypatch: Any) -> None:
+        monkeypatch.setattr(
+            "shutil.which", lambda name: "/usr/bin/gh" if name == "gh" else None
+        )
+
+        class _StubNone:
+            @staticmethod
+            def fetch_open_prs(repo: Any = None) -> Any:
+                return None
+
+        r = validate.validate_dependabot_pr_stale(_scanner_module=_StubNone())
+        assert r.soft_warns == {}
+
+    def test_fresh_prs_no_warn(self, monkeypatch: Any) -> None:
+        monkeypatch.setattr(
+            "shutil.which", lambda name: "/usr/bin/gh" if name == "gh" else None
+        )
+        stub = self._make_scanner_stub([self._pr(1, 1), self._pr(2, 3)])
+        r = validate.validate_dependabot_pr_stale(_scanner_module=stub)
+        assert r.soft_warns == {}
+
+    def test_one_stale_pr_fires_one_warn(self, monkeypatch: Any) -> None:
+        monkeypatch.setattr(
+            "shutil.which", lambda name: "/usr/bin/gh" if name == "gh" else None
+        )
+        stub = self._make_scanner_stub(
+            [self._pr(1, 1), self._pr(99, 10, title="stale")]
+        )
+        r = validate.validate_dependabot_pr_stale(_scanner_module=stub)
+        assert "dependabot_pr_stale" in r.soft_warns
+        assert len(r.soft_warns["dependabot_pr_stale"]) == 1
+        assert "#99" in r.soft_warns["dependabot_pr_stale"][0]
+        assert "10 days" in r.soft_warns["dependabot_pr_stale"][0]
+
+    def test_multiple_stale_prs_fire_multiple_warns(self, monkeypatch: Any) -> None:
+        monkeypatch.setattr(
+            "shutil.which", lambda name: "/usr/bin/gh" if name == "gh" else None
+        )
+        stub = self._make_scanner_stub(
+            [self._pr(1, 10), self._pr(2, 8), self._pr(3, 15)]
+        )
+        r = validate.validate_dependabot_pr_stale(_scanner_module=stub)
+        assert "dependabot_pr_stale" in r.soft_warns
+        assert len(r.soft_warns["dependabot_pr_stale"]) == 3
+
+    def test_threshold_boundary_exactly_7d_fires(self, monkeypatch: Any) -> None:
+        """7d is the threshold; >= fires (not strict >)."""
+        monkeypatch.setattr(
+            "shutil.which", lambda name: "/usr/bin/gh" if name == "gh" else None
+        )
+        stub = self._make_scanner_stub([self._pr(1, 7), self._pr(2, 6)])
+        r = validate.validate_dependabot_pr_stale(_scanner_module=stub)
+        assert "dependabot_pr_stale" in r.soft_warns
+        assert len(r.soft_warns["dependabot_pr_stale"]) == 1
+        assert "#1" in r.soft_warns["dependabot_pr_stale"][0]

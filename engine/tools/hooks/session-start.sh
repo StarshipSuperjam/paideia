@@ -88,6 +88,32 @@ log_ok() {
     echo "$TIMESTAMP OK $1" >>"$LOG_FILE" 2>/dev/null
 }
 
+# ---------------------------------------------------------------------------
+# Version telemetry (per ADR 0080 engine, S-0147)
+# ---------------------------------------------------------------------------
+#
+# Surfaces the active venv's Python + chromadb + mempalace versions plus
+# the resolved venv prefix so the AI sees at boot which versions it's
+# actually running. Closes the visibility gap that drove the
+# S-0144→S-0146 MemPalace cold-start confusion arc.
+#
+# Verifies scrub_env.sh's PATH-prepend (per ADR 0050) actually won: when
+# sys.prefix matches neither the worktree-local nor main-repo .venv/,
+# emits a LOUD warning that system Python is resolving (and the AI
+# should investigate before substantive work).
+#
+# Best-effort: probe failure (no python3, no venv, no git) emits a stderr
+# log and proceeds. Always exits 0; the surface is informational.
+
+VERSION_PROBE="$REPO_ROOT/engine/tools/probe_versions.py"
+if [ -x "$(command -v python3)" ] && [ -f "$VERSION_PROBE" ]; then
+    if ! python3 "$VERSION_PROBE" --repo "$REPO_ROOT" 2>/dev/null; then
+        log_fail "version-probe-nonzero"
+    fi
+else
+    log_fail "version-probe-prereq-missing"
+fi
+
 # jq is required for JSON parsing.
 if ! command -v jq >/dev/null 2>&1; then
     log_fail "jq-not-installed"
@@ -802,6 +828,30 @@ if [ -x "$(command -v python3)" ] && [ -f "$BACKLOG_TOOL" ]; then
 else
     log_fail "backlog-prereq-missing"
     BACKLOG_STATUS="prereq-missing"
+fi
+
+# ---------------------------------------------------------------------------
+# Dependabot PR visibility (per ADR 0080 engine, S-0147)
+# ---------------------------------------------------------------------------
+#
+# Sibling to scan_issue_backlog.py. Closes the gap that allowed ADR 0069's
+# Dependabot PRs to sit invisible — the boot surface previously counted
+# Issues, never queried gh pr list. Emits quiet (0 PRs), single-line FYI
+# (1–4 fresh), or multi-line LOUD (≥5 OR any ≥7d) attention block.
+# Best-effort: gh failure emits stderr note and proceeds.
+
+DEPABOT_TOOL="$REPO_ROOT/engine/tools/scan_dependabot_prs.py"
+DEPABOT_STATUS="not-run"
+if [ -x "$(command -v python3)" ] && [ -f "$DEPABOT_TOOL" ]; then
+    if python3 "$DEPABOT_TOOL" 2>/dev/null; then
+        DEPABOT_STATUS="ok"
+    else
+        DEPABOT_STATUS="exit-nonzero"
+        log_fail "dependabot-scan-nonzero"
+    fi
+else
+    log_fail "dependabot-scan-prereq-missing"
+    DEPABOT_STATUS="prereq-missing"
 fi
 
 # ---------------------------------------------------------------------------
