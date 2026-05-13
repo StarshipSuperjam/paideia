@@ -225,6 +225,8 @@ The entity resolution service is shared infrastructure. The teaching session use
 
 The embedding-storage shape that backs the entity resolution service is committed in [ADR 0086](../adr/0086-model-agnostic-embedding-storage-architecture.md): per-user `embedding_model` + `embedding_dims` metadata, with `node_embeddings_<dim>` partition tables keyed by the user's chosen dimensionality. Application-code routes each lookup to the correct partition. The model itself is the user's BYOK choice (per [ADR 0065](../adr/0065-oss-pivot-and-byok-disposition.md)); the project commits to the storage shape, not to a specific embedding provider.
 
+The alias-resolution algorithm is committed in [ADR 0087](../adr/0087-two-hop-neighborhood-retrieval-shape.md): the service returns all candidates above a similarity threshold with the highest-confidence one tagged `presumed_match` (combining similarity score + graph distance to current concept + learner mastery, weighted equally at v1). Sonnet's prompt-layer scaffolding defaults to the presumed match but may override based on in-context judgment. References that exceed no threshold land as `tension_type=spontaneous_connection` per `self-correction.md` for Opus batch review.
+
 ## Syllabus Upload Pipeline
 
 A professor (or autodidact following an online course) uploads a course syllabus. The system parses it, maps it to the mastery graph, identifies prerequisite gaps, and generates a constrained learning path. The syllabus is a constraint on graph traversal, not a replacement for it — the professor's sequencing is respected, and the system catches learners who can't make the inferential leaps the syllabus silently demands.

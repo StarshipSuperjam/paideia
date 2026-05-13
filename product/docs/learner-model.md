@@ -100,6 +100,8 @@ The design principle: **recovery from decay should feel like an appreciated remi
 
 A reinforcing encounter is any interaction that touches the concept: direct teaching, assessment, callback reference, spontaneous cross-domain connection, or application in a novel context. The system must map freeform interactions back to graph nodes, which means every conversation with the AI teacher potentially resets or extends the decay clock on multiple concepts simultaneously. Different interaction types provide different reinforcement strength — a deep assessment event provides stronger reinforcement than an incidental mention — and the event log captures this distinction through engagement depth.
 
+**Edge-scope asymmetry: mastery computation walks `pedagogical_prerequisite` edges only; teaching-session entity-resolution recognition walks `pedagogical_prerequisite` + `historical_influence` per [ADR 0087](../adr/0087-two-hop-neighborhood-retrieval-shape.md).** This is deliberate. Mastery is about *structural readiness* on the critical path (which prerequisites must exist for the current concept to be teachable). Entity-resolution recognition is about *vocabulary match* (which graph nodes does this learner reference touch?). Sonnet's prompt scaffolding distinguishes a recognized reference from a current critical-path concept — recognizing that a learner brought a historical-influence connection does not mean Sonnet treats it as a teaching prerequisite to verify.
+
 At current scale (n=1-3 users), live computation against the event log is fast enough that no caching or materialized mastery scores are needed. The performance optimization layer (materialized views, periodic refresh) should be deferred until user count demands it.
 
 ## Mastery Computation

@@ -138,9 +138,9 @@ Resolved as **confirm server-side**. Mastery computation runs server-side per `l
 ---
 
 ## OQ-DEC1-B: Two-hop neighborhood retrieval shape for teaching session context
-**Added: 2026-04-29 (S-0001) | Status: Open | Decide before: Phase 6**
+**Added: 2026-04-29 (S-0001) | Resolved by [ADR 0087](../adr/0087-two-hop-neighborhood-retrieval-shape.md) — 2026-05-13 (S-0152)**
 
-`self-correction.md` names "current concept + prerequisites + two-hop local neighborhood for entity resolution of spontaneous learner references" as the teaching context. Phase DEC.1 settles the concrete retrieval shape: which prerequisites count (immediate only, all-recursive-up-to-rigor-floor, etc.), which two-hop edges count (prerequisite-only, also `enables` and `informed_by`), how aliases are resolved, what the per-turn token cost is. Decision lands as an ADR.
+Resolved as follows: (sub-dim 1) **immediate one-hop prerequisites** with mastery state per learner; (sub-dim 2) **two-hop traversal walks `pedagogical_prerequisite` + `historical_influence`** — the asymmetry with mastery's prereq-only scope is deliberate (mastery is about structural readiness on the critical path; entity-resolution recognition is about vocabulary match); (sub-dim 3) **alias resolution returns all candidates above threshold with the highest-confidence one tagged `presumed_match`** (combining similarity + graph distance + learner mastery, weighted equally at v1); Sonnet defaults to the presumed match but may override; (sub-dim 4) **no named token budget at Phase 6 entry** — the pedagogical-degradation discipline absorbed into [ADR 0014](../adr/0014-sonnet-teaches-opus-reviews.md) line 30 governs downshift (two-hop → one-hop under context pressure). The `enables` and `informed_by` reserved predicates remain at their PREDICATE_MANIFEST.md status; the manifest's own discipline governs their removal cadence.
 
 ---
 
