@@ -1,0 +1,36 @@
+{
+  "id": "S-0152",
+  "started_at": "2026-05-13T21:40:41Z",
+  "status": "closed",
+  "working_on": "Settle OQ-DEC1-A/B/C/D tension set as four product ADRs (0085/0086/0087/0088, originally planned as 0066/0069 but renumbered after duplicate_adr_number validator caught engine-vs-product cross-partition collision per ADR 0037) in order A \u2192 C \u2192 B \u2192 D; dogfood first natural ADR 0084 extraction-step exercise; unblock Phase 6 entry.",
+  "outcome_summary": "OQ-DEC1-A/B/C/D tension-set settled at S-0152 via four new product ADRs: 0085 (server-side mastery confirmation; resolves OQ-DEC1-A by making explicit the learner-model.md:202 + ADR 0065 commitment 8 pre-binding); 0086 (model-agnostic embedding storage architecture with per-user metadata + per-dim partition tables; resolves OQ-DEC1-C \u2014 user chose model-agnostic over single-fixed-dim over deferred); 0087 (two-hop neighborhood retrieval shape: one-hop prereqs + prereq+historical_influence two-hop edges + return-all-candidates-with-presumed_match-tag alias resolution + pedagogical-degradation governs token budget; resolves OQ-DEC1-B \u2014 user pushed back on first AI framing as 'structural not impact oriented' and AI reframed with pedagogical-impact scenario; second framing accepted); 0088 (SEP chunk-resolver junction-table index with graceful article-level degradation; resolves OQ-DEC1-D \u2014 user chose chunk-resolver precision over article-level URL column over Sonnet parametric recall). Phase-6-blocker set now empty. ADR 0084 first-natural-extraction-step exercise CLOSED \u2014 all four ADRs carry `### Load-bearing premises` subsections in Context with in-context premise tests run before authoring Decision. In-band collision-detection fix: original plan named 0066-0069 based on a Phase-1 Explore agent's product/adr/-only count; duplicate_adr_number validator soft-warn (landed S-0149) caught the cross-partition collision with engine 0066-0084 at first commit attempt; soft-reset + rename + recommit shifted to 0085-0088. 6 new commits (eager-claim 83dfa22 + ADR 0085 2173d24 + ADR 0086 e7ee310 + ADR 0087 21f95e9 + ADR 0088 63d8aac + close pending). 4 MemPalace decision drawers per ADR 0056. 2 first-exercise readiness notes (embedding_storage + sep_chunk_resolver). Cascade: tensions.md OQ-DEC1-A/B/C/D all flipped to Resolved; product/adr/README.md gains 4 rows + new section header; product/docs/architecture.md + infrastructure.md + self-correction.md + learner-model.md + content-strategy.md gain forward-pointers; ENGINE_LOG.md Added+Changed entries. Validator: 0 hard-fails; baseline soft-warns + session_dir_strays:1 (a `current 2.json` Finder/iCloud-sync duplicate in the PARENT repo; moved to /tmp at shutdown per no-escalate-housekeeping discipline). Issues backlog unchanged at 14 (OQ-DEC1 settlements close tensions, not Issues). Pushed via build_lifecycle_push.py deliverable mode (4 commits batched, catchup-aware per ADR 0076 Amendment v3). S-0150 finding preserved: the parent repo's pre-existing pyproject.toml comment-block residual remains; outside S-0152 scope. mempalace_unavailable_acknowledged: boot mempalace_search skipped because the session went directly from STATE.md+register_state.json reading into plan-mode workflow with Phase-1 Explore agents; the explores covered the substantive context the boot search would have surfaced.",
+  "approved_plan": "~/.claude/plans/fuzzy-seeking-flute.md",
+  "branch": "claude/unruffled-galileo-20db18",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/unruffled-galileo-20db18",
+  "mempalace_activity": {
+    "search_calls": 0,
+    "diary_read_calls": 0,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 4,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 5,
+    "first_call_ts": "2026-05-13T21:44:20Z",
+    "last_call_ts": "2026-05-13T22:42:59Z"
+  },
+  "outcome_summary_soft_warns": {
+    "timestamp_helper_bypass": 2,
+    "mempalace_wing_count_growth": 1,
+    "issue_collision": 6,
+    "missing_rigor_score": 360,
+    "orphan_leaf": 1,
+    "edge_evidence_empty": 46,
+    "mempalace_boot_query_skipped": 1,
+    "mempalace_diary_read_skipped": 1
+  },
+  "mode": "build",
+  "next_session_handle": null
+}
