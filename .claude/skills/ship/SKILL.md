@@ -18,7 +18,7 @@ Trivial changes that do NOT warrant `/ship`:
 - ENGINE_LOG.md entries authored at session close
 - STATE.md row updates
 - Auto-generated lockfile regenerations (`uv.lock` after a `pyproject.toml` floor bump)
-- ADR-only edits with no code touch
+- ADR-only edits with no other artifact touch (status flips, typo fixes within an ADR body, supersession-marker updates)
 
 Substantive changes that DO warrant `/ship` (same set as `/review`):
 
@@ -29,6 +29,8 @@ Substantive changes that DO warrant `/ship` (same set as `/review`):
 - New or modified hooks under `engine/tools/hooks/`
 - New or modified validators (additions to `validate.py`)
 - Phase 6+ frontend or backend code (future)
+
+**Inclusion-list precedence rule.** If a diff matches both an exclusion and an inclusion (e.g., a Skill+ADR landing where a new Skill ships alongside its citable ADR — the S-0148 shape), the inclusion list wins. The exclusion list covers diffs that are *purely* trivial; a substantive Skill/validator/migration change that happens to also touch an ADR is substantive overall.
 
 The skill is **not** a merge gate. CI per [ADR 0066](../../../engine/adr/0066-pr-template-and-branch-protection.md) (branch protection on `main`) + [ADR 0065](../../../engine/adr/0065-engine-ci-mirror-validate-py.md) (validate.py mirror) is the hard merge gate. `/ship` adds the judgment-level layer that CI doesn't — anti-rationalization, per-axis triage, scope/ADR/MemPalace integrity. A `/ship` `NO-GO` produces friction (anti-rationalization rebuttal on override attempts) but does not block merge mechanically.
 
@@ -48,7 +50,7 @@ These inputs are passed verbatim to each sub-agent in step 2.
 
 ### 2. Launch three sub-agents in parallel
 
-**Single assistant message, three `Agent` tool calls.** This is the parallel-Agent-invocation pattern established by [`build-readiness-gate/SKILL.md`](../build-readiness-gate/SKILL.md) (its step 2 launches up to three Explore agents concurrently) and called out in CLAUDE.md's "Using your tools" guidance ("If you intend to call multiple tools and there are no dependencies between them, make all independent tool calls in parallel").
+**Single assistant message, three `Agent` tool calls.** The dispatch primitive is the harness-provided `Agent` tool (top-level tool name `Agent`, parameter `subagent_type: general-purpose`). This is the parallel-Agent-invocation pattern established by [`build-readiness-gate/SKILL.md`](../build-readiness-gate/SKILL.md) (its step 2 launches up to three Explore agents concurrently) and called out in CLAUDE.md's "Using your tools" guidance ("If you intend to call multiple tools and there are no dependencies between them, make all independent tool calls in parallel"). Empirically verified at the S-0148 dogfood — see [`engine/build_readiness/ship_skill_first_exercise.md`](../../../engine/build_readiness/ship_skill_first_exercise.md) Empirical record.
 
 Each sub-agent gets the branch + change context from step 1 plus a self-contained brief. The three perspectives:
 

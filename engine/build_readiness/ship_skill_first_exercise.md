@@ -34,24 +34,27 @@ Both Tier 1 criteria close in-session at S-0148 (the session shipping ADR 0081 +
 
 ### S-0148 (the session that authored ADR 0081 + the Skill) — 2026-05-13
 
-To be appended in-session at the dogfood step. Format per [`build_lifecycle_push_first_exercise.md`](build_lifecycle_push_first_exercise.md):
+**T1-A closeout (verdict emission, 2026-05-13T19:xxZ):**
+`/ship` invocation on `claude/vigilant-kirch-68ad72` @ `3eee12c` returned verdict **NO-GO** with 3 `Required` findings from the `/review` sub-agent (cluster-signal matrix row fired). Sub-agent statuses: code-review ✓ (14 findings: 3 Required + 4 Nit + 4 Optional + 4 FYI), security-review ✓ (0 Critical, 0 Required, 2 FYI; OWASP grid all PASS or N-A; Paideia overlays all N-A — diff is Markdown-only), coverage ✓ (79.88% overall, +1.88pp over 78% floor, −0.12pp vs 80% S-0136 baseline; 1361 tests passing). Coverage source: `pytest --cov` fallback (no CI run on branch — direct-to-main via build_lifecycle_push.py per ADR 0076). Wall time ≈3:50min for coverage; sub-agents 1 + 2 ≈2min in parallel. **T1-A: GREEN** — mechanism completed end-to-end; verdict report well-formed per `synthesis-template.md`.
 
-```
-**T1-A closeout (verdict emission, <UTC-time>):**
-`/ship` invocation on `claude/vigilant-kirch-68ad72` @ <SHA-short> returned verdict <GO|GO-WITH-CAVEATS|NO-GO>.
-Verdict rationale: <one-line summary of matrix rows that fired>.
-Sub-agent statuses: code-review <✓|✗>, security-review <✓|✗>, coverage <✓|✗>.
-Coverage source: <gh run view (CI run X) | pytest --cov fallback>.
-T1-A: GREEN.
+**T1-B closeout (parallel-agent invocation pattern, 2026-05-13T19:xxZ):**
+Single assistant message contained three concurrent `Agent` tool calls (`subagent_type: general-purpose` × 3). Transcript-observable in S-0148 session. All three sub-agents executed concurrently per CLAUDE.md "Using your tools" guidance + `build-readiness-gate/SKILL.md:31-44` precedent. **T1-B: GREEN.**
 
-**T1-B closeout (parallel-agent invocation pattern, <UTC-time>):**
-Single assistant message contained three concurrent Agent tool calls (subagent_type=general-purpose × 3). Transcript-observable. T1-B: GREEN.
+**3 Required findings + fix disposition:**
+1. **ADR 0041 wrong filename** in ADR 0081 + ENGINE_LOG.md + STATE.md (`0041-cascade-discipline-three-validator-checks-plus-manual-procedures.md` vs canonical `0041-cascade-analysis-discipline.md`). Fixed in-session per `feedback_no_session_cascade.md`; all three files corrected.
+2. **`Agent` tool name + dispatch verification.** Sub-agent surfaced the concern from its (correctly scoped) restricted view. The dogfood itself empirically validated the dispatch — three Agent calls executed concurrently. Fixed in-session by adding a one-line clarification to SKILL.md naming `Agent` as the dispatch primitive + a back-reference to this readiness note's empirical record.
+3. **Skill-self-exclusion ambiguity** ("ADR-only edits with no code touch" exclusion vs "modified Skills" inclusion). Real ambiguity on Skill+ADR landings (the S-0148 shape). Fixed in-session: tightened the exclusion to "ADR-only edits with no other artifact touch" + added explicit "Inclusion-list precedence rule" naming the S-0148 shape as the exemplar.
 
 **Notable observations:**
-- <any sub-agent behavior worth recording>
-- <any Paideia overlay finding>
-- <any first-exercise friction not anticipated in the readiness note>
-```
+- **Tier-1 closure under NO-GO**, per the user-approved plan ("Record any verdict as Tier-1 closure" — the closure criterion is mechanism-completes-end-to-end, not verdict-is-clean). The 3 Required findings being real and fixable in-session is empirical value the dogfood delivered — would have shipped uncorrected without it.
+- **`/security-review` correctly applied N-A discipline** across the OWASP grid for a Markdown-only diff. Demonstrated honest calibration (resisted the "mark everything PASS to look thorough" failure mode named in its anti-rationalization self-check).
+- **Coverage sub-agent confirmed ADR 0081 decision 2's expectation empirically.** Documentation-only diff has mechanically-zero coverage exposure; the 79.88% vs 80% baseline drift is measurement variance below noise threshold.
+- **First-exercise friction not anticipated:** the parent-side overlays (step 3) require reading `engine/session/current.json` explicitly. Surfaced by sub-agent 1 as an Optional finding; addressed by the existing step-1 ("Load context") which already names this read but described it as conditional ("if mid-session"). Tightening to unconditional read is queued as a Tier-2 follow-up (`/ship` is always mid-session by construction).
+- **Synthesis-template.md borderline-redundant** per sub-agent 1's Nit finding. Deferred: the template inlining decision is a future authoring-call (could collapse OR enrich with worked examples). Recorded as a Tier-3 forward-pointer.
+- **Cluster-signal matrix condition needs sharpening** per sub-agent 1's Optional finding 8: the current "≥3 Required findings (cluster signal across reviewers)" wording counts intra-sub-agent clusters too. The dogfood empirically hit this exact case (all 3 Required from one sub-agent). Filed as a Tier-2 forward-pointer for the next NO-GO surface session.
+- **Fast-path `gh run view` command tightening** per sub-agent 1's Optional finding 9 (filter by `--workflow validate.yml`). Filed as Tier-2 forward-pointer.
+
+**Follow-on deliverable commit** at S-0148 close authored the 3 Required fixes + this empirical record + the readiness-note updates. The wrapper's catchup-aware deliverable mode (per ADR 0076 Amendment v3) pushed the eager-claim + main deliverable + follow-on deliverable together as a coherent close.
 
 ### Pattern note for future sessions
 
