@@ -50,7 +50,7 @@ dependencies = [
     # also a pdfplumber transitive but pinned explicitly so the expected
     # version is independent of pdfplumber's pin.
     "pdfplumber>=0.11.0",
-    "pypdfium2>=4.0.0",
+    "pypdfium2>=5.8.0",
 
     # Test-only — engine/tools/test_parse_structural_reference.py uses
     # reportlab to synthesize PDF fixtures in-test (mirrors the SYNTHETIC_HTML
