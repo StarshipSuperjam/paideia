@@ -508,6 +508,43 @@ def get_parent_repo_path(repo: Path) -> Path | None:
     return common_dir.parent
 
 
+_OVERWRITE_SIGNATURE = (
+    "Your local changes to the following files would be overwritten by merge:"
+)
+_OVERWRITE_BLOCK_END = "Please commit your changes"
+
+
+def _parse_overwrite_files(stderr: str) -> list[str] | None:
+    """Extract the file list from a ``would be overwritten by merge`` refusal.
+
+    git's refusal stderr has a stable shape::
+
+        error: Your local changes to the following files would be overwritten by merge:
+            <path 1>
+            <path 2>
+        Please commit your changes or stash them before you merge.
+
+    Returns the list of paths (one per indented line in the block) when the
+    signature is present; ``None`` when stderr does not match this refusal
+    class (caller falls through to the generic refusal message).
+    """
+    if _OVERWRITE_SIGNATURE not in stderr:
+        return None
+    files: list[str] = []
+    in_block = False
+    for line in stderr.splitlines():
+        if _OVERWRITE_SIGNATURE in line:
+            in_block = True
+            continue
+        if _OVERWRITE_BLOCK_END in line:
+            break
+        if in_block:
+            stripped = line.strip()
+            if stripped:
+                files.append(stripped)
+    return files
+
+
 def parent_ff(repo: Path, target: str) -> tuple[bool, str]:
     """Best-effort parent-side ``git merge --ff-only origin/<target>`` post-push.
 
@@ -519,8 +556,30 @@ def parent_ff(repo: Path, target: str) -> tuple[bool, str]:
 
     The function refuses (without modifying state) when:
     - parent isn't on the target branch (FF would advance the wrong branch),
-    - the git merge --ff-only refuses (uncommitted changes that would
-      conflict; not actually a fast-forward; etc.).
+    - the git merge --ff-only refuses for any reason OTHER than the
+      identical-content overwrite case (see auto-recovery below).
+
+    Bounded auto-recovery: identical-content overwrite refusal
+    ----------------------------------------------------------
+    Empirically observed at S-0137 + S-0138 + S-0150 (per Issue #107):
+    a build session edits ``.claude/settings.json`` via the harness
+    redirect, which lands the byte change in the parent's working tree.
+    Post-push, ``git merge --ff-only`` refuses with *"Your local changes
+    to the following files would be overwritten by merge"* even though
+    the FF would land byte-identical content (the worktree's commit
+    captured the same content via ``check_settings_sync.py``'s cp flow).
+
+    When the refusal matches this specific signature, parent_ff parses
+    the affected file list and compares each one to its ``origin/<target>``
+    version via ``git diff --quiet``. If EVERY affected file is identical
+    to its incoming version, the function runs ``git checkout -- <files>``
+    (provably idempotent: discarded content equals incoming content) and
+    retries the FF. On success the reason string names the auto-recovery.
+
+    If ANY affected file genuinely diverges, parent_ff bails with
+    ``"working-tree diverges from <ref> on <files>; manual recovery
+    required"`` without mutating state. The wrapper's destructive-action
+    refusal posture remains in force for every other refusal mode.
 
     Returns ``(True, reason)`` on success or no-op (running in parent),
     ``(False, reason)`` on a meaningful refusal. Caller logs both forms
@@ -547,6 +606,47 @@ def parent_ff(repo: Path, target: str) -> tuple[bool, str]:
     if result.returncode == 0:
         head = _run_git(["rev-parse", "--short", "HEAD"], parent).stdout.strip()
         return True, f"parent main FF'd to {head}"
+
+    overwrite_files = _parse_overwrite_files(result.stderr)
+    if overwrite_files:
+        diverged: list[str] = []
+        for path in overwrite_files:
+            diff_result = _run_git(["diff", "--quiet", ref, "--", path], parent)
+            if diff_result.returncode != 0:
+                diverged.append(path)
+        if diverged:
+            return False, (
+                f"working-tree diverges from {ref} on {diverged}; "
+                "manual recovery required"
+            )
+        checkout_result = _run_git(
+            ["checkout", "--", *overwrite_files],
+            parent,
+        )
+        if checkout_result.returncode != 0:
+            checkout_err = (
+                checkout_result.stderr.strip().splitlines()[0]
+                if checkout_result.stderr.strip()
+                else "unknown error"
+            )
+            return False, f"auto-recovery checkout failed: {checkout_err}"
+        retry_result = _run_git(["merge", "--ff-only", ref], parent)
+        if retry_result.returncode == 0:
+            head = _run_git(["rev-parse", "--short", "HEAD"], parent).stdout.strip()
+            return True, (
+                f"parent main FF'd to {head}; auto-recovered from "
+                f"identical-content overwrite refusal on {len(overwrite_files)} "
+                f"file(s)"
+            )
+        retry_msg_source = (
+            retry_result.stderr.strip()
+            or retry_result.stdout.strip()
+            or "unknown error"
+        )
+        retry_msg = (
+            retry_msg_source.splitlines()[0] if retry_msg_source else "unknown error"
+        )
+        return False, f"refused after auto-recovery attempt: {retry_msg}"
 
     msg_source = result.stderr.strip() or result.stdout.strip() or "unknown error"
     msg = msg_source.splitlines()[0] if msg_source else "unknown error"

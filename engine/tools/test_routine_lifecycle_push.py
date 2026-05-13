@@ -843,3 +843,205 @@ def test_main_returns_zero_when_parent_ff_fails(
     ).stdout.strip()
     worktree_head = _git(["rev-parse", "HEAD"], worktree).stdout.strip()
     assert origin_head == worktree_head
+
+
+# ---------------------------------------------------------------------------
+# parent_ff identical-content auto-recovery (Issue #107, S-0150)
+# ---------------------------------------------------------------------------
+
+
+def _setup_overwrite_refusal_scenario(
+    tmp_path: Path,
+    parent_working_tree_contents: dict[str, str],
+) -> tuple[Path, Path, Path, str]:
+    """Set up the canonical 'would be overwritten by merge' scenario.
+
+    Steps:
+    1. Initialize origin + clone + worktree, all at the same starting commit.
+    2. Create files in the clone (= parent) and commit + push: these are
+       the files whose content will diverge in the working tree.
+    3. From the worktree, modify those files with NEW content
+       (``v2_<name>``), commit, and push to origin/main. Now origin/main
+       is one commit ahead of the parent's main, and the FF target carries
+       the v2 content.
+    4. Write ``parent_working_tree_contents`` into the parent's working
+       tree as uncommitted modifications. Whether these match origin/main
+       (= auto-recoverable) or diverge (= bail) is the test parameter.
+
+    Returns ``(origin, clone, worktree, ref_v2_path)`` where ref_v2_path
+    is one of the file paths whose ``origin/main`` content is ``v2_<name>``.
+    """
+    _origin, clone, worktree = _make_clone_with_worktree(tmp_path)
+
+    # Pre-create the files in the clone at v1 (initial committed state).
+    file_paths = list(parent_working_tree_contents.keys())
+    for f in file_paths:
+        target_path = clone / f
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_text(f"v1_{f}\n")
+    _git(["add", *file_paths], clone)
+    _git(["commit", "-m", "feat: seed initial files at v1"], clone)
+    _git(["push", "origin", "main"], clone)
+
+    # Pull the v1 commit into the worktree, modify each file to v2, push.
+    _git(["pull", "origin", "main"], worktree)
+    for f in file_paths:
+        wt_target = worktree / f
+        wt_target.parent.mkdir(parents=True, exist_ok=True)
+        wt_target.write_text(f"v2_{f}\n")
+    _git(["add", *file_paths], worktree)
+    _git(["commit", "-m", "feat: bump files to v2"], worktree)
+    _git(["push", "origin", "HEAD:main"], worktree)
+
+    # Now write the test's chosen working-tree contents into the parent.
+    # Clone's HEAD is still at v1; FF target (origin/main) is at v2.
+    for f, content in parent_working_tree_contents.items():
+        (clone / f).write_text(content)
+
+    return _origin, clone, worktree, file_paths[0]
+
+
+def test_parent_ff_auto_recovers_identical_content_single_file(
+    tmp_path: Path,
+) -> None:
+    """Single-file overwrite refusal with identical content → auto-recovery succeeds."""
+    _origin, clone, worktree, _f = _setup_overwrite_refusal_scenario(
+        tmp_path,
+        {"settings.json": "v2_settings.json\n"},
+    )
+
+    parent_head_before = _git(["rev-parse", "main"], clone).stdout.strip()
+    origin_head = subprocess.run(
+        ["git", "-C", str(_origin), "rev-parse", "main"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert parent_head_before != origin_head, "fixture must put parent behind origin"
+
+    ok, reason = parent_ff(worktree, "main")
+    assert ok, f"expected auto-recovery success, got: {reason}"
+    assert (
+        "auto-recovered from identical-content overwrite refusal on 1 file(s)" in reason
+    )
+
+    parent_head_after = _git(["rev-parse", "main"], clone).stdout.strip()
+    assert parent_head_after == origin_head, "FF must have advanced parent's main"
+
+
+def test_parent_ff_auto_recovers_identical_content_multi_file(
+    tmp_path: Path,
+) -> None:
+    """Multi-file overwrite refusal, all identical → auto-recovery handles batch."""
+    _origin, clone, worktree, _f = _setup_overwrite_refusal_scenario(
+        tmp_path,
+        {
+            "a.txt": "v2_a.txt\n",
+            "b.txt": "v2_b.txt\n",
+            "nested/c.txt": "v2_nested/c.txt\n",
+        },
+    )
+
+    origin_head = subprocess.run(
+        ["git", "-C", str(_origin), "rev-parse", "main"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+    ok, reason = parent_ff(worktree, "main")
+    assert ok, f"expected auto-recovery success, got: {reason}"
+    assert (
+        "auto-recovered from identical-content overwrite refusal on 3 file(s)" in reason
+    )
+
+    parent_head_after = _git(["rev-parse", "main"], clone).stdout.strip()
+    assert parent_head_after == origin_head
+
+
+def test_parent_ff_bails_on_diverged_content_single_file(tmp_path: Path) -> None:
+    """Overwrite refusal with diverged working-tree content → bail; state unchanged."""
+    _origin, clone, worktree, _f = _setup_overwrite_refusal_scenario(
+        tmp_path,
+        {"settings.json": "v3_diverged\n"},  # Different from v2 (origin/main) AND v1
+    )
+
+    parent_head_before = _git(["rev-parse", "main"], clone).stdout.strip()
+    wt_content_before = (clone / "settings.json").read_text()
+
+    ok, reason = parent_ff(worktree, "main")
+    assert not ok, f"expected bail, got success: {reason}"
+    assert "working-tree diverges from origin/main" in reason
+    assert "settings.json" in reason
+    assert "manual recovery required" in reason
+
+    # Parent HEAD must NOT have moved (no state mutation on bail)
+    parent_head_after = _git(["rev-parse", "main"], clone).stdout.strip()
+    assert parent_head_after == parent_head_before
+    # Working-tree file must NOT have been touched
+    wt_content_after = (clone / "settings.json").read_text()
+    assert wt_content_after == wt_content_before
+
+
+def test_parent_ff_bails_when_one_of_many_files_diverges(tmp_path: Path) -> None:
+    """Multi-file refusal where ONE file diverges → bail; report the diverged file."""
+    _origin, clone, worktree, _f = _setup_overwrite_refusal_scenario(
+        tmp_path,
+        {
+            "a.txt": "v2_a.txt\n",  # identical to origin/main
+            "b.txt": "v3_b_diverged\n",  # diverged
+            "c.txt": "v2_c.txt\n",  # identical to origin/main
+        },
+    )
+
+    parent_head_before = _git(["rev-parse", "main"], clone).stdout.strip()
+    wt_a_before = (clone / "a.txt").read_text()
+
+    ok, reason = parent_ff(worktree, "main")
+    assert not ok
+    assert "working-tree diverges from origin/main" in reason
+    assert "b.txt" in reason
+    # a.txt and c.txt should NOT appear in the diverged list
+    assert "'a.txt'" not in reason
+    assert "'c.txt'" not in reason
+
+    # No state mutation
+    parent_head_after = _git(["rev-parse", "main"], clone).stdout.strip()
+    assert parent_head_after == parent_head_before
+    # All working-tree files preserved (no partial checkout)
+    assert (clone / "a.txt").read_text() == wt_a_before
+
+
+def test_parent_ff_passes_through_non_overwrite_refusal(tmp_path: Path) -> None:
+    """Non-overwrite refusal (e.g., non-fast-forward) → 'refused: ...' unchanged.
+
+    Regression guard: the auto-recovery path must NOT fire on refusal classes
+    other than the 'would be overwritten by merge' signature.
+    """
+    _origin, clone, worktree = _make_clone_with_worktree(tmp_path)
+
+    # Create divergent history: commit on parent's main AND push a different commit
+    # from the worktree, so origin/main has a commit the parent doesn't, AND the
+    # parent has a commit origin doesn't — merge --ff-only will fail with
+    # "Not possible to fast-forward", which does NOT match the overwrite signature.
+    (clone / "parent-only.txt").write_text("parent\n")
+    _git(["add", "."], clone)
+    _git(["commit", "-m", "feat: parent-only commit"], clone)
+
+    (worktree / "wt-only.txt").write_text("wt\n")
+    _git(["add", "."], worktree)
+    _git(["commit", "-m", "feat: worktree-only commit"], worktree)
+    _git(["push", "origin", "HEAD:main"], worktree)
+
+    parent_head_before = _git(["rev-parse", "main"], clone).stdout.strip()
+
+    ok, reason = parent_ff(worktree, "main")
+    assert not ok
+    assert reason.startswith("refused: ")
+    # The new auto-recovery path's signature strings must NOT appear in the reason
+    assert "auto-recovered" not in reason
+    assert "working-tree diverges" not in reason
+
+    # State unchanged
+    parent_head_after = _git(["rev-parse", "main"], clone).stdout.strip()
+    assert parent_head_after == parent_head_before
