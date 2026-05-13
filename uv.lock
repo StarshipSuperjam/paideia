@@ -1341,7 +1341,7 @@ requires-dist = [
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-cov", specifier = ">=4.0.0" },
     { name = "reportlab", specifier = ">=4.0.0" },
-    { name = "ruff", specifier = ">=0.4.0" },
+    { name = "ruff", specifier = ">=0.15.12" },
 ]
 
 [[package]]
