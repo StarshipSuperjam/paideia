@@ -33,7 +33,7 @@ dependencies = [
 
     # Phase 4+ live-graph audit per ADR 0016. psycopg v3 binary build
     # (zero-toolchain install). Activated only when SUPABASE_DB_URL is set.
-    "psycopg[binary]>=3.1.0",
+    "psycopg[binary]>=3.3.4",
 
     # MemPalace shared-state probe — engine/tools/probe_palace.py per ADR 0045.
     # Pinned explicitly even though mempalace re-exposes it transitively, so
