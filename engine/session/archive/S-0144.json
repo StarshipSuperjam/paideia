@@ -1,0 +1,39 @@
+{
+  "id": "S-0144",
+  "started_at": "2026-05-12T23:57:59Z",
+  "closed_at": "2026-05-13T00:55:00Z",
+  "status": "closed",
+  "mode": "build",
+  "working_on": "MemPalace HNSW rebuild (Issue #112) via mempalace_rebuild_hnsw.py scratch-then-swap discipline + ≤30 min flush-primitive root-cause investigation.",
+  "outcome_summary": "HNSW rebuild executed via upstream `mempalace repair --mode from-sqlite --archive-existing --yes` (project tool refused exit-4 on `onnx_mini_lm_l6_v2` — sub-finding for #113). 16,775 records rebuilt zero-loss on scratch; verified cosine 0.841 on known-content query; atomic swap to live. Post-swap MCP `mempalace_search` returns vector results (not BM25 fallback). 3 backups retained. Investigation found root cause: chromadb default `hnsw:sync_threshold=1000` rarely reached by mempalace 1–3-drawers/session writes; process exit drops in-memory `index_metadata.pickle`; `client.close()` not a flush primitive. Prevention via `hnsw:sync_threshold` collection metadata is ADR-scale, filed as Issue #113. Issue #112 closed. mempalace_unavailable_acknowledged: MCP diary_read/diary_write endpoint returning -32000 internal error post-swap (likely a stale-pickle side effect from the rebuilt palace lacking `index_metadata.pickle`; will resolve once Issue #113 prevention or MCP server restart writes the pickle).",
+  "approved_plan": "/Users/shanekidd/.claude/plans/glistening-forging-shannon.md",
+  "branch": "claude/suspicious-swartz-10ecbb",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/suspicious-swartz-10ecbb",
+  "next_session_handle": null,
+  "outcome_summary_soft_warns": {
+    "issue_collision": 14,
+    "missing_rigor_score": 360,
+    "orphan_leaf": 1,
+    "mempalace_diary_read_skipped": 1,
+    "mempalace_diary_write_skipped_substrate_intermittent": 1,
+    "mempalace_zero_citations_after_search": 1
+  },
+  "scope_delivery": {
+    "delivered": true,
+    "note": "Both deliverables from approved plan landed: (1) HNSW rebuild via upstream from-sqlite mode, scratch-verified, atomically swapped to live, MCP vector search restored. (2) Flush-primitive investigation hit 30-min cap with concrete finding (chromadb sync_threshold root cause + prevention lever via collection metadata); Outcome B per plan — flush primitive exists but ADR-scale to wire in, filed as Issue #113. Issue #112 closed at session shutdown."
+  },
+  "mempalace_activity": {
+    "search_calls": 5,
+    "diary_read_calls": 0,
+    "diary_write_calls": 0,
+    "add_drawer_calls": 1,
+    "status_calls": 2,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 8,
+    "first_call_ts": "2026-05-12T23:49:26Z",
+    "last_call_ts": "2026-05-13T00:48:02Z"
+  }
+}
