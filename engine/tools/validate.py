@@ -1357,6 +1357,30 @@ def validate_adr_back_reference_orphan() -> ValidationResult:
     md_files = _tracked_md_files(exclude_dirs=[])
     non_adr_md = [p for p in md_files if "adr" not in p.relative_to(REPO_ROOT).parts]
 
+    # Inverted-index pre-scan per S-0151 Issue #116. Pre-S-0151 the inner
+    # loop ran two regex searches per (ADR, md-file) pair — ~25,000
+    # regex searches at the S-0146 corpus size (85 ADRs × ~300 non-ADR md
+    # files), dominating the structural phase at ~376ms median. The
+    # citation patterns "ADR NNNN" and "NNNN-*.md" both have the
+    # 4-digit-id as a capture group, so a single pre-scan of every non-ADR
+    # md file extracts the union of cited IDs into a set; the per-ADR
+    # check then becomes O(1) set membership. ~2.4× speedup vs the
+    # cache-only variant per the /tmp/probe_inverted_index_S0151.py
+    # empirical measurement (170ms median vs 407ms). Output is byte-identical
+    # to the pre-S-0151 pairwise-regex version per the same probe's
+    # equivalence check.
+    citation_pattern = re.compile(r"ADR\s+(\d{4})\b|\b(\d{4})-[\w-]+\.md")
+    cited_ids: set[str] = set()
+    for md_path in non_adr_md:
+        try:
+            md_text = md_path.read_text()
+        except OSError:
+            continue
+        for m in citation_pattern.finditer(md_text):
+            adr_id = m.group(1) or m.group(2)
+            if adr_id:
+                cited_ids.add(adr_id)
+
     for adr_dir in (ENGINE_ADR_DIR, PRODUCT_ADR_DIR):
         if not adr_dir.is_dir():
             continue
@@ -1367,20 +1391,7 @@ def validate_adr_back_reference_orphan() -> ValidationResult:
             if _has_orphan_ok_annotation(text):
                 continue
             adr_id = adr_file.name[:4]
-            cited = False
-            for md_path in non_adr_md:
-                try:
-                    md_text = md_path.read_text()
-                except OSError:
-                    continue
-                if re.search(rf"\b(?:ADR\s+)?{adr_id}\b", md_text):
-                    # Disambiguate: bare four-digit numbers occur in many
-                    # contexts. Require either "ADR <id>" or the id appearing
-                    # adjacent to a markdown link to the ADR file.
-                    if re.search(rf"ADR\s+{adr_id}\b|\b{adr_id}-[\w-]+\.md", md_text):
-                        cited = True
-                        break
-            if not cited:
+            if adr_id not in cited_ids:
                 rel = adr_file.relative_to(REPO_ROOT)
                 r.soft_warn(
                     "adr_back_reference_orphan",
