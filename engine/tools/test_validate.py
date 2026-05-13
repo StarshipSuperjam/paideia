@@ -1140,6 +1140,298 @@ class TestDetectSuspiciousCrossDomainRatio:
         assert result == []
 
 
+class TestDetectEdgeEvidenceEmpty:
+    """_detect_edge_evidence_empty: cross-domain prereq edges missing
+    pedagogical-warrant evidence prose (Issue #62 Proposal 1)."""
+
+    def test_cross_domain_with_null_evidence_fires(self) -> None:
+        nodes = [
+            _node("p", domain=["epistemology"]),
+            _node("t", domain=["ethics"]),
+        ]
+        edges = [
+            {
+                "id": "e1",
+                "source_id": "p",
+                "target_id": "t",
+                "edge_type": "pedagogical_prerequisite",
+                "evidence": None,
+            },
+        ]
+        assert validate._detect_edge_evidence_empty(nodes, edges) == [("e1", "p", "t")]
+
+    def test_cross_domain_with_empty_string_evidence_fires(self) -> None:
+        nodes = [
+            _node("p", domain=["epistemology"]),
+            _node("t", domain=["ethics"]),
+        ]
+        edges = [
+            {
+                "id": "e1",
+                "source_id": "p",
+                "target_id": "t",
+                "edge_type": "pedagogical_prerequisite",
+                "evidence": "   ",
+            },
+        ]
+        assert validate._detect_edge_evidence_empty(nodes, edges) == [("e1", "p", "t")]
+
+    def test_within_domain_with_null_evidence_does_not_fire(self) -> None:
+        nodes = [
+            _node("p", domain=["ethics"]),
+            _node("t", domain=["ethics"]),
+        ]
+        edges = [
+            {
+                "id": "e1",
+                "source_id": "p",
+                "target_id": "t",
+                "edge_type": "pedagogical_prerequisite",
+                "evidence": None,
+            },
+        ]
+        assert validate._detect_edge_evidence_empty(nodes, edges) == []
+
+    def test_cross_domain_with_populated_evidence_does_not_fire(self) -> None:
+        nodes = [
+            _node("p", domain=["epistemology"]),
+            _node("t", domain=["ethics"]),
+        ]
+        edges = [
+            {
+                "id": "e1",
+                "source_id": "p",
+                "target_id": "t",
+                "edge_type": "pedagogical_prerequisite",
+                "evidence": "p grounds the normative warrant for t.",
+            },
+        ]
+        assert validate._detect_edge_evidence_empty(nodes, edges) == []
+
+    def test_non_prereq_edge_skipped(self) -> None:
+        nodes = [
+            _node("p", domain=["epistemology"]),
+            _node("t", domain=["ethics"]),
+        ]
+        edges = [
+            {
+                "id": "e1",
+                "source_id": "p",
+                "target_id": "t",
+                "edge_type": "historical_influence",
+                "evidence": None,
+            },
+        ]
+        assert validate._detect_edge_evidence_empty(nodes, edges) == []
+
+
+class TestDetectTopLevelDisciplineLabelAsPrereqSource:
+    """_detect_top_level_discipline_label_as_prereq_source: umbrella-as-
+    prereq-source pattern detection (Issue #62 Proposal 2b)."""
+
+    def test_top_level_label_with_3_targets_2_domains_fires(self) -> None:
+        nodes = [
+            _node(
+                "philosophy_of_science",
+                label="philosophy_of_science",
+                domain=["philosophy_of_science"],
+            ),
+            _node("scientific_method", domain=["philosophy_of_science"]),
+            _node("paradigm", domain=["philosophy_of_science", "metaphysics"]),
+            _node("induction", domain=["epistemology"]),
+        ]
+        edges = [
+            _edge("philosophy_of_science", "scientific_method"),
+            _edge("philosophy_of_science", "paradigm"),
+            _edge("philosophy_of_science", "induction"),
+        ]
+        result = validate._detect_top_level_discipline_label_as_prereq_source(
+            nodes, edges
+        )
+        assert (
+            "philosophy_of_science",
+            "philosophy_of_science",
+            3,
+            3,
+        ) in result
+
+    def test_top_level_label_with_below_min_prereqs_does_not_fire(self) -> None:
+        nodes = [
+            _node(
+                "philosophy_of_science",
+                label="philosophy_of_science",
+                domain=["philosophy_of_science"],
+            ),
+            _node("scientific_method", domain=["philosophy_of_science"]),
+            _node("paradigm", domain=["metaphysics"]),
+        ]
+        edges = [
+            _edge("philosophy_of_science", "scientific_method"),
+            _edge("philosophy_of_science", "paradigm"),
+        ]
+        assert (
+            validate._detect_top_level_discipline_label_as_prereq_source(nodes, edges)
+            == []
+        )
+
+    def test_top_level_label_with_single_target_domain_does_not_fire(
+        self,
+    ) -> None:
+        nodes = [
+            _node(
+                "philosophy_of_science",
+                label="philosophy_of_science",
+                domain=["philosophy_of_science"],
+            ),
+            _node("scientific_method", domain=["philosophy_of_science"]),
+            _node("paradigm", domain=["philosophy_of_science"]),
+            _node("induction", domain=["philosophy_of_science"]),
+        ]
+        edges = [
+            _edge("philosophy_of_science", "scientific_method"),
+            _edge("philosophy_of_science", "paradigm"),
+            _edge("philosophy_of_science", "induction"),
+        ]
+        assert (
+            validate._detect_top_level_discipline_label_as_prereq_source(nodes, edges)
+            == []
+        )
+
+    def test_non_canonical_label_does_not_fire(self) -> None:
+        nodes = [
+            _node(
+                "scientific_method",
+                label="scientific_method",
+                domain=["philosophy_of_science"],
+            ),
+            _node("hypothesis", domain=["philosophy_of_science"]),
+            _node("induction", domain=["epistemology"]),
+            _node("falsification", domain=["philosophy_of_science"]),
+        ]
+        edges = [
+            _edge("scientific_method", "hypothesis"),
+            _edge("scientific_method", "induction"),
+            _edge("scientific_method", "falsification"),
+        ]
+        assert (
+            validate._detect_top_level_discipline_label_as_prereq_source(nodes, edges)
+            == []
+        )
+
+
+class TestDetectPrereqDirectionSummaryInconsistency:
+    """_detect_prereq_direction_summary_inconsistency: phrase-pattern
+    detection of authoring direction reversals (Issue #62 Proposal 3+5
+    merged). Cases anchored on the audit's documented reversals."""
+
+    def test_proposition_attitude_reversal_fires(self) -> None:
+        # CB-E-63: edge runs propositional_attitude -> proposition,
+        # but proposition.summary names propositions as the contents
+        # supplied to PA — PA depends on proposition, edge is reversed.
+        target = _node("proposition", domain=["philosophy_of_language"])
+        target["summary"] = (
+            "Propositions are the contents of propositional attitudes "
+            "such as belief and desire."
+        )
+        source = _node("propositional_attitude", domain=["philosophy_of_mind"])
+        nodes = [source, target]
+        edges = [
+            {
+                "id": "e63",
+                "source_id": "propositional_attitude",
+                "target_id": "proposition",
+                "edge_type": "pedagogical_prerequisite",
+                "evidence": None,
+            }
+        ]
+        result = validate._detect_prereq_direction_summary_inconsistency(nodes, edges)
+        assert any(f[0] == "e63" and "the contents of" in f[3] for f in result)
+
+    def test_justice_morality_reversal_fires(self) -> None:
+        # CB-E-70: edge runs justice -> morality, but morality.summary
+        # names morality as the broader framework — justice depends on
+        # morality (broader).
+        target = _node("morality", domain=["metaethics"])
+        target["summary"] = (
+            "Morality is the broader normative framework within which "
+            "specific theories of justice operate."
+        )
+        source = _node("justice", domain=["political_philosophy"])
+        nodes = [source, target]
+        edges = [
+            {
+                "id": "e70",
+                "source_id": "justice",
+                "target_id": "morality",
+                "edge_type": "pedagogical_prerequisite",
+                "evidence": None,
+            }
+        ]
+        result = validate._detect_prereq_direction_summary_inconsistency(nodes, edges)
+        assert any(f[0] == "e70" and "the broader" in f[3] for f in result)
+
+    def test_cross_domain_with_no_reversal_phrase_does_not_fire(self) -> None:
+        target = _node("scientific_realism", domain=["philosophy_of_science"])
+        target["summary"] = (
+            "Scientific realism holds that successful theories give us "
+            "reason to believe in their unobservable entities."
+        )
+        source = _node("truth", domain=["epistemology"])
+        nodes = [source, target]
+        edges = [
+            {
+                "id": "e1",
+                "source_id": "truth",
+                "target_id": "scientific_realism",
+                "edge_type": "pedagogical_prerequisite",
+                "evidence": None,
+            }
+        ]
+        assert (
+            validate._detect_prereq_direction_summary_inconsistency(nodes, edges) == []
+        )
+
+    def test_within_domain_skipped_even_if_pattern_present(self) -> None:
+        # Same-domain edge: pattern present in summary, but cross-domain
+        # filter excludes within-subdomain pairs (less defect-prone).
+        target = _node("proposition", domain=["philosophy_of_language"])
+        target["summary"] = "Propositions are the contents of propositional attitudes."
+        source = _node("propositional_attitude", domain=["philosophy_of_language"])
+        nodes = [source, target]
+        edges = [
+            {
+                "id": "e1",
+                "source_id": "propositional_attitude",
+                "target_id": "proposition",
+                "edge_type": "pedagogical_prerequisite",
+                "evidence": None,
+            }
+        ]
+        assert (
+            validate._detect_prereq_direction_summary_inconsistency(nodes, edges) == []
+        )
+
+    def test_summary_naming_only_target_does_not_fire(self) -> None:
+        # Pattern requires both labels to appear with connecting phrase
+        # between them. Target naming itself but not source -> no fire.
+        target = _node("proposition", domain=["philosophy_of_language"])
+        target["summary"] = "Propositions are the bearers of truth values."
+        source = _node("propositional_attitude", domain=["philosophy_of_mind"])
+        nodes = [source, target]
+        edges = [
+            {
+                "id": "e1",
+                "source_id": "propositional_attitude",
+                "target_id": "proposition",
+                "edge_type": "pedagogical_prerequisite",
+                "evidence": None,
+            }
+        ]
+        assert (
+            validate._detect_prereq_direction_summary_inconsistency(nodes, edges) == []
+        )
+
+
 class TestReadPredicateManifest:
     """_read_predicate_manifest: markdown registry parser."""
 

@@ -318,7 +318,7 @@ Persistent firing across multiple sessions per [`soft-warn-lifecycle.md`](soft-w
 
 ### Graph-audit soft-warns (S-0037 onward, active when SUPABASE_DB_URL is set)
 
-The seven categories ADR 0016 contracts. All seven register in `checks_run` even when zero findings fire, so cross-session telemetry distinguishes "category clean" from "category did not run" (the schema convention at [`session-shutdown-sequence.md`](session-shutdown-sequence.md)).
+The ten categories the validator extends from ADR 0016's contract (seven from S-0037; three added at S-0146 from the S-0122 audit's gate-feasible recommendations per [Issue #62](https://github.com/StarshipSuperjam/paideia/issues/62) + [`engine/build_readiness/phase_5_audit_system_input.md`](../build_readiness/phase_5_audit_system_input.md)). All ten register in `checks_run` even when zero findings fire, so cross-session telemetry distinguishes "category clean" from "category did not run" (the schema convention at [`session-shutdown-sequence.md`](session-shutdown-sequence.md)).
 
 - `undeclared_predicate` — edge.type not in `product/seed-graph/migrations/PREDICATE_MANIFEST.md`. Recoverable: add the row to the registry in the same session that uses the predicate, paired with an ENGINE_LOG entry under `Added`. Per [`seed-chunked-authoring.md`](seed-chunked-authoring.md) step 5.
 - `attribute_shape_inconsistency` — same-domain nodes with materially different attribute coverage. v1 metric: `teaching_notes` populated-vs-NULL split with the minority class above 30% within a domain tag. Phase 5 calibration is a [`engine/build_readiness/phase_4_graph_validation.md`](../build_readiness/phase_4_graph_validation.md) T3-C deferral.
@@ -327,6 +327,9 @@ The seven categories ADR 0016 contracts. All seven register in `checks_run` even
 - `synthetic_review_queue` — node has `confidence_level = 'SYNTHETIC'` per [ADR 0030](../../product/adr/0030-confidence-level-evidentiary-mode-on-nodes.md). Not a defect — populates the Opus batch review consumer per [`product/docs/self-correction.md`](../../product/docs/self-correction.md).
 - `orphan_leaf` — zero inbound + zero outbound `pedagogical_prerequisite` edges (other edge types do not count toward in/out degree for this category). Recoverable when downstream subdomains add edges that reach the leaf, or by re-evaluating whether the node belongs at the granularity principle.
 - `suspicious_cross_domain_ratio` — subdomain (single domain tag) where >40% of inbound `pedagogical_prerequisite` edges originate from nodes carrying no overlap with that domain tag. Likely a missing service node on the inside of the subdomain; recoverable by introducing the service node and re-routing the cross-domain edges through it.
+- `edge_evidence_empty` (S-0146 per Issue #62 Proposal 1) — cross-domain `pedagogical_prerequisite` edge with NULL or empty `evidence` field. Cross-bridges only — within-subdomain edges run cleaner and their pedagogical justification is often implicit in the parent migration's narrative. Recoverable by populating `evidence` with the migration's `teaching_notes` pedagogical-warrant prose at authoring time. Backfill of pre-S-0146 cross-bridges is a separate cleanup pass (likely scope of a future structural-reopen migration).
+- `top_level_discipline_label_as_prereq_source` (S-0146 per Issue #62 Proposal 2b) — node whose label is a canonical top-level discipline name (`philosophy_of_language`, `philosophy_of_science`, `philosophy_of_mind`, `political_philosophy`, `metaethics`, `epistemology`, `metaphysics`, `ethics`, `logic`, `aesthetics` — see `TOP_LEVEL_DISCIPLINE_LABELS` in `validate.py`) AND that node sources ≥3 prereq edges AND those edges' targets span ≥2 distinct domains. The umbrella-as-prereq-source shape per the audit's findings (philosophy_of_science N-5/E-2/E-3, political_philosophy N-5/E-11). Fix posture: retain-with-explicit-umbrella-semantics — record the umbrella framing in the node's `teaching_notes`. New top-level discipline nodes added in Phase 6 self-correction trigger this check at validate-time.
+- `prereq_direction_summary_inconsistency` (S-0146 per Issue #62 Proposal 3+5 merged) — cross-domain `pedagogical_prerequisite` edge whose target.summary contains a structural sentence of shape `<target.label> is/are ...<connecting-phrase>... <source.label>` where the connecting phrase signals broader-category / content-of / property-of / class-of semantics (see `DIRECTION_REVERSAL_PHRASES` in `validate.py`). Phrase list anchored on the audit's 5 documented cross-bridge reversals (CB-E-47, CB-E-63, CB-E-65, CB-E-69, CB-E-70). Recoverable by flipping the edge direction or revising the structural prose if the authored direction is correct; the dual-mode resolution is intentional — the warn surfaces a contradiction, not a unilateral defect. Phrase-pattern false-positive rate calibrates over Phase 6; promotion to LLM-flagged is a deferred enhancement.
 
 ## Response posture
 
@@ -520,6 +523,18 @@ Until re-audit, the categories carry their as-shipped semantics from their intro
 **Why deferred:** introduced at S-0100 per [ADR 0049](../adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md) Decision 6 (Issue #54). Fires when `next_session_handle` is set to a non-null string that doesn't match the `#<num>` or `S-<NNNN>` shape. Single-archive coverage.
 
 **Re-audit at S-0117**.
+
+### `edge_evidence_empty` (deferred re-audit; introduced S-0146)
+
+**Why deferred:** introduced at S-0146 per [Issue #62](https://github.com/StarshipSuperjam/paideia/issues/62) Proposal 1. Predicate runs only when `SUPABASE_DB_URL` is set; expected to fire at high baseline against the existing 71 cross-bridges (universally NULL evidence per the S-0122 audit). Audit-time backfill of pre-S-0146 cross-bridges is a deferred cleanup pass. Re-audit at the next cadence audit once at least 10 archives carry post-introduction telemetry, by which point either the backfill has landed (low-fire steady state) or the high-baseline informational role is confirmed (re-classify accordingly).
+
+### `top_level_discipline_label_as_prereq_source` (deferred re-audit; introduced S-0146)
+
+**Why deferred:** introduced at S-0146 per [Issue #62](https://github.com/StarshipSuperjam/paideia/issues/62) Proposal 2b. Predicate runs only when `SUPABASE_DB_URL` is set; expected to fire on the 3 audit-documented umbrella nodes (`philosophy_of_language`, `philosophy_of_science`, `political_philosophy`) until their `teaching_notes` record explicit umbrella semantics. Re-audit at the next cadence audit once the umbrella-semantics annotation pass has landed (closing the documented cases) — remaining fires would then surface new umbrella-label introductions in Phase 6 self-correction.
+
+### `prereq_direction_summary_inconsistency` (deferred re-audit; introduced S-0146)
+
+**Why deferred:** introduced at S-0146 per [Issue #62](https://github.com/StarshipSuperjam/paideia/issues/62) Proposal 3+5 merged. Predicate runs only when `SUPABASE_DB_URL` is set; phrase-pattern list anchored on the audit's 5 documented cross-bridge reversals. Re-audit at the next cadence audit to assess false-positive rate against post-S-0146 authoring; if the rate is non-trivial, evaluate either tightening the phrase list, narrowing the regex bounds, or promoting to LLM-flagged per the audit input doc's deferred enhancement path.
 
 ## Retire candidates flagged for next health-check audit
 

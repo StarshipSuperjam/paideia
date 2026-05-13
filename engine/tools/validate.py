@@ -2007,6 +2007,55 @@ GRAPH_SOFT_WARN_CATEGORIES = (
     "synthetic_review_queue",
     "orphan_leaf",
     "suspicious_cross_domain_ratio",
+    # S-0146: three soft-warns from the S-0122 Phase 5 production-audit
+    # closeout (Issue #62; per engine/build_readiness/phase_5_audit_system_input.md
+    # Proposals 1, 2b, 3+5 merged). Proposal 4 (historical_node_as_prereq_source)
+    # awaits node-class schema extension — tracked separately.
+    "edge_evidence_empty",
+    "top_level_discipline_label_as_prereq_source",
+    "prereq_direction_summary_inconsistency",
+)
+
+# Canonical top-level discipline labels for the
+# top_level_discipline_label_as_prereq_source soft-warn (Issue #62
+# Proposal 2b; per engine/build_readiness/phase_5_audit_system_input.md:48).
+# A node whose label is in this set, sources >=3 prereq edges, and whose
+# targets span >=2 distinct domains is the umbrella-as-prereq-source pattern.
+TOP_LEVEL_DISCIPLINE_LABELS: frozenset[str] = frozenset(
+    {
+        "philosophy_of_language",
+        "philosophy_of_science",
+        "philosophy_of_mind",
+        "political_philosophy",
+        "metaethics",
+        "epistemology",
+        "metaphysics",
+        "ethics",
+        "logic",
+        "aesthetics",
+    }
+)
+
+# Connecting-phrase patterns for prereq_direction_summary_inconsistency
+# (Issue #62 Proposal 3+5 merged; per audit input doc:64-67). Anchored
+# on the 5 documented cross-bridge reversal cases (CB-E-47, CB-E-63,
+# CB-E-65, CB-E-69, CB-E-70). These appear between target.label and
+# source.label in the target's summary when the edge direction is
+# semantically reversed (the target depends on the source per the
+# summary's own structural prose).
+DIRECTION_REVERSAL_PHRASES: tuple[str, ...] = (
+    "the broader",  # CB-E-70: "morality is the broader normative framework"
+    "the contents of",  # CB-E-63: "propositions are the contents of propositional attitudes"
+    "the content of",
+    "an instance of",
+    "a kind of",
+    "a type of",
+    "a form of",
+    "a special case of",
+    "applied to",
+    "a property of",
+    "the class of",
+    "the category of",
 )
 
 # Forbidden tokens for the render_readiness check (gate T2-D, applying
@@ -2105,16 +2154,16 @@ def _read_graph_from_db(
     Returns:
         ``(nodes, edges)``. ``nodes`` carry id, label, domain,
         summary, teaching_notes, rigor_score_computed,
-        confidence_level, status. ``edges`` carry source_id,
-        target_id, edge_type.
+        confidence_level, status. ``edges`` carry id, source_id,
+        target_id, edge_type, evidence.
 
     Non-responsibilities:
         - Does not catch psycopg or import errors. The orchestrator
           (validate_graph) wraps this call so failures land as
           hard-fails on the ValidationResult.
         - Does not select archived columns (created_at, updated_at,
-          provenance, weight, confidence, evidence). The audit's
-          checks consume only the columns above.
+          provenance, weight, confidence). The audit's checks consume
+          only the columns above.
     """
     # Lazy imports per module contract — psycopg is optional and absent
     # when SUPABASE_DB_URL is unset (the audit-skip path covers that).
@@ -2133,7 +2182,9 @@ def _read_graph_from_db(
                 "FROM public.nodes"
             )
             nodes = [dict(r) for r in cur.fetchall()]
-            cur.execute("SELECT source_id, target_id, edge_type FROM public.edges")
+            cur.execute(
+                "SELECT id, source_id, target_id, edge_type, evidence FROM public.edges"
+            )
             edges = [dict(r) for r in cur.fetchall()]
     return nodes, edges
 
@@ -2459,6 +2510,222 @@ def _detect_suspicious_cross_domain_ratio(
     return findings
 
 
+def _detect_edge_evidence_empty(
+    nodes: list[dict[str, Any]],
+    edges: list[dict[str, Any]],
+) -> list[tuple[str, str, str]]:
+    """Return ``(edge_id, source_id, target_id)`` for cross-domain
+    pedagogical-prerequisite edges whose ``evidence`` field is NULL or
+    empty.
+
+    Per Issue #62 Proposal 1 (S-0122 audit input doc:7-23). Empirical
+    basis: the ``evidence`` field on ``pedagogical_prerequisite_edge``
+    is universally NULL across all 536 Phase 5 edges. The 5
+    contradicted-by-own-prose reversals (CB-E-47, CB-E-63, CB-E-65,
+    CB-E-69, CB-E-70) all had pedagogical-warrant prose in the
+    migration's ``teaching_notes`` that argued the opposite direction
+    from the authored edge — visible at authoring time if the
+    ``evidence`` field had been populated.
+
+    Cross-bridges only: within-subdomain edges run cleaner (5.0–21.0%
+    defect rate vs 35.2% for cross-bridges) and their pedagogical
+    justification is often implicit in the parent migration's
+    narrative. The high-value population for evidence-field discipline
+    is cross-bridges where rationale benefits from explicit recording.
+    """
+    by_id: dict[str, list[str]] = {
+        n["id"]: list(n.get("domain") or []) for n in nodes if n.get("id") is not None
+    }
+    findings: list[tuple[str, str, str]] = []
+    for e in edges:
+        if e.get("edge_type") != PREREQUISITE_EDGE_TYPE:
+            continue
+        s = e.get("source_id")
+        t = e.get("target_id")
+        if s is None or t is None:
+            continue
+        source_domains = set(by_id.get(s) or [])
+        target_domains = set(by_id.get(t) or [])
+        if source_domains and target_domains and source_domains & target_domains:
+            continue
+        evidence = e.get("evidence")
+        if evidence is not None and str(evidence).strip() != "":
+            continue
+        eid = e.get("id")
+        findings.append((str(eid) if eid is not None else "", str(s), str(t)))
+    return sorted(findings)
+
+
+def _detect_top_level_discipline_label_as_prereq_source(
+    nodes: list[dict[str, Any]],
+    edges: list[dict[str, Any]],
+    canonical_labels: frozenset[str] = TOP_LEVEL_DISCIPLINE_LABELS,
+    min_prereq_count: int = 3,
+    min_distinct_target_domains: int = 2,
+) -> list[tuple[str, str, int, int]]:
+    """Return ``(node_id, label, prereq_count, distinct_target_domains)``
+    for nodes whose label matches a canonical top-level discipline name
+    AND that source >=``min_prereq_count`` prerequisite edges AND whose
+    targets span >=``min_distinct_target_domains`` distinct domains.
+
+    Per Issue #62 Proposal 2b (S-0122 audit input doc:40-58). Empirical
+    basis: 3 corpus instances (philosophy_of_language, philosophy_of_science,
+    political_philosophy) where a top-level discipline label sources
+    foundation-spine prereq edges to its field's central topics — the
+    "umbrella-as-prereq-source" shape. The fix posture per closeout is
+    retain-with-explicit-umbrella-semantics; the soft-warn surfaces the
+    pattern at validate time so authoring sessions record the umbrella
+    framing in the node's ``teaching_notes``.
+
+    The ``min_distinct_target_domains>=2`` predicate uses the targets'
+    ``domain`` field cardinality to discriminate the foundation-spine
+    fan-out shape from a single internal-coherence prereq (which is not
+    the problem shape).
+    """
+    label_by_id: dict[str, str | None] = {
+        n["id"]: n.get("label") for n in nodes if n.get("id") is not None
+    }
+    domains_by_id: dict[str, set[str]] = {
+        n["id"]: set(n.get("domain") or []) for n in nodes if n.get("id") is not None
+    }
+
+    prereq_targets_by_source: dict[str, list[str]] = {}
+    for e in edges:
+        if e.get("edge_type") != PREREQUISITE_EDGE_TYPE:
+            continue
+        s = e.get("source_id")
+        t = e.get("target_id")
+        if s is None or t is None:
+            continue
+        prereq_targets_by_source.setdefault(s, []).append(t)
+
+    findings: list[tuple[str, str, int, int]] = []
+    for nid, label in label_by_id.items():
+        if label is None or label not in canonical_labels:
+            continue
+        targets = prereq_targets_by_source.get(nid, [])
+        if len(targets) < min_prereq_count:
+            continue
+        target_domain_set: set[str] = set()
+        for t in targets:
+            target_domain_set.update(domains_by_id.get(t, set()))
+        if len(target_domain_set) < min_distinct_target_domains:
+            continue
+        findings.append((nid, label, len(targets), len(target_domain_set)))
+    return sorted(findings)
+
+
+def _label_to_prose_pattern(label: str) -> str:
+    """Convert a snake_case node label into a regex fragment that matches
+    its natural-language form in summary prose.
+
+    Lowercases, splits on underscores, joins with ``\\s+``, and allows
+    optional trailing ``s`` for plural-form occurrences. Each token is
+    regex-escaped before joining. Word-boundary anchors are added by
+    callers per the surrounding pattern shape.
+    """
+    tokens = [re.escape(t) for t in label.lower().split("_") if t]
+    if not tokens:
+        return ""
+    return r"\s+".join(tokens) + r"s?"
+
+
+def _detect_prereq_direction_summary_inconsistency(
+    nodes: list[dict[str, Any]],
+    edges: list[dict[str, Any]],
+    reversal_phrases: tuple[str, ...] = DIRECTION_REVERSAL_PHRASES,
+) -> list[tuple[str, str, str, str]]:
+    """Return ``(edge_id, source_id, target_id, matched_phrase)`` for
+    cross-domain pedagogical-prerequisite edges whose target.summary
+    contains a structural-dependency phrase pattern of shape
+    ``<target.label> (is|are) ...<connecting-phrase>... <source.label>``.
+
+    Per Issue #62 Proposal 3+5 merged (S-0122 audit input doc:60-77,
+    98-108). Empirical basis: 5 cross-bridge reversal cases (CB-E-47,
+    CB-E-63, CB-E-65, CB-E-69, CB-E-70) where the migration's own
+    teaching prose contradicts the authored edge direction. Examples:
+
+    - E-63 ``propositional_attitude → proposition``: proposition.summary
+      says "propositions are the contents of propositional attitudes" —
+      proposition supplies content to PA, so PA depends on proposition.
+    - E-70 ``justice → morality``: morality.summary says "morality is
+      the broader normative framework" — morality is broader; justice
+      (specific) depends on morality (broader).
+
+    Cross-bridges only — within-subdomain pairs share enough background
+    vocabulary that the phrase-pattern produces too much noise. Phrase
+    list anchored on the audit's documented cases (per
+    DIRECTION_REVERSAL_PHRASES); Phase 6 self-correction can tune.
+    """
+    by_id: dict[str, dict[str, Any]] = {
+        n["id"]: n for n in nodes if n.get("id") is not None
+    }
+    findings: list[tuple[str, str, str, str]] = []
+    phrase_alternation = "|".join(re.escape(p) for p in reversal_phrases)
+    for e in edges:
+        if e.get("edge_type") != PREREQUISITE_EDGE_TYPE:
+            continue
+        s = e.get("source_id")
+        t = e.get("target_id")
+        if s is None or t is None:
+            continue
+        source = by_id.get(s)
+        target = by_id.get(t)
+        if source is None or target is None:
+            continue
+        source_domains = set(source.get("domain") or [])
+        target_domains = set(target.get("domain") or [])
+        if source_domains and target_domains and source_domains & target_domains:
+            continue
+        target_summary = target.get("summary")
+        if not target_summary:
+            continue
+        source_label = source.get("label")
+        target_label = target.get("label")
+        if not source_label or not target_label:
+            continue
+        target_pattern = _label_to_prose_pattern(target_label)
+        source_pattern = _label_to_prose_pattern(source_label)
+        if not target_pattern or not source_pattern:
+            continue
+        # Target-noun-phrase ... is/are ... <phrase> ... source-noun-phrase
+        # Same-sentence anchor: [^.;] excludes sentence-terminating
+        # punctuation. The 80/120 budgets fit the audit-documented
+        # cross-bridge reversals without over-bridging across clauses.
+        regex = (
+            r"\b"
+            + target_pattern
+            + r"\s+(?:is|are)\s+(?:[^.;]{0,80}?)(?:"
+            + phrase_alternation
+            + r")\b(?:[^.;]{0,120}?)\b"
+            + source_pattern
+            + r"\b"
+        )
+        match = re.search(regex, target_summary, flags=re.IGNORECASE)
+        if match is None:
+            continue
+        # Recover the phrase fragment that fired so the soft-warn can
+        # cite it.
+        phrase_match = re.search(
+            "(?:" + phrase_alternation + ")",
+            match.group(0),
+            flags=re.IGNORECASE,
+        )
+        matched_phrase = (
+            phrase_match.group(0).lower() if phrase_match is not None else ""
+        )
+        eid = e.get("id")
+        findings.append(
+            (
+                str(eid) if eid is not None else "",
+                str(s),
+                str(t),
+                matched_phrase,
+            )
+        )
+    return sorted(findings)
+
+
 def _write_snapshot(
     snapshot_path: Path,
     nodes: list[dict[str, Any]],
@@ -2486,11 +2753,15 @@ def validate_graph(
 
     Connects to the live Supabase DB via psycopg, runs three hard-fail
     checks (duplicate node IDs, dangling edge references, prerequisite
-    cycles via Kosaraju SCC) plus seven soft-warn categories
+    cycles via Kosaraju SCC) plus ten soft-warn categories
     (undeclared_predicate, attribute_shape_inconsistency,
     missing_rigor_score, render_readiness_violation,
     synthetic_review_queue, orphan_leaf,
-    suspicious_cross_domain_ratio), and returns a categorized result.
+    suspicious_cross_domain_ratio, edge_evidence_empty,
+    top_level_discipline_label_as_prereq_source,
+    prereq_direction_summary_inconsistency), and returns a categorized
+    result. The latter three landed at S-0146 from the S-0122 audit
+    (Issue #62; per engine/build_readiness/phase_5_audit_system_input.md).
 
     Connection string resolution: the explicit ``connection_string``
     argument wins; otherwise the ``SUPABASE_DB_URL`` environment
@@ -2632,6 +2903,32 @@ def validate_graph(
         r.soft_warn(
             "suspicious_cross_domain_ratio",
             f"domain={d!r} total_inbound={total} cross_domain={cross}",
+        )
+
+    for eid, src, tgt in _detect_edge_evidence_empty(nodes, edges):
+        r.soft_warn(
+            "edge_evidence_empty",
+            f"edge_id={eid!r} source={src!r} target={tgt!r}",
+        )
+
+    for (
+        nid,
+        label,
+        prereq_count,
+        distinct_domains,
+    ) in _detect_top_level_discipline_label_as_prereq_source(nodes, edges):
+        r.soft_warn(
+            "top_level_discipline_label_as_prereq_source",
+            f"node_id={nid!r} label={label!r} "
+            f"prereq_count={prereq_count} distinct_target_domains={distinct_domains}",
+        )
+
+    for eid, src, tgt, phrase in _detect_prereq_direction_summary_inconsistency(
+        nodes, edges
+    ):
+        r.soft_warn(
+            "prereq_direction_summary_inconsistency",
+            f"edge_id={eid!r} source={src!r} target={tgt!r} matched_phrase={phrase!r}",
         )
 
     return r
