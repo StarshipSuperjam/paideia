@@ -1,0 +1,38 @@
+{
+  "id": "S-0146",
+  "mode": "build",
+  "started_at": "2026-05-13T15:16:09Z",
+  "status": "closed",
+  "working_on": "Close Issue #62 (3 validator soft-warns from S-0122 audit) and Issue #114 (mempalace_diary_write -32000 root-cause investigation + upstream filing).",
+  "outcome_summary": "Closed Issues #62 (3 of 4 validator soft-warns from S-0122 audit landed: edge_evidence_empty + top_level_discipline_label_as_prereq_source + prereq_direction_summary_inconsistency; +14 pytests) and #114 (mempalace_diary_write -32000 cold-start root-cause hypothesized via direct-Python diagnostic; upstream filed at MemPalace/mempalace#1495). Filed follow-ups #115 (node_class schema for Proposal 4) and #116 (validator structural-phase regression). In-session wrapper extension at close-time: build_lifecycle_push.py catchup-aware deliverable+close per ADR 0076 Amendment v3 (8 new pytests; self-applied). 0 hard-fails; baseline soft-warns + new edge_evidence_empty:46.",
+  "outcome_summary_soft_warns": {
+    "issue_collision": 14,
+    "missing_rigor_score": 360,
+    "orphan_leaf": 1,
+    "mempalace_wing_count_growth": 1,
+    "edge_evidence_empty": 46,
+    "mempalace_boot_query_skipped": 1,
+    "mempalace_diary_read_skipped": 1,
+    "validator_runtime_phase_regression": 1
+  },
+  "approved_plan": "/Users/shanekidd/.claude/plans/i-want-this-session-linked-crayon.md",
+  "branch": "claude/confident-chaum-1d6ec6",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/confident-chaum-1d6ec6",
+  "next_session_handle": null,
+  "declared_scope": "Close Issues #62 (3 of 4 gate-feasible validator soft-warns from S-0122 audit, predicates per phase_5_audit_system_input.md Proposals 1+2b+3) and #114 (mempalace_diary_write -32000 root-cause investigation; fix-or-file based on outcome). Phase 4 deferred to Issue #115 follow-up.",
+  "scope_delivery": "yes",
+  "mempalace_activity": {
+    "search_calls": 0,
+    "diary_read_calls": 0,
+    "diary_write_calls": 3,
+    "add_drawer_calls": 1,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 4,
+    "first_call_ts": "2026-05-13T15:18:04Z",
+    "last_call_ts": "2026-05-13T15:41:47Z"
+  }
+}
