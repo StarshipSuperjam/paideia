@@ -1,0 +1,39 @@
+{
+  "id": "S-0147",
+  "mode": "build",
+  "started_at": "2026-05-13T16:38:30Z",
+  "status": "closed",
+  "working_on": "Dependency version-control mechanism: boot-time version telemetry + Dependabot PR surface + validator soft-warn; then clear 11 existing Dependabot PRs as first exercise.",
+  "outcome_summary": "Phase A: shipped ADR 0080 (engine) — boot-time dependency version visibility mechanism. New tools probe_versions.py (one-line python+chromadb+mempalace+venv-classification surface) and scan_dependabot_prs.py (sibling to scan_issue_backlog.py; quiet/FYI/LOUD modes by count + age) wired into session-start.sh. New validate.dependabot_pr_stale soft-warn (health_probe phase per ADR 0063; per-PR fire ≥7d). 42 new pytests green. ADR 0069 empirical record updated declaratively per ADR 0062; dependency-discipline.md + tools-validate-interpretation.md + first-exercise readiness note authored. Phase B: all 11 backlogged Dependabot PRs (#94–#105) merged sequentially as the new mechanism's first natural exercise — per-PR procedure (gh pr checkout → rebase origin/main → uv lock → commit --amend → push --force-with-lease → CI green → squash-merge). 10 of 11 were floor-aligns-to-current (installed transitive predated the new floors); reportlab was the lone material update (4.5.0→4.5.1). CI green on every PR. Final validate.py: 0 hard-fails; baseline soft-warns only (edge_evidence_empty 46, missing_rigor_score 360, issue_collision 14, orphan_leaf 1, mempalace_wing_count_growth 1, timestamp_helper_bypass 2); dependabot_pr_stale: 0 (correct — all 11 PRs were 1 day old below threshold). Two visibility gaps from S-0144→S-0146 MemPalace arc closed mechanically. Auto-mode classifier correctly blocked a proposed consolidated-commit shortcut that would have bypassed ADR 0069's user-merges posture; resulting per-PR flow matched the approved plan. T1-A/T1-B/T1-C closed in-session.",
+  "outcome_summary_soft_warns": {
+    "edge_evidence_empty": 46,
+    "missing_rigor_score": 360,
+    "issue_collision": 14,
+    "orphan_leaf": 1,
+    "mempalace_wing_count_growth": 1,
+    "timestamp_helper_bypass": 2,
+    "mempalace_diary_read_skipped": 1,
+    "mempalace_zero_citations_after_search": 1,
+    "dependabot_pr_stale": 0
+  },
+  "approved_plan": "/Users/shanekidd/.claude/plans/mempalace-issue-troubleshooting-surfaced-async-gosling.md",
+  "branch": "claude/cool-wilbur-b54023",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/cool-wilbur-b54023",
+  "next_session_handle": null,
+  "declared_scope": "Ship boot-time dependency version visibility mechanism (probe_versions.py + scan_dependabot_prs.py + validate.dependabot_pr_stale + ADR 0080 + dependency-discipline.md + first-exercise readiness note) as Phase A. Then exercise mechanism via Phase B: clear 11 backlogged Dependabot PRs end-to-end per-PR procedure.",
+  "scope_delivery": "yes",
+  "mempalace_activity": {
+    "search_calls": 2,
+    "diary_read_calls": 0,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 1,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 4,
+    "first_call_ts": "2026-05-13T16:21:12Z",
+    "last_call_ts": "2026-05-13T17:42:02Z"
+  }
+}
