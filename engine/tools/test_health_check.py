@@ -1128,6 +1128,77 @@ def test_emit_report_bump_handles_absent_register(
     assert "S-0041" in captured.err
 
 
+def test_main_bump_only_skips_file_write(
+    synthetic_repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """--bump-only bumps the field without writing/overwriting the report.
+
+    Per Issue #108: when an audit-author hand-writes
+    docs/health-checks/S-NNNN.md before invoking the script, the default flow
+    overwrites hand-authored prose with the scaffold. --bump-only preserves
+    the hand-authored file by skipping the audit pipeline + render entirely.
+    """
+    register_path = synthetic_repo / "engine" / "session" / "register_state.json"
+    register_path.write_text(
+        json.dumps(
+            {
+                "next_id": "0150",
+                "last_claimed": "S-0149",
+                "current_status": "in_progress",
+                "health_check_cadence": 20,
+                "last_audit_session": "S-0141",
+            }
+        )
+    )
+    report_path = synthetic_repo / "docs" / "health-checks" / "S-0149.md"
+    hand_authored = "# Hand-authored audit report\n\nFindings prose preserved.\n"
+    report_path.write_text(hand_authored)
+
+    exit_code = main(["--session", "S-0149", "--bump-only"])
+    assert exit_code == 0
+    assert report_path.read_text() == hand_authored
+    register = json.loads(register_path.read_text())
+    assert register["last_audit_session"] == "S-0149"
+    captured = capsys.readouterr()
+    assert "Bumped last_audit_session to S-0149" in captured.out
+
+
+def test_main_bump_only_bumps_without_existing_report(
+    synthetic_repo: Path,
+) -> None:
+    """--bump-only bumps the field even when no report exists on disk yet.
+
+    The audit-author can run --bump-only before or after the file is in place;
+    the field-bump contract is independent of file presence.
+    """
+    register_path = synthetic_repo / "engine" / "session" / "register_state.json"
+    register_path.write_text(
+        json.dumps(
+            {
+                "next_id": "0150",
+                "last_claimed": "S-0149",
+                "last_audit_session": "S-0141",
+            }
+        )
+    )
+    exit_code = main(["--session", "S-0149", "--bump-only"])
+    assert exit_code == 0
+    register = json.loads(register_path.read_text())
+    assert register["last_audit_session"] == "S-0149"
+
+
+def test_main_bump_only_and_dry_run_mutually_exclusive(
+    synthetic_repo: Path,
+) -> None:
+    """argparse rejects --bump-only + --dry-run combination.
+
+    Mutual exclusion is at the argparse layer (SystemExit with code 2).
+    """
+    with pytest.raises(SystemExit) as exc_info:
+        main(["--session", "S-0149", "--bump-only", "--dry-run"])
+    assert exc_info.value.code == 2
+
+
 # ---------------------------------------------------------------------------
 # Cadence detection
 # ---------------------------------------------------------------------------

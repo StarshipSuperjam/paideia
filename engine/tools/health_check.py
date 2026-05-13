@@ -1992,6 +1992,9 @@ def emit_report(report: HealthCheckReport, dry_run: bool = False) -> Path | None
     `health_check_overdue` check both read this field. Best-effort —
     register-state write failures do not poison the audit (the report is
     the durable artifact; the field bump is advisory tracking).
+
+    Hand-authored audit reports (per Issue #108): use the CLI's `--bump-only`
+    flag to bump the field without overwriting hand-authored prose.
     """
     rendered = render_report(report)
     if dry_run:
@@ -2112,16 +2115,34 @@ def main(argv: list[str] | None = None) -> int:
         required=True,
         help="Session id (S-NNNN) the report is filed under.",
     )
-    parser.add_argument(
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument(
         "--dry-run",
         action="store_true",
         help="Print the rendered report to stdout instead of writing a file.",
+    )
+    mode_group.add_argument(
+        "--bump-only",
+        action="store_true",
+        help=(
+            "Skip audit + file write; only bump register_state.json's "
+            "last_audit_session field. Use after hand-authoring "
+            "docs/health-checks/S-NNNN.md so the audit pipeline does not "
+            "overwrite hand-authored prose. Per Issue #108."
+        ),
     )
     args = parser.parse_args(argv)
 
     if not re.match(r"^S-\d{4}$", args.session):
         sys.stderr.write(f"--session must match S-NNNN format; got {args.session!r}\n")
         return 2
+
+    if args.bump_only:
+        bump_last_audit_session(args.session)
+        sys.stdout.write(
+            f"Bumped last_audit_session to {args.session} (no report written).\n"
+        )
+        return 0
 
     archives = list_archives()
     cadence = detect_cadence()

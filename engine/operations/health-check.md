@@ -298,6 +298,16 @@ The template carries (top-to-bottom):
 - **Cadence calibration** — is the cadence right? If consistently no-action, raise. If consistently large action lists, lower.
 - **Summary** — one paragraph: what the project's discipline looks like now vs. last check.
 
+### Hand-authoring an audit report
+
+The script's default flow renders the bullet-list scaffold and writes it to `docs/health-checks/S-NNNN.md`. When the audit-author writes the report by hand (as at S-0077 and S-0141), invoke the script with `--bump-only` instead:
+
+```sh
+python3 engine/tools/health_check.py --session S-NNNN --bump-only
+```
+
+`--bump-only` skips the audit pipeline + file render entirely and performs only `bump_last_audit_session(session_id)`. The hand-authored file is preserved verbatim; the `last_audit_session` field is bumped so the SessionStart hook + `validate.py`'s `health_check_overdue` check both clear correctly. Mutually exclusive with `--dry-run` at argparse level. Per [ADR 0022](../adr/0022-periodic-project-health-checks.md) S-0149 Consequences amendment, closes [Issue #108](https://github.com/StarshipSuperjam/paideia/issues/108).
+
 After User adjudication, each accepted recommendation routes through one of four execution lanes:
 
 - **Inline trivial cleanup** — only for cleanups that fit the standard "default to fix-in-context" rule (typos, broken cross-refs noticed in passing). The user-buffered execution principle reserves the audit session itself for findings + recommendations; substantive retire / convert / replace actions route through the lanes below, not inline.
