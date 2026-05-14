@@ -10,6 +10,12 @@ This project does not yet follow [Semantic Versioning](https://semver.org/) — 
 
 ## [Unreleased]
 
+### Added (S-0158 — seed-graph QA census evidence: shard 01)
+
+- **[`engine/build_readiness/seed_qa_evidence/shard_01.md`](build_readiness/seed_qa_evidence/shard_01.md)** — first evidence file of the `T-SEED-QA` census (routine task `SQA-01`). 28 `pedagogical_prerequisite` edges scored against C1 (prerequisite soundness) + 20 nodes against C2 (`teaching_notes` traction) and C3 (`summary` cold-readability), per the pinned `seed_qa_audit.md` rubric. Tally — C1: 3 `Reversed` / 28 = 10.7% (E-5 `phenomenal_concept_strategy→type_b_materialism`, E-24 `set_mathematical→axiom_mathematical`, E-26 `knowledge_how→knowledge` — all direction errors; none trace to the S-0122 audit follow-up migrations 0061–0065); C2: 0 fail / 20; C3: 2 fail / 20 = 10% (N-4 jargon-gated, N-13 borderline circular). Candidate findings only — disposition deferred to the `SQA-20` closeout's follow-up interactive session. `auto_target.json` task `SQA-01` marked `complete`.
+
+**Rationale**: routine-mode execution of the `T-SEED-QA` target authored at S-0156. First of 19 shard tasks; `SQA-02` is the next eligible task.
+
 ### Added (S-0157 — worktree-sweep liveness marker; closes Issue #120)
 
 - **[`engine/tools/hooks/session-start.sh`](tools/hooks/session-start.sh)** — writes a `session-live` marker into each worktree's private git dir (`.git/worktrees/<name>/session-live`) at every session boot, *before* the eager-claim ritual. Best-effort; logged, never blocking.
