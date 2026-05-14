@@ -92,6 +92,7 @@ c. Write `engine/session/current.json`:
   "id": "S-<next>",
   "started_at": "<ISO-8601 UTC>",
   "status": "in_progress",
+  "mode": "interactive",
   "working_on": "<one-sentence summary>",
   "declared_scope": "<1-3 sentences naming what this session commits to deliver. Optionally end with `phase: <id>` matching a build_plan/MANIFEST.md identifier (e.g., `phase: P_3` or `phase: 4.5`); use `phase: NA-...` for operational/engine-apparatus work.>",
   "outcome_summary": null,
@@ -102,6 +103,8 @@ c. Write `engine/session/current.json`:
   "worktree": "<absolute path>"
 }
 ```
+
+The `mode` field is required from S-0048 onward per [ADR 0051](../../../engine/adr/0051-routine-mode-and-engine-loop.md) and hard-fail-enforced on the close commit by `audit_archive_structured_fields.py` (canonical values: `"interactive"` for `/start-engine` build sessions, `"routine"` for routine-mode sessions — it records the durable session-execution style, not a project-phase label).
 
 The `declared_scope` field is required from S-0042 onward per [ADR 0049](../../../engine/adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md). The validator's `empty_declared_scope` soft-warn fires every commit until the field is populated; `phase_mismatch_declared_scope` fires when a `phase:` token doesn't match the build-plan manifest. The `scope_delivery` field starts `null` (in-flight) and is filled at shutdown. The `next_session_handle` field is required from S-0100 onward per [ADR 0049 Decision 6](../../../engine/adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md), starts `null` (in-flight), and is filled at shutdown step 7b when `outcome_summary` carries hedge-pattern prose about deferred work.
 

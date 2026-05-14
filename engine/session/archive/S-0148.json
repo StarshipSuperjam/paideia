@@ -3,7 +3,7 @@
   "started_at": "2026-05-13T18:57:16Z",
   "closed_at": "2026-05-13T19:20:00Z",
   "status": "closed",
-  "mode": "build",
+  "mode": "interactive",
   "working_on": "Author /ship multi-model orchestration skill (Issue #76) \u2014 SKILL.md + synthesis-template + ADR 0081 + first-exercise readiness note + cascade to /review + /security-review + STATE.md + ENGINE_LOG + MemPalace decision drawer + in-session dogfood.",
   "approved_plan": "/Users/shanekidd/.claude/plans/curious-doodling-aho.md",
   "branch": "claude/vigilant-kirch-68ad72",

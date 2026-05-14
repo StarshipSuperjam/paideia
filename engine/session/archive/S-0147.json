@@ -1,6 +1,6 @@
 {
   "id": "S-0147",
-  "mode": "build",
+  "mode": "interactive",
   "started_at": "2026-05-13T16:38:30Z",
   "status": "closed",
   "working_on": "Dependency version-control mechanism: boot-time version telemetry + Dependabot PR surface + validator soft-warn; then clear 11 existing Dependabot PRs as first exercise.",

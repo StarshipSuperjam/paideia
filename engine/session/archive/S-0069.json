@@ -2,6 +2,7 @@
   "id": "S-0069",
   "started_at": "2026-05-05T19:00:00Z",
   "status": "closed",
+  "mode": "interactive",
   "working_on": "Trim engine/STATE.md from ~35,456 tokens to ~6,000-8,000 tokens by removing accumulated session-history blobs and establishing a rolling-window trim policy in session-shutdown-sequence.md.",
   "declared_scope": "Trim engine/STATE.md: collapse 'Current phase' cell to a concise current-state summary, remove all 'Prior build session'/'Prior-prior' rows except Last, prune stale historical context from 'Next session work item', and remove the 'After S-0045' mini-changelog subsection. Add rolling-window trim policy to engine/operations/session-shutdown-sequence.md.",
   "approved_plan": "~/.claude/plans/state-file-seems-to-shiny-peacock.md",

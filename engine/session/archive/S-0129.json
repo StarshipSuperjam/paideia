@@ -14,7 +14,7 @@
   "branch": "claude/keen-swartz-50be53",
   "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/keen-swartz-50be53",
   "next_session_handle": "S-0130-OSS-BYOK-Session-C",
-  "mode": "build",
+  "mode": "interactive",
   "mode_explicit": "build",
   "mempalace_activity": {
     "search_calls": 1,

@@ -1,6 +1,6 @@
 {
   "id": "S-0123",
-  "mode": "build",
+  "mode": "interactive",
   "mode_explicit": "build",
   "started_at": "2026-05-11T05:32:43Z",
   "ended_at": "2026-05-11T06:22:46Z",

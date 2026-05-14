@@ -9,7 +9,7 @@
   "branch": "claude/quizzical-wing-759654",
   "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/quizzical-wing-759654",
   "closed_at": "2026-05-07T00:08:00Z",
-  "mode": "interactive_build",
+  "mode": "interactive",
   "outcome_summary_soft_warns": {
     "expected_future_file_missing": 0,
     "adr_missing_status": 0,

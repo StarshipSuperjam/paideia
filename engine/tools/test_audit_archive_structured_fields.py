@@ -75,6 +75,25 @@ def test_required_fields_are_well_formed() -> None:
         assert row["shape"] in ("dict", "str", "int", "list", "str_or_null")
 
 
+def test_allowed_values_rows_are_well_formed() -> None:
+    """Any row carrying the optional `allowed_values` key has it as a
+    non-empty list of strings, and the field's shape is `str`."""
+    for row in REQUIRED_ARCHIVE_FIELDS:
+        allowed = row.get("allowed_values")
+        if allowed is None:
+            continue
+        assert isinstance(allowed, list)
+        assert allowed, f"{row['field']} has an empty allowed_values list"
+        assert all(isinstance(v, str) for v in allowed)
+        assert row["shape"] == "str"
+
+
+def test_mode_row_canonical_vocabulary() -> None:
+    """The `mode` row pins the {interactive, routine} canonical set (S-0157)."""
+    mode_row = next(r for r in REQUIRED_ARCHIVE_FIELDS if r["field"] == "mode")
+    assert mode_row["allowed_values"] == ["interactive", "routine"]
+
+
 def test_parse_session_id_well_formed() -> None:
     assert parse_session_id("S-0078") == 78
     assert parse_session_id("S-0001") == 1
@@ -321,6 +340,38 @@ def test_next_session_handle_wrong_type_hard_fails_at_s0100(
     assert "expected str or null" in err
 
 
+# ----- mode value-vocabulary guard (S-0157 / Issue #121) ----------------------
+
+
+def test_mode_interactive_value_passes(tmp_path: Path) -> None:
+    """`interactive` is a canonical mode value."""
+    p = write_current(tmp_path, make_full_payload(mode="interactive"))
+    rc = main(["--current-path", str(p), "--repo-root", str(tmp_path)])
+    assert rc == 0
+
+
+def test_mode_routine_value_passes(tmp_path: Path) -> None:
+    """`routine` is a canonical mode value."""
+    p = write_current(tmp_path, make_full_payload(mode="routine"))
+    rc = main(["--current-path", str(p), "--repo-root", str(tmp_path)])
+    assert rc == 0
+
+
+@pytest.mark.parametrize("bad_value", ["build", "engine", "interactive_build", ""])
+def test_mode_non_canonical_value_hard_fails(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], bad_value: str
+) -> None:
+    """A `mode` value outside {interactive, routine} hard-fails — the
+    vocabulary-drift values the S-0157 backfill normalized away."""
+    p = write_current(tmp_path, make_full_payload(mode=bad_value))
+    rc = main(["--current-path", str(p), "--repo-root", str(tmp_path)])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "HARD-FAIL" in err
+    assert "mode" in err
+    assert "allowed value set" in err
+
+
 def test_old_session_skips_new_fields(tmp_path: Path) -> None:
     """A vintage S-0030 archive shouldn't trigger any field check."""
     p = write_current(tmp_path, {"id": "S-0030"})
@@ -442,6 +493,24 @@ def test_archive_history_reports_missing_field(
     assert "S-0078.json" in out
     assert "mempalace_activity" in out
     assert "missing" in out.lower()
+
+
+def test_archive_history_reports_non_canonical_mode(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Archive-history mode surfaces a `mode` value outside the allowed set
+    (informational — historical archives are not modified)."""
+    archive_dir = tmp_path / "engine" / "session" / "archive"
+    archive_dir.mkdir(parents=True)
+    payload = make_full_payload(session_id="S-0078", mode="build")
+    archive_dir.joinpath("S-0078.json").write_text(json.dumps(payload))
+
+    rc = main(["--archive-history", "--repo-root", str(tmp_path)])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "S-0078.json" in out
+    assert "mode" in out
+    assert "allowed value set" in out
 
 
 def test_archive_history_skips_old_archives(

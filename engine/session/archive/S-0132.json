@@ -27,6 +27,6 @@
     "first_call_ts": "2026-05-12T14:23:23Z",
     "last_call_ts": "2026-05-12T14:51:45Z"
   },
-  "mode": "build",
+  "mode": "interactive",
   "next_session_handle": null
 }

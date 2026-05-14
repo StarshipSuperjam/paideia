@@ -8,7 +8,7 @@
   "declared_scope": "Close Issue #33 (timestamp standardization) by landing ADR 0058 (canonical timestamp format and shared helper), engine/tools/timestamps.py (4-function helper: emit/emit_micros/parse/today), and engine/operations/timestamp-discipline.md (Layer 1 contract). Add validate.py soft-warn timestamp_helper_bypass (AST-walk over engine/tools/**/*.py with apply_migration.py allowlisted) and migrate 13 emit/parse sites across engine/tools to route through the helper. Smoking-gun fix at engine/tools/health_check.py:960-961 replaces the .replace('Z', '+00:00') gymnastics with the helper's tolerant parse(). Phase 5 closeout / issue close-out campaign C6 per the campaign plan; C7 (Issue #34) follows.",
   "branch": "claude/laughing-hugle-8beeb7",
   "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/laughing-hugle-8beeb7",
-  "mode": "engine",
+  "mode": "interactive",
   "mempalace_activity": {
     "search_calls": 0,
     "diary_read_calls": 0,

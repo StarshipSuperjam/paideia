@@ -14,7 +14,7 @@
   "branch": "claude/thirsty-wilbur-addd15",
   "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/thirsty-wilbur-addd15",
   "next_session_handle": "S-0131-SWE-hardening-pairing-A-or-B",
-  "mode": "build",
+  "mode": "interactive",
   "mode_explicit": "build",
   "mempalace_activity": {
     "search_calls": 1,

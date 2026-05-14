@@ -31,6 +31,6 @@
     "mempalace_boot_query_skipped": 1,
     "mempalace_diary_read_skipped": 1
   },
-  "mode": "build",
+  "mode": "interactive",
   "next_session_handle": null
 }

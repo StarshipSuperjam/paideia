@@ -3,7 +3,7 @@
   "started_at": "2026-05-12T21:25:39Z",
   "closed_at": "2026-05-12T21:40:47Z",
   "status": "closed",
-  "mode": "build",
+  "mode": "interactive",
   "working_on": "Project health-check audit — cadence-aligned (slots_since=20=cadence), window S-0122 → S-0140. Adversarial stance per ADR 0057; user-buffered execution; report at docs/health-checks/S-0141.md.",
   "outcome_summary": "8th project health-check audit (cadence-aligned natural fire). Window S-0122 → S-0140 (19 sessions: OSS+BYOK pivot S-0128/S-0129/S-0130, SWE-hardening Tier 1 + Tier 2 closure, 9 follow-on ADRs). Report at docs/health-checks/S-0141.md. 3 non-obvious findings (mempalace_hnsw_divergence archive-telemetry gap; issue_collision annotation-as-baseline buries escalation; thin pushback/lesson capture in deliberation-dense window). 2 affirmative retire candidates (stale-worktree sweep overdue; issue_collision configuration refine-or-demote). Cold-context probe: scan_orphans.py stale-marker false-positive on forward-pinned TBDs. Forward-fit map surfaces MemPalace HNSW as load-bearing-or-candidate (Phase 6 dependent). Immediate Phase-6 blocker: OQ-DEC1-A/B/C/D in tensions.md (4 tensions decide-before Phase 6, 14 sessions stale). User adjudication subsection left blank on arrival per ADR 0057. last_audit_session bumped to S-0141. Cadence kept at 20.",
   "outcome_summary_soft_warns": {

@@ -3,7 +3,7 @@
   "started_at": "2026-05-13T20:20:13Z",
   "closed_at": "2026-05-13T20:45:00Z",
   "status": "closed",
-  "mode": "build",
+  "mode": "interactive",
   "working_on": "Backlog batch close (5 items): admin closes #66 + #70 + #92; .editorconfig (#78); #107 option A (parent_ff() identical-content auto-recovery + update_settings.py + ADR 0054 amendment + first-exercise readiness note).",
   "approved_plan": "~/.claude/plans/i-need-to-clear-keen-prism.md",
   "branch": "claude/laughing-hermann-a023e5",

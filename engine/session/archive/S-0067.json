@@ -2,7 +2,7 @@
   "id": "S-0067",
   "started_at": "2026-05-05T17:54:53Z",
   "status": "closed",
-  "mode": "build",
+  "mode": "interactive",
   "target_id": null,
   "task_id": null,
   "working_on": "Unblock P5-06 in auto_target.json (status flip from blocked → pending; clear S-0063 blocked_reason now that Issue #18 was resolved at S-0064 AND T1-A subprocess-bypass hypothesis was verified at S-0066's apply_migration.py wrapper exercise) so the next routine fire of paideia-engine-loop picks Aesthetics. Recovery session — original eager-claim attempt at this slot collided with the routine's already-landed S-0066 (routine fire executed during plan authoring, picked P5-07a since P5-06 was still blocked). Local stale-claim discarded via git reset --hard origin/main with explicit user authorization.",

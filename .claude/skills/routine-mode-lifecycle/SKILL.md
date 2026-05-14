@@ -94,9 +94,10 @@ Run `python3 engine/tools/check_routine_scope.py --plan engine/session/current_p
 
 ### 8. Eager-claim ritual
 
-Same procedure as `/start-engine` (see [`session-build-lifecycle`](../session-build-lifecycle/SKILL.md) "Eager-claim ritual"). Three differences:
+Same procedure as `/start-engine` (see [`session-build-lifecycle`](../session-build-lifecycle/SKILL.md) "Eager-claim ritual"). Four differences:
 
 - **Mark the active task `in_progress` in `auto_target.json` as part of the claim commit.** Single commit covers register_state.json, current.json, AND auto_target.json status update.
+- **Set `current.json.mode`** to `"routine"` (NOT the build-lifecycle template's `"interactive"` default). Required from S-0048 per [ADR 0051](../../../engine/adr/0051-routine-mode-and-engine-loop.md), hard-fail-enforced on the close commit by `audit_archive_structured_fields.py`; the value records the durable session-execution style.
 - **Set `current.json.working_on`** to a one-line description naming the task: `"Routine task <task_id>: <task_name>"`.
 - **Set `current.json.declared_scope`** from the task's `scope_lock.allowed_paths` plus a one-line summary. End with `phase: <id>` if the target's `target_id` corresponds to a build_plan/MANIFEST.md phase, else `phase: NA-routine`.
 

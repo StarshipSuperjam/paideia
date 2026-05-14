@@ -7,7 +7,7 @@
   "approved_plan": "~/.claude/plans/typed-purring-pebble.md",
   "branch": "claude/relaxed-hypatia-30cd5f",
   "worktree": "~/Documents/Claude_Files/Paideia/.claude/worktrees/relaxed-hypatia-30cd5f",
-  "mode": "interactive_build",
+  "mode": "interactive",
   "declared_scope": "Author an adversarial-stance audit of MemPalace at engine/docs/audits/mempalace-adversarial-review-S-0086.md per Issue #35, applying ADR 0057's framework to evaluate fit-to-CONTINUE (forward) alongside fit-historically. Output: report with verdict, historical evidence table, forward-fit map, burden ledger, dual counterfactual, ≥1 retire-candidate-recommendation, cold-context probe, blank User-adjudication subsection. Closes #35. ADR amendments and child Issues (incl. dispositions for #38/#39/#40) are user-adjudicated downstream.",
   "mempalace_activity": {
     "search_calls": 10,

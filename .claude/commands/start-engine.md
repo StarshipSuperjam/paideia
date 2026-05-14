@@ -36,6 +36,7 @@ Convert the current Claude Code conversation from default exploration mode (no c
         "id": "S-<next>",
         "started_at": "<ISO-8601 UTC>",
         "status": "in_progress",
+        "mode": "interactive",
         "working_on": "<one-sentence summary of the planned work>",
         "outcome_summary": null,
         "approved_plan": "<path or null>",
@@ -43,6 +44,8 @@ Convert the current Claude Code conversation from default exploration mode (no c
         "worktree": "<absolute path to current worktree>"
       }
       ```
+
+      The `mode` field is required from S-0048 onward per [ADR 0051](../../engine/adr/0051-routine-mode-and-engine-loop.md), hard-fail-enforced on the close commit. Build sessions set `"interactive"`; routine-mode sessions set `"routine"`. (The canonical `current.json` template — including `declared_scope` / `scope_delivery` / `next_session_handle` — lives in the `session-build-lifecycle` Skill per [ADR 0044](../../engine/adr/0044-skill-conversion-recipe-vs-reference.md); this command is a thin entry that routes through it.)
 
    d. Stage `engine/session/register_state.json` and `engine/session/current.json`. Commit with message `chore(session): eager-claim S-<NNNN> — <topic>`.
 

@@ -1,6 +1,6 @@
 {
   "id": "S-0103",
-  "mode": "engine",
+  "mode": "interactive",
   "started_at": "2026-05-08T21:51:23Z",
   "status": "closed",
   "working_on": "Cleanup-batch: combine Issues #48 + #49 — parse_structural_reference.py source-identity anonymization and body-font-entry/page-header-runner detector tier",

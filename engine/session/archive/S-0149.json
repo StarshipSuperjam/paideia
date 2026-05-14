@@ -3,7 +3,7 @@
   "started_at": "2026-05-13T19:39:59Z",
   "closed_at": "2026-05-13T20:05:00Z",
   "status": "closed",
-  "mode": "build",
+  "mode": "interactive",
   "working_on": "Issue #108 (health_check.py --bump-only flag) + Issue #91 (engine ADR 0052 → 0082 renumber) + new duplicate_adr_number validator soft-warn",
   "approved_plan": "/Users/shanekidd/.claude/plans/sunny-knitting-tower.md",
   "branch": "claude/magical-bose-e88b46",

@@ -33,6 +33,6 @@
       "total": 5
     }
   },
-  "mode": "build",
+  "mode": "interactive",
   "next_session_handle": null
 }

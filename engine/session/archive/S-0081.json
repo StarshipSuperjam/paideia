@@ -21,7 +21,7 @@
     "last_call_ts": "2026-05-06T17:17:52Z"
   },
   "closed_at": "2026-05-06T17:21:18Z",
-  "mode": "interactive_build",
+  "mode": "interactive",
   "scope_delivery": {
     "delivered": true,
     "explanation": "Gate report authored with PROCEED recommendation, predeclared threshold rule applied, all named gate-session stopping criteria met (cross-bridge sample reviewed, within-domain sample reviewed, topology pass complete, threshold rule applied, gate report committed). README minimal-row update done; full multi-class restructure deferred to audit closeout per plan and Issue #26."

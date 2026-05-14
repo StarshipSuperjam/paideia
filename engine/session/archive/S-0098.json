@@ -2,7 +2,7 @@
   "id": "S-0098",
   "started_at": "2026-05-08T18:04:43Z",
   "status": "closed",
-  "mode": "build",
+  "mode": "interactive",
   "closed_at": "2026-05-08T18:30:00Z",
   "outcome_summary_soft_warns": {
     "issue_collision": 9,

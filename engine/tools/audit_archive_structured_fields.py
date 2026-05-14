@@ -109,9 +109,11 @@ EMPTY_DICT_COMMIT_THRESHOLD = 3
 
 # Declarative field set. Each entry names a structured archive field, the
 # session vintage from which it became required, the expected JSON shape,
-# and the ADR that introduced it. Add a row when a new structured-field
-# ADR lands — do NOT change the audit logic itself.
-REQUIRED_ARCHIVE_FIELDS: list[dict[str, str]] = [
+# and the ADR that introduced it. An optional `allowed_values` key (a list)
+# constrains a string field to a canonical vocabulary — a value outside the
+# set hard-fails, the same as a shape mismatch. Add a row when a new
+# structured-field ADR lands — do NOT change the audit logic itself.
+REQUIRED_ARCHIVE_FIELDS: list[dict[str, Any]] = [
     {
         "field": "outcome_summary_soft_warns",
         "since_session": "S-0055",
@@ -123,6 +125,13 @@ REQUIRED_ARCHIVE_FIELDS: list[dict[str, str]] = [
         "since_session": "S-0048",
         "shape": "str",
         "adr": "ADR 0051",
+        # Canonical session-execution-style vocabulary (S-0157 / Issue #121):
+        # "interactive" for /start-engine build sessions, "routine" for
+        # unattended cadence-fired routine sessions. The value records the
+        # durable execution style, not a project-phase label. Pre-S-0157
+        # archives carried drift (build / engine / interactive_build) —
+        # backfilled to "interactive" at S-0157.
+        "allowed_values": ["interactive", "routine"],
     },
     {
         "field": "mempalace_activity",
@@ -184,13 +193,13 @@ def shape_check(value: Any, expected: str) -> str | None:
     return None
 
 
-def applicable_fields(session_id_int: int | None) -> list[dict[str, str]]:
+def applicable_fields(session_id_int: int | None) -> list[dict[str, Any]]:
     """Return REQUIRED_ARCHIVE_FIELDS rows applicable to a session id."""
     if session_id_int is None:
         # Session id unparseable — defensively check every field. The check
         # itself will hard-fail if the session lacks any of them.
         return list(REQUIRED_ARCHIVE_FIELDS)
-    out: list[dict[str, str]] = []
+    out: list[dict[str, Any]] = []
     for row in REQUIRED_ARCHIVE_FIELDS:
         since = parse_session_id(row.get("since_session"))
         if since is not None and session_id_int >= since:
@@ -255,6 +264,18 @@ def audit_one(
             )
             continue
 
+        # Optional value-vocabulary check (S-0157 / Issue #121). A field
+        # carrying an `allowed_values` list hard-fails on any value outside
+        # the set — same severity as a shape mismatch. Used by `mode` to
+        # pin the canonical {interactive, routine} vocabulary.
+        allowed = row.get("allowed_values")
+        if allowed is not None and data[field] not in allowed:
+            failures.append(
+                f"{source_label} has '{field}' = {data[field]!r}, not in the "
+                f"allowed value set {allowed} (required since {since} per {adr})."
+            )
+            continue
+
         # Optional secondary check, scoped to outcome_summary_soft_warns.
         if (
             field == "outcome_summary_soft_warns"
@@ -301,7 +322,8 @@ def archive_history_report(archive_dir: Path) -> str:
         "Per Issue #20 (S-0065 origin; S-0078 mechanization). Walks every "
         "`engine/session/archive/S-*.json` and reports any archive whose "
         "session id is `>=` a required field's `since_session` but which "
-        "lacks the field or carries it with the wrong shape.",
+        "lacks the field, carries it with the wrong shape, or carries a "
+        "value outside the field's `allowed_values` set.",
         "",
         "Informational only. Historical archives are not modified.",
         "",
@@ -344,6 +366,15 @@ def archive_history_report(archive_dir: Path) -> str:
                     f"({err}) (required since {since} per {adr})."
                 )
                 findings_count += 1
+                continue
+            allowed = row.get("allowed_values")
+            if allowed is not None and payload[field] not in allowed:
+                lines.append(
+                    f"- **{archive.name}** has `{field}` = "
+                    f"`{payload[field]!r}`, not in the allowed value set "
+                    f"{allowed} (required since {since} per {adr})."
+                )
+                findings_count += 1
 
     if findings_count == 0:
         lines.append(
@@ -360,9 +391,11 @@ def archive_history_report(archive_dir: Path) -> str:
     lines.append("## Field set audited")
     lines.append("")
     for row in REQUIRED_ARCHIVE_FIELDS:
+        allowed = row.get("allowed_values")
+        allowed_note = f"; allowed values {allowed}" if allowed is not None else ""
         lines.append(
             f"- `{row['field']}` — required since {row['since_session']} "
-            f"({row['shape']}); per {row['adr']}."
+            f"({row['shape']}){allowed_note}; per {row['adr']}."
         )
     lines.append("")
     return "\n".join(lines)

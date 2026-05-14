@@ -1,6 +1,6 @@
 {
   "id": "S-0146",
-  "mode": "build",
+  "mode": "interactive",
   "started_at": "2026-05-13T15:16:09Z",
   "status": "closed",
   "working_on": "Close Issue #62 (3 validator soft-warns from S-0122 audit) and Issue #114 (mempalace_diary_write -32000 root-cause investigation + upstream filing).",

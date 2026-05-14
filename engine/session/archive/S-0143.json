@@ -8,7 +8,7 @@
   "approved_plan": "/Users/shanekidd/.claude/plans/working-folders-are-now-logical-robin.md",
   "branch": "claude/friendly-diffie-c57b62",
   "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/friendly-diffie-c57b62",
-  "mode": "build",
+  "mode": "interactive",
   "next_session_handle": null,
   "outcome_summary_soft_warns": {
     "issue_collision": 11,
