@@ -10,6 +10,12 @@ This project does not yet follow [Semantic Versioning](https://semver.org/) — 
 
 ## [Unreleased]
 
+### Added (S-0161 — seed-graph QA census evidence: shard 03)
+
+- **[`engine/build_readiness/seed_qa_evidence/shard_03.md`](build_readiness/seed_qa_evidence/shard_03.md)** — third evidence file of the `T-SEED-QA` census (routine task `SQA-03`). 28 `pedagogical_prerequisite` edges scored against C1 (prerequisite soundness) + 20 nodes against C2 (`teaching_notes` traction) and C3 (`summary` cold-readability), per the pinned `seed_qa_audit.md` rubric. Tally — C1: 1 `Reversed` / 28 = 3.6% (E-14 `perdurantism→temporal_parts`, a theory placed before its own defining constituent; not audit-touched); C2: 0 fail / 20; C3: 0 fail / 20. One edge scored `Defensible` (E-15 `kantian_aesthetic_judgment→aesthetic_disinterest`). Six audit-touched edges (E-7, E-9, E-12, E-21, E-26, E-27 — all carrying "Per S-0122 audit" evidence from migrations 0062/0063/0064) all verified `Sound`; zero S-0122 re-openings. Candidate findings only — disposition deferred to the `SQA-20` closeout's follow-up interactive session. `auto_target.json` task `SQA-03` marked `complete`.
+
+**Rationale**: routine-mode execution of the `T-SEED-QA` target authored at S-0156. Third of 19 shard tasks; `SQA-04` is the next eligible task. In-band discovery filed as [Issue #126](https://github.com/StarshipSuperjam/paideia/issues/126) (tech-debt/docs) — the routine eager-claim step in `routine-mode-operations.md` step 8 + `routine-mode-lifecycle` SKILL step 8 omits the required `current.json` `task_id`/`target_id` fields that `routine_lifecycle_push.py` deliverable-mode requires; same doc-drift class as #122/#123/#124.
+
 ### Added (S-0160 — MemPalace boot-step timing detection; closes Issue #124)
 
 - **[`engine/tools/validate.py`](tools/validate.py)** — `validate_mempalace_adoption` gains two soft-warns, `mempalace_boot_query_late` and `mempalace_diary_read_late`, plus a `_mempalace_boot_step_ran_late` helper. They fire when a MemPalace boot step's per-tool first-call timestamp is later than `current.json`'s `started_at` (written by the eager-claim ritual, which runs *after* the boot steps) — i.e. the boot step ran, but too late to inform planning. The timing counterpart to the existing `mempalace_boot_query_skipped` / `mempalace_diary_read_skipped` checks. Backward-compatible: skips silently when the per-tool `*_first_ts` field or `started_at` is absent/unparseable — fires only on a positive late signal, so the pre-S-0160 archive corpus needs no backfill.
