@@ -87,6 +87,17 @@ Each class below names: when it gets authored, the contract that governs it, and
 |---|---|---|---|
 | [`engine_apparatus_improvements_s0042.md`](engine_apparatus_improvements_s0042.md) | S-0042 (hybrid gate + build per the report's "Compression note") | HANDOFF narrowing per [ADR 0048](../adr/0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md) + scope-lock at boot per [ADR 0049](../adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md) | Closed |
 
+### One-off reports — not a standing class
+
+Occasionally a session authors a `build_readiness/` report that does not fit the
+six classes above. Indexed here so the directory carries no unindexed files (the
+Issue [#26](https://github.com/StarshipSuperjam/paideia/issues/26) discipline);
+promoted to a standing class only if the shape recurs.
+
+| Report | Authoring session | Subject | Status |
+|---|---|---|---|
+| [`seed_qa_auditor_check.md`](seed_qa_auditor_check.md) | S-0165 (interactive build) | Audit-the-auditor methodology check — fortified re-audit of `seed_qa_audit.md` census shards 01 + 04 (mandatory SEP anchoring) to test for scorer drift; 135/135 verdict agreement, drift hypothesis falsified for C1 | Closed |
+
 ## Lifecycle
 
 Reports across all six classes share a lifecycle:
