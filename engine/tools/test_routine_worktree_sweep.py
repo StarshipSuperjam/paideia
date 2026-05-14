@@ -5,11 +5,14 @@ Coverage:
 - Dry-run reports without modifying state.
 - Refusals: parent invocation, dirty working tree, non-claude/* branch,
   unmerged branch, detached HEAD, caller's-own-worktree default
-  (ADR 0076 Amendment v2).
+  (ADR 0076 Amendment v2), fresh liveness marker (ADR 0076 amendment,
+  S-0157 / Issue #120).
 - main() exit codes (0 success, 2 refused, 5 git error).
 - collect_preserve_info / format_preserve_report — structured report shape
   per ADR 0076 Amendment v2.
 - --allow-caller-self opt-in restores legacy self-sweep semantics.
+- Liveness-marker helpers (worktree_marker_age_seconds / is_worktree_live)
+  and the bystander-preserve preflight + main paths.
 """
 
 from __future__ import annotations
@@ -17,6 +20,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -29,9 +33,11 @@ from routine_worktree_sweep import (  # noqa: E402
     get_current_branch,
     get_parent_repo_path,
     is_caller_self,
+    is_worktree_live,
     main,
     preflight,
     working_tree_clean,
+    worktree_marker_age_seconds,
 )
 
 
@@ -42,6 +48,21 @@ def _git(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
         text=True,
         check=True,
     )
+
+
+def _write_liveness_marker(worktree: Path, age_seconds: float = 0.0) -> Path:
+    """Write a `session-live` marker into the worktree's private git dir.
+
+    `age_seconds` backdates the marker's mtime so stale-marker paths can be
+    exercised without sleeping.
+    """
+    git_dir = _git(["rev-parse", "--absolute-git-dir"], worktree).stdout.strip()
+    marker = Path(git_dir) / "session-live"
+    marker.write_text("2026-05-14T00:00:00Z\n")
+    if age_seconds:
+        past = time.time() - age_seconds
+        os.utime(marker, (past, past))
+    return marker
 
 
 def _make_origin_with_clone(tmp_path: Path) -> tuple[Path, Path]:
@@ -437,3 +458,84 @@ def test_main_with_opt_in_chdirs_to_parent_before_sweep(
     rc = main(["--allow-caller-self"])
     assert rc == 0
     assert Path(os.getcwd()).resolve() == clone.resolve()
+
+
+# ---------------------------------------------------------------------------
+# Liveness marker (ADR 0076 amendment, S-0157 / Issue #120)
+# ---------------------------------------------------------------------------
+
+
+def test_worktree_marker_age_none_when_absent(tmp_path: Path) -> None:
+    _origin, _clone, worktree = _make_clone_with_worktree(tmp_path)
+    assert worktree_marker_age_seconds(worktree) is None
+
+
+def test_worktree_marker_age_small_for_fresh_marker(tmp_path: Path) -> None:
+    _origin, _clone, worktree = _make_clone_with_worktree(tmp_path)
+    _write_liveness_marker(worktree)
+    age = worktree_marker_age_seconds(worktree)
+    assert age is not None
+    assert 0 <= age < 60
+
+
+def test_is_worktree_live_true_for_fresh_marker(tmp_path: Path) -> None:
+    _origin, _clone, worktree = _make_clone_with_worktree(tmp_path)
+    _write_liveness_marker(worktree)
+    assert is_worktree_live(worktree) is True
+
+
+def test_is_worktree_live_false_when_no_marker(tmp_path: Path) -> None:
+    _origin, _clone, worktree = _make_clone_with_worktree(tmp_path)
+    assert is_worktree_live(worktree) is False
+
+
+def test_is_worktree_live_false_for_stale_marker(tmp_path: Path) -> None:
+    _origin, _clone, worktree = _make_clone_with_worktree(tmp_path)
+    _write_liveness_marker(worktree, age_seconds=25 * 3600)
+    assert is_worktree_live(worktree) is False
+
+
+def test_preflight_refuses_on_fresh_liveness_marker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Bystander case: the caller is NOT in the worktree, but a fresh marker
+    means a live session (possibly pre-eager-claim) holds it."""
+    _origin, clone, worktree = _make_clone_with_worktree(tmp_path)
+    monkeypatch.chdir(clone)
+    _write_liveness_marker(worktree)
+    ok, reason, branch = preflight(worktree, clone)
+    assert not ok
+    assert "live session marker" in reason
+    assert branch is None
+
+
+def test_preflight_proceeds_when_marker_stale(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A stale marker (>24h) does not block — the worktree is eligible again."""
+    _origin, clone, worktree = _make_clone_with_worktree(tmp_path)
+    monkeypatch.chdir(clone)
+    _write_liveness_marker(worktree, age_seconds=25 * 3600)
+    ok, reason, branch = preflight(worktree, clone)
+    assert ok, reason
+    assert branch == "claude/test-worktree"
+
+
+def test_main_returns_2_on_fresh_liveness_marker_with_guidance(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A fresh marker on a clean+merged claude/* worktree is preserved with
+    the live-session guidance line, not reaped."""
+    _origin, clone, worktree = _make_clone_with_worktree(tmp_path)
+    monkeypatch.chdir(clone)
+    _write_liveness_marker(worktree)
+    rc = main(["--worktree", str(worktree)])
+    assert rc == 2
+
+    captured = capsys.readouterr()
+    assert "PRESERVED" in captured.err
+    assert "live session marker" in captured.err
+    assert "pre-eager-claim" in captured.err
+    assert worktree.exists()

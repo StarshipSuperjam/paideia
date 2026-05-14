@@ -29,15 +29,19 @@ Sequence
 3. Refuse if running directly in the parent (not a linked worktree).
 4. Refuse if target is the caller's own CWD AND ``--allow-caller-self``
    is NOT set. Emit the structured preserve-report on refusal.
-5. Pre-flight checks (mirrored from ``sweep_worktrees.sh``):
+5. Refuse if the target carries a fresh ``session-live`` liveness marker
+   (a live session holds it, including a pre-eager-claim plan/exploration
+   session — the bystander case the caller-self check does not cover; per
+   ADR 0076 amendment, S-0157 / Issue #120).
+6. Pre-flight checks (mirrored from ``sweep_worktrees.sh``):
    - branch matches ``claude/*``;
    - working tree clean (no uncommitted changes / untracked files);
    - branch fully merged into ``main``.
    Failures emit the structured preserve-report.
-6. Chdir to parent so subsequent operations don't carry the about-to-be-
+7. Chdir to parent so subsequent operations don't carry the about-to-be-
    removed worktree as CWD.
-7. ``git -C <parent> worktree remove <worktree-path>``.
-8. ``git -C <parent> branch -d <worktree-branch>``.
+8. ``git -C <parent> worktree remove <worktree-path>``.
+9. ``git -C <parent> branch -d <worktree-branch>``.
 
 Exit codes
 ----------
@@ -73,9 +77,18 @@ import argparse
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+# Liveness-marker freshness window (per ADR 0076 amendment, S-0157 /
+# Issue #120). Mirrors the LIVENESS_WINDOW_HOURS constant in
+# sweep_worktrees.sh and check_session_conflict.py's stale-session
+# threshold. A worktree whose `session-live` marker is within this window
+# belongs to a live session — including a pre-eager-claim plan/exploration
+# session — and is preserved.
+LIVENESS_WINDOW_HOURS = 24
 
 
 def _run_git(
@@ -149,6 +162,40 @@ def is_caller_self(target: Path) -> bool:
         return False
 
 
+def worktree_marker_age_seconds(worktree: Path) -> float | None:
+    """Age in seconds of the worktree's `session-live` liveness marker.
+
+    The marker lives in the worktree's PRIVATE git dir
+    (`.git/worktrees/<name>/session-live` for a linked worktree), written
+    at every session boot by `engine/tools/hooks/session-start.sh` (per
+    ADR 0076 amendment, S-0157 / Issue #120). Returns None when the git
+    dir cannot be resolved or the marker file is absent.
+    """
+    result = _run_git(["rev-parse", "--absolute-git-dir"], worktree)
+    if result.returncode != 0:
+        return None
+    marker = Path(result.stdout.strip()) / "session-live"
+    try:
+        return time.time() - marker.stat().st_mtime
+    except OSError:
+        return None
+
+
+def is_worktree_live(worktree: Path, window_hours: int = LIVENESS_WINDOW_HOURS) -> bool:
+    """True when the worktree carries a `session-live` marker within the window.
+
+    A live marker means a session holds the worktree — including a
+    pre-eager-claim plan/exploration session whose `current_status` has
+    not yet flipped to in_progress. This is the bystander case the
+    caller-self check does NOT cover (per ADR 0076 amendment, S-0157 /
+    Issue #120).
+    """
+    age = worktree_marker_age_seconds(worktree)
+    if age is None:
+        return False
+    return age < window_hours * 3600
+
+
 def collect_preserve_info(
     parent: Path, worktree: Path, branch: str | None
 ) -> dict[str, str]:
@@ -219,6 +266,12 @@ def format_preserve_report(
             "it is no longer the caller (per session-start.sh + ADR 0076 "
             "Amendment v2)."
         )
+    elif "live session marker" in reason:
+        lines.append(
+            "  guidance: a live session (possibly pre-eager-claim plan/"
+            "exploration mode) holds this worktree; preserved until the "
+            f"marker goes stale (>{LIVENESS_WINDOW_HOURS}h)."
+        )
     elif info["dirty_files"] != "(clean)":
         lines.append(
             f"  guidance: review files; if no work to preserve, "
@@ -263,6 +316,14 @@ def preflight(
             False,
             "caller's own worktree; preserve for follow-up "
             "(boot-time sweep will collect at next session start)",
+            None,
+        )
+
+    if is_worktree_live(worktree):
+        return (
+            False,
+            "live session marker present (a live session holds this "
+            "worktree, possibly pre-eager-claim plan/exploration); preserve",
             None,
         )
 

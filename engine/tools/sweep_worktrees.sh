@@ -13,6 +13,9 @@
 # branches not matching the claude/* pattern, or branches not yet merged.
 # Skips the caller's enclosing worktree (in-flight session) unconditionally
 # (S-0142 safety check; the caller is presumably mid-session there).
+# Also skips any worktree carrying a fresh `session-live` marker in its
+# private git dir — a live session (including a pre-eager-claim plan/
+# exploration session) holds it (ADR 0076 amendment, S-0157 / Issue #120).
 #
 # Usage:
 #   tools/sweep_worktrees.sh                 # dry run (default) — full preserve-report per skipped
@@ -44,8 +47,34 @@ for arg in "$@"; do
     esac
 done
 
+# Liveness-marker freshness window (per ADR 0076 amendment, S-0157 /
+# Issue #120). A worktree whose private git dir carries a `session-live`
+# marker with mtime within this many hours is preserved — it belongs to a
+# live session (including a pre-eager-claim plan/exploration session that
+# has not yet flipped register_state.json `current_status` to in_progress).
+# 24h matches check_session_conflict.py's stale-session threshold: a
+# genuinely abandoned worktree's marker goes stale and the worktree becomes
+# reapable again.
+LIVENESS_WINDOW_HOURS=24
+LIVENESS_WINDOW_SECONDS=$((LIVENESS_WINDOW_HOURS * 3600))
+
 REMOVED=0
 SKIPPED=0
+
+# marker_age_seconds — age in seconds of a worktree's session-live marker.
+# Echoes the integer age, or nothing if the marker is absent/unresolvable.
+# Handles stat(1) portability: macOS `-f %m`, GNU/Linux `-c %Y`.
+marker_age_seconds() {
+    local wt_path="$1"
+    local git_dir
+    git_dir=$(git -C "$wt_path" rev-parse --absolute-git-dir 2>/dev/null) || return 0
+    local marker="$git_dir/session-live"
+    [ -f "$marker" ] || return 0
+    local mtime
+    mtime=$(stat -f %m "$marker" 2>/dev/null || stat -c %Y "$marker" 2>/dev/null) || return 0
+    [ -n "$mtime" ] || return 0
+    echo $(($(date +%s) - mtime))
+}
 
 # emit_preserve_report — multi-line structured report per preserved worktree.
 # Args: $1=path  $2=branch  $3=reason  $4=is_caller (yes|no)
@@ -107,6 +136,10 @@ emit_preserve_report() {
         echo "  guidance: caller's own worktree preserved for follow-up; the"
         echo "           next session's boot-time bulk sweep collects it once"
         echo "           it is no longer the caller (ADR 0076 Amendment v2)."
+    elif [[ "$reason" == "live session marker"* ]]; then
+        echo "  guidance: a live session (possibly pre-eager-claim plan/"
+        echo "           exploration mode) holds this worktree; preserved until"
+        echo "           the marker goes stale (>${LIVENESS_WINDOW_HOURS}h)."
     elif [ "$dirty_files" != "(clean)" ]; then
         echo "  guidance: review files; if no work to preserve, run"
         echo "           \`git -C $wt_path checkout . && git worktree remove $wt_path\`"
@@ -144,6 +177,20 @@ while IFS= read -r WT_PATH; do
             SKIPPED=$((SKIPPED + 1))
             continue
         fi
+    fi
+
+    # Skip worktrees with a fresh liveness marker — a live session holds
+    # this worktree, including a pre-eager-claim plan/exploration session
+    # that has not yet flipped register_state.json `current_status` (per
+    # ADR 0076 amendment, S-0157 / Issue #120). This is the bystander case
+    # the caller-self check above does NOT cover.
+    MARKER_AGE=$(marker_age_seconds "$WT_PATH")
+    if [ -n "$MARKER_AGE" ] && [ "$MARKER_AGE" -lt "$LIVENESS_WINDOW_SECONDS" ]; then
+        BRANCH_LIVE=$(git -C "$WT_PATH" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "<unknown>")
+        emit_preserve_report "$WT_PATH" "$BRANCH_LIVE" \
+            "live session marker (age ${MARKER_AGE}s, within ${LIVENESS_WINDOW_HOURS}h window)" "no"
+        SKIPPED=$((SKIPPED + 1))
+        continue
     fi
 
     BRANCH=$(git -C "$WT_PATH" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")

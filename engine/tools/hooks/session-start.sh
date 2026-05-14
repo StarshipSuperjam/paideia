@@ -89,6 +89,40 @@ log_ok() {
 }
 
 # ---------------------------------------------------------------------------
+# Per-worktree liveness marker (per ADR 0076 amendment, S-0157 / Issue #120)
+# ---------------------------------------------------------------------------
+#
+# Write a `session-live` marker into this worktree's PRIVATE git dir
+# (.git/worktrees/<name>/ for a linked worktree, .git/ for the main repo).
+# The boot-time bulk sweep (sweep_worktrees.sh) and the per-worktree tool
+# (routine_worktree_sweep.py) read this marker's mtime and preserve any
+# worktree whose marker is within a 24h freshness window.
+#
+# Why this exists: a session in plan/exploration mode has not run the
+# eager-claim ritual, so register_state.json `current_status` is still
+# `closed` and check_session_conflict.py reports no conflict. A sibling
+# session booting in that window opens the sweep gate and reaps the
+# plan-mode worktree (claude/* + clean + merged — it has made no commits
+# yet). The marker is the liveness signal that lands at session boot,
+# BEFORE eager-claim, closing the window. The marker sits in the private
+# git dir — outside the working tree — so it never shows in `git status`
+# and cannot make a worktree look dirty.
+#
+# Best-effort: any failure is logged and boot proceeds. The marker is a
+# preserve hint, never a blocker.
+
+WORKTREE_GIT_DIR="$(git rev-parse --absolute-git-dir 2>/dev/null)"
+if [ -n "$WORKTREE_GIT_DIR" ] && [ -d "$WORKTREE_GIT_DIR" ]; then
+    if echo "$TIMESTAMP" >"$WORKTREE_GIT_DIR/session-live" 2>/dev/null; then
+        log_ok "liveness-marker-written $WORKTREE_GIT_DIR/session-live"
+    else
+        log_fail "liveness-marker-write-failed"
+    fi
+else
+    log_fail "liveness-marker-git-dir-unresolved"
+fi
+
+# ---------------------------------------------------------------------------
 # Version telemetry (per ADR 0080 engine, S-0147)
 # ---------------------------------------------------------------------------
 #
