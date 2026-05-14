@@ -189,6 +189,14 @@ Threshold tiers:
 
 Recoverable — run [`engine/tools/mempalace_rebuild_hnsw.py`](../tools/mempalace_rebuild_hnsw.py) per the procedure documented there; soft-warn clears once divergence drops below 10%. If the rebuild itself surfaces an unexpected failure mode, file under the upstream tracker rather than reverting to a "live with BM25 fallback" posture.
 
+### `mempalace_hnsw_status_suspect`
+
+The HNSW vector-index reports `status: UNKNOWN` — `mempalace repair-status` shows the index metadata has not been flushed, so HNSW capacity is unknowable and `mempalace_search` is degraded to BM25 lexical fallback for any not-yet-indexed drawers. Active from S-0163 onward per [ADR 0089's sibling fix to](../adr/0089-skill-layer1-parity-validator-check.md) [Issue #127](https://github.com/StarshipSuperjam/paideia/issues/127). A *sibling* category to `mempalace_hnsw_divergence`, not an extension of it: the divergence check fires at ≥ 10% *measured* divergence, but the UNKNOWN / unflushed state produces no percentage to compare — the index has no flushed counts at all. The S-0162 health-check audit found the recurrence living exactly in this blind spot. The signal is sourced from `probe_palace.py`'s `[probe-palace] hnsw-status: <STATUS>` line, emitted when `mempalace repair-status` reports a non-OK status AND the divergence counts are unparseable.
+
+The check is recorded in `checks_run` unconditionally whenever the palace probe runs (same pattern as `mempalace_hnsw_divergence` per [Issue #109](https://github.com/StarshipSuperjam/paideia/issues/109)); the soft-warn body fires only when the `hnsw-status:` line is present.
+
+Recoverable — run [`engine/tools/mempalace_rebuild_hnsw.py`](../tools/mempalace_rebuild_hnsw.py) against a scratch palace copy, then atomic-rename swap to live once `mempalace repair-status` reports a flushed index (status OK with parseable counts). The substrate-level decision of whether MemPalace gets a durable HNSW fix or git-grep-against-tracked-files becomes the accepted Phase-6 recall substrate is a user judgment call surfaced in `engine/STATE.md` (per the S-0162 audit), not resolvable inside this soft-warn.
+
 ### `mempalace_wing_count_growth`
 
 Total MemPalace wing count has crossed an accumulation threshold. Active from S-0088 onward per [Issue #46](https://github.com/StarshipSuperjam/paideia/issues/46). The signal is sourced from `probe_palace.py`'s `[probe-palace] wings: N (total)` line, which counts distinct `wing` metadata values in the chromadb sqlite store directly (~2 s on a 47 K-drawer palace; the upstream `mempalace status` enumeration is too slow at boot scale). MemPalace stores all drawers in two chromadb collections with `wing` as a metadata field, so `len(client.list_collections())` is structurally always 2 — distinct-wing query is the only accurate accumulation surface.
@@ -577,6 +585,10 @@ Until re-audit, the categories carry their as-shipped semantics from their intro
 ### `mempalace_boot_query_late` / `mempalace_diary_read_late` (deferred re-audit; introduced S-0160)
 
 **Why deferred:** introduced at S-0160 per [Issue #124](https://github.com/StarshipSuperjam/paideia/issues/124). Both fire from `--final-check` when a MemPalace boot step's per-tool first-call timestamp (`mempalace_activity.search_first_ts` / `diary_read_first_ts`) is later than `current.json.started_at`. Zero post-introduction telemetry at landing; the per-tool `*_first_ts` rollup fields are also new (pre-S-0160 archives lack them, so the check skips silently for the historical corpus — no backfill). Re-audit at the next cadence audit once ≥10 archives carry the new fields: a low-fire steady state confirms boot-step timing discipline holds; persistent firing signals the boot procedure is being consulted late despite the #123 thin-pointer fix, and the per-fire procedural guidance ("run the boot step at boot, before plan authoring") should escalate.
+
+### `mempalace_hnsw_status_suspect` (deferred re-audit; introduced S-0163)
+
+**Why deferred:** introduced at S-0163 per [Issue #127](https://github.com/StarshipSuperjam/paideia/issues/127) (ADR 0089's sibling fix). Fires from the palace probe when `mempalace repair-status` reports `status: UNKNOWN` / unflushed metadata. At landing the live palace is in exactly that state, so it fires this session — but whether it stays firing depends on the unresolved substrate decision (durable HNSW fix vs. git-grep-as-recall-substrate, surfaced in `engine/STATE.md` per the S-0162 audit). Re-audit at the next cadence audit once ≥10 archives carry post-introduction telemetry: persistent firing confirms the substrate decision is still open; cessation confirms a durable fix landed. Distinct from `mempalace_hnsw_divergence` — the two never fire together (divergence needs parseable counts; UNKNOWN means none exist).
 
 ### `skill_layer1_parity_drift` (deferred re-audit; introduced S-0163)
 

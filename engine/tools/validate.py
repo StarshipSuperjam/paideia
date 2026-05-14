@@ -698,6 +698,19 @@ def validate_shared_state_health() -> ValidationResult:
             if divergence_msg is not None:
                 r.soft_warn("mempalace_hnsw_divergence", divergence_msg)
 
+            # HNSW UNKNOWN/unflushed-metadata surface (per Issue #127,
+            # S-0163). The >=10%-divergence path above is blind to the
+            # unflushed state — an UNKNOWN index produces no percentage to
+            # compare. probe_palace.py emits a distinct `hnsw-status:` line
+            # for that state; this is its own soft-warn category so archive
+            # telemetry distinguishes the recurrence from measured
+            # divergence. Same unconditional-add-check pattern as the
+            # divergence check above (per Issue #109).
+            r.add_check("mempalace_hnsw_status_suspect")
+            hnsw_status_msg = _extract_palace_hnsw_status(proc.stderr)
+            if hnsw_status_msg is not None:
+                r.soft_warn("mempalace_hnsw_status_suspect", hnsw_status_msg)
+
             # Wing-count accumulation surface (per Issue #46, S-0088).
             # Same unconditional-add-check pattern as divergence above:
             # the probe always emits when measurable, so the check is
@@ -794,6 +807,42 @@ def _extract_palace_divergence(stderr: str) -> str | None:
             "forensic detail and the upstream tracker."
         )
     return base
+
+
+# Regex matching the HNSW-status line probe_palace.py emits per Issue #127
+# (S-0163). probe_palace.py emits this line only when `mempalace
+# repair-status` reports a non-OK status (UNKNOWN / unflushed metadata) AND
+# the divergence counts are unparseable. Form: "[probe-palace] hnsw-status:
+# UNKNOWN".
+_PROBE_HNSW_STATUS_RE = re.compile(r"\[probe-palace\]\s+hnsw-status:\s+(\S+)")
+
+
+def _extract_palace_hnsw_status(stderr: str) -> str | None:
+    """Parse probe_palace.py's hnsw-status line; return the soft-warn body.
+
+    Returns ``None`` when the line is absent. The line is present only for
+    the UNKNOWN / unflushed-metadata state (per Issue #127, S-0163) — the
+    blind spot the ``mempalace_hnsw_divergence`` check cannot see, since an
+    unflushed index produces no percentage to compare against the
+    ``>=10%`` threshold. A separate soft-warn category so archive telemetry
+    distinguishes this recurrence from measured divergence.
+    """
+    match = _PROBE_HNSW_STATUS_RE.search(stderr or "")
+    if match is None:
+        return None
+    status = match.group(1)
+    return (
+        f"MemPalace HNSW index reports `status: {status}` — `mempalace "
+        f"repair-status` shows the vector-index metadata has not been "
+        f"flushed, so HNSW capacity is unknowable and `mempalace_search` is "
+        f"degraded to BM25 lexical fallback for any not-yet-indexed drawers. "
+        f"This is a suspect state distinct from measured >=10% divergence: "
+        f"an unflushed index produces no percentage for "
+        f"`mempalace_hnsw_divergence` to fire on. Rebuild + flush via "
+        f"engine/tools/mempalace_rebuild_hnsw.py against a scratch palace "
+        f"copy, then atomic-rename swap to live once a flushed index is "
+        f"verified."
+    )
 
 
 # Regex matching the wing-count line probe_palace.py emits per Issue

@@ -245,6 +245,7 @@ Shape:
   "chromadb_palace_health": 0,
   "repo_config_health": 0,
   "skill_layer1_parity_drift": 0,
+  "mempalace_hnsw_status_suspect": 0,
   "undeclared_predicate": 0,
   "attribute_shape_inconsistency": 0,
   "missing_rigor_score": 0,

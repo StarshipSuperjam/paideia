@@ -2173,6 +2173,50 @@ class TestExtractPalaceQuarantineCount:
         assert body is None
 
 
+class TestExtractPalaceHnswStatus:
+    """HNSW-status extractor: parses `[probe-palace] hnsw-status: <STATUS>`.
+
+    Per Issue #127 (S-0163). probe_palace.py emits this line only for the
+    UNKNOWN / unflushed-metadata state — the blind spot the
+    `mempalace_hnsw_divergence` >=10%-threshold check cannot see.
+    """
+
+    def test_no_hnsw_status_line_returns_none(self) -> None:
+        """Stderr without an hnsw-status line yields None."""
+        assert (
+            validate._extract_palace_hnsw_status(
+                "[probe-palace] healthy: 2 collections, 100 drawers, 0.50s\n"
+            )
+            is None
+        )
+
+    def test_unknown_status_emits_body(self) -> None:
+        """An UNKNOWN status emits a soft-warn body naming the state."""
+        body = validate._extract_palace_hnsw_status(
+            "[probe-palace] hnsw-status: UNKNOWN\n"
+        )
+        assert body is not None
+        assert "status: UNKNOWN" in body
+        assert "not been flushed" in body
+        assert "distinct from measured >=10% divergence" in body
+        assert "mempalace_rebuild_hnsw.py" in body
+
+    def test_empty_stderr_returns_none(self) -> None:
+        """Empty stderr yields None (no crash on the empty string)."""
+        assert validate._extract_palace_hnsw_status("") is None
+
+    def test_status_line_among_other_probe_lines(self) -> None:
+        """The hnsw-status line is parsed even when other probe lines precede it."""
+        stderr = (
+            "[probe-palace] wings: 78 (total)\n"
+            "[probe-palace] quarantine: drift=0 corrupt=0\n"
+            "[probe-palace] hnsw-status: UNKNOWN\n"
+        )
+        body = validate._extract_palace_hnsw_status(stderr)
+        assert body is not None
+        assert "status: UNKNOWN" in body
+
+
 class TestReadWingCountThresholds:
     """Threshold reader: every fallback path returns the bootstrap defaults."""
 

@@ -227,6 +227,7 @@ The prompt is asked at every shutdown — same discipline as step 9. Judgment-al
   "chromadb_palace_health": 0,
   "repo_config_health": 0,
   "skill_layer1_parity_drift": 0,
+  "mempalace_hnsw_status_suspect": 0,
   "mempalace_boot_query_skipped": 0,
   "mempalace_diary_read_skipped": 0,
   "mempalace_diary_write_skipped": 0,

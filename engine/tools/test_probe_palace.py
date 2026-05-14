@@ -130,18 +130,42 @@ def _write_stub_mempalace(
     sqlite_count: int,
     hnsw_count: int,
     extra_invocation_log: Path | None = None,
+    unflushed: bool = False,
 ) -> Path:
     """Create a fake ``mempalace`` script that mimics the upstream tool.
 
     The stub responds to ``mempalace --palace <X> repair-status`` with a
-    minimal output shape matching the regex in probe_palace.py. Any other
+    minimal output shape matching the regexes in probe_palace.py. Any other
     subcommand exits 1 — particularly bare ``repair`` (without ``-status``)
     must NEVER be invoked by the probe; the caller can verify by reading
     the invocation log.
+
+    When ``unflushed=True`` the stub emits the UNKNOWN / unflushed-metadata
+    shape — ``hnsw count: (no flushed metadata yet)`` + ``status: UNKNOWN``
+    — that the live palace produced for Issue #127. ``hnsw_count`` is
+    ignored in that mode.
     """
     bin_dir.mkdir(parents=True, exist_ok=True)
     stub = bin_dir / "mempalace"
     log_arg = f'\necho "$@" >> {extra_invocation_log}' if extra_invocation_log else ""
+    if unflushed:
+        drawers_block = """  [drawers]
+    sqlite count:   %d
+    hnsw count:     (no flushed metadata yet)
+    status:         UNKNOWN
+    note:           HNSW capacity unavailable: metadata has not been flushed""" % (
+            sqlite_count,
+        )
+    else:
+        drawers_block = """  [drawers]
+    sqlite count:   %d
+    hnsw count:     %d
+    divergence:     %d
+    status:         DIVERGED""" % (
+            sqlite_count,
+            hnsw_count,
+            sqlite_count - hnsw_count,
+        )
     stub.write_text(
         f"""#!/bin/bash{log_arg}
 # Stub mempalace for probe_palace.py tests. Recognizes only repair-status.
@@ -162,11 +186,7 @@ if [ "$mode" = "repair-status" ]; then
 =======================================================
 
   Palace: /tmp/test
-  [drawers]
-    sqlite count:   {sqlite_count}
-    hnsw count:     {hnsw_count}
-    divergence:     $(( {sqlite_count} - {hnsw_count} ))
-    status:         DIVERGED
+{drawers_block}
 EOF
     exit 0
 elif [ "$mode" = "repair" ]; then
@@ -483,3 +503,96 @@ def test_probe_never_invokes_mempalace_repair(tmp_path: Path) -> None:
         assert any("repair-status" in t for t in tokens), (
             f"probe stub invocation missing `repair-status`: {line!r}"
         )
+
+
+# ---------------------------------------------------------------------------
+# HNSW UNKNOWN / unflushed-metadata detection (S-0163 per Issue #127)
+# ---------------------------------------------------------------------------
+
+
+def test_probe_emits_hnsw_status_line_when_unflushed(tmp_path: Path) -> None:
+    """An UNKNOWN / unflushed-metadata repair-status emits the hnsw-status line.
+
+    The divergence counts are unparseable in that state (`hnsw count: (no
+    flushed metadata yet)`), so the divergence line does NOT emit — the
+    hnsw-status line is the only signal. Emit-only: no exit-code promotion.
+    """
+    palace_dir = tmp_path / ".mempalace" / "palace"
+    _make_minimal_palace(palace_dir)
+    stub_dir = tmp_path / "bin"
+    _write_stub_mempalace(stub_dir, sqlite_count=20261, hnsw_count=0, unflushed=True)
+
+    proc = _run_probe_with_stub(palace_dir, stub_dir)
+
+    assert proc.returncode == 0  # emit-only — no exit-code promotion
+    assert "[probe-palace] hnsw-status: UNKNOWN" in proc.stderr
+    assert "divergence:" not in proc.stderr  # counts unparseable → no line
+
+
+def test_probe_no_hnsw_status_line_when_divergence_parseable(
+    tmp_path: Path,
+) -> None:
+    """When the divergence counts parse, the hnsw-status line is NOT emitted.
+
+    The two signals are mutually exclusive: divergence parses iff the HNSW
+    count is a number, which means the index IS flushed (status not UNKNOWN).
+    """
+    palace_dir = tmp_path / ".mempalace" / "palace"
+    _make_minimal_palace(palace_dir)
+    stub_dir = tmp_path / "bin"
+    _write_stub_mempalace(stub_dir, sqlite_count=100, hnsw_count=98)
+
+    proc = _run_probe_with_stub(palace_dir, stub_dir)
+
+    assert proc.returncode == 0
+    assert "divergence: HNSW=98 SQLite=100 (2.0%)" in proc.stderr
+    assert "hnsw-status:" not in proc.stderr
+
+
+def test_parse_divergence_numeric_counts() -> None:
+    """`_parse_divergence` returns the (sqlite, hnsw, pct) tuple for numbers."""
+    module = _load_probe_module()
+    output = "  [drawers]\n    sqlite count: 100\n    hnsw count: 80\n"
+    assert module._parse_divergence(output) == (100, 80, 20.0)
+
+
+def test_parse_divergence_unflushed_returns_none() -> None:
+    """`_parse_divergence` returns None for the unflushed shape (no numbers)."""
+    module = _load_probe_module()
+    output = (
+        "  [drawers]\n    sqlite count: 20261\n"
+        "    hnsw count: (no flushed metadata yet)\n    status: UNKNOWN\n"
+    )
+    assert module._parse_divergence(output) is None
+
+
+def test_parse_hnsw_status_unknown() -> None:
+    """`_parse_hnsw_status` reads the [drawers] status token, upper-cased."""
+    module = _load_probe_module()
+    output = (
+        "  [drawers]\n    sqlite count: 20261\n"
+        "    hnsw count: (no flushed metadata yet)\n    status: UNKNOWN\n"
+    )
+    assert module._parse_hnsw_status(output) == "UNKNOWN"
+
+
+def test_parse_hnsw_status_ok_and_absent() -> None:
+    """`_parse_hnsw_status` returns the token for OK, None when absent."""
+    module = _load_probe_module()
+    assert module._parse_hnsw_status("  [drawers]\n    status: OK\n") == "OK"
+    assert module._parse_hnsw_status("no drawers block here") is None
+
+
+def test_run_repair_status_missing_binary_returns_none(tmp_path: Path) -> None:
+    """`_run_repair_status` returns None when the mempalace binary is absent."""
+    module = _load_probe_module()
+    # A path that definitely has no `mempalace` resolvable — the function
+    # catches FileNotFoundError and returns None.
+    import os as _os
+
+    old_path = _os.environ.get("PATH", "")
+    try:
+        _os.environ["PATH"] = str(tmp_path)  # empty dir, no mempalace
+        assert module._run_repair_status(tmp_path / "palace") is None
+    finally:
+        _os.environ["PATH"] = old_path

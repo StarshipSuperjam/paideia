@@ -88,6 +88,18 @@ _REPAIR_STATUS_DRAWERS_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Regex for the [drawers] block's `status:` line in `mempalace repair-status`
+# output. Captures the status token (e.g. UNKNOWN, OK). When the HNSW index
+# metadata has not been flushed, upstream emits `hnsw count: (no flushed
+# metadata yet)` + `status: UNKNOWN` — the count is unparseable by
+# _REPAIR_STATUS_DRAWERS_RE, so the divergence path produces no percentage.
+# The status line is the only machine-readable signal of that state
+# (Issue #127, S-0163).
+_REPAIR_STATUS_DRAWERS_STATUS_RE = re.compile(
+    r"\[drawers\][\s\S]*?status:\s*(\S+)",
+    re.IGNORECASE,
+)
+
 
 def _emit(stream: str, line: str) -> None:
     target = sys.stderr if stream == "err" else sys.stdout
@@ -177,21 +189,20 @@ def _count_quarantine_dirs(palace_path: Path) -> tuple[int, int] | None:
     return (drift, corrupt)
 
 
-def _check_divergence(palace_path: Path) -> tuple[int, int, float] | None:
-    """Run ``mempalace repair-status --palace <path>`` and parse divergence.
+def _run_repair_status(palace_path: Path) -> str | None:
+    """Run ``mempalace repair-status --palace <path>`` once; return its
+    combined stdout+stderr, or ``None`` if the tool is unavailable.
 
-    Returns ``(sqlite_count, hnsw_count, divergence_pct)`` for the drawers
-    collection, or ``None`` if the upstream tool is unavailable or its
-    output cannot be parsed. Read-only — the upstream subcommand is
-    contracted to never open a chromadb client.
-
-    Failure is silent (returns ``None``) for two cases:
+    Read-only — the upstream subcommand is contracted to never open a
+    chromadb client. Failure is silent (returns ``None``) for two cases:
     1. The ``mempalace`` binary isn't in PATH (legitimate on a fresh
        clone before the venv is wired; the probe should not hard-fail
        on a missing optional capability).
-    2. The output shape is unrecognized (upstream may rev the format
-       in a future version; the existing exit-code semantics still
-       hold).
+    2. The subprocess times out or otherwise raises.
+
+    One subprocess invocation feeds both the divergence parse and the
+    HNSW-status parse below — repair-status is a 5-15s call on a large
+    palace, so it must not run twice per probe.
     """
     try:
         proc = subprocess.run(
@@ -202,25 +213,47 @@ def _check_divergence(palace_path: Path) -> tuple[int, int, float] | None:
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return None
-    except Exception:  # noqa: BLE001 — best-effort divergence check; never blocks
+    except Exception:  # noqa: BLE001 — best-effort probe; never blocks
         return None
+    return proc.stdout + proc.stderr
 
-    output = proc.stdout + proc.stderr
+
+def _parse_divergence(output: str) -> tuple[int, int, float] | None:
+    """Parse the [drawers] sqlite/hnsw counts from repair-status output.
+
+    Returns ``(sqlite_count, hnsw_count, divergence_pct)``, or ``None`` when
+    the counts are absent or unparseable. The notable ``None`` case is the
+    UNKNOWN / unflushed-metadata state: upstream emits ``hnsw count: (no
+    flushed metadata yet)`` rather than a number, so no percentage exists —
+    ``_parse_hnsw_status`` is the signal for that state.
+    """
     match = _REPAIR_STATUS_DRAWERS_RE.search(output)
     if not match:
         return None
-
     try:
         sqlite_count = int(match.group(1).replace(",", ""))
         hnsw_count = int(match.group(2).replace(",", ""))
     except ValueError:
         return None
-
     if sqlite_count <= 0:
         return (sqlite_count, hnsw_count, 0.0)
-
     pct = (sqlite_count - hnsw_count) / sqlite_count * 100.0
     return (sqlite_count, hnsw_count, pct)
+
+
+def _parse_hnsw_status(output: str) -> str | None:
+    """Parse the [drawers] block's ``status:`` token from repair-status output.
+
+    Returns the upper-cased status string (e.g. ``"UNKNOWN"``, ``"OK"``), or
+    ``None`` when the line is absent. ``UNKNOWN`` is the unflushed-metadata
+    state Issue #127 surfaced: the HNSW index has no flushed capacity, so
+    `mempalace_search` is degraded for not-yet-indexed drawers and the
+    >=10%-divergence telemetry path has no percentage to fire on.
+    """
+    match = _REPAIR_STATUS_DRAWERS_STATUS_RE.search(output)
+    if not match:
+        return None
+    return match.group(1).strip().upper()
 
 
 def main() -> int:
@@ -302,20 +335,32 @@ def main() -> int:
             f"[probe-palace] quarantine: drift={drift_count} corrupt={corrupt_count}",
         )
 
-    # Divergence check: read-only via upstream `mempalace repair-status`.
-    # Always emit on stderr when parseable so validate.py can promote
-    # suspect-level severity. Best-effort — None means the tool wasn't
-    # available or output didn't match the expected shape.
-    divergence = _check_divergence(PALACE_PATH)
-    if divergence is not None:
-        sqlite_count, hnsw_count, pct = divergence
-        _emit(
-            "err",
-            f"[probe-palace] divergence: HNSW={hnsw_count} "
-            f"SQLite={sqlite_count} ({pct:.1f}%)",
-        )
-        if pct >= DIVERGENCE_PROMOTE_PCT:
-            return 1
+    # Divergence + HNSW-status check: read-only via upstream `mempalace
+    # repair-status`, run once. Best-effort — None means the tool wasn't
+    # available. Two parsers feed off the one invocation:
+    #   - divergence (HNSW vs SQLite counts) — emitted when the counts are
+    #     parseable; promotes the probe exit to suspect at >=10%.
+    #   - HNSW status — emitted when the counts are NOT parseable AND the
+    #     status is non-OK (the UNKNOWN / unflushed-metadata state per
+    #     Issue #127). Emit-only, no exit-code promotion: validate.py's
+    #     `mempalace_hnsw_status_suspect` soft-warn applies the severity,
+    #     the same emit-only pattern as the wing-count / quarantine lines.
+    repair_status_output = _run_repair_status(PALACE_PATH)
+    if repair_status_output is not None:
+        divergence = _parse_divergence(repair_status_output)
+        if divergence is not None:
+            sqlite_count, hnsw_count, pct = divergence
+            _emit(
+                "err",
+                f"[probe-palace] divergence: HNSW={hnsw_count} "
+                f"SQLite={sqlite_count} ({pct:.1f}%)",
+            )
+            if pct >= DIVERGENCE_PROMOTE_PCT:
+                return 1
+        else:
+            status = _parse_hnsw_status(repair_status_output)
+            if status is not None and status != "OK":
+                _emit("err", f"[probe-palace] hnsw-status: {status}")
 
     return 0
 
