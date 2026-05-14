@@ -110,6 +110,16 @@ Recoverable mid-session by invoking `mempalace_search` once with the next-sessio
 
 No `mempalace_diary_read` call was recorded. Active from S-0078 onward per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md). Same telemetry path as the boot-query skip; same recovery (invoke once via the MCP tool with `agent_name="claude" last_n=3`).
 
+### `mempalace_boot_query_late`
+
+The `mempalace_search` boot query ran, but its first call landed *after* `current.json`'s `started_at` — i.e. after the eager-claim ritual, not at boot. Active from S-0160 onward per [Issue #124](https://github.com/StarshipSuperjam/paideia/issues/124). Sourced from `mempalace_activity.search_first_ts` (per-tool first-call timestamp written by `scan_mempalace_activity.py`) vs `current.json.started_at`. Gated by `--final-check`.
+
+This is the timing counterpart to `mempalace_boot_query_skipped`: skipped fires when the call never happened; late fires when it happened but too late to matter. The boot query exists to surface prior lessons and decisions *before* the session plans and executes; run after the deliverable is authored, it produces clean telemetry without the benefit — the recalled context can no longer change the work. Backward-compatible: skips silently when `search_first_ts` is absent (pre-S-0160 archives, JSONL-absent path) or when `started_at` is unparseable — fires only on a positive, unambiguous late signal. Not recoverable in-session (the work is already done); the fix is procedural — run the boot query at boot, before plan authoring.
+
+### `mempalace_diary_read_late`
+
+The `mempalace_diary_read` boot step ran, but its first call landed *after* `current.json`'s `started_at`. Active from S-0160 onward per [Issue #124](https://github.com/StarshipSuperjam/paideia/issues/124). Sourced from `mempalace_activity.diary_read_first_ts` vs `current.json.started_at`. Gated by `--final-check`. Same shape, rationale, backward-compat, and non-recoverability as `mempalace_boot_query_late` — the diary read exists to surface prior sessions' first-person reflections before planning; run late, they are recalled into a context where they can no longer inform the work.
+
 ### `mempalace_diary_write_skipped_routine`
 
 **Routine mode only**, per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md) S-0091 routine-protection refinement. Fires when `mempalace_activity.diary_write_calls == 0` AND `outcome_summary` lacks the `mempalace_unavailable_acknowledged:` token AND `current.json` `mode == "routine"`. Engine sessions hit `mempalace_diary_write_skipped` (hard-fail) instead — the asymmetry is justified by the unattended-vs-interactive difference.
@@ -447,8 +457,10 @@ The since-date matches the calendar span of the cadence-20 window. The `git log 
 | `validator_runtime_phase_regression` | Actively-tracked, deferred (S-0126) | 0 | 0 | 1 | Per-phase runtime regression per ADR 0063 four-phase model (S-0127 fold) |
 | `uv_lock_out_of_date` | Actively-tracked, deferred (S-0127) | 0 | 0 | 0 | uv.lock vs pyproject.toml staleness per ADR 0064 |
 | `dependabot_pr_stale` | Actively-tracked, deferred (S-0147) | 0 | 0 | 0 | Open Dependabot PR aged ≥ 7 days per ADR 0080 (engine); one fire per stale PR |
+| `mempalace_boot_query_late` | Actively-tracked, deferred (S-0160) | 0 | 0 | 0 | Boot `mempalace_search` ran after `started_at` per Issue #124 — timing counterpart to `mempalace_boot_query_skipped` |
+| `mempalace_diary_read_late` | Actively-tracked, deferred (S-0160) | 0 | 0 | 0 | Boot `mempalace_diary_read` ran after `started_at` per Issue #124 — timing counterpart to `mempalace_diary_read_skipped` |
 
-**Coverage check:** 42 rows above; 40 static-emission category strings (per `grep -oE 'r\.soft_warn\(\s*"[a-z_]+"' engine/tools/validate.py | sort -u`) plus 2 dynamic-emission categories (`chromadb_palace_health`, `repo_config_health`) emitted from the probe loop at `validate.py:687`. Two ghost keys appear in some historical archives (`graph_audit_skipped` is an `add_check` not a `soft_warn`; `mempalace_diary_write_skipped` is a hard-fail not a soft-warn) — both excluded from this map by design.
+**Coverage check:** 44 rows above; 42 static-emission category strings (per `grep -oE 'r\.soft_warn\(\s*"[a-z_]+"' engine/tools/validate.py | sort -u`) plus 2 dynamic-emission categories (`chromadb_palace_health`, `repo_config_health`) emitted from the probe loop at `validate.py:687`. Two ghost keys appear in some historical archives (`graph_audit_skipped` is an `add_check` not a `soft_warn`; `mempalace_diary_write_skipped` is a hard-fail not a soft-warn) — both excluded from this map by design.
 
 **Concordance check (per S-0101 plan verification step 2):** the 3 S-0077 persistent-warn annotations and 2 S-0098 informational-only classifications survive the new threshold matrix unchanged. No category flipped relative to its prior assignment.
 
@@ -555,6 +567,10 @@ Until re-audit, the categories carry their as-shipped semantics from their intro
 ### `prereq_direction_summary_inconsistency` (deferred re-audit; introduced S-0146)
 
 **Why deferred:** introduced at S-0146 per [Issue #62](https://github.com/StarshipSuperjam/paideia/issues/62) Proposal 3+5 merged. Predicate runs only when `SUPABASE_DB_URL` is set; phrase-pattern list anchored on the audit's 5 documented cross-bridge reversals. Re-audit at the next cadence audit to assess false-positive rate against post-S-0146 authoring; if the rate is non-trivial, evaluate either tightening the phrase list, narrowing the regex bounds, or promoting to LLM-flagged per the audit input doc's deferred enhancement path.
+
+### `mempalace_boot_query_late` / `mempalace_diary_read_late` (deferred re-audit; introduced S-0160)
+
+**Why deferred:** introduced at S-0160 per [Issue #124](https://github.com/StarshipSuperjam/paideia/issues/124). Both fire from `--final-check` when a MemPalace boot step's per-tool first-call timestamp (`mempalace_activity.search_first_ts` / `diary_read_first_ts`) is later than `current.json.started_at`. Zero post-introduction telemetry at landing; the per-tool `*_first_ts` rollup fields are also new (pre-S-0160 archives lack them, so the check skips silently for the historical corpus — no backfill). Re-audit at the next cadence audit once ≥10 archives carry the new fields: a low-fire steady state confirms boot-step timing discipline holds; persistent firing signals the boot procedure is being consulted late despite the #123 thin-pointer fix, and the per-fire procedural guidance ("run the boot step at boot, before plan authoring") should escalate.
 
 ## Retire candidates flagged for next health-check audit
 

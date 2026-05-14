@@ -35,8 +35,21 @@ The field shape:
         "other_calls": int,
         "total_calls": int,
         "first_call_ts": str | null,
-        "last_call_ts": str | null
+        "last_call_ts": str | null,
+        "search_first_ts": str | null,
+        "diary_read_first_ts": str | null
     }
+
+The ``search_first_ts`` and ``diary_read_first_ts`` per-tool first-call
+timestamps were added at S-0160 per Issue #124. ``validate.py
+--final-check`` compares them against ``current.json``'s ``started_at``
+to emit the ``mempalace_boot_query_late`` / ``mempalace_diary_read_late``
+soft-warns — the boot query (step 5.5 / build step 3) and diary read
+(step 5.6 / build step 3b) run *before* the eager-claim ritual writes
+``started_at``, so a first call landing *after* ``started_at`` means
+the boot step ran late (telemetry clean, value lost). The global
+``first_call_ts`` / ``last_call_ts`` cannot distinguish this — a late
+boot search and an on-time diary write produce the same span.
 
 The ``kg_calls`` and ``tunnel_calls`` buckets were added at S-0087 per ADR 0056's
 S-0086-audit Consequences amendment. They cover the five KG tools (``mempalace_kg_query``,
@@ -154,6 +167,18 @@ EMPTY_ROLLUP: dict[str, Any] = {
     "total_calls": 0,
     "first_call_ts": None,
     "last_call_ts": None,
+    "search_first_ts": None,
+    "diary_read_first_ts": None,
+}
+
+# Per-tool first-call timestamps tracked in rollup_jsonl. Maps the
+# mempalace_activity rollup-field key to the JSONL tool name whose
+# earliest ``ts`` it records. Per Issue #124 (S-0160): validate.py
+# --final-check compares these against current.json's started_at to
+# detect a boot step that ran late.
+PER_TOOL_FIRST_TS_MAP: dict[str, str] = {
+    "search_first_ts": "mcp__mempalace__mempalace_search",
+    "diary_read_first_ts": "mcp__mempalace__mempalace_diary_read",
 }
 
 
@@ -170,6 +195,8 @@ def rollup_jsonl(jsonl_path: Path) -> dict[str, Any]:
 
     first_ts: str | None = None
     last_ts: str | None = None
+    # Per-tool earliest ts, keyed by JSONL tool name (per Issue #124).
+    per_tool_first: dict[str, str] = {}
 
     with jsonl_path.open("r", encoding="utf-8") as f:
         for line in f:
@@ -196,9 +223,15 @@ def rollup_jsonl(jsonl_path: Path) -> dict[str, Any]:
                     first_ts = ts
                 if last_ts is None or ts > last_ts:
                     last_ts = ts
+                if isinstance(tool, str):
+                    existing = per_tool_first.get(tool)
+                    if existing is None or ts < existing:
+                        per_tool_first[tool] = ts
 
     rollup["first_call_ts"] = first_ts
     rollup["last_call_ts"] = last_ts
+    for rollup_key, tool_name in PER_TOOL_FIRST_TS_MAP.items():
+        rollup[rollup_key] = per_tool_first.get(tool_name)
     return rollup
 
 
@@ -219,6 +252,9 @@ def _merge_rollups(existing: dict[str, Any], new: dict[str, Any]) -> dict[str, A
     - All ``*_calls`` keys plus ``total_calls`` are summed.
     - ``first_call_ts`` keeps the earlier of the two (preserving span).
     - ``last_call_ts`` keeps the later of the two.
+    - ``*_first_ts`` per-tool keys (``search_first_ts``,
+      ``diary_read_first_ts``, per Issue #124) keep the earlier of the
+      two — same semantics as ``first_call_ts``, scoped to one tool.
     - Unknown keys (future extensions) prefer ``new``'s value to fall back
       to ``existing`` so a schema addition doesn't drop unrecognized fields.
 
@@ -254,6 +290,14 @@ def _merge_rollups(existing: dict[str, Any], new: dict[str, Any]) -> dict[str, A
                 merged[key] = value
             else:
                 merged[key] = existing_ts if existing_ts > value else value
+        elif key.endswith("_first_ts"):
+            existing_ts = existing.get(key)
+            if value is None:
+                merged[key] = existing_ts
+            elif existing_ts is None:
+                merged[key] = value
+            else:
+                merged[key] = existing_ts if existing_ts < value else value
         else:
             merged[key] = value
     return merged
@@ -340,7 +384,9 @@ def main(argv: list[str] | None = None) -> int:
         f"diary_read={rollup['diary_read_calls']} "
         f"diary_write={rollup['diary_write_calls']} "
         f"add_drawer={rollup['add_drawer_calls']} "
-        f"first={rollup['first_call_ts']} last={rollup['last_call_ts']}",
+        f"first={rollup['first_call_ts']} last={rollup['last_call_ts']} "
+        f"search_first={rollup['search_first_ts']} "
+        f"diary_read_first={rollup['diary_read_first_ts']}",
         flush=True,
     )
 

@@ -770,6 +770,186 @@ def test_malformed_current_json_skips(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# mempalace_boot_query_late / mempalace_diary_read_late (Issue #124, S-0160)
+# ---------------------------------------------------------------------------
+
+
+class TestBootStepRanLate:
+    """Per Issue #124: the boot query / diary read ran, but AFTER started_at.
+
+    started_at is written by the eager-claim ritual, which runs after the
+    MemPalace boot steps. A per-tool first-call timestamp later than
+    started_at means the boot step ran late — clean telemetry, lost value.
+    """
+
+    def _write(
+        self,
+        tmp_path: Path,
+        *,
+        started_at: str | None,
+        search_calls: int = 1,
+        diary_read_calls: int = 1,
+        search_first_ts: str | None = None,
+        diary_read_first_ts: str | None = None,
+    ) -> None:
+        (tmp_path / "engine" / "session").mkdir(parents=True, exist_ok=True)
+        activity: dict[str, object] = _make_activity(
+            search_calls=search_calls,
+            diary_read_calls=diary_read_calls,
+            diary_write_calls=1,
+        )
+        activity["search_first_ts"] = search_first_ts
+        activity["diary_read_first_ts"] = diary_read_first_ts
+        payload: dict[str, object] = {
+            "id": "S-0160",
+            "mode": "interactive",
+            "mempalace_activity": activity,
+        }
+        if started_at is not None:
+            payload["started_at"] = started_at
+        (tmp_path / "engine" / "session" / "current.json").write_text(
+            json.dumps(payload)
+        )
+
+    def test_search_first_ts_after_started_at_fires(self, tmp_path: Path) -> None:
+        """Boot search's first call landed after started_at → boot_query_late."""
+        self._write(
+            tmp_path,
+            started_at="2026-05-14T10:00:00Z",
+            search_first_ts="2026-05-14T18:30:00Z",
+            diary_read_first_ts="2026-05-14T09:55:00Z",
+        )
+        with _patch_repo_root_to(tmp_path):
+            result = validate.validate_mempalace_adoption()
+            assert len(result.hard_fails) == 0
+            assert "mempalace_boot_query_late" in result.soft_warns
+            assert "mempalace_diary_read_late" not in result.soft_warns
+
+    def test_search_first_ts_before_started_at_does_not_fire(
+        self, tmp_path: Path
+    ) -> None:
+        """On-time boot search (before started_at) → no late warn."""
+        self._write(
+            tmp_path,
+            started_at="2026-05-14T10:00:00Z",
+            search_first_ts="2026-05-14T09:50:00Z",
+            diary_read_first_ts="2026-05-14T09:55:00Z",
+        )
+        with _patch_repo_root_to(tmp_path):
+            result = validate.validate_mempalace_adoption()
+            assert "mempalace_boot_query_late" not in result.soft_warns
+            assert "mempalace_diary_read_late" not in result.soft_warns
+
+    def test_diary_read_first_ts_after_started_at_fires(self, tmp_path: Path) -> None:
+        """Boot diary read's first call landed after started_at → diary_read_late."""
+        self._write(
+            tmp_path,
+            started_at="2026-05-14T10:00:00Z",
+            search_first_ts="2026-05-14T09:50:00Z",
+            diary_read_first_ts="2026-05-14T19:00:00Z",
+        )
+        with _patch_repo_root_to(tmp_path):
+            result = validate.validate_mempalace_adoption()
+            assert "mempalace_diary_read_late" in result.soft_warns
+            assert "mempalace_boot_query_late" not in result.soft_warns
+
+    def test_both_late_fire_together(self, tmp_path: Path) -> None:
+        """Both boot steps ran late → both late warns fire."""
+        self._write(
+            tmp_path,
+            started_at="2026-05-14T10:00:00Z",
+            search_first_ts="2026-05-14T18:00:00Z",
+            diary_read_first_ts="2026-05-14T18:05:00Z",
+        )
+        with _patch_repo_root_to(tmp_path):
+            result = validate.validate_mempalace_adoption()
+            assert "mempalace_boot_query_late" in result.soft_warns
+            assert "mempalace_diary_read_late" in result.soft_warns
+
+    def test_absent_per_tool_first_ts_skips_silently(self, tmp_path: Path) -> None:
+        """Backward-compat: per-tool *_first_ts absent (pre-S-0160 archive) → no fire."""
+        self._write(
+            tmp_path,
+            started_at="2026-05-14T10:00:00Z",
+            search_first_ts=None,
+            diary_read_first_ts=None,
+        )
+        with _patch_repo_root_to(tmp_path):
+            result = validate.validate_mempalace_adoption()
+            assert "mempalace_boot_query_late" not in result.soft_warns
+            assert "mempalace_diary_read_late" not in result.soft_warns
+
+    def test_absent_started_at_skips_silently(self, tmp_path: Path) -> None:
+        """started_at absent → no deadline reference → late check never fires."""
+        self._write(
+            tmp_path,
+            started_at=None,
+            search_first_ts="2026-05-14T18:00:00Z",
+            diary_read_first_ts="2026-05-14T18:00:00Z",
+        )
+        with _patch_repo_root_to(tmp_path):
+            result = validate.validate_mempalace_adoption()
+            assert "mempalace_boot_query_late" not in result.soft_warns
+            assert "mempalace_diary_read_late" not in result.soft_warns
+
+    def test_unparseable_started_at_skips_silently(self, tmp_path: Path) -> None:
+        """Malformed started_at → late check skips, no crash."""
+        self._write(
+            tmp_path,
+            started_at="not-a-timestamp",
+            search_first_ts="2026-05-14T18:00:00Z",
+            diary_read_first_ts="2026-05-14T18:00:00Z",
+        )
+        with _patch_repo_root_to(tmp_path):
+            result = validate.validate_mempalace_adoption()
+            assert len(result.hard_fails) == 0
+            assert "mempalace_boot_query_late" not in result.soft_warns
+            assert "mempalace_diary_read_late" not in result.soft_warns
+
+    def test_unparseable_first_ts_skips_silently(self, tmp_path: Path) -> None:
+        """Malformed per-tool first_ts → late check skips that tool, no crash."""
+        self._write(
+            tmp_path,
+            started_at="2026-05-14T10:00:00Z",
+            search_first_ts="garbage",
+            diary_read_first_ts="2026-05-14T18:00:00Z",
+        )
+        with _patch_repo_root_to(tmp_path):
+            result = validate.validate_mempalace_adoption()
+            assert "mempalace_boot_query_late" not in result.soft_warns
+            # The well-formed late diary_read still fires.
+            assert "mempalace_diary_read_late" in result.soft_warns
+
+    def test_zero_search_calls_no_late_warn(self, tmp_path: Path) -> None:
+        """search_calls == 0 → boot_query_skipped fires, late does not (guarded)."""
+        self._write(
+            tmp_path,
+            started_at="2026-05-14T10:00:00Z",
+            search_calls=0,
+            search_first_ts=None,
+            diary_read_first_ts="2026-05-14T09:55:00Z",
+        )
+        with _patch_repo_root_to(tmp_path):
+            result = validate.validate_mempalace_adoption()
+            assert "mempalace_boot_query_skipped" in result.soft_warns
+            assert "mempalace_boot_query_late" not in result.soft_warns
+
+    def test_late_warn_body_points_at_boot_timing(self, tmp_path: Path) -> None:
+        """The late soft-warn body explains the timing problem and the fix."""
+        self._write(
+            tmp_path,
+            started_at="2026-05-14T10:00:00Z",
+            search_first_ts="2026-05-14T18:00:00Z",
+            diary_read_first_ts="2026-05-14T09:55:00Z",
+        )
+        with _patch_repo_root_to(tmp_path):
+            result = validate.validate_mempalace_adoption()
+            body = result.soft_warns["mempalace_boot_query_late"][0]
+            assert "started_at" in body
+            assert "before plan authoring" in body
+
+
 def test_kg_call_fires_retired_surface_warn(tmp_path: Path) -> None:
     """kg_calls > 0 → soft-warn mempalace_retired_surface_used."""
     (tmp_path / "engine" / "session").mkdir(parents=True, exist_ok=True)

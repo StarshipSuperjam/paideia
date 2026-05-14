@@ -157,7 +157,7 @@ from _venv_reexec import ensure_venv_python  # noqa: E402
 ensure_venv_python()  # re-exec under venv if psycopg is unavailable
 
 from scrub_env import scrubbed_env  # noqa: E402
-from timestamps import emit, emit_micros  # noqa: E402  # ADR 0058
+from timestamps import emit, emit_micros, parse  # noqa: E402  # ADR 0058
 
 
 # ---------------------------------------------------------------------------
@@ -3199,6 +3199,38 @@ def _append_to_diary_pending_index(
         )
 
 
+def _mempalace_boot_step_ran_late(
+    activity: dict[str, Any],
+    started_at: datetime | None,
+    first_ts_key: str,
+) -> bool:
+    """True iff a MemPalace boot step's first call landed after ``started_at``.
+
+    Per Issue #124 (S-0160). The boot query (step 5.5 / build step 3) and
+    diary read (step 5.6 / build step 3b) run *before* the eager-claim
+    ritual writes ``current.json``'s ``started_at``. A per-tool first-call
+    timestamp *after* ``started_at`` therefore means the step ran late —
+    the telemetry is clean but the prior-context recall happened too late
+    to inform planning.
+
+    Backward-compatible: returns ``False`` (no late signal) when
+    ``started_at`` is ``None``, when the per-tool ``*_first_ts`` field is
+    absent (historical archives, JSONL-absent path) or non-string, or
+    when either timestamp is unparseable. The late check fires only on a
+    positive, unambiguous signal — never on missing data.
+    """
+    if started_at is None:
+        return False
+    raw = activity.get(first_ts_key)
+    if not isinstance(raw, str) or not raw.strip():
+        return False
+    try:
+        first_ts = parse(raw.strip())
+    except (ValueError, TypeError):
+        return False
+    return first_ts > started_at
+
+
 def validate_mempalace_adoption() -> ValidationResult:
     """Soft-warn boot-query/diary-read; hard-fail diary-write per ADR 0056 (S-0078).
 
@@ -3325,6 +3357,51 @@ def validate_mempalace_adoption() -> ValidationResult:
             "No mempalace_diary_read call recorded during this session. The "
             "boot-time diary read (session-build-lifecycle step 3b / "
             "routine-mode-lifecycle step 5.6) did not run.",
+        )
+
+    # Per Issue #124 (S-0160). The *_skipped checks above catch a boot
+    # step that never ran; these catch one that ran LATE — after the
+    # eager-claim ritual wrote started_at, so the prior-context recall
+    # could no longer inform planning. Backward-compatible: skips
+    # silently when the per-tool *_first_ts field or started_at is
+    # absent/unparseable (see _mempalace_boot_step_ran_late).
+    started_at_raw = current.get("started_at")
+    started_at_dt: datetime | None = None
+    if isinstance(started_at_raw, str) and started_at_raw.strip():
+        try:
+            started_at_dt = parse(started_at_raw.strip())
+        except (ValueError, TypeError):
+            started_at_dt = None
+
+    if search_calls > 0 and _mempalace_boot_step_ran_late(
+        activity, started_at_dt, "search_first_ts"
+    ):
+        r.soft_warn(
+            "mempalace_boot_query_late",
+            "The mempalace_search boot query ran, but its first call landed "
+            "AFTER this session's started_at — i.e. after the eager-claim "
+            "ritual, not at boot. The boot query (CLAUDE.md startup ceremony "
+            "step 3 / session-build-lifecycle step 3 / routine-mode-lifecycle "
+            "step 5.5) exists to surface prior lessons and decisions BEFORE "
+            "the session plans and executes. Run late, it produces the "
+            "telemetry without the benefit — the recalled context can no "
+            "longer change the work. Run mempalace_boot_search.py / "
+            "mempalace_search at boot, before plan authoring.",
+        )
+
+    if diary_read_calls > 0 and _mempalace_boot_step_ran_late(
+        activity, started_at_dt, "diary_read_first_ts"
+    ):
+        r.soft_warn(
+            "mempalace_diary_read_late",
+            "The mempalace_diary_read boot step ran, but its first call "
+            "landed AFTER this session's started_at — i.e. after the "
+            "eager-claim ritual, not at boot. The boot diary read "
+            "(session-build-lifecycle step 3b / routine-mode-lifecycle step "
+            "5.6) exists to surface the prior sessions' first-person "
+            "reflections BEFORE planning. Run late, the reflections are "
+            "recalled into a context where they can no longer inform the "
+            "work. Run mempalace_diary_read at boot, before plan authoring.",
         )
 
     # Per S-0091 routine-protection refinement. The S-0089/S-0090

@@ -490,3 +490,108 @@ def test_main_handles_absent_current(
     assert rc == 0
     err = capsys.readouterr().err
     assert "cannot write rollup" in err
+
+
+# --- Per-tool first-call timestamps (Issue #124, S-0160) ---
+
+
+def test_rollup_per_tool_first_ts_captured(tmp_path: Path) -> None:
+    """search_first_ts / diary_read_first_ts record the earliest call per tool.
+
+    Per Issue #124 — validate.py compares these against current.json's
+    started_at to detect a boot step that ran after the eager-claim.
+    """
+    p = tmp_path / "current_mempalace.jsonl"
+    write_jsonl(
+        p,
+        [
+            {"ts": "2026-05-14T08:00:00Z", "tool": "mcp__mempalace__mempalace_search"},
+            {"ts": "2026-05-14T08:05:00Z", "tool": "mcp__mempalace__mempalace_search"},
+            {
+                "ts": "2026-05-14T08:10:00Z",
+                "tool": "mcp__mempalace__mempalace_diary_read",
+            },
+        ],
+    )
+    rollup = rollup_jsonl(p)
+    # Earliest per-tool call, not the global first.
+    assert rollup["search_first_ts"] == "2026-05-14T08:00:00Z"
+    assert rollup["diary_read_first_ts"] == "2026-05-14T08:10:00Z"
+
+
+def test_rollup_per_tool_first_ts_none_when_tool_absent(tmp_path: Path) -> None:
+    """A tool that never fired keeps a None per-tool first_ts."""
+    p = tmp_path / "current_mempalace.jsonl"
+    write_jsonl(
+        p,
+        [
+            {"ts": "2026-05-14T08:00:00Z", "tool": "mcp__mempalace__mempalace_search"},
+        ],
+    )
+    rollup = rollup_jsonl(p)
+    assert rollup["search_first_ts"] == "2026-05-14T08:00:00Z"
+    assert rollup["diary_read_first_ts"] is None
+
+
+def test_rollup_per_tool_first_ts_ignores_out_of_order_lines(tmp_path: Path) -> None:
+    """Per-tool first_ts is the minimum ts, even if lines arrive out of order."""
+    p = tmp_path / "current_mempalace.jsonl"
+    write_jsonl(
+        p,
+        [
+            {"ts": "2026-05-14T09:00:00Z", "tool": "mcp__mempalace__mempalace_search"},
+            {"ts": "2026-05-14T07:30:00Z", "tool": "mcp__mempalace__mempalace_search"},
+        ],
+    )
+    rollup = rollup_jsonl(p)
+    assert rollup["search_first_ts"] == "2026-05-14T07:30:00Z"
+
+
+def test_rollup_per_tool_first_ts_missing_ts_does_not_record(tmp_path: Path) -> None:
+    """A call line with no ts increments the count but records no per-tool first_ts."""
+    p = tmp_path / "current_mempalace.jsonl"
+    write_jsonl(p, [{"tool": "mcp__mempalace__mempalace_search"}])
+    rollup = rollup_jsonl(p)
+    assert rollup["search_calls"] == 1
+    assert rollup["search_first_ts"] is None
+
+
+def test_write_rollup_merges_per_tool_first_ts_keeps_earlier(tmp_path: Path) -> None:
+    """Merging two rollups keeps the earlier per-tool first_ts (Issue #124).
+
+    Same semantics as first_call_ts, scoped to one tool — a second scan
+    within a session must not lose the earlier boot-step timestamp.
+    """
+    current = tmp_path / "current.json"
+    current.write_text(
+        json.dumps(
+            {
+                "id": "S-0160",
+                "mempalace_activity": {
+                    "search_calls": 1,
+                    "total_calls": 1,
+                    "search_first_ts": "2026-05-14T08:00:00Z",
+                    "diary_read_first_ts": None,
+                },
+            }
+        )
+    )
+
+    fresh = dict(EMPTY_ROLLUP)
+    fresh["search_calls"] = 1
+    fresh["total_calls"] = 1
+    # A LATER search ts in the second scan must not overwrite the earlier one.
+    fresh["search_first_ts"] = "2026-05-14T11:00:00Z"
+    fresh["diary_read_first_ts"] = "2026-05-14T08:30:00Z"
+    write_rollup_to_current(current, fresh)
+
+    data = json.loads(current.read_text())
+    assert data["mempalace_activity"]["search_first_ts"] == "2026-05-14T08:00:00Z"
+    # diary_read_first_ts was None in existing → takes the fresh value.
+    assert data["mempalace_activity"]["diary_read_first_ts"] == "2026-05-14T08:30:00Z"
+
+
+def test_empty_rollup_carries_per_tool_first_ts_keys(tmp_path: Path) -> None:
+    """EMPTY_ROLLUP declares the new per-tool first_ts keys, defaulting to None."""
+    assert EMPTY_ROLLUP["search_first_ts"] is None
+    assert EMPTY_ROLLUP["diary_read_first_ts"] is None
