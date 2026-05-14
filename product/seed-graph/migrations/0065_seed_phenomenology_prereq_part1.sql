@@ -1,0 +1,146 @@
+-- Migration: 0065_seed_phenomenology_prereq_part1
+-- Purpose: Fifth Phase-5 production-audit follow-up migration. Resolve
+--   the long-standing orphan_leaf soft-warn (carried since ~S-0139,
+--   ~15 sessions unowned) on node 'phenomenology' by inserting one
+--   pedagogical_prerequisite edge: philosophy_of_mind -> phenomenology.
+--
+--   Cause of the orphan: migration 0061 (audit finding MIN-E-23)
+--   retyped the only edge touching 'phenomenology' —
+--   consciousness -> phenomenology — from pedagogical_prerequisite to
+--   historical_influence, on the verdict that the relation is a
+--   subject-matter / methodological-tradition relation rather than a
+--   strict pedagogical dependency. That retyping was correct on its
+--   own terms but left 'phenomenology' with zero pedagogical_prerequisite
+--   edges in either direction (historical_influence does not count
+--   toward the orphan_leaf in/out degree per validate.py's
+--   _detect_orphan_leaves). A node with status='active' and zero
+--   pedagogical_prerequisite degree is pedagogically unreachable — it
+--   can never appear in a learner's prerequisite path.
+--
+--   Resolution (S-0155, user-adjudicated): rather than reverse the
+--   S-0122 verdict on the consciousness edge, give 'phenomenology' a
+--   different and genuinely pedagogical prerequisite. phenomenology is
+--   a 20th-century movement situated within the philosophy of mind
+--   (its sole domain tag is 'mind'); the field is the orienting
+--   context a learner needs before the specific movement. The new
+--   edge coexists with the consciousness -> phenomenology
+--   historical_influence edge — the two edge types capture distinct
+--   relations (pedagogical dependency vs. historical/methodological
+--   lineage), and UNIQUE (source_id, target_id, edge_type) per
+--   0003_edges.sql permits both.
+-- Loads tables: public.edges (1 INSERT; no UPDATEs, no DELETEs, no DDL).
+--   public.settings is NOT touched (see Cross-cutting decisions).
+-- Preconditions:
+--   * 0061 + 0062 + revert + 0063 + 0064 applied (graph is in
+--     post-cleanup state with 17 historical_influence + 515
+--     pedagogical_prerequisite = 532 total edges).
+--   * Nodes 'philosophy_of_mind' and 'phenomenology' both exist
+--     (verified in S-0155 plan-mode pre-apply snapshot).
+--   * No edge philosophy_of_mind -> phenomenology exists in any
+--     edge_type (verified: the only edge touching 'phenomenology' is
+--     consciousness -> phenomenology of type historical_influence).
+--   * settings.graph_version = 16.
+-- Postconditions:
+--   * 1 new row in public.edges: source_id='philosophy_of_mind',
+--     target_id='phenomenology', edge_type='pedagogical_prerequisite',
+--     provenance='ai-seed', graph_version_added=16, weight and
+--     confidence at the schema default 1.0, evidence populated.
+--   * Total pedagogical_prerequisite edges: 516 (was 515; +1).
+--   * Total historical_influence edges: 17 (unchanged).
+--   * Total edges: 533 (was 532; +1).
+--   * Node 'phenomenology' now carries 1 inbound pedagogical_prerequisite
+--     edge — it is no longer an orphan_leaf.
+--   * settings.graph_version = 16 (unchanged).
+-- Postcondition-Assertions:
+--   (Layer 2.5 per ADR 0055 / ADR 0039 amendment.)
+--   SELECT count(*)::int FROM public.edges WHERE edge_type = 'pedagogical_prerequisite' :: 516
+--   SELECT count(*)::int FROM public.edges WHERE edge_type = 'historical_influence' :: 17
+--   SELECT count(*)::int FROM public.edges WHERE source_id = 'philosophy_of_mind' AND target_id = 'phenomenology' AND edge_type = 'pedagogical_prerequisite' :: 1
+--   SELECT count(*)::int FROM public.edges WHERE (source_id = 'phenomenology' OR target_id = 'phenomenology') AND edge_type = 'pedagogical_prerequisite' :: 1
+-- Invariants:
+--   * UNIQUE (source_id, target_id, edge_type) per 0003_edges.sql
+--     holds: no existing philosophy_of_mind -> phenomenology edge of
+--     any type, so the pedagogical_prerequisite insert cannot collide.
+--   * No new nodes inserted. No edges deleted. No edges retyped.
+--   * Cycle detection: the new edge runs philosophy_of_mind ->
+--     phenomenology. 'phenomenology' currently sources zero
+--     pedagogical_prerequisite edges, so it cannot reach
+--     'philosophy_of_mind' — the insert introduces no prerequisite
+--     cycle (validate.py's Kosaraju SCC check stays clean).
+--   * weight and confidence default to 1.0 per 0003_edges.sql
+--     (CHECK 0..1 satisfied trivially).
+-- Non-responsibilities:
+--   * Does not retype or remove the consciousness -> phenomenology
+--     historical_influence edge — the S-0122 MIN-E-23 verdict stands.
+--   * Does not add outbound pedagogical_prerequisite edges from
+--     'phenomenology' (a single inbound edge resolves the orphan_leaf;
+--     downstream Phase 6 subdomain work may enrich the neighbourhood).
+--   * Does not annotate or modify any other edge.
+--   * Does not increment public.settings.graph_version.
+-- Cross-cutting decisions:
+--   * graph_version posture: this migration follows the S-0123
+--     follow-up-correction precedent set by 0061/0062/0063/0064 — all
+--     four explicitly do NOT increment public.settings.graph_version,
+--     treating themselves as corrections to published version 16
+--     rather than new versions (0063 even DELETEs edges without a
+--     bump). A single corrective edge resolving a soft-warn is the
+--     same class of work, so graph_version stays 16 and the new row
+--     carries graph_version_added=16 (it joins the current published
+--     cohort). The original seed batches (e.g. 0060) bumped the
+--     version; the audit-followup series does not.
+--   * provenance='ai-seed': the established value for AI-authored
+--     seed edges (cf. 0060's 71 cross-bridge inserts). The edge is
+--     AI-authored under direct user adjudication in S-0155.
+--   * evidence populated despite this being a within-subdomain edge
+--     (both endpoints domain-tagged 'mind', so it does not trip the
+--     cross-domain edge_evidence_empty soft-warn): the audit context
+--     (MIN-E-23, the deliberate non-reversal of the consciousness
+--     verdict) is non-obvious and worth recording on the edge itself.
+-- Source citations:
+--   * Soft-warn definition: engine/tools/validate.py
+--     _detect_orphan_leaves (prerequisite-only in/out degree).
+--   * Interpretation: engine/operations/tools-validate-interpretation.md
+--     "orphan_leaf" entry.
+--   * Originating retype: 0061_seed_historical_influence_retyping_part1.sql
+--     finding MIN-E-23 (consciousness -> phenomenology -> historical_influence).
+--   * Approved plan: ~/.claude/plans/every-session-gets-these-vectorized-meerkat.md
+--     (S-0155).
+-- Idempotency:
+--   * Not idempotent in operation: a second run would violate
+--     UNIQUE (source_id, target_id, edge_type) and abort the
+--     transaction. The wrapper's exit-6 already-applied gate
+--     (schema_migrations.version match) is the canonical re-fire
+--     defense; the postcondition assertions would also catch a
+--     double-apply (pedagogical_prerequisite count would read 517).
+-- Rollback:
+--   BEGIN;
+--   DELETE FROM public.edges
+--    WHERE source_id = 'philosophy_of_mind'
+--      AND target_id = 'phenomenology'
+--      AND edge_type = 'pedagogical_prerequisite';
+--   COMMIT;
+-- Dependencies:
+--   * Hard: 0002, 0003 (schema). 0070_seed_language_part1.sql and the
+--     P5-07 philosophy-of-mind seed migrations (originating
+--     'philosophy_of_mind' and 'phenomenology' nodes). 0060-0064
+--     (preceding follow-ups; baseline pedagogical_prerequisite count = 515).
+--   * Soft: ROUTING.md (per-session narrative).
+-- Related:
+--   * engine/operations/tools-validate-interpretation.md "orphan_leaf";
+--   * engine/operations/soft-warn-lifecycle.md;
+--   * engine/adr/0055-apply-migration-wrapping-against-production-reads-gate.md;
+--   * engine/operations/migration-discipline.md Layer 2.5.
+
+BEGIN;
+
+-- orphan_leaf resolution: phenomenology is a movement within the
+-- philosophy of mind; the field is orienting context a learner needs
+-- before the movement. Coexists with the consciousness -> phenomenology
+-- historical_influence edge (0061, MIN-E-23) — distinct relation types.
+INSERT INTO public.edges
+  (source_id, target_id, edge_type, provenance, graph_version_added, evidence)
+VALUES
+  ('philosophy_of_mind', 'phenomenology', 'pedagogical_prerequisite', 'ai-seed', 16,
+   'Per S-0155 orphan_leaf resolution: phenomenology is a 20th-century philosophical movement situated within the philosophy of mind (sole domain tag ''mind''); the field is the orienting pedagogical context a learner needs before the specific movement. Distinct from and coexisting with the consciousness -> phenomenology historical_influence edge (migration 0061, audit finding MIN-E-23), which the S-0122 audit verdicted as a subject-matter/methodological-tradition relation rather than a pedagogical dependency. This field-to-movement prerequisite gives phenomenology a pedagogical entry point without reversing that verdict.');
+
+COMMIT;
