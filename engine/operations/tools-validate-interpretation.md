@@ -342,6 +342,12 @@ Recoverable: replace the bare call with the appropriate helper function, or — 
 
 Persistent firing across multiple sessions per [`soft-warn-lifecycle.md`](soft-warn-lifecycle.md)'s 3-of-5-archives surface signals new ad-hoc emission slipping in — investigate the offending file and either route through the helper or extend the allowlist with rationale.
 
+### `skill_layer1_parity_drift`
+
+Per [ADR 0089](../adr/0089-skill-layer1-parity-validator-check.md) (S-0163; [Issue #129](https://github.com/StarshipSuperjam/paideia/issues/129)). Fires when a recipe Skill's procedure step-number *set* diverges from its Layer-1 ops doc's — a step present on one side and absent from the other. Covers the four recipe Skill ↔ doc pairs (`routine-mode-lifecycle`, `session-build-lifecycle`, `session-shutdown-sequence`, `build-readiness-gate`); config is the `_SKILL_LAYER1_PAIRS` tuple in `validate.py`. One soft-warn per drifting pair, plus one per missing file / unlocatable section / empty section (the check self-reports its own parsing failure rather than going silent). Compares step numbers, not titles — skill voice and reference voice legitimately differ in wording per [ADR 0044](../adr/0044-skill-conversion-recipe-vs-reference.md). Scope limit: catches enumeration drift only, not intra-step content drift (a step's prose drifting, or a step omitting required fields) — that remains hand-discipline per the ADR 0044 Consequences amendment.
+
+Recoverable: reconcile the drifting pair — bring the Skill and its Layer-1 doc to the same step set (updates flow doc → skill). If the divergence is a section-heading or step-grammar change rather than genuine drift, update the `_SKILL_LAYER1_PAIRS` config in `validate.py` to match the new structure.
+
 ### Graph-audit soft-warns (S-0037 onward, active when SUPABASE_DB_URL is set)
 
 The ten categories the validator extends from ADR 0016's contract (seven from S-0037; three added at S-0146 from the S-0122 audit's gate-feasible recommendations per [Issue #62](https://github.com/StarshipSuperjam/paideia/issues/62) + [`engine/build_readiness/phase_5_audit_system_input.md`](../build_readiness/phase_5_audit_system_input.md)). All ten register in `checks_run` even when zero findings fire, so cross-session telemetry distinguishes "category clean" from "category did not run" (the schema convention at [`session-shutdown-sequence.md`](session-shutdown-sequence.md)).
@@ -571,6 +577,10 @@ Until re-audit, the categories carry their as-shipped semantics from their intro
 ### `mempalace_boot_query_late` / `mempalace_diary_read_late` (deferred re-audit; introduced S-0160)
 
 **Why deferred:** introduced at S-0160 per [Issue #124](https://github.com/StarshipSuperjam/paideia/issues/124). Both fire from `--final-check` when a MemPalace boot step's per-tool first-call timestamp (`mempalace_activity.search_first_ts` / `diary_read_first_ts`) is later than `current.json.started_at`. Zero post-introduction telemetry at landing; the per-tool `*_first_ts` rollup fields are also new (pre-S-0160 archives lack them, so the check skips silently for the historical corpus — no backfill). Re-audit at the next cadence audit once ≥10 archives carry the new fields: a low-fire steady state confirms boot-step timing discipline holds; persistent firing signals the boot procedure is being consulted late despite the #123 thin-pointer fix, and the per-fire procedural guidance ("run the boot step at boot, before plan authoring") should escalate.
+
+### `skill_layer1_parity_drift` (deferred re-audit; introduced S-0163)
+
+**Why deferred:** introduced at S-0163 per [ADR 0089](../adr/0089-skill-layer1-parity-validator-check.md) ([Issue #129](https://github.com/StarshipSuperjam/paideia/issues/129)). Structural-phase check; fires per recipe Skill ↔ Layer-1 doc pair whose procedure step-number sets diverge. At landing it fires on `session-build-lifecycle` ([Issue #125](https://github.com/StarshipSuperjam/paideia/issues/125), open, out of S-0163 scope) — that fire is the mechanism working as intended, not a false positive. Re-audit at the next cadence audit once ≥10 archives carry post-introduction telemetry: a low-fire steady state (drift caught and reconciled promptly) confirms the check converged; persistent firing of the *same* pair signals the reconciliation is being deferred and should escalate, while persistent firing across *rotating* pairs signals the doc-drift generator is still active and the ADR 0044 amendment's hand-discipline boundary needs revisiting.
 
 ## Retire candidates flagged for next health-check audit
 

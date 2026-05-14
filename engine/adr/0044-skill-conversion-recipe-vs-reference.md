@@ -70,6 +70,16 @@ Trade-offs accepted:
 
 The conversion is one-shot for the three recipes named. Subsequent recipe-shaped procedures (a hypothetical "phase-close ceremony," a hypothetical "ADR-amendment ritual") would convert at the moment of authoring under this ADR's partition criterion.
 
+## Consequences amendment — S-0163 (Issue #129 — Skill ↔ Layer-1 parity mechanized; drift-direction assumption falsified)
+
+Two of this ADR's Consequences claims did not hold, and a third under-counted the recipe set:
+
+- **The "doc → skill, not skill → doc" drift assumption is falsified.** The Consequences trade-off bullet asserted "updates to the procedure flow doc → Skill, not Skill → doc" and trusted "the next health check audits drift." The S-0142→S-0161 window produced a five-Issue drift cluster ([#122](https://github.com/StarshipSuperjam/paideia/issues/122)-[#126](https://github.com/StarshipSuperjam/paideia/issues/126)) in which drift ran *both* directions and *between siblings*: [#123](https://github.com/StarshipSuperjam/paideia/issues/123) was command ↔ skill, [#125](https://github.com/StarshipSuperjam/paideia/issues/125) is skill ↔ skill (a Skill *missing* a step its command and Layer-1 doc both carry). "The Skill is the canonical form" is an aspiration, not a guarantee.
+- **The "future validator extension" is now realized — for the enumeration slice.** This ADR's Consequences flagged "Skills are not validated by `validate.py` ... A future validator extension could add this." [ADR 0089](0089-skill-layer1-parity-validator-check.md) lands that extension: `validate_skill_layer1_parity()` / the `skill_layer1_parity_drift` soft-warn compares each recipe Skill's procedure step-number *set* against its Layer-1 doc's. It mechanizes the *enumeration-parity* slice (a step present on one side only — the #123 / #125 class). **Intra-step content parity remains hand-discipline** — a step's prose drifting from its sibling's ([#122](https://github.com/StarshipSuperjam/paideia/issues/122)) or a step omitting required fields ([#126](https://github.com/StarshipSuperjam/paideia/issues/126) part 1) is not caught by a step-set comparison, and a title comparison would fire false positives because skill voice and reference voice legitimately differ in wording.
+- **There are four recipe Skills, not three.** This ADR converted three; `routine-mode-lifecycle` followed at S-0044 per [ADR 0051](0051-routine-mode-and-engine-loop.md). The ADR 0089 parity check covers all four pairs.
+
+The recipe-vs-reference partition itself is unchanged and unsuperseded; this amendment records present truth about the drift-direction model and the now-mechanized parity slice.
+
 ## See also
 
 - [ADR 0036](0036-expression-contract-for-inward-documents.md) — the Layer 1 source-of-truth ops docs are governed by; Skill bodies fall under the same contract.
