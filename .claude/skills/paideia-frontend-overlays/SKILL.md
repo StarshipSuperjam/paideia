@@ -116,7 +116,7 @@ The frontend is allowed and expected to show *what concepts the learner has cove
 
 Distinct from overlay 5; concerns the icon system regardless of palette specifics.
 
-- **Platform icon system as default.** SF Symbols for any Apple-target frontend surface (per ADR 0035 platform commitment). When/if a web surface opens for marketing or knowledge-graph viz, the web equivalent (Lucide, Heroicons, project-authored) governs there. Stack-skills (future) carry the per-platform icon-set choice details.
+- **Platform icon system as default.** SF Symbols for any Apple-target frontend surface (per ADR 0065 commitment 1 platform commitment). When a web surface opens for marketing or knowledge-graph viz — both permitted per ADR 0065 commitment 1's scope clarification (S-0154, [Issue #106](https://github.com/StarshipSuperjam/paideia/issues/106)): "no web app" scopes to the consumer product distribution channel only — the web equivalent (Lucide, Heroicons, project-authored) governs there. Stack-skills (future) carry the per-platform icon-set choice details.
 - **Custom iconography for identity/marquee moments.** Logo, app icon, brand-mark applications. Custom is preferred over platform-default when the surface is identity-scale (not utility-scale).
 - **No emoji-as-icon.** Under any condition, in UI chrome. (Learner-authored content is separate per overlay 2.)
 - **No mixed-source icon collections.** A UI that pulls icons from three different sets (some SF Symbols, some Heroicons, some Material) reads chaotic. One set is the source for utility iconography; identity icons are custom.
@@ -150,7 +150,7 @@ A change touching a contract surface (any ADR file, or modifying a component/mig
 - ADR 0027 (rendering policy) — touched by any change to AI-instructor copy
 - ADR 0028 (input-side scope) — touched by changes to the three bounded engagement contexts
 - ADR 0013 (mastery rendering) — touched by changes to mastery display
-- ADR 0035 (platform commitment) — touched by stack-target changes
+- ADR 0065 commitment 1 (platform commitment) — touched by stack-target changes
 - Future visual-identity ADR (when authored) — touched by palette/type/motif changes
 - Future Phase 6 product-side ADRs (per ROADMAP)
 
@@ -162,7 +162,7 @@ If a new ADR is authored in this session: confirm a matching `decision`-tagged d
 
 ## Process sequence
 
-1. **Load context.** Read the touched product ADRs (0034, 0027, 0028, 0013, 0035, visual-identity ADR if it exists), the session's plan file, any active scope_lock if in routine-mode.
+1. **Load context.** Read the touched product ADRs (0034, 0027, 0028, 0013, 0065, visual-identity ADR if it exists), the session's plan file, any active scope_lock if in routine-mode.
 2. **Walk the ten overlays** in the order above. Each surfaces zero or more findings.
 3. **Categorize every finding by severity tier.**
 4. **Verify cross-reference with [`/frontend-discipline`](../frontend-discipline/SKILL.md) findings.** A finding flagged here as project-specific should NOT be duplicated by the invariant pass; if a finding appears on both sides, judge whether it's genuinely project-specific (keep here) or universal (move to invariant). The partition is load-bearing.
@@ -229,6 +229,6 @@ A structured Markdown report. Sample:
 - [ADR 0027 (product)](../../../product/adr/0027-rendering-policy-prompt-layer-contract.md) — rendering policy (overlay 2).
 - [ADR 0033 (product)](../../../product/adr/0033-mission-realignment-structured-guidance-for-self-learners.md) — mission realignment that forecloses engagement-loop dark patterns (overlay 3).
 - [ADR 0013 (product)](../../../product/adr/0013-mastery-verification-organic-escalation.md) — quiet mastery rendering (overlay 4).
-- [ADR 0035 (product)](../../../product/adr/0035-multi-platform-apple-expansion.md) — platform commitment (Apple SwiftUI).
+- [ADR 0065 (product)](../../../product/adr/0065-oss-pivot-and-byok-disposition.md) — platform commitment (Apple SwiftUI; commitment 1 preserves ADR 0035's platform language verbatim and scopes "no web app" to the consumer product distribution channel per the S-0154 Issue #106 clarification).
 - [ADR 0028 (product)](../../../product/adr/0028-input-side-scope-structural-not-prompt.md) — three bounded engagement contexts.
 - Future visual-identity product ADR — overlay 5 cross-references when authored.

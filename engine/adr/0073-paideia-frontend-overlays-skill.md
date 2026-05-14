@@ -16,7 +16,7 @@ Paideia carries seven product-side contracts that govern how the frontend may re
 - **[ADR 0013 (product)](../../product/adr/0013-mastery-verification-organic-escalation.md)** — Mastery rendered quietly in syllabus context; never celebrated, never separate trophy surface.
 - **[ADR 0033 (product)](../../product/adr/0033-mission-realignment-structured-guidance-for-self-learners.md)** — Mission realignment foreclosing decoration / spectacle / engagement-loop framing.
 - **[ADR 0032 (product)](../../product/adr/0032-personal-project-disposition.md)** — Corruption-vector identification: retention/conversion mechanics pull pedagogy off-mission.
-- **[ADR 0035 (product)](../../product/adr/0035-multi-platform-apple-expansion.md)** — Apple-platform-only product distribution (SwiftUI; iPhone + iPad first-class; Mac via Designed-for-iPad).
+- **[ADR 0065 (product)](../../product/adr/0065-oss-pivot-and-byok-disposition.md)** — Apple-platform product distribution (SwiftUI; iPhone + iPad first-class; Mac via Designed-for-iPad). Commitment 1 preserves ADR 0035's platform language verbatim; the S-0154 scope clarification (resolving [Issue #106](https://github.com/StarshipSuperjam/paideia/issues/106)) scopes "no web app" to the consumer product distribution channel — marketing-site + graph-viz web surfaces are operational not product and are not foreclosed.
 
 A universal frontend-engineering skill ([ADR 0072](0072-frontend-discipline-skill.md)) does not know any of these. Without a project-tailoring overlay, a generic frontend pass:
 
@@ -99,7 +99,7 @@ First real invocation of `/paideia-frontend-overlays` against substantive Paidei
 - **vs. [`/review`](0070-project-wired-review-skill.md):** Orthogonal. `/review`'s Paideia overlays (scope_lock, ADR-citation, MemPalace) overlap with overlays 8–10 here; this is intentional restatement for skill-context completeness. A reviewer using only this skill (without `/review`) still gets the inherited overlays applied.
 - **vs. [`/security-review`](0071-project-wired-security-review-skill.md):** Orthogonal. Frontend security concerns route to `/security-review`'s OWASP walk; project-specific frontend concerns route here.
 - **vs. future stack-skills (`frontend-swiftui`, `frontend-web`):** Stack-skills carry stack-specific verification; this skill carries project-specific overlays. Composition: all three (universal + project + stack) on full frontend reviews.
-- **vs. product ADRs (0013, 0027, 0028, 0032, 0033, 0034, 0035):** This skill operationalizes the contracts. ADR amendments propagate here; when a product ADR is superseded or amended, this skill's relevant overlay updates in the same session (per [ADR 0041](0041-cascade-analysis-discipline.md) cascade discipline).
+- **vs. product ADRs (0013, 0027, 0028, 0032, 0033, 0034, 0065):** This skill operationalizes the contracts. ADR amendments propagate here; when a product ADR is superseded or amended, this skill's relevant overlay updates in the same session (per [ADR 0041](0041-cascade-analysis-discipline.md) cascade discipline).
 
 ### Empirical record
 
@@ -123,7 +123,7 @@ Visual-identity ADR (when authored, future product session): triggers a cascade 
 - [ADR 0032 (product)](../../product/adr/0032-personal-project-disposition.md) — corruption-vector identification underlying overlay 3.
 - [ADR 0033 (product)](../../product/adr/0033-mission-realignment-structured-guidance-for-self-learners.md) — mission realignment underlying overlay 3.
 - [ADR 0034 (product)](../../product/adr/0034-discovery-planning-engagement-triad.md) — triad shape (overlay 1).
-- [ADR 0035 (product)](../../product/adr/0035-multi-platform-apple-expansion.md) — platform commitment (Apple SwiftUI primary; marketing-site + graph-viz web is an ambiguity the user surfaced at S-0135 planning that may resolve in a future 0035 amendment).
+- [ADR 0065 (product)](../../product/adr/0065-oss-pivot-and-byok-disposition.md) — platform commitment (Apple SwiftUI primary; commitment 1 preserves ADR 0035's platform language verbatim). Commitment 1's S-0154 scope clarification (resolving [Issue #106](https://github.com/StarshipSuperjam/paideia/issues/106)) settles "no web app" as scoped to the consumer product distribution channel — marketing-site + graph-viz web surfaces are operational not product and are not foreclosed.
 - Future visual-identity product ADR — overlay 5 cross-references when authored.
 - [`.claude/skills/paideia-frontend-overlays/SKILL.md`](../../.claude/skills/paideia-frontend-overlays/SKILL.md) — the skill itself.
 - [`.claude/skills/frontend-discipline/SKILL.md`](../../.claude/skills/frontend-discipline/SKILL.md) — composition partner.
