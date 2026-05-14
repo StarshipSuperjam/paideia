@@ -10,6 +10,17 @@ This project does not yet follow [Semantic Versioning](https://semver.org/) — 
 
 ## [Unreleased]
 
+### Added (S-0165 — audit-the-auditor methodology check on the `T-SEED-QA` census)
+
+- **[`engine/build_readiness/seed_qa_auditor_check.md`](build_readiness/seed_qa_auditor_check.md)** — one-off methodology-verification report (indexed in `build_readiness/README.md` as a non-standing class). Re-audits `T-SEED-QA` census shards 01 + 04 with **mandatory** SEP structural anchoring on every C1 verdict — either a `fetch_structural_reference.py` fetch or an explicit analytic warrant, no bare parametric "Sound" — to test whether the parametric-first census is glossing and whether the monotonic defect-rate decline (10.7% → 0.0% across shards 01–04) is cross-session scorer drift. Result: 135/135 verdict agreement, zero misses, zero false positives; the drift hypothesis is falsified for C1. One surviving caveat (C2's "fail" bar may not discriminate on this corpus) is routed to the SQA-20 closeout as a rubric-design question.
+- **[`engine/build_readiness/seed_qa_evidence/shard_01_reaudit.md`](build_readiness/seed_qa_evidence/shard_01_reaudit.md)** / **[`shard_04_reaudit.md`](build_readiness/seed_qa_evidence/shard_04_reaudit.md)** — per-edge / per-node re-audit evidence with an `ANCHOR:` line on every C1 verdict. 48 distinct SEP entries fetched once for the fortification pass.
+
+**Rationale**: the user asked whether four routine sessions finding a near-clean graph means the graph is clean or the audit is shallow. The check tests the audit's integrity directly. Reuses existing mechanisms (`fetch_structural_reference.py` per [ADR 0059](adr/0059-audit-time-structural-reference-fetching.md), the pinned `seed_qa_audit.md` rubric) — no ADR; the plan-mode adjudication is the warrant. Anti-scope: methodology verdict only — no graph migration edits, no `auto_target.json` edits, no per-edge Issue filing.
+
+### Changed (S-0165 — `build_readiness/README.md` indexes one-off reports)
+
+- **[`engine/build_readiness/README.md`](build_readiness/README.md)** — added a brief "One-off reports — not a standing class" subsection after the six standard file-class tables, indexing `seed_qa_auditor_check.md` so the directory carries no unindexed files (the Issue #26 discipline). Promoted to a standing class only if the audit-the-auditor shape recurs.
+
 ### Added (S-0164 — `T-SEED-QA` routine task SQA-04)
 
 - **[`engine/build_readiness/seed_qa_evidence/shard_04.md`](build_readiness/seed_qa_evidence/shard_04.md)** — shard 04 evidence file for the seed-graph QA census. 27 `pedagogical_prerequisite` edges scored against C1 (prerequisite soundness), 20 nodes against C2 (teaching_notes traction) + C3 (summary cold-readability), per the pinned `seed_qa_audit.md` rubric. C1: 0/27 defective (0.0%) — the first 0-defect shard; 26 Sound, 1 Defensible (E-21 speech_act→gricean_maxims). C2: 0/20 fail. C3: 0/20 fail. Zero audit-touched edges (no shard-04 (source,target) pair matches the S-0122 follow-up migrations 0061–0065).
