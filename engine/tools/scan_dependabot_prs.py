@@ -120,6 +120,10 @@ def age_days(created_at: str, now: datetime | None = None) -> int:
     """
     now = now or datetime.now(timezone.utc)
     # gh emits "2026-05-12T16:03:27Z" — replace trailing Z for fromisoformat.
+    # Allowlisted in validate.py's _TIMESTAMP_HELPER_BYPASS_ALLOWLIST per
+    # ADR 0058: this parses gh's external wire format, not an engine-canonical
+    # stored timestamp, so timestamps.parse() (which knows engine shapes) does
+    # not apply.
     created = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
     return (now - created).days
 
@@ -250,6 +254,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.simulate_age is not None:
         from datetime import timedelta
 
+        # Emits gh's external wire format ("...Z"), not an engine-canonical
+        # timestamp — must round-trip through age_days' fromisoformat parse
+        # above. Allowlisted in validate.py's _TIMESTAMP_HELPER_BYPASS_ALLOWLIST
+        # per ADR 0058 for the same reason as the age_days parse site.
         simulated_created = (
             (datetime.now(timezone.utc) - timedelta(days=args.simulate_age))
             .isoformat()
