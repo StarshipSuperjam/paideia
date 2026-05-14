@@ -1,0 +1,83 @@
+{
+  "id": "S-0163",
+  "started_at": "2026-05-14T20:48:22Z",
+  "closed_at": "2026-05-14T22:12:05Z",
+  "status": "closed",
+  "mode": "interactive",
+  "working_on": "Close Issues #126/#127/#128/#129 \u2014 routine-mode doc-drift fixes plus a SKILL/Layer-1 parity validator check, and two MemPalace-probe blind-spot fixes.",
+  "declared_scope": "Fix #126 (add task_id/target_id to routine eager-claim enumeration; reorder routine close step 11 so diary write precedes audit), #127 (probe_palace.py UNKNOWN-state detection + validate.py soft-warn), #128 (health_check.py wing-spanning SQLite queries), #129 (new skill_layer1_parity_drift validator check + ADR 0089 + ADR 0044 amendment). phase: NA-engine-apparatus",
+  "outcome_summary": "Closed Issues #126/#127/#128/#129 \u2014 the four S-0162 cadence-audit findings \u2014 in one interactive build session. #129: new structural-phase skill_layer1_parity_drift validator check (validate_skill_layer1_parity + _SKILL_LAYER1_PAIRS config) + engine ADR 0089 + ADR 0044 present-truth Consequences amendment + MemPalace decision drawer + 15 pytests; dogfood surfaced build-readiness-gate.md missing step 10 (fixed in-context). #126: routine eager-claim task_id/target_id fields enumerated; the canonical close sequence reordered+renumbered 1-15 so the diary write + pushback/lesson capture + activity rollup precede the audit pass (session-shutdown-sequence.md gained the activity-rollup step it had drifted behind its SKILL on). #127: probe_palace.py detects mempalace repair-status status:UNKNOWN; new sibling soft-warn mempalace_hnsw_status_suspect. #128: audit_mempalace() converted to wing-agnostic read-only SQLite queries \u2014 the decisions room now reads its true cross-wing count (no false compliance gap), pushback/lesson probe returns 105/144; dead _resolve_mempalace_binary/_run_mempalace removed. Verification: 1479 pytest green, 0 validator hard-fails, ruff+ruff format+mypy --strict clean, cold-review sub-agent found no bugs. The two new soft-warns (#127/#129) fire as designed; mempalace_*_late is the benign plan-mode-then-claim artifact (S-0160); validator_runtime_phase_regression fired on a transient cold-venv-creation structural-phase spike (3534ms) \u2014 recent steady-state runs are 445-553ms, near the 500ms target, so the new structural-phase check did not meaningfully regress timing. One engine ADR (0089). lesson drawer drawer_paideia_lessons_81f948119486e559e4dee743.",
+  "outcome_summary_soft_warns": {
+    "edge_evidence_empty": 46,
+    "issue_collision": 11,
+    "mempalace_boot_query_late": 1,
+    "mempalace_diary_read_late": 1,
+    "mempalace_hnsw_status_suspect": 1,
+    "mempalace_wing_count_growth": 1,
+    "mempalace_zero_citations_after_search": 1,
+    "missing_rigor_score": 361,
+    "skill_layer1_parity_drift": 2,
+    "validator_runtime_phase_regression": 1
+  },
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": false,
+    "explanation": "Yes \u2014 all four issues closed end-to-end. #126 part 2 expanded beyond a literal 'reorder' (the Layer-1 doc had drifted behind its SKILL on multiple axes, so the reorder required reconciling the doc to current SKILL content) \u2014 delivered more thoroughly than the plan's literal wording, not descoped. One in-band addition: build-readiness-gate.md step 10, surfaced by the new #129 check and fixed in-context per default-to-fix-in-context. cold-review pass (Python/engine): 3 file(s), all match contract."
+  },
+  "next_session_handle": null,
+  "side_discoveries": [
+    {
+      "commit": "c2e0407",
+      "marker": "flagged",
+      "disposition_type": "acceptable_no_action",
+      "disposition_ref": "",
+      "reasoning": "The phrase 'the parity drift the #129 check flagged' describes the new skill_layer1_parity_drift check's behavior in-narrative \u2014 the session-shutdown-sequence parity gap it surfaced was reconciled in the same commit. Not a deferred discovery."
+    },
+    {
+      "commit": "6ca90c2",
+      "marker": "deferred",
+      "disposition_type": "acceptable_no_action",
+      "disposition_ref": "",
+      "reasoning": "'deferred-re-audit entry' is the literal name of a documented classification bucket / subsection in tools-validate-interpretation.md, not a deferral of work."
+    },
+    {
+      "commit": "b3eaf58",
+      "marker": "out of scope",
+      "disposition_type": "acceptable_no_action",
+      "disposition_ref": "#125",
+      "reasoning": "The skill_layer1_parity_drift check fires on session-build-lifecycle, which is the open Issue #125's instance \u2014 already tracked, out of S-0163's scope. The soft-warn firing on it is the mechanism working as intended; no new action, #125 owns the fix."
+    },
+    {
+      "commit": "8fea484",
+      "marker": "deferred",
+      "disposition_type": "acceptable_no_action",
+      "disposition_ref": "",
+      "reasoning": "'deferred-re-audit entry' is the literal name of a documented classification subsection in tools-validate-interpretation.md (the #127 commit added the mempalace_hnsw_status_suspect entry there), not a deferral of work \u2014 same as the 6ca90c2 marker."
+    }
+  ],
+  "approved_plan": "/Users/shanekidd/.claude/plans/i-want-to-close-fizzy-pizza.md",
+  "branch": "claude/amazing-varahamihira-f22165",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/amazing-varahamihira-f22165",
+  "mempalace_activity": {
+    "search_calls": 4,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 2,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 8,
+    "first_call_ts": "2026-05-14T20:48:39Z",
+    "last_call_ts": "2026-05-14T22:04:57Z",
+    "search_first_ts": "2026-05-14T20:48:39Z",
+    "diary_read_first_ts": "2026-05-14T20:48:47Z",
+    "mempalace_citations": {
+      "drawer_id_refs": 2,
+      "session_archive_refs": 0,
+      "tag_named_refs": 0,
+      "total": 2
+    }
+  }
+}
