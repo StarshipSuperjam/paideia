@@ -28,8 +28,7 @@ Non-responsibilities:
 from __future__ import annotations
 
 import json
-import shutil
-import subprocess
+import sqlite3
 import sys
 from pathlib import Path
 from typing import Any
@@ -43,8 +42,8 @@ from health_check import (  # noqa: E402
     CategoryFindings,
     HealthCheckReport,
     _count_adrs,
-    _resolve_mempalace_binary,
-    _run_mempalace,
+    _drawer_documents_via_sqlite,
+    _room_counts_via_sqlite,
     audit_bloat,
     audit_dead_weight,
     audit_fit,
@@ -1295,91 +1294,108 @@ def test_count_adrs_zero_when_dirs_empty(synthetic_repo: Path) -> None:
     assert _count_adrs() == 0
 
 
-def test_resolve_mempalace_binary_returns_none_when_absent(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    # Force shutil.which to miss and the home-fallback path to point at
-    # nothing executable.
-    monkeypatch.setattr(shutil, "which", lambda _: None)
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    assert _resolve_mempalace_binary() is None
+# ---------------------------------------------------------------------------
+# audit_mempalace — wing-agnostic SQLite queries (S-0163 per Issue #128)
+# ---------------------------------------------------------------------------
 
 
-def test_resolve_mempalace_binary_prefers_path(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(shutil, "which", lambda _: "/usr/bin/mempalace")
-    assert _resolve_mempalace_binary() == "/usr/bin/mempalace"
+def _make_palace_sqlite(palace_dir: Path, rows: list[tuple[str, str]]) -> None:
+    """Build a minimal chromadb-shaped sqlite store under ``palace_dir``.
 
-
-def test_resolve_mempalace_binary_falls_back_to_user_scope(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    # Build an executable file at the user-scope fallback path.
-    fallback_dir = tmp_path / "Library" / "Python" / "3.9" / "bin"
-    fallback_dir.mkdir(parents=True)
-    fallback_file = fallback_dir / "mempalace"
-    fallback_file.write_text("#!/bin/sh\necho test")
-    fallback_file.chmod(0o755)
-    monkeypatch.setattr(shutil, "which", lambda _: None)
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    assert _resolve_mempalace_binary() == str(fallback_file)
-
-
-def test_run_mempalace_returns_stdout_on_success(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    class FakeResult:
-        returncode = 0
-        stdout = "drawer count: 42"
-
-    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: FakeResult())
-    assert _run_mempalace("/fake/mempalace", "status") == "drawer count: 42"
-
-
-def test_run_mempalace_returns_none_on_nonzero_exit(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    class FakeResult:
-        returncode = 1
-        stdout = ""
-
-    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: FakeResult())
-    assert _run_mempalace("/fake/mempalace", "status") is None
-
-
-def test_run_mempalace_returns_none_on_subprocess_error(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def raise_error(*args: Any, **kwargs: Any) -> None:
-        raise OSError("simulated")
-
-    monkeypatch.setattr(subprocess, "run", raise_error)
-    assert _run_mempalace("/fake/mempalace", "status") is None
-
-
-def test_audit_mempalace_when_binary_absent(
-    synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(health_check, "_resolve_mempalace_binary", lambda: None)
-    findings = audit_mempalace([])
-    # One observation naming the missing-CLI condition.
-    assert len(findings.observations) == 1
-    obs, _action = findings.observations[0]
-    assert "MemPalace CLI not on PATH" in obs
-
-
-def test_audit_mempalace_status_failure(
-    synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(
-        health_check, "_resolve_mempalace_binary", lambda: "/fake/mempalace"
+    ``rows`` is a list of ``(key, string_value)`` tuples written into an
+    ``embedding_metadata`` table — enough for the room-count and
+    document queries `audit_mempalace`'s SQLite helpers read. Not a full
+    chromadb store; just the one table those helpers touch.
+    """
+    palace_dir.mkdir(parents=True, exist_ok=True)
+    db = palace_dir / "chroma.sqlite3"
+    con = sqlite3.connect(db)
+    con.execute(
+        "CREATE TABLE embedding_metadata (id INTEGER, key TEXT, string_value TEXT)"
     )
-    monkeypatch.setattr(health_check, "_run_mempalace", lambda *a, **kw: None)
+    con.executemany(
+        "INSERT INTO embedding_metadata (id, key, string_value) VALUES (?, ?, ?)",
+        [(i, k, v) for i, (k, v) in enumerate(rows)],
+    )
+    con.commit()
+    con.close()
+
+
+def test_room_counts_via_sqlite_spans_all_wings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The room-count query sums a room across every wing — the Issue #128
+    fix. The `decisions` room appears under three distinct wings; the
+    wing-agnostic GROUP BY returns 5, not the single-wing 2/2/1."""
+    palace = tmp_path / "palace"
+    # `wing` rows are present but the room query ignores them — the point
+    # is that `room=decisions` rows exist regardless of wing.
+    _make_palace_sqlite(
+        palace,
+        [
+            ("room", "decisions"),
+            ("room", "decisions"),
+            ("room", "decisions"),
+            ("room", "decisions"),
+            ("room", "decisions"),
+            ("room", "general"),
+            ("wing", "paideia"),
+            ("wing", "wing_abc"),
+            ("wing", "wing_def"),
+        ],
+    )
+    monkeypatch.setenv("MEMPALACE_PROBE_PALACE_PATH", str(palace))
+    counts = _room_counts_via_sqlite()
+    assert counts == {"decisions": 5, "general": 1}
+
+
+def test_room_counts_via_sqlite_absent_returns_none(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A palace path with no chroma.sqlite3 yields None, not a crash."""
+    monkeypatch.setenv("MEMPALACE_PROBE_PALACE_PATH", str(tmp_path / "nonexistent"))
+    assert _room_counts_via_sqlite() is None
+
+
+def test_drawer_documents_via_sqlite_returns_all_documents(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The document query returns every `chroma:document` body, wing-agnostic."""
+    palace = tmp_path / "palace"
+    _make_palace_sqlite(
+        palace,
+        [
+            ("chroma:document", "[pushback] drawer one"),
+            ("chroma:document", "ordinary drawer two"),
+            ("room", "decisions"),  # non-document rows excluded
+            ("wing", "paideia"),
+        ],
+    )
+    monkeypatch.setenv("MEMPALACE_PROBE_PALACE_PATH", str(palace))
+    docs = _drawer_documents_via_sqlite()
+    assert docs is not None
+    assert sorted(docs) == ["[pushback] drawer one", "ordinary drawer two"]
+
+
+def test_drawer_documents_via_sqlite_absent_returns_none(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A palace path with no chroma.sqlite3 yields None, not a crash."""
+    monkeypatch.setenv("MEMPALACE_PROBE_PALACE_PATH", str(tmp_path / "nonexistent"))
+    assert _drawer_documents_via_sqlite() is None
+
+
+def test_audit_mempalace_sqlite_absent(
+    synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When the chromadb sqlite store is absent, the audit records findings
+    naming that condition and still runs the archive-sourced diary check."""
+    monkeypatch.setattr(health_check, "_room_counts_via_sqlite", lambda: None)
+    monkeypatch.setattr(health_check, "_drawer_documents_via_sqlite", lambda: None)
     findings = audit_mempalace([])
-    # Status-failure finding plus per-tag failures plus diary-calibration finding.
     obs_texts = [obs for obs, _ in findings.observations]
-    assert any("mempalace status returned no output" in obs for obs in obs_texts)
+    assert any("chromadb sqlite store not found" in obs for obs in obs_texts)
+    assert any("not readable for pushback/lesson" in obs for obs in obs_texts)
 
 
 def test_audit_mempalace_decisions_room_healthy_ratio(
@@ -1388,23 +1404,12 @@ def test_audit_mempalace_decisions_room_healthy_ratio(
     # Two ADRs, three decisions-room drawers → ratio 1.5 (healthy).
     write_adr(synthetic_repo, engine=True, num="0001", status="Accepted")
     write_adr(synthetic_repo, engine=False, num="0001", status="Accepted")
-    status_output = (
-        "MemPalace Status\n"
-        "  WING: paideia\n"
-        "    ROOM: decisions    3 drawers\n"
-        "    ROOM: general    100 drawers\n"
-    )
-
-    def fake_run(binary: str, *args: str) -> str | None:
-        if args == ("status",):
-            return status_output
-        # Empty body for tag searches → no `Tags:` lines, so 0 tagged drawers.
-        return ""
-
     monkeypatch.setattr(
-        health_check, "_resolve_mempalace_binary", lambda: "/fake/mempalace"
+        health_check,
+        "_room_counts_via_sqlite",
+        lambda: {"decisions": 3, "general": 100},
     )
-    monkeypatch.setattr(health_check, "_run_mempalace", fake_run)
+    monkeypatch.setattr(health_check, "_drawer_documents_via_sqlite", lambda: [])
     findings = audit_mempalace([])
     obs_texts = [obs for obs, _ in findings.observations]
     assert any(
@@ -1419,15 +1424,10 @@ def test_audit_mempalace_decisions_room_low_ratio_flags_gap(
     # Ten ADRs, one decisions-room drawer → ratio 0.1 (gap).
     for n in range(1, 11):
         write_adr(synthetic_repo, engine=True, num=f"{n:04d}", status="Accepted")
-    status_output = "  WING: paideia\n    ROOM: decisions    1 drawers\n"
     monkeypatch.setattr(
-        health_check, "_resolve_mempalace_binary", lambda: "/fake/mempalace"
+        health_check, "_room_counts_via_sqlite", lambda: {"decisions": 1}
     )
-    monkeypatch.setattr(
-        health_check,
-        "_run_mempalace",
-        lambda binary, *args: status_output if args == ("status",) else "",
-    )
+    monkeypatch.setattr(health_check, "_drawer_documents_via_sqlite", lambda: [])
     findings = audit_mempalace([])
     obs_texts = [obs for obs, _ in findings.observations]
     assert any(
@@ -1435,40 +1435,42 @@ def test_audit_mempalace_decisions_room_low_ratio_flags_gap(
     )
 
 
+def test_audit_mempalace_decisions_count_sums_across_wings(
+    synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The Issue #128 regression guard: a 236-drawer decisions room reported
+    as the cross-wing sum, not a single wing's slice. Two ADRs + 236
+    decisions drawers → ratio well above 0.9 (healthy), NOT a false gap."""
+    write_adr(synthetic_repo, engine=True, num="0001", status="Accepted")
+    write_adr(synthetic_repo, engine=False, num="0001", status="Accepted")
+    monkeypatch.setattr(
+        health_check, "_room_counts_via_sqlite", lambda: {"decisions": 236}
+    )
+    monkeypatch.setattr(health_check, "_drawer_documents_via_sqlite", lambda: [])
+    findings = audit_mempalace([])
+    obs_texts = [obs for obs, _ in findings.observations]
+    # 236 / 2 = 118.0 — healthy, not a "significantly below" compliance gap.
+    assert any("two-layer recording is healthy" in obs for obs in obs_texts)
+    assert not any("significantly below" in obs for obs in obs_texts)
+
+
 def test_audit_mempalace_tag_filter_excludes_false_positives(
     synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # Search returns two results. One is a real pushback drawer with a
+    # Two drawer documents. One is a real pushback drawer with a
     # `Tags: pushback, decision` line. The other mentions "pushback" in
-    # the body but has no Tags line — operations doc that *describes*
-    # the convention. Only the first should count.
-    search_output = (
-        "  [1] paideia / decisions\n"
-        "    # Decision: real pushback moment\n"
-        "    Tags: pushback, decision\n"
-        "    Body content here\n"
-        "\n"
-        "  [2] paideia / operations\n"
-        "    # Operations doc mentioning pushback\n"
-        "    The pushback convention says ...\n"
-        "    Body content here\n"
-    )
-
-    def fake_run(binary: str, *args: str) -> str | None:
-        if args == ("status",):
-            return "  WING: paideia\n    ROOM: decisions    1 drawers\n"
-        if "pushback" in args:
-            return search_output
-        return ""
-
+    # the body but has no Tags line or prefix. Only the first counts.
+    documents = [
+        "# Decision: real pushback moment\nTags: pushback, decision\nBody content here\n",
+        "# Operations doc mentioning pushback\nThe pushback convention says ...\n",
+    ]
     write_adr(synthetic_repo, engine=True, num="0001", status="Accepted")
     monkeypatch.setattr(
-        health_check, "_resolve_mempalace_binary", lambda: "/fake/mempalace"
+        health_check, "_room_counts_via_sqlite", lambda: {"decisions": 1}
     )
-    monkeypatch.setattr(health_check, "_run_mempalace", fake_run)
+    monkeypatch.setattr(health_check, "_drawer_documents_via_sqlite", lambda: documents)
     findings = audit_mempalace([])
     obs_texts = [obs for obs, _ in findings.observations]
-    # Should report exactly 1 pushback drawer (not 2 from raw search count).
     assert any("`pushback`-tagged drawers in MemPalace: 1" in obs for obs in obs_texts)
 
 
@@ -1478,28 +1480,16 @@ def test_audit_mempalace_content_prefix_match_counted(
     """Issue #55: drawers leading their content with `[pushback]` count.
 
     No Tags-line on this drawer; the convention is the content prefix.
-    Pre-S-0099 audit_mempalace() reported 0 here despite the substantive
-    drawer; this test asserts the new content-prefix path catches it.
     """
-    search_output = (
-        "  [1] paideia / problems\n"
-        "    [pushback] AI authored 'correctable in any future session'.\n"
-        "    User pushback: 'What session will pick up that JSON edit?'\n"
-        "\n"
-    )
-
-    def fake_run(binary: str, *args: str) -> str | None:
-        if args == ("status",):
-            return "  WING: paideia\n    ROOM: problems    1 drawers\n"
-        if "pushback" in args:
-            return search_output
-        return ""
-
+    documents = [
+        "[pushback] AI authored 'correctable in any future session'.\n"
+        "User pushback: 'What session will pick up that JSON edit?'\n"
+    ]
     write_adr(synthetic_repo, engine=True, num="0001", status="Accepted")
     monkeypatch.setattr(
-        health_check, "_resolve_mempalace_binary", lambda: "/fake/mempalace"
+        health_check, "_room_counts_via_sqlite", lambda: {"problems": 1}
     )
-    monkeypatch.setattr(health_check, "_run_mempalace", fake_run)
+    monkeypatch.setattr(health_check, "_drawer_documents_via_sqlite", lambda: documents)
     findings = audit_mempalace([])
     obs_texts = [obs for obs, _ in findings.observations]
     assert any("`pushback`-tagged drawers in MemPalace: 1" in obs for obs in obs_texts)
@@ -1510,25 +1500,12 @@ def test_audit_mempalace_both_forms_deduplicated(
     synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A drawer carrying BOTH Tags-line AND content-prefix counts once."""
-    search_output = (
-        "  [1] paideia / problems\n"
-        "    [pushback] User pushback content.\n"
-        "    Tags: pushback, decision\n"
-        "\n"
-    )
-
-    def fake_run(binary: str, *args: str) -> str | None:
-        if args == ("status",):
-            return "  WING: paideia\n    ROOM: problems    1 drawers\n"
-        if "pushback" in args:
-            return search_output
-        return ""
-
+    documents = ["[pushback] User pushback content.\nTags: pushback, decision\n"]
     write_adr(synthetic_repo, engine=True, num="0001", status="Accepted")
     monkeypatch.setattr(
-        health_check, "_resolve_mempalace_binary", lambda: "/fake/mempalace"
+        health_check, "_room_counts_via_sqlite", lambda: {"problems": 1}
     )
-    monkeypatch.setattr(health_check, "_run_mempalace", fake_run)
+    monkeypatch.setattr(health_check, "_drawer_documents_via_sqlite", lambda: documents)
     findings = audit_mempalace([])
     obs_texts = [obs for obs, _ in findings.observations]
     assert any("`pushback`-tagged drawers in MemPalace: 1" in obs for obs in obs_texts)
@@ -1538,27 +1515,15 @@ def test_audit_mempalace_prefix_match_case_insensitive_and_whitespace(
     synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """[PUSHBACK] (uppercase) and `   [pushback]` (whitespace) both count."""
-    search_output = (
-        "  [1] paideia / problems\n"
-        "    [PUSHBACK] Uppercase variant.\n"
-        "\n"
-        "  [2] paideia / problems\n"
-        "       [pushback] Leading-whitespace variant.\n"
-        "\n"
-    )
-
-    def fake_run(binary: str, *args: str) -> str | None:
-        if args == ("status",):
-            return "  WING: paideia\n    ROOM: problems    2 drawers\n"
-        if "pushback" in args:
-            return search_output
-        return ""
-
+    documents = [
+        "[PUSHBACK] Uppercase variant.\n",
+        "   [pushback] Leading-whitespace variant.\n",
+    ]
     write_adr(synthetic_repo, engine=True, num="0001", status="Accepted")
     monkeypatch.setattr(
-        health_check, "_resolve_mempalace_binary", lambda: "/fake/mempalace"
+        health_check, "_room_counts_via_sqlite", lambda: {"problems": 2}
     )
-    monkeypatch.setattr(health_check, "_run_mempalace", fake_run)
+    monkeypatch.setattr(health_check, "_drawer_documents_via_sqlite", lambda: documents)
     findings = audit_mempalace([])
     obs_texts = [obs for obs, _ in findings.observations]
     assert any("`pushback`-tagged drawers in MemPalace: 2" in obs for obs in obs_texts)
@@ -1568,31 +1533,14 @@ def test_audit_mempalace_lesson_tag_extension_parallel_to_pushback(
     synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The same bifurcated counting applies to the lesson convention."""
-    pushback_search = "  [1] paideia / problems\n    [pushback] real pushback.\n\n"
-    lesson_search = (
-        "  [1] paideia / lessons\n"
-        "    [lesson] real lesson content.\n"
-        "    Tags: lesson, project\n"
-        "\n"
-        "  [2] paideia / lessons\n"
-        "    [LESSON] uppercase lesson without Tags-line.\n"
-        "\n"
-    )
-
-    def fake_run(binary: str, *args: str) -> str | None:
-        if args == ("status",):
-            return "  WING: paideia\n    ROOM: lessons    2 drawers\n"
-        if "pushback" in args:
-            return pushback_search
-        if "lesson" in args:
-            return lesson_search
-        return ""
-
+    documents = [
+        "[pushback] real pushback.\n",
+        "[lesson] real lesson content.\nTags: lesson, project\n",
+        "[LESSON] uppercase lesson without Tags-line.\n",
+    ]
     write_adr(synthetic_repo, engine=True, num="0001", status="Accepted")
-    monkeypatch.setattr(
-        health_check, "_resolve_mempalace_binary", lambda: "/fake/mempalace"
-    )
-    monkeypatch.setattr(health_check, "_run_mempalace", fake_run)
+    monkeypatch.setattr(health_check, "_room_counts_via_sqlite", lambda: {"lessons": 2})
+    monkeypatch.setattr(health_check, "_drawer_documents_via_sqlite", lambda: documents)
     findings = audit_mempalace([])
     obs_texts = [obs for obs, _ in findings.observations]
     assert any("`lesson`-tagged drawers in MemPalace: 2" in obs for obs in obs_texts)
@@ -1601,28 +1549,15 @@ def test_audit_mempalace_lesson_tag_extension_parallel_to_pushback(
 def test_audit_mempalace_neither_form_excluded(
     synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A block mentioning `pushback` mid-body without Tags-line or prefix
-    is not counted — the false-positive guard from the original heuristic
-    is preserved alongside the new content-prefix path."""
-    search_output = (
-        "  [1] paideia / general\n"
-        "    Some operations doc that describes the pushback convention\n"
-        "    in a paragraph but never tags or prefixes itself.\n"
-        "\n"
-    )
-
-    def fake_run(binary: str, *args: str) -> str | None:
-        if args == ("status",):
-            return "  WING: paideia\n    ROOM: general    1 drawers\n"
-        if "pushback" in args:
-            return search_output
-        return ""
-
+    """A drawer mentioning `pushback` mid-body without a Tags-line or prefix
+    is not counted — the false-positive guard is preserved."""
+    documents = [
+        "Some operations doc that describes the pushback convention\n"
+        "in a paragraph but never tags or prefixes itself.\n"
+    ]
     write_adr(synthetic_repo, engine=True, num="0001", status="Accepted")
-    monkeypatch.setattr(
-        health_check, "_resolve_mempalace_binary", lambda: "/fake/mempalace"
-    )
-    monkeypatch.setattr(health_check, "_run_mempalace", fake_run)
+    monkeypatch.setattr(health_check, "_room_counts_via_sqlite", lambda: {"general": 1})
+    monkeypatch.setattr(health_check, "_drawer_documents_via_sqlite", lambda: documents)
     findings = audit_mempalace([])
     obs_texts = [obs for obs, _ in findings.observations]
     assert any("No drawers tagged `pushback`" in obs for obs in obs_texts)
@@ -1634,10 +1569,8 @@ def test_audit_mempalace_diary_calibration_when_no_field_present(
     # Archives without diary_skipped key → calibration window message.
     write_archive(synthetic_repo, "S-0030", soft_warns={"adr_back_reference_orphan": 0})
     write_archive(synthetic_repo, "S-0031", soft_warns={"adr_back_reference_orphan": 1})
-    monkeypatch.setattr(
-        health_check, "_resolve_mempalace_binary", lambda: "/fake/mempalace"
-    )
-    monkeypatch.setattr(health_check, "_run_mempalace", lambda *a, **kw: None)
+    monkeypatch.setattr(health_check, "_room_counts_via_sqlite", lambda: None)
+    monkeypatch.setattr(health_check, "_drawer_documents_via_sqlite", lambda: None)
     findings = audit_mempalace(list_archives())
     obs_texts = [obs for obs, _ in findings.observations]
     assert any("calibration window" in obs for obs in obs_texts)
@@ -1649,10 +1582,8 @@ def test_audit_mempalace_diary_high_skip_rate(
     # Three of four archives have diary_skipped=1 → 75% skip rate.
     for sid, skipped in (("S-0033", 1), ("S-0034", 1), ("S-0035", 0), ("S-0036", 1)):
         write_archive(synthetic_repo, sid, soft_warns={"diary_skipped": skipped})
-    monkeypatch.setattr(
-        health_check, "_resolve_mempalace_binary", lambda: "/fake/mempalace"
-    )
-    monkeypatch.setattr(health_check, "_run_mempalace", lambda *a, **kw: None)
+    monkeypatch.setattr(health_check, "_room_counts_via_sqlite", lambda: None)
+    monkeypatch.setattr(health_check, "_drawer_documents_via_sqlite", lambda: None)
     findings = audit_mempalace(list_archives())
     obs_texts = [obs for obs, _ in findings.observations]
     # Skip rate: 3/4 = 75%

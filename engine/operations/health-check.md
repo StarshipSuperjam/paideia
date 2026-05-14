@@ -148,7 +148,7 @@ Each external system the audit references gets a fresh content probe at audit-ti
 
 #### MemPalace freshness probe
 
-Run `mempalace search` against ≥3 representative recent terms — derived from the last 1-3 sessions' `working_on` subjects in `engine/session/archive/*.json`, plus named `pushback`/`lesson` keywords. The probe is *"does recall return relevant content?"* not *"does the wing have drawers?"*. [`engine/tools/health_check.py`](../tools/health_check.py)'s `audit_mempalace()` function already runs `pushback`/`lesson` adoption-count probes via the local `mempalace search` CLI (added between S-0065 and S-0077, documented as **canonical contract** at S-0085 per [Issue #28](https://github.com/StarshipSuperjam/paideia/issues/28)) — the audit cannot skip them. Beyond the script's mechanical surface, the audit AI runs additional `mempalace_search` MCP calls during prose authoring against current-session-relevant terms; results are read for *content quality* (do the drawers carry usable context, or are they thin?), not just count.
+Run `mempalace search` against ≥3 representative recent terms — derived from the last 1-3 sessions' `working_on` subjects in `engine/session/archive/*.json`, plus named `pushback`/`lesson` keywords. The probe is *"does recall return relevant content?"* not *"does the wing have drawers?"*. [`engine/tools/health_check.py`](../tools/health_check.py)'s `audit_mempalace()` function already runs `pushback`/`lesson` adoption-count probes via a direct wing-agnostic read of the chromadb sqlite store (converted from the wing-scoped `mempalace search --wing paideia` CLI at S-0163 per [Issue #128](https://github.com/StarshipSuperjam/paideia/issues/128) — the prior wing-scoped query returned empty once drawers scattered across ~77 wings) — the audit cannot skip them. Beyond the script's mechanical surface, the audit AI runs additional `mempalace_search` MCP calls during prose authoring against current-session-relevant terms; results are read for *content quality* (do the drawers carry usable context, or are they thin?), not just count.
 
 #### Validator freshness probe
 
@@ -335,7 +335,7 @@ Defaults work for most phases. Re-evaluate the cadence:
 - [ADR 0053](../adr/0053-mechanism-first-exercise-gate.md) — first-exercise readiness gate; the cadence audit at S-0087 is the first exercise of ADR 0057.
 - [`mempalace-tagging-conventions.md`](mempalace-tagging-conventions.md) — `pushback` and `lesson` tag specifics the Accumulated-pushbacks-and-lessons section consumes.
 - [`docs/health-checks/TEMPLATE.md`](../../docs/health-checks/TEMPLATE.md) — canonical report template sessions populate.
-- [`engine/tools/health_check.py`](../tools/health_check.py) — script-generated mechanical input; `audit_mempalace()` runs canonical `pushback`/`lesson` adoption-count probes.
+- [`engine/tools/health_check.py`](../tools/health_check.py) — script-generated mechanical input; `audit_mempalace()` runs wing-agnostic `pushback`/`lesson` adoption-count probes (direct chromadb-sqlite read per Issue #128, S-0163).
 - [`engine/tools/scan_orphans.py`](../tools/scan_orphans.py) — multi-axis dead-weight scanner.
 - [`session-shutdown-sequence.md`](session-shutdown-sequence.md) — telemetry sources fed by shutdown.
 - [`tools-validate-interpretation.md`](tools-validate-interpretation.md) — soft-warn categories the audit consumes.

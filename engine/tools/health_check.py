@@ -118,7 +118,7 @@ import argparse
 import json
 import os
 import re
-import shutil
+import sqlite3
 import subprocess
 import sys
 from collections import Counter
@@ -1254,44 +1254,93 @@ def audit_bloat() -> CategoryFindings:
 # ---------------------------------------------------------------------------
 
 
-def _resolve_mempalace_binary() -> str | None:
-    """Resolve the mempalace CLI binary path.
+def _palace_db_path() -> Path:
+    """Resolve the chromadb sqlite store path inside the MemPalace palace.
 
-    Mirrors the resolution pattern in engine/tools/hooks/mempalace-hook-wrapper.sh
-    and post-adr-write.sh (per ADR 0043): try PATH, fall back to the
-    user-scope install at ~/Library/Python/3.9/bin/mempalace. Returns
-    None if neither resolves.
+    Honors the ``MEMPALACE_PROBE_PALACE_PATH`` env override (test-only;
+    same convention as ``probe_palace.py``), else ``~/.mempalace/palace``.
+    Returns the path to ``chroma.sqlite3`` — existence is the caller's
+    check.
     """
-    on_path = shutil.which("mempalace")
-    if on_path:
-        return on_path
-    fallback = Path.home() / "Library" / "Python" / "3.9" / "bin" / "mempalace"
-    if fallback.is_file() and os.access(fallback, os.X_OK):
-        return str(fallback)
-    return None
+    palace = Path(
+        os.environ.get("MEMPALACE_PROBE_PALACE_PATH")
+        or str(Path.home() / ".mempalace" / "palace")
+    )
+    return palace / "chroma.sqlite3"
 
 
-def _run_mempalace(binary: str, *args: str) -> str | None:
-    """Run mempalace CLI; return stdout or None on error.
+def _room_counts_via_sqlite() -> dict[str, int] | None:
+    """Return a wing-agnostic ``room -> drawer-count`` map via direct SQLite.
 
-    Captures stderr but discards it. Best-effort; the audit gracefully
-    handles failures by returning None and the caller skips the
-    corresponding finding. 30-second timeout — the CLI is fast against a
-    local palace.
+    Reads ``embedding_metadata`` from the chromadb sqlite store with a
+    read-only ``mode=ro`` URI connection. Returns ``None`` when the sqlite
+    file is absent or the query fails (legitimate on a fresh clone / CI).
+
+    Replaces the pre-S-0163 ``mempalace status`` text-parse, which was
+    wing-scoped: ``mempalace status`` emits the per-wing hierarchy, the
+    same room name (``decisions``) appears under every wing, and the
+    parser's ``room_counts[name] = count`` overwrote rather than summed —
+    so a 236-drawer ``decisions`` room reported as 1, fabricating a
+    two-layer-recording compliance gap (Issue #128). The ``GROUP BY``
+    here sums across all ~77 wings.
     """
+    db = _palace_db_path()
+    if not db.is_file():
+        return None
     try:
-        result = subprocess.run(
-            [binary, *args],
-            capture_output=True,
-            text=True,
-            timeout=30,
-            check=False,
-        )
-        if result.returncode == 0:
-            return result.stdout
-    except (subprocess.SubprocessError, OSError):
-        pass
-    return None
+        con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    except sqlite3.Error:
+        return None
+    try:
+        rows = con.execute(
+            "SELECT string_value, COUNT(*) FROM embedding_metadata "
+            "WHERE key='room' GROUP BY string_value"
+        ).fetchall()
+    except sqlite3.Error:
+        return None
+    finally:
+        con.close()
+    counts: dict[str, int] = {}
+    for name, count in rows:
+        if name is not None:
+            try:
+                counts[str(name)] = int(count)
+            except (TypeError, ValueError):
+                continue
+    return counts
+
+
+def _drawer_documents_via_sqlite() -> list[str] | None:
+    """Return every drawer's document body, wing-agnostic, via direct SQLite.
+
+    Reads the ``chroma:document`` rows from ``embedding_metadata`` with a
+    read-only ``mode=ro`` URI connection. Returns ``None`` when the sqlite
+    file is absent or the query fails.
+
+    Replaces the pre-S-0163 ``mempalace search <tag> --wing paideia`` calls,
+    which were scoped to the single ``paideia`` wing and returned empty once
+    drawers scattered across ~77 wings (the upstream wing-naming bug, Issues
+    #1/#2) — the ``pushback`` / ``lesson`` adoption probe was silent for two
+    consecutive audit windows (Issue #128). Scanning all drawer documents
+    here is wing-agnostic; the caller applies the same Tags-line and
+    content-prefix regexes the search-result path used.
+    """
+    db = _palace_db_path()
+    if not db.is_file():
+        return None
+    try:
+        con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    except sqlite3.Error:
+        return None
+    try:
+        rows = con.execute(
+            "SELECT string_value FROM embedding_metadata WHERE key='chroma:document'"
+        ).fetchall()
+    except sqlite3.Error:
+        return None
+    finally:
+        con.close()
+    return [str(r[0]) for r in rows if r[0] is not None]
 
 
 def _count_adrs() -> int:
@@ -1331,36 +1380,34 @@ def audit_mempalace(archives: list[Path]) -> CategoryFindings:
 
     Returns CategoryFindings.
 
+    Data source (S-0163, Issue #128): the room counts and the
+    pushback/lesson adoption counts read the chromadb sqlite store
+    directly (read-only ``mode=ro`` URI), wing-agnostically. The
+    pre-S-0163 implementation shelled out to ``mempalace status`` (whose
+    per-wing hierarchy made the room-count parser report one wing's
+    ``decisions`` count instead of the cross-wing sum — fabricating a
+    two-layer-recording compliance gap) and ``mempalace search <tag>
+    --wing paideia`` (wing-scoped, so it returned empty once drawers
+    scattered across ~77 wings). Both queries now span all wings.
+
     Failure modes:
-    - mempalace CLI not installed (PATH + fallback both miss). Records
-      a single "CLI not available" finding and returns; downstream
-      counts are skipped.
-    - mempalace daemon down. Same handling.
-    - mempalace status / search returns non-zero. Each call is
-      independent; one failure doesn't suppress the others.
+    - chromadb sqlite store absent (fresh clone / CI). Records a single
+      finding and skips the SQLite-sourced counts; the diary-discipline
+      check (archive-sourced) still runs.
+    - chromadb sqlite query fails. Same handling — graceful skip.
     """
     findings = CategoryFindings()
 
-    binary = _resolve_mempalace_binary()
-    if binary is None:
+    # Drawer counts per room — wing-agnostic, via direct read-only SQLite.
+    room_counts = _room_counts_via_sqlite()
+    if room_counts is None:
         findings.add(
-            "MemPalace CLI not on PATH and not at ~/Library/Python/3.9/bin/mempalace",
-            "Install per engine/operations/mempalace-operations.md, or document the "
-            "absence (e.g., CI environment) so subsequent audits skip silently.",
-        )
-        return findings
-
-    # Drawer counts per room (via `mempalace status`).
-    status_text = _run_mempalace(binary, "status")
-    if status_text is None:
-        findings.add(
-            "mempalace status returned no output; daemon may be down or palace path misconfigured",
-            "Diagnose via `mempalace status` directly; check ~/.mempalace/config.json.",
+            "MemPalace chromadb sqlite store not found at the expected palace path",
+            "Verify ~/.mempalace/palace/chroma.sqlite3 exists; in CI or on a "
+            "fresh clone the absence is expected — subsequent audits skip "
+            "silently.",
         )
     else:
-        room_counts: dict[str, int] = {}
-        for m in re.finditer(r"ROOM:\s*(\S+)\s+(\d+)\s+drawers?", status_text):
-            room_counts[m.group(1)] = int(m.group(2))
         adr_count = _count_adrs()
         decisions_count = room_counts.get("decisions", 0)
         if adr_count > 0:
@@ -1399,12 +1446,13 @@ def audit_mempalace(archives: list[Path]) -> CategoryFindings:
                 "Room-targeting conventions.",
             )
 
-    # Adoption counts for `pushback` and `lesson` tags. The CLI search
-    # returns full drawer bodies; raw match counts include false
-    # positives (operations docs that *describe* the tags but aren't
-    # tag-applied themselves). Two counting paths for the bifurcated
-    # storage convention clarified at S-0098 in
-    # mempalace-tagging-conventions.md:
+    # Adoption counts for `pushback` and `lesson` tags. Scans every drawer
+    # document body, wing-agnostic, via direct SQLite (see
+    # _drawer_documents_via_sqlite). Raw match counts can include false
+    # positives (a drawer quoting an ops doc that *describes* the tags),
+    # the same surface the pre-S-0163 search-result path carried. Two
+    # counting paths for the bifurcated storage convention clarified at
+    # S-0098 in mempalace-tagging-conventions.md:
     #
     # 1. Tags-line match: drawer body carries a `Tags:` line that
     #    includes the bare tag word (legacy convention; same heuristic
@@ -1414,54 +1462,45 @@ def audit_mempalace(archives: list[Path]) -> CategoryFindings:
     #    This catches drawers that lead their content with `[pushback]`
     #    or `[lesson]` rather than carrying the tag as metadata.
     #
-    # A block matching BOTH counts once (per Issue #55 acceptance
-    # criterion 4). Without this extension audit_mempalace() reported
-    # "0 drawers tagged pushback" at S-0097 despite 3 substantive
-    # `[pushback]`-prefixed drawers in paideia/problems (S-0005,
-    # S-0048, S-0071).
-    for tag in ("pushback", "lesson"):
-        search_text = _run_mempalace(
-            binary, "search", tag, "--wing", "paideia", "--results", "50"
+    # A drawer matching BOTH counts once (per Issue #55 acceptance
+    # criterion 4).
+    documents = _drawer_documents_via_sqlite()
+    if documents is None:
+        findings.add(
+            "MemPalace chromadb sqlite store not readable for pushback/lesson "
+            "adoption counts",
+            "Skip; the chromadb-sqlite-absent finding above names the same root cause.",
         )
-        if search_text is None:
-            findings.add(
-                f"mempalace search for `{tag}` returned no output",
-                "Skip; diagnose CLI separately if persistent.",
+    else:
+        for tag in ("pushback", "lesson"):
+            tag_pattern = re.compile(rf"\*?\*?Tags:\*?\*?[^\n]*\b{re.escape(tag)}\b")
+            prefix_pattern = re.compile(
+                rf"^\s*\[{re.escape(tag)}\]", re.IGNORECASE | re.MULTILINE
             )
-            continue
-        # Each result is bracketed by a "[N] paideia / <room>" header.
-        # Split on those headers and inspect each block's body for
-        # either a Tags-line match or a [<tag>]-content-prefix line.
-        blocks = re.split(
-            r"^\s*\[\d+\]\s+paideia\s*/\s*\w+", search_text, flags=re.MULTILINE
-        )
-        tag_pattern = re.compile(rf"\*?\*?Tags:\*?\*?[^\n]*\b{re.escape(tag)}\b")
-        prefix_pattern = re.compile(
-            rf"^\s*\[{re.escape(tag)}\]", re.IGNORECASE | re.MULTILINE
-        )
-        tag_block_indices = {i for i, b in enumerate(blocks) if tag_pattern.search(b)}
-        prefix_block_indices = {
-            i for i, b in enumerate(blocks) if prefix_pattern.search(b)
-        }
-        combined_indices = tag_block_indices | prefix_block_indices
-        tagged_count = len(combined_indices)
-        tag_only_count = len(tag_block_indices)
-        prefix_only_count = len(prefix_block_indices)
-        if tagged_count == 0:
-            findings.add(
-                f"No drawers tagged `{tag}` found in MemPalace",
-                f"Convention adoption gap. Either the {tag} convention isn't being "
-                "used in practice (review at next session), or no qualifying moments "
-                "have arisen since the convention was added at S-0032.",
+            tag_only_count = sum(1 for doc in documents if tag_pattern.search(doc))
+            prefix_only_count = sum(
+                1 for doc in documents if prefix_pattern.search(doc)
             )
-        else:
-            findings.add(
-                f"`{tag}`-tagged drawers in MemPalace: {tagged_count} confirmed "
-                f"(via Tags-line match: {tag_only_count}; "
-                f"via [{tag}]-content-prefix match: {prefix_only_count}; "
-                "deduplicated)",
-                "no action",
+            tagged_count = sum(
+                1
+                for doc in documents
+                if tag_pattern.search(doc) or prefix_pattern.search(doc)
             )
+            if tagged_count == 0:
+                findings.add(
+                    f"No drawers tagged `{tag}` found in MemPalace",
+                    f"Convention adoption gap. Either the {tag} convention isn't being "
+                    "used in practice (review at next session), or no qualifying moments "
+                    "have arisen since the convention was added at S-0032.",
+                )
+            else:
+                findings.add(
+                    f"`{tag}`-tagged drawers in MemPalace: {tagged_count} confirmed "
+                    f"(via Tags-line match: {tag_only_count}; "
+                    f"via [{tag}]-content-prefix match: {prefix_only_count}; "
+                    "deduplicated)",
+                    "no action",
+                )
 
     # Diary discipline via diary_skipped soft-warn in recent archives.
     diary_skipped_count = 0
