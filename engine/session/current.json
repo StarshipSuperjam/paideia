@@ -1,0 +1,19 @@
+{
+  "id": "S-0159",
+  "mode": "routine",
+  "task_id": "SQA-02",
+  "target_id": "T-SEED-QA",
+  "started_at": "2026-05-14T18:08:07Z",
+  "closed_at": null,
+  "status": "in_progress",
+  "working_on": "Routine task SQA-02 (T-SEED-QA): Shard 02 QA census — score 28 pedagogical_prerequisite edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the pinned seed_qa_audit.md rubric; shard content read from the committed seed_qa_evidence/shards.json (routine sessions never touch the DB); write the single scope-locked evidence file.",
+  "approved_plan": "engine/session/current_plan.md",
+  "branch": "claude/pedantic-wozniak-331ea7",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/pedantic-wozniak-331ea7",
+  "declared_scope": "Author engine/build_readiness/seed_qa_evidence/shard_02.md as candidate-findings evidence for SQA-02: one C1 verdict (Sound | Defensible | Reversed | Weak-redundant) per the 28 pedagogical_prerequisite edges + C2/C3 yes/no per the 20 nodes, per the pinned seed_qa_audit.md rubric, following the fixed evidence-file schema. Candidate findings only — no Issue filing, no migration edits, no disposition. phase: NA-routine",
+  "scope_delivery": null,
+  "next_session_handle": null,
+  "outcome_summary": null,
+  "outcome_summary_soft_warns": null,
+  "mempalace_activity": null
+}
