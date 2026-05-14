@@ -1,0 +1,40 @@
+{
+  "id": "S-0157",
+  "started_at": "2026-05-14T16:32:31Z",
+  "closed_at": "2026-05-14T17:00:00Z",
+  "status": "closed",
+  "mode": "interactive",
+  "working_on": "Fix Issues #120 (boot-time worktree sweep reaps pre-eager-claim worktrees — add per-worktree liveness marker) and #121 (eager-claim current.json template omits the required 'mode' field — add to templates, mechanical value guard, backfill non-canonical archives).",
+  "declared_scope": "Issue #120: per-worktree liveness marker written by session-start.sh, honored by sweep_worktrees.sh + routine_worktree_sweep.py with a 24h freshness window; tests; ADR 0076 present-truth amendment + ops-doc/CLAUDE.md/cross-references cascade. Issue #121: add mode:\"interactive\" to the three build eager-claim templates + mode:\"routine\" to the two routine templates; allowed-values guard in audit_archive_structured_fields.py + tests; backfill non-canonical archive mode values to \"interactive\". ENGINE_LOG entries. phase: NA-engine-apparatus",
+  "outcome_summary": "Closed Issues #120 + #121. #120: a per-worktree `session-live` liveness marker (session-start.sh writes it at every boot, before eager-claim; sweep_worktrees.sh + routine_worktree_sweep.py preserve any worktree whose marker is within a 24h window) closes the boot-sweep bystander gap where a sibling session reaped a pre-eager-claim plan/exploration worktree. ADR 0076 present-truth amendment + session-shutdown-sequence.md/cross-references.md/CLAUDE.md cascade; 13 new pytests incl. the new test_sweep_worktrees.py (the bash utility had zero coverage). #121: `mode` added to the 3 build + 2 routine eager-claim templates; allowed_values guard in audit_archive_structured_fields.py pins the canonical {interactive, routine} set; 65 archives backfilled. 0 validator hard-fails (48 checks); 1439/1439 pytest engine/tools. No ADR for #121 (templates conform to existing ADR 0051 contract).",
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": true,
+    "explanation": "All declared deliverables landed end-to-end with no descope or reorder. #120: liveness marker in session-start.sh + sweep_worktrees.sh + routine_worktree_sweep.py; ADR 0076 amendment + full cascade; 13 pytests. #121: mode in all 5 eager-claim templates + allowed_values guard + tests + archive backfill. Two user-confirmed scope adjudications during plan mode: (a) the liveness-marker approach for #120 chosen over mtime-heuristic / process-check; (b) the canonical mode vocabulary set to interactive/routine (the user's refinement of the plan's build/routine, with the reasoning that the field records durable execution-style not a project-phase label). One in-execution judgment within delivered scope: the #121 backfill was scoped to the user-approved plan's intent (normalize the vocabulary) rather than its literal count — 58 non-canonical present values + 7 S-0048+ absent archives (all verified interactive) normalized to \"interactive\"; pre-S-0048 absent archives left untouched since `mode` was not yet required."
+  },
+  "next_session_handle": null,
+  "approved_plan": "~/.claude/plans/i-need-to-get-melodic-pebble.md",
+  "branch": "claude/quirky-borg-4b3c66",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/quirky-borg-4b3c66",
+  "mempalace_activity": {
+    "search_calls": 1,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 1,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 4,
+    "first_call_ts": "2026-05-14T16:08:22Z",
+    "last_call_ts": "2026-05-14T16:58:02Z"
+  },
+  "outcome_summary_soft_warns": {
+    "mempalace_wing_count_growth": 1,
+    "issue_collision": 8,
+    "missing_rigor_score": 361,
+    "edge_evidence_empty": 46,
+    "mempalace_zero_citations_after_search": 1
+  }
+}
