@@ -1,0 +1,57 @@
+{
+  "id": "S-0159",
+  "mode": "routine",
+  "task_id": "SQA-02",
+  "target_id": "T-SEED-QA",
+  "started_at": "2026-05-14T18:08:07Z",
+  "closed_at": "2026-05-14T18:18:00Z",
+  "status": "closed",
+  "working_on": "Routine task SQA-02 (T-SEED-QA): Shard 02 QA census \u2014 score 28 pedagogical_prerequisite edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the pinned seed_qa_audit.md rubric; shard content read from the committed seed_qa_evidence/shards.json (routine sessions never touch the DB); write the single scope-locked evidence file.",
+  "approved_plan": "engine/session/current_plan.md",
+  "branch": "claude/pedantic-wozniak-331ea7",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/pedantic-wozniak-331ea7",
+  "declared_scope": "Author engine/build_readiness/seed_qa_evidence/shard_02.md as candidate-findings evidence for SQA-02: one C1 verdict (Sound | Defensible | Reversed | Weak-redundant) per the 28 pedagogical_prerequisite edges + C2/C3 yes/no per the 20 nodes, per the pinned seed_qa_audit.md rubric, following the fixed evidence-file schema. Candidate findings only \u2014 no Issue filing, no migration edits, no disposition. phase: NA-routine",
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": false,
+    "explanation": "Delivered as declared \u2014 shard_02.md authored to the fixed evidence-file schema, all 28 edges scored against C1 and all 20 nodes against C2/C3, no descope or reorder. No user confirmation (unattended routine session). One in-band Issue (#123, tech-debt/documentation \u2014 out-of-scope discovery, no tracked files touched: the /start-routine command body omits boot gates + MemPalace boot steps the Skill enumerates). The auto_target.json SQA-02 status flip rides with the close commit per the Issue #122 lifecycle-push-wrapper sequencing constraint."
+  },
+  "next_session_handle": null,
+  "side_discoveries": [
+    {
+      "commit": "c6b4857",
+      "marker": "flagged",
+      "disposition_type": "acceptable_no_action",
+      "disposition_ref": "",
+      "reasoning": "The 'flagged' marker is the QA census methodology working as designed \u2014 per seed_qa_audit.md the evidence session produces candidate findings only and flags judgment-call verdicts (here the three Defensible edges E-24/E-26/E-27) for the SQA-20 closeout's consistency review. SQA-20 is already a task in auto_target.json with depends_on covering all 19 shards, so the surface exists and is structurally guaranteed to consume this. Not an undispositioned side-discovery; no routing action needed."
+    }
+  ],
+  "outcome_summary": "Second routine fire of the T-SEED-QA seed-graph QA census. Scored shard 02 \u2014 28 pedagogical_prerequisite edges (C1) + 20 nodes (C2/C3) per the pinned seed_qa_audit.md rubric \u2014 and wrote seed_qa_evidence/shard_02.md. Findings: C1 1 Reversed/28 = 3.6% (E-15 utilitarianism->hedonism, a part-before-whole direction error, not audit-touched; notably below shard 01's 10.7% and the production audit's 13% baseline \u2014 a per-shard outlier the SQA-20 closeout watches for); C2 0/20 fail; C3 0/20 fail (uniformly high node quality). Three edges scored Defensible (E-24, E-26, E-27 \u2014 all genuine both-ways calls) and flagged for the closeout's consistency review. Candidate findings only \u2014 disposition is the SQA-20 closeout. SQA-02 marked complete; SQA-03 next. Filed Issue #123 (tech-debt/documentation): the /start-routine command body is a strict subset of the canonical routine boot procedure \u2014 it omits the boot gates (0a freshness / 0b lock / 0c wedge) and MemPalace boot steps (5.5/5.6) the routine-mode-lifecycle Skill enumerates; this session followed it literally, ran 5.5/5.6 late before shutdown (telemetry clean), but the concurrency lock was never acquired (no harm \u2014 no concurrent fire). Lesson drawer drawer_paideia_lessons_5fc40fcc5beb06d23e4b7c85 captures the subset-enumeration pattern. 0 validator hard-fails (45 checks). Prior context from boot search referenced S-0158 / S-0122.",
+  "outcome_summary_soft_warns": {
+    "mempalace_wing_count_growth": 1,
+    "issue_collision": 7,
+    "missing_rigor_score": 361,
+    "edge_evidence_empty": 46,
+    "validator_runtime_phase_regression": 1
+  },
+  "mempalace_activity": {
+    "search_calls": 3,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 1,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 6,
+    "first_call_ts": "2026-05-14T18:13:19Z",
+    "last_call_ts": "2026-05-14T18:17:46Z",
+    "mempalace_citations": {
+      "drawer_id_refs": 1,
+      "session_archive_refs": 0,
+      "tag_named_refs": 0,
+      "total": 1
+    }
+  }
+}

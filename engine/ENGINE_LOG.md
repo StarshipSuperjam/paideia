@@ -10,6 +10,12 @@ This project does not yet follow [Semantic Versioning](https://semver.org/) — 
 
 ## [Unreleased]
 
+### Added (S-0159 — seed-graph QA census evidence: shard 02)
+
+- **[`engine/build_readiness/seed_qa_evidence/shard_02.md`](build_readiness/seed_qa_evidence/shard_02.md)** — second evidence file of the `T-SEED-QA` census (routine task `SQA-02`). 28 `pedagogical_prerequisite` edges scored against C1 (prerequisite soundness) + 20 nodes against C2 (`teaching_notes` traction) and C3 (`summary` cold-readability), per the pinned `seed_qa_audit.md` rubric. Tally — C1: 1 `Reversed` / 28 = 3.6% (E-15 `utilitarianism→hedonism`, a part-before-whole direction error; not audit-touched); C2: 0 fail / 20; C3: 0 fail / 20. Three edges scored `Defensible` (E-24 `belief→propositional_attitude`, E-26 `environmental_ethics→animal_ethics`, E-27 `problem_of_induction→scientific_method`) and flagged for the `SQA-20` closeout's consistency review. Candidate findings only — disposition deferred to the `SQA-20` closeout's follow-up interactive session. `auto_target.json` task `SQA-02` marked `complete`.
+
+**Rationale**: routine-mode execution of the `T-SEED-QA` target authored at S-0156. Second of 19 shard tasks; `SQA-03` is the next eligible task.
+
 ### Added (S-0158 — seed-graph QA census evidence: shard 01)
 
 - **[`engine/build_readiness/seed_qa_evidence/shard_01.md`](build_readiness/seed_qa_evidence/shard_01.md)** — first evidence file of the `T-SEED-QA` census (routine task `SQA-01`). 28 `pedagogical_prerequisite` edges scored against C1 (prerequisite soundness) + 20 nodes against C2 (`teaching_notes` traction) and C3 (`summary` cold-readability), per the pinned `seed_qa_audit.md` rubric. Tally — C1: 3 `Reversed` / 28 = 10.7% (E-5 `phenomenal_concept_strategy→type_b_materialism`, E-24 `set_mathematical→axiom_mathematical`, E-26 `knowledge_how→knowledge` — all direction errors; none trace to the S-0122 audit follow-up migrations 0061–0065); C2: 0 fail / 20; C3: 2 fail / 20 = 10% (N-4 jargon-gated, N-13 borderline circular). Candidate findings only — disposition deferred to the `SQA-20` closeout's follow-up interactive session. `auto_target.json` task `SQA-01` marked `complete`.
