@@ -1,0 +1,22 @@
+{
+  "id": "S-0158",
+  "mode": "routine",
+  "task_id": "SQA-01",
+  "target_id": "T-SEED-QA",
+  "started_at": "2026-05-14T17:35:56Z",
+  "status": "in_progress",
+  "working_on": "Routine task SQA-01 (T-SEED-QA): Shard 01 QA census — score 28 pedagogical_prerequisite edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the pinned seed_qa_audit.md rubric; shard content read from the committed seed_qa_evidence/shards.json (routine sessions never touch the DB); write the single scope-locked evidence file.",
+  "approved_plan": "engine/session/current_plan.md",
+  "branch": "claude/vigorous-sinoussi-1ff633",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/vigorous-sinoussi-1ff633",
+  "declared_scope": "Author engine/build_readiness/seed_qa_evidence/shard_01.md as candidate-findings evidence for SQA-01: one C1 verdict (Sound | Defensible | Reversed | Weak-redundant) per the 28 pedagogical_prerequisite edges + C2/C3 yes/no per the 20 nodes, per the pinned seed_qa_audit.md rubric, following the fixed evidence-file schema. Candidate findings only — no Issue filing, no migration edits, no disposition. phase: NA-routine",
+  "scope_delivery": {
+    "delivered": false,
+    "user_confirmed_changes": false,
+    "explanation": ""
+  },
+  "next_session_handle": null,
+  "outcome_summary": "",
+  "outcome_summary_soft_warns": {},
+  "mempalace_activity": {}
+}
