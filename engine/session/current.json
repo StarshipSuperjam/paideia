@@ -3,6 +3,8 @@
   "started_at": "2026-05-14T19:08:01Z",
   "status": "in_progress",
   "mode": "routine",
+  "task_id": "SQA-03",
+  "target_id": "T-SEED-QA",
   "working_on": "Routine task SQA-03: seed-graph QA census shard 03 — score 28 edges (C1) + 20 nodes (C2/C3)",
   "declared_scope": "Score shard 03 of the T-SEED-QA census: 28 pedagogical_prerequisite edges against C1 (prerequisite soundness) and 20 nodes against C2 (teaching_notes traction) + C3 (summary cold-readability), per the pinned rubric in engine/build_readiness/seed_qa_audit.md. Single deliverable: engine/build_readiness/seed_qa_evidence/shard_03.md. phase: NA-routine",
   "outcome_summary": null,
