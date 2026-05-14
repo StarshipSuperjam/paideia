@@ -38,7 +38,7 @@ EVIDENCE NOTE: absent
 
 ### E-4 — 7daaebf3-70c5-49dd-8337-7d8f1d74d907
 EDGE: Bioethics [bioethics, ethics] → Reproductive Ethics [reproductive_ethics, ethics]
-  weight=0.85, confidence=0.85 evidence=NULL
+  weight=0.85, confidence=0.85, evidence=NULL
 VERDICT: Sound
 RATIONALE: Reproductive ethics is a subfield of bioethics; the general field framing is the natural pedagogical entry before its specialized branch.
 AUDIT-TOUCHED: none
