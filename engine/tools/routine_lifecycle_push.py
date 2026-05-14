@@ -33,6 +33,13 @@ Modes
   diff falls within the active task's scope_lock ∪ operational allowlist.
 - ``close``       — Skill step 11 close push. Verifies close commit shape.
 
+The ``auto_target.json`` task-status flip from Skill step 10 ("mark task
+``complete``/``blocked``") is NOT a standalone commit — it is *staged* at
+step 10 and rides with the ``close`` commit at step 11, where
+``verify_close_shape`` permits it via the operational allowlist. A
+standalone ``chore(session): mark <task> complete`` commit matches none
+of the three modes and cannot be pushed (Issue #122).
+
 Parent-side fast-forward (post-push)
 ------------------------------------
 After a successful push, the wrapper performs a best-effort parent-side

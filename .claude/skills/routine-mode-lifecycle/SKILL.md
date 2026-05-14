@@ -163,7 +163,12 @@ The wrapper verifies the commit's subject matches a conventional-commits prefix 
 
 ### 10. Verify completion
 
-After the work commits clean: re-run task criteria via `python3 engine/tools/check_target.py --task-id <id>`. All pass → mark task `complete` in `auto_target.json` (commit). Any fail → mark `blocked: <reason>` (commit) + write HANDOFF.
+After the work commits clean: re-run task criteria via `python3 engine/tools/check_target.py --task-id <id>`.
+
+- **All pass** → set the active task's `status` to `complete` in `auto_target.json` and **stage it — do NOT create a standalone commit.** The `auto_target.json` status flip rides with the **close commit at step 11** (`verify_close_shape` permits `auto_target.json` via the operational allowlist).
+- **Any fail** → set the task's `status` to `blocked` with `blocked_reason: <reason>`, **stage it** (same — it rides with the close commit), and write a HANDOFF entry with a valid Disposition.
+
+**Why no standalone commit.** `routine_lifecycle_push.py` has exactly three modes — `eager-claim`, `deliverable`, `close` — and each requires HEAD to be exactly 1 commit ahead of `origin/main`. A standalone `chore(session): mark <task> complete` commit matches none of the three shapes (`deliverable` mode explicitly rejects the `chore(session):` prefix), so it cannot be pushed on its own, and left local it makes the subsequent `close` push 2-ahead → REFUSED. Staging the status flip and letting it ride with the close commit is the only shape the wrapper accepts (Issue #122).
 
 ### 11. Run the standard shutdown sequence
 
