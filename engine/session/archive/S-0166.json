@@ -1,0 +1,45 @@
+{
+  "id": "S-0166",
+  "started_at": "2026-05-14T23:34:40Z",
+  "closed_at": "2026-05-14T23:47:00Z",
+  "status": "closed",
+  "mode": "routine",
+  "task_id": "SQA-05",
+  "target_id": "T-SEED-QA",
+  "working_on": "Routine task SQA-05: seed-graph QA census shard 05 — score 27 edges (C1) + 20 nodes (C2/C3)",
+  "declared_scope": "Score shard 05 of the T-SEED-QA census: 27 pedagogical_prerequisite edges against C1 (prerequisite soundness) and 20 nodes against C2 (teaching_notes traction) + C3 (summary cold-readability), per the pinned rubric in engine/build_readiness/seed_qa_audit.md. Single deliverable: engine/build_readiness/seed_qa_evidence/shard_05.md. phase: NA-routine",
+  "approved_plan": "engine/session/current_plan.md",
+  "branch": "claude/sweet-fermat-a622fa",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/sweet-fermat-a622fa",
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": false,
+    "explanation": "Delivered as declared — shard_05.md authored to the fixed evidence-file schema, all 27 edges scored against C1 and all 20 nodes against C2/C3, no descope or reorder. No user confirmation (unattended routine session). No in-band Issues filed. The auto_target.json SQA-05 status flip rides with the close commit per the Issue #122 lifecycle-push-wrapper sequencing constraint."
+  },
+  "next_session_handle": null,
+  "outcome_summary": "Fifth routine fire of the T-SEED-QA seed-graph QA census. Scored shard 05 — 27 pedagogical_prerequisite edges (C1) + 20 nodes (C2/C3) per the pinned seed_qa_audit.md rubric — and wrote seed_qa_evidence/shard_05.md. Findings: C1 1/27 defective = 3.7% (22 Sound, 4 Defensible, 1 Reversed — E-7 property_dualism->philosophical_zombie); C2 0/20 fail; C3 1/20 fail = 5.0% (N-8 ross_paradox, jargon-gated summary — first C3 fail of the census). The E-7 defect is notable in kind: it is the exact position->thought-experiment shape migration 0062 already flipped for the sibling pair property_dualism->knowledge_argument, so it reads as a fresh authoring defect the audit's own 0062 logic would catch; scored Reversed with the 0062 structural precedent as the analytic warrant (no SEP fetch needed). Three audit-touched edges this shard: E-11 + E-27 are post-0062-flip directions, both verify Sound on their corrected directions; E-20 (supervenience_mental->mental_causation) was 0064-annotated rather than flipped, and the audit's own attached evidence argues the target is conceptually prior — scored Defensible, flagged prominently for the closeout as the rare 'audit evidence in tension with the edge it annotates' case. Four Defensible verdicts vs shard 04's one — a cluster of supportable-but-not-canonical secondary prerequisites, flagged for the closeout's consistency review. Running C1 across shards 01-05: 10.7% / 3.6% / 3.6% / 0.0% / 3.7%, firmly under the production audit's 13% baseline. Candidate findings only; disposition is the SQA-20 closeout. SQA-05 marked complete; SQA-06 next. No in-band Issues. mempalace_zero_citations_after_search fires because the boot search surfaced only meta-methodology drawers (the census-design architecture drawers from agent-a4f66e0874c34c21d.jsonl) rather than drawers bearing on shard 05's specific content — same benign shape prior census shards saw; the diary entry and evidence file operate fully within that methodology and reference S-0122/S-0165 prior context. 0 validator hard-fails (50 checks on --final-check).",
+  "outcome_summary_soft_warns": {
+    "skill_layer1_parity_drift": 1,
+    "mempalace_wing_count_growth": 1,
+    "issue_collision": 7,
+    "missing_rigor_score": 361,
+    "edge_evidence_empty": 46,
+    "mempalace_zero_citations_after_search": 1
+  },
+  "mempalace_activity": {
+    "search_calls": 3,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 0,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 5,
+    "first_call_ts": "2026-05-14T23:33:32Z",
+    "last_call_ts": "2026-05-14T23:45:24Z",
+    "search_first_ts": "2026-05-14T23:33:32Z",
+    "diary_read_first_ts": "2026-05-14T23:33:45Z"
+  }
+}

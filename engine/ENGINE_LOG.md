@@ -10,6 +10,12 @@ This project does not yet follow [Semantic Versioning](https://semver.org/) — 
 
 ## [Unreleased]
 
+### Added (S-0166 — `T-SEED-QA` routine task SQA-05)
+
+- **[`engine/build_readiness/seed_qa_evidence/shard_05.md`](build_readiness/seed_qa_evidence/shard_05.md)** — shard 05 evidence file for the seed-graph QA census. 27 `pedagogical_prerequisite` edges scored against C1 (prerequisite soundness), 20 nodes against C2 (teaching_notes traction) + C3 (summary cold-readability), per the pinned `seed_qa_audit.md` rubric. C1: 1/27 defective (3.7%) — 22 Sound, 4 Defensible, 1 Reversed (E-7 property_dualism→philosophical_zombie). C2: 0/20 fail. C3: 1/20 fail (5.0%) — N-8 ross_paradox, jargon-gated summary. Three audit-touched edges (E-11 + E-27 post-0062-flip, both verify Sound; E-20 0064-annotated, scored Defensible).
+
+**Rationale**: fifth routine fire of the `T-SEED-QA` census (5 of 20 tasks done; SQA-06 next). The single C1 defect (E-7) is the exact position→thought-experiment shape migration 0062 already flipped for the sibling pair property_dualism→knowledge_argument — a fresh authoring defect the audit's own 0062 logic would catch. First C3 fail of the census (N-8). Running C1 across shards 01–05: 10.7% / 3.6% / 3.6% / 0.0% / 3.7%, still firmly under the production audit's 13% baseline. Candidate findings only; disposition is the SQA-20 closeout. No ADR (reuses the established audit-routine pattern).
+
 ### Added (S-0165 — audit-the-auditor methodology check on the `T-SEED-QA` census)
 
 - **[`engine/build_readiness/seed_qa_auditor_check.md`](build_readiness/seed_qa_auditor_check.md)** — one-off methodology-verification report (indexed in `build_readiness/README.md` as a non-standing class). Re-audits `T-SEED-QA` census shards 01 + 04 with **mandatory** SEP structural anchoring on every C1 verdict — either a `fetch_structural_reference.py` fetch or an explicit analytic warrant, no bare parametric "Sound" — to test whether the parametric-first census is glossing and whether the monotonic defect-rate decline (10.7% → 0.0% across shards 01–04) is cross-session scorer drift. Result: 135/135 verdict agreement, zero misses, zero false positives; the drift hypothesis is falsified for C1. One surviving caveat (C2's "fail" bar may not discriminate on this corpus) is routed to the SQA-20 closeout as a rubric-design question.
