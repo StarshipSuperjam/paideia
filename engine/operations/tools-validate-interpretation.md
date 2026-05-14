@@ -428,7 +428,7 @@ The since-date matches the calendar span of the cadence-20 window. The `git log 
 | `mempalace_substrate_at_close` | Actively-tracked | 0 | 0 | 2 | Substrate-down at close defense per ADR 0056 amendment (S-0089) |
 | `mempalace_wing_count_growth` | Actively-tracked | 0 | 0 | 4 | Wing accumulation per Issue #46 (S-0088) |
 | `mempalace_zero_citations_after_search` | Actively-tracked | 0 | 0 | 3 | Closed-loop boot-search effectiveness per ADR 0056 amendment (S-0093) |
-| `orphan_leaf` | Actively-tracked | 0 | 0 | 1 | Phase 4+ graph audit — zero-degree pedagogical_prerequisite nodes |
+| `orphan_leaf` | Actively-tracked | 0 | 0 | 1 | Phase 4+ graph audit — zero-degree pedagogical_prerequisite nodes (the lone fire, `phenomenology`, resolved at S-0155 via migration 0065) |
 | `phase_mismatch_declared_scope` | Actively-tracked | 0 | 0 | 1 | declared_scope phase-token vs `build_plan/MANIFEST.md` per ADR 0049 |
 | `render_readiness_violation` | Actively-tracked | 0 | 0 | 1 | Phase 4+ graph audit — scaffolding tokens in node labels |
 | `repo_config_health` | Actively-tracked (dynamic) | 0 | 0 | 1 | Repo-probe failure path per ADR 0045; emitted via probe loop at `validate.py:687` |
@@ -439,7 +439,7 @@ The since-date matches the calendar span of the cadence-20 window. The `git log 
 | `suspicious_cross_domain_ratio` | Actively-tracked | 0 | 0 | 2 | Phase 4+ graph audit — cross-domain inbound edge ratio threshold |
 | `synthetic_review_queue` | Actively-tracked | 0 | 0 | 1 | `confidence_level: SYNTHETIC` review-queue surface per ADR 0030 |
 | `undeclared_predicate` | Actively-tracked | 0 | 0 | 1 | Phase 4+ graph audit — edge.type vs PREDICATE_MANIFEST.md |
-| `timestamp_helper_bypass` | Actively-tracked, deferred (S-0095) | 0 | 0 | 8 | Canonical timestamp helper per ADR 0058; AST-walk soft-warn |
+| `timestamp_helper_bypass` | Actively-tracked, deferred (S-0095) | 0 | 0 | 8 | Canonical timestamp helper per ADR 0058; AST-walk soft-warn (the 2 `scan_dependabot_prs.py` baseline sites allowlisted at S-0155 — see deferred-re-audit note below) |
 | `outcome_summary_unhandled_defer` | Actively-tracked, deferred (S-0100) | 0 | 0 | 3 | ADR 0049 Decision 6 — outcome_summary hedge-pattern + missing handle |
 | `next_session_handle_unknown_issue` | Actively-tracked, deferred (S-0100) | 0 | 0 | 2 | ADR 0049 Decision 6 — handle references unknown Issue |
 | `next_session_handle_unknown_session` | Actively-tracked, deferred (S-0100) | 0 | 0 | 2 | ADR 0049 Decision 6 — handle references unknown session |
@@ -517,6 +517,8 @@ Until re-audit, the categories carry their as-shipped semantics from their intro
 **Why deferred:** introduced at S-0095 per [ADR 0058](../adr/0058-canonical-timestamp-format-and-helper.md). The 5-archive coverage at S-0101 (S-0096 → S-0100) shows zero fires — but the AST-walk that detects bypass patterns may not be exercising any code paths in routine cleanup-batch sessions. Routine-mode Phase 5 sessions or new-tool-authoring sessions are likelier triggers; without those in the window, classification can't distinguish "guard works correctly" from "guard never runs against the relevant code path."
 
 **Re-audit at S-0117** once the window includes at least one routine-batch session OR a new-tool-authoring session.
+
+**Resolved at S-0155.** The guard works correctly: it caught two genuine bypass sites in `scan_dependabot_prs.py` (`age_days`'s `fromisoformat` parse + `--simulate-age`'s `isoformat` emit) — `scan_dependabot_prs.py` is the new-tool case (ADR 0080, S-0147) the re-audit pointer was waiting for. Both sites parse/emit gh's external wire format, not engine-canonical stored timestamps, so routing through `timestamps.py` would impose the wrong format; the file was added to `_TIMESTAMP_HELPER_BYPASS_ALLOWLIST` with inline ADR 0058 justification at each site (the same disposition as the four prior allowlist entries). The `timestamp_helper_bypass: 2` baseline carryover is cleared. The category remains actively-tracked for future ad-hoc emission.
 
 ### `outcome_summary_unhandled_defer` (deferred re-audit; introduced S-0100)
 
