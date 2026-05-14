@@ -133,6 +133,10 @@ The "Next session work item" block in STATE.md gains a line: `Gated by [`engine/
 
 The gate session's `outcome_summary` records: report path, Tier 1 / Tier 2 / Tier 3 counts, citation-and-cold-review findings (matches and resolutions), any open follow-ups (gate sessions can also produce work that didn't fit the gate's scope and surfaces as "next gate session" or "next health check" pointers).
 
+### 10. Close
+
+Invoke the `session-shutdown-sequence` skill to run the close-of-session protocol. Gate sessions follow the standard shutdown like any session.
+
 ## Build-readiness report template
 
 ```markdown

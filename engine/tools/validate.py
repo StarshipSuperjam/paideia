@@ -148,7 +148,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 # Local helpers at engine/tools/{scrub_env,_venv_reexec}.py — ADR 0045 / Issue #14.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -4174,6 +4174,271 @@ def validate_handoff_long_resolved_sections(
     return r
 
 
+# ---------------------------------------------------------------------------
+# Skill ↔ Layer-1 procedure parity (per ADR 0089; Issue #129)
+# ---------------------------------------------------------------------------
+
+
+class _SkillDocPair(NamedTuple):
+    """A recipe Skill paired with its Layer-1 ops doc, plus how to locate
+    each side's procedure-step enumeration.
+
+    ``doc_style`` selects the step-line grammar of the Layer-1 doc:
+    ``"headings"`` for ``### N. Title`` / ``#### Na. Title`` headings,
+    ``"list"`` for ``N. **Title.**`` paragraph-leading numbered-list items.
+    All four recipe Skills use the headings grammar, so the Skill side is
+    always ``"headings"`` and not configured. ``*_section`` is the literal
+    procedure-section heading; ``*_section_end`` is the literal heading that
+    terminates it (a level-2 ``## `` heading is the fallback bound when the
+    marker is absent).
+    """
+
+    name: str
+    skill_path: str
+    skill_section: str
+    skill_section_end: str
+    doc_path: str
+    doc_section: str
+    doc_section_end: str
+    doc_style: str
+
+
+# The four recipe Skills (per ADR 0044's three + routine-mode-lifecycle per
+# ADR 0051) and their Layer-1 ops docs. Each Skill body is the procedural form
+# of its Layer-1 doc; ADR 0044 commits the two to enumerate the same steps.
+_SKILL_LAYER1_PAIRS: tuple[_SkillDocPair, ...] = (
+    _SkillDocPair(
+        name="routine-mode-lifecycle",
+        skill_path=".claude/skills/routine-mode-lifecycle/SKILL.md",
+        skill_section="## Boot procedure (run in order)",
+        skill_section_end="## Routine-mode posture (load-bearing)",
+        doc_path="engine/operations/routine-mode-operations.md",
+        doc_section="## Routine boot procedure",
+        doc_section_end="### Concurrency control (per ADR 0082)",
+        doc_style="list",
+    ),
+    _SkillDocPair(
+        name="session-build-lifecycle",
+        skill_path=".claude/skills/session-build-lifecycle/SKILL.md",
+        skill_section="## Boot procedure (run in order)",
+        skill_section_end="## In-session commit cadence",
+        doc_path="engine/operations/session-build-lifecycle.md",
+        doc_section="## Boot procedure (run in order)",
+        doc_section_end="## Eager-claim ritual",
+        doc_style="list",
+    ),
+    _SkillDocPair(
+        name="session-shutdown-sequence",
+        skill_path=".claude/skills/session-shutdown-sequence/SKILL.md",
+        skill_section="## Sequence",
+        skill_section_end="## Updating design docs during a session",
+        doc_path="engine/operations/session-shutdown-sequence.md",
+        doc_section="## Sequence",
+        doc_section_end="## Updating design docs during a session",
+        doc_style="headings",
+    ),
+    _SkillDocPair(
+        name="build-readiness-gate",
+        skill_path=".claude/skills/build-readiness-gate/SKILL.md",
+        skill_section="## Procedure",
+        skill_section_end="## Failure modes the gate prevents",
+        doc_path="engine/operations/build-readiness-gate.md",
+        doc_section="## Procedure",
+        doc_section_end="## Build-readiness report template",
+        doc_style="headings",
+    ),
+)
+
+# Step-number tokens: a leading digit, optionally followed by sub-letters
+# and/or a `.<minor>` part — matches `1`, `0a`, `5.5`, `7a`, `11`.
+_PROCEDURE_STEP_HEADING_RE = re.compile(r"^#{3,4}\s+(\d[\da-z.]*)\.\s")
+_PROCEDURE_STEP_LIST_RE = re.compile(r"^(\d[\da-z.]*)\.\s")
+
+
+def _extract_procedure_section(
+    text: str, section_start: str, section_end: str
+) -> list[str] | None:
+    """Return the body lines of the named procedure section, or None.
+
+    The section runs from the line after ``section_start`` to (exclusive)
+    the first of: a line equal to ``section_end``, or a level-2 ``## ``
+    heading other than the start heading. Returns None when ``section_start``
+    is not found.
+    """
+    lines = text.splitlines()
+    start_idx: int | None = None
+    for i, line in enumerate(lines):
+        if line.strip() == section_start:
+            start_idx = i
+            break
+    if start_idx is None:
+        return None
+    body: list[str] = []
+    for line in lines[start_idx + 1 :]:
+        stripped = line.strip()
+        if stripped == section_end:
+            break
+        if stripped.startswith("## ") and stripped != section_start:
+            break
+        body.append(line)
+    return body
+
+
+def _extract_step_numbers(
+    text: str, section_start: str, section_end: str, style: str
+) -> set[str] | None:
+    """Return the set of procedure step-number tokens for a procedure section.
+
+    ``style`` is ``"headings"`` (``### N. Title`` lines) or ``"list"``
+    (``N. **Title.**`` paragraph-leading list items). Returns None when the
+    section cannot be located (heading text changed); an empty set means the
+    section was found but no step lines parsed (step-line grammar changed).
+    """
+    body = _extract_procedure_section(text, section_start, section_end)
+    if body is None:
+        return None
+    pattern = (
+        _PROCEDURE_STEP_HEADING_RE if style == "headings" else _PROCEDURE_STEP_LIST_RE
+    )
+    steps: set[str] = set()
+    for line in body:
+        match = pattern.match(line)
+        if match is not None:
+            steps.add(match.group(1))
+    return steps
+
+
+def validate_skill_layer1_parity(repo_root: Path | None = None) -> ValidationResult:
+    """Soft-warn when a recipe Skill's procedure step set diverges from its
+    Layer-1 ops doc.
+
+    Per ADR 0089 (Issue #129). The four recipe Skills (per ADR 0044's three
+    plus routine-mode-lifecycle per ADR 0051) are the procedural form of their
+    Layer-1 ops docs; ADR 0044 commits the two to enumerate the same procedure.
+    The #122-#129 drift cluster falsified the "doc → skill only" sync
+    assumption — drift ran skill↔skill (#125) and command↔skill (#123) with no
+    mechanical surface to catch it.
+
+    The check compares the *step-number set* of each side's procedure section
+    (e.g. ``{0a, 1, 2, 5.5, ...}``), not step titles — skill voice and
+    reference voice legitimately differ in wording per ADR 0044. A step
+    present in one side but absent from the other is enumeration drift: the
+    Skill grew a step the doc lacks, or the doc carries a step the Skill
+    dropped. Either way a human reconciles.
+
+    Soft-warn only — the legitimate-exception surface is non-empty (a future
+    Skill may deliberately collapse or split a doc step) and a hard-fail would
+    block unrelated commits on a stale procedure doc. One soft-warn per
+    drifting pair, plus one per missing file or unlocatable section.
+
+    Inputs:
+        repo_root: Override the module-level REPO_ROOT (for testability).
+
+    Returns:
+        ValidationResult with ``skill_layer1_parity_drift`` registered.
+
+    Non-responsibilities:
+        - Does not compare step *titles* — wording divergence between skill
+          voice and reference voice is expected, not drift.
+        - Does not verify step *ordering* or intra-step content; it catches
+          enumeration drift (a step present on one side only), not content
+          drift within a shared step.
+    """
+    r = ValidationResult()
+    r.add_check("skill_layer1_parity_drift")
+    root = repo_root if repo_root is not None else REPO_ROOT
+
+    for pair in _SKILL_LAYER1_PAIRS:
+        skill_path = root / pair.skill_path
+        doc_path = root / pair.doc_path
+
+        missing: list[str] = []
+        if not skill_path.is_file():
+            missing.append(f"Skill {pair.skill_path}")
+        if not doc_path.is_file():
+            missing.append(f"Layer-1 doc {pair.doc_path}")
+        if missing:
+            r.soft_warn(
+                "skill_layer1_parity_drift",
+                f"{pair.name}: {' and '.join(missing)} missing — cannot verify "
+                f"Skill↔Layer-1 procedure parity.",
+            )
+            continue
+
+        try:
+            skill_text = skill_path.read_text(encoding="utf-8")
+            doc_text = doc_path.read_text(encoding="utf-8")
+        except OSError:
+            r.soft_warn(
+                "skill_layer1_parity_drift",
+                f"{pair.name}: could not read the Skill or Layer-1 doc — cannot "
+                f"verify procedure parity.",
+            )
+            continue
+
+        skill_steps = _extract_step_numbers(
+            skill_text, pair.skill_section, pair.skill_section_end, "headings"
+        )
+        doc_steps = _extract_step_numbers(
+            doc_text, pair.doc_section, pair.doc_section_end, pair.doc_style
+        )
+
+        unlocatable: list[str] = []
+        if skill_steps is None:
+            unlocatable.append(
+                f"Skill section '{pair.skill_section}' in {pair.skill_path}"
+            )
+        if doc_steps is None:
+            unlocatable.append(
+                f"Layer-1 section '{pair.doc_section}' in {pair.doc_path}"
+            )
+        if unlocatable:
+            r.soft_warn(
+                "skill_layer1_parity_drift",
+                f"{pair.name}: could not locate {' and '.join(unlocatable)} — the "
+                f"procedure-section heading may have changed; reconcile the "
+                f"parity-check config in validate.py.",
+            )
+            continue
+        assert skill_steps is not None and doc_steps is not None
+
+        if not skill_steps or not doc_steps:
+            empty: list[str] = []
+            if not skill_steps:
+                empty.append(f"Skill {pair.skill_path}")
+            if not doc_steps:
+                empty.append(f"Layer-1 doc {pair.doc_path}")
+            r.soft_warn(
+                "skill_layer1_parity_drift",
+                f"{pair.name}: no procedure steps parsed from "
+                f"{' and '.join(empty)} — the step-line grammar may have "
+                f"changed; reconcile the parity-check config in validate.py.",
+            )
+            continue
+
+        only_skill = skill_steps - doc_steps
+        only_doc = doc_steps - skill_steps
+        if only_skill or only_doc:
+            parts: list[str] = []
+            if only_skill:
+                parts.append(
+                    f"steps only in Skill: {{{', '.join(sorted(only_skill))}}}"
+                )
+            if only_doc:
+                parts.append(
+                    f"steps only in Layer-1 doc: {{{', '.join(sorted(only_doc))}}}"
+                )
+            r.soft_warn(
+                "skill_layer1_parity_drift",
+                f"{pair.name}: Skill ({pair.skill_path}) and Layer-1 doc "
+                f"({pair.doc_path}) enumerate divergent procedure steps — "
+                f"{'; '.join(parts)}. Per ADR 0044 the two must carry the same "
+                f"step set; reconcile (updates flow doc → skill).",
+            )
+
+    return r
+
+
 _DEPENDABOT_PR_STALE_THRESHOLD_DAYS = 7
 
 
@@ -4593,6 +4858,9 @@ def main(argv: list[str] | None = None) -> int:
                 current_session_id=session_id_from_current()
             )
         )
+        # Skill↔Layer-1 procedure parity per ADR 0089 (Issue #129). File-only /
+        # in-process; belongs in the structural phase.
+        overall.merge(validate_skill_layer1_parity())
         t_structural_end = time.monotonic()
         duration_structural_ms = (t_structural_end - start) * 1000
 
