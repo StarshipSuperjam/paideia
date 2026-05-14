@@ -10,6 +10,12 @@ This project does not yet follow [Semantic Versioning](https://semver.org/) — 
 
 ## [Unreleased]
 
+### Added (S-0164 — `T-SEED-QA` routine task SQA-04)
+
+- **[`engine/build_readiness/seed_qa_evidence/shard_04.md`](build_readiness/seed_qa_evidence/shard_04.md)** — shard 04 evidence file for the seed-graph QA census. 27 `pedagogical_prerequisite` edges scored against C1 (prerequisite soundness), 20 nodes against C2 (teaching_notes traction) + C3 (summary cold-readability), per the pinned `seed_qa_audit.md` rubric. C1: 0/27 defective (0.0%) — the first 0-defect shard; 26 Sound, 1 Defensible (E-21 speech_act→gricean_maxims). C2: 0/20 fail. C3: 0/20 fail. Zero audit-touched edges (no shard-04 (source,target) pair matches the S-0122 follow-up migrations 0061–0065).
+
+**Rationale**: fourth routine fire of the `T-SEED-QA` census (4 of 20 tasks done; SQA-05 next). Running C1 defect rate across shards 01–04 is 10.7% / 3.6% / 3.6% / 0.0%, converging well below the production audit's 13% baseline — the closeout (SQA-20) adjudicates the C1 drift comparison. Candidate findings only; disposition is a follow-up interactive session. No ADR (reuses the established audit-routine pattern).
+
 ### Added (S-0163 — closes Issues #126/#127/#128/#129)
 
 - **[`engine/adr/0089-skill-layer1-parity-validator-check.md`](adr/0089-skill-layer1-parity-validator-check.md)** — new engine ADR for the Skill ↔ Layer-1 procedure-parity validator check (closes [Issue #129](https://github.com/StarshipSuperjam/paideia/issues/129)). Posture-to-machinery conversion of ADR 0044's hand-sync posture; carries the [ADR 0084](adr/0084-pushback-rule-extraction-step-for-high-stakes-decisions.md) extraction-step `### Load-bearing premises` subsection (4 premises, 3 empirically tested in-context) and the [ADR 0053](adr/0053-mechanism-first-exercise-gate.md) trigger-criterion evaluation (criterion #4 fires; no first-exercise note — dogfooded in-session, soft-warn-only, fully observable). MemPalace decision drawer `drawer_paideia_decisions_c9f9dc72a22be21fedbf1b74`.
