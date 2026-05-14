@@ -67,7 +67,7 @@ Run `python3 engine/tools/mempalace_boot_search.py` at this step. The orchestrat
 
 The plan body authored at step 6 should reference drawers from the orchestrator's section that bear on the task. Citations in plan rationale or commit messages satisfy the closed-loop `mempalace_zero_citations_after_search` audit at shutdown.
 
-**Mechanically backstopped by `mempalace_boot_query_skipped` soft-warn.** `validate.py --final-check` at shutdown step 7 emits the soft-warn if no `mempalace_search` call landed (orchestrator + AI-driven combined).
+**Mechanically backstopped by `mempalace_boot_query_skipped` soft-warn.** `validate.py --final-check` at shutdown step 3 emits the soft-warn if no `mempalace_search` call landed (orchestrator + AI-driven combined).
 
 ### 5.6. MemPalace diary read (per ADR 0056, S-0078)
 
@@ -100,6 +100,7 @@ Same procedure as `/start-engine` (see [`session-build-lifecycle`](../session-bu
 - **Set `current.json.mode`** to `"routine"` (NOT the build-lifecycle template's `"interactive"` default). Required from S-0048 per [ADR 0051](../../../engine/adr/0051-routine-mode-and-engine-loop.md), hard-fail-enforced on the close commit by `audit_archive_structured_fields.py`; the value records the durable session-execution style.
 - **Set `current.json.working_on`** to a one-line description naming the task: `"Routine task <task_id>: <task_name>"`.
 - **Set `current.json.declared_scope`** from the task's `scope_lock.allowed_paths` plus a one-line summary. End with `phase: <id>` if the target's `target_id` corresponds to a build_plan/MANIFEST.md phase, else `phase: NA-routine`.
+- **Set `current.json.task_id`** to the active task's id and **`current.json.target_id`** to the target file's `target_id`. Both are load-bearing: `routine_lifecycle_push.py` deliverable-mode and `check_routine_scope.py --plan` detect routine-mode via `current.json.task_id` and refuse / skip if it is absent (a deliverable push without `task_id` exits 2: "no task_id; not a routine session"). The S-0159 archive confirms the canonical routine `current.json` shape carries both.
 
 Commit message: `chore(session): eager-claim S-<NNNN> — routine task <task_id>`. FF main, then push via the lifecycle wrapper:
 
@@ -172,14 +173,14 @@ After the work commits clean: re-run task criteria via `python3 engine/tools/che
 
 ### 11. Run the standard shutdown sequence
 
-Same as `/start-engine` close per [`session-shutdown-sequence`](../session-shutdown-sequence/SKILL.md). The full enumeration (Issue #27 root-cause fix at S-0078 — the prior subset-enumeration silently dropped the diary write and pushback/lesson capture asks across 12 of 16 Phase 5 routine sessions):
+Same as `/start-engine` close per [`session-shutdown-sequence`](../session-shutdown-sequence/SKILL.md). The full enumeration (Issue #27 root-cause fix at S-0078 — the prior subset-enumeration silently dropped the diary write and pushback/lesson capture asks across 12 of 16 Phase 5 routine sessions). **Ordering per Issue #126 (S-0163): the diary write + pushback/lesson capture + activity rollup all precede the audit pass — pre-S-0163 the audit ran first and fired a false `mempalace_diary_write_skipped_routine` plus a false `diary_pending_index.json` entry because the diary genuinely had not been written yet.**
 
-- **MemPalace activity rollup** — `python3 engine/tools/scan_mempalace_activity.py` (per ADR 0056, S-0078). Reads `engine/session/current_mempalace.jsonl` (PostToolUse-hook telemetry) and writes the `mempalace_activity` field to `current.json`. Run BEFORE the audit pass so `validate.py --final-check` sees the field.
+- **MemPalace diary write** (canonical step 1 in `session-shutdown-sequence.md`; explicitly enumerated here per Issue #27 fix). Call `mempalace_diary_write agent_name="claude" entry="..."`. The shape and content guidance lives in `session-shutdown-sequence.md` step 1. Skipping this step fires `mempalace_diary_write_skipped_routine` (validator) and appends a `diary_pending_index.json` entry UNLESS `outcome_summary` carries the `mempalace_unavailable_acknowledged: <reason>` token.
+- **Pushback capture check** (canonical step 1). Ask explicitly: "Did this session produce a `pushback` moment?" — if yes, capture via `mempalace_add_drawer` per `mempalace-tagging-conventions.md`.
+- **Lesson capture check** (canonical step 1). Ask explicitly: "Did this session produce a `lesson` candidate?" — if yes, capture via `mempalace_add_drawer`.
+- **MemPalace activity rollup** — `python3 engine/tools/scan_mempalace_activity.py` (per ADR 0056, S-0078). Reads `engine/session/current_mempalace.jsonl` (PostToolUse-hook telemetry) and writes the `mempalace_activity` field to `current.json`. Run AFTER the diary write (so the diary-write call is counted) and BEFORE the audit pass (so `validate.py --final-check` sees the complete field).
 - **Audit pass** — `python3 engine/tools/validate.py --final-check` (the `--final-check` flag includes the MemPalace adoption checks per ADR 0056, S-0078).
 - **Spot-check.**
-- **MemPalace diary write** (canonical step 7 in `session-shutdown-sequence.md`; explicitly enumerated here per Issue #27 fix). Call `mempalace_diary_write agent_name="claude" entry="..."`. The shape and content guidance lives in `session-shutdown-sequence.md` step 7. Skipping this step now hard-fails via `mempalace_diary_write_skipped` (validator) UNLESS `outcome_summary` carries the `mempalace_unavailable_acknowledged: <reason>` token.
-- **Pushback capture check** (canonical step 7). Ask explicitly: "Did this session produce a `pushback` moment?" — if yes, capture via `mempalace_add_drawer` per `mempalace-tagging-conventions.md`.
-- **Lesson capture check** (canonical step 7). Ask explicitly: "Did this session produce a `lesson` candidate?" — if yes, capture via `mempalace_add_drawer`.
 - Update `engine/STATE.md` (next-session pointer + last-session line)
 - Update `engine/ENGINE_LOG.md` under `[Unreleased]`
 - Fill `outcome_summary` in `current.json` (~50 words)

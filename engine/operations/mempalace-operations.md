@@ -259,7 +259,7 @@ S-0078 mechanizes the three deliberate uses end-to-end:
 
 **Telemetry layer.** A `PostToolUse` hook matched on `mcp__mempalace__.*` invokes [`engine/tools/hooks/post-mempalace-tool-use.sh`](../tools/hooks/post-mempalace-tool-use.sh) on every MemPalace MCP call. The hook appends a single JSONL line to `engine/session/current_mempalace.jsonl` with shape `{"ts": "<iso>", "tool": "<name>", "args_summary": "<truncated>"}`. Always exits 0; never blocks. Per-session, gitignored, cleared at archive.
 
-**Rollup layer.** [`engine/tools/scan_mempalace_activity.py`](../tools/scan_mempalace_activity.py) runs at session-shutdown step 0 (before the audit pass). Reads `current_mempalace.jsonl`, counts calls per tool, writes the structured `mempalace_activity` field into `current.json`:
+**Rollup layer.** [`engine/tools/scan_mempalace_activity.py`](../tools/scan_mempalace_activity.py) runs at session-shutdown step 2 (after the diary write at step 1, before the audit pass at step 3 — per Issue #126, S-0163). Reads `current_mempalace.jsonl`, counts calls per tool, writes the structured `mempalace_activity` field into `current.json`:
 
 ```json
 "mempalace_activity": {
@@ -282,7 +282,7 @@ The `kg_calls` and `tunnel_calls` buckets were added at S-0087 (ADR 0056 Consequ
 
 The field carries forward into the archive. Future health checks query archives via `jq` for "which sessions used MemPalace?" — structured data, not prose grep. The structural-fields audit ([`audit_archive_structured_fields.py`](../tools/audit_archive_structured_fields.py)) requires `mempalace_activity` on every archive ≥ S-0078.
 
-**Audit layer.** `validate.py --final-check` (gated CLI flag; only invoked at shutdown step 1) reads `mempalace_activity` and emits these categories:
+**Audit layer.** `validate.py --final-check` (gated CLI flag; only invoked at shutdown step 3) reads `mempalace_activity` and emits these categories:
 
 | Category | Severity | Trigger |
 |---|---|---|

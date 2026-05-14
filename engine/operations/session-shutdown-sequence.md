@@ -10,13 +10,47 @@ At the end of every build session — once substantive work is at a commitable c
 
 ## Sequence
 
-### 1. Audit pass
+> **Ordering note (per Issue #126, S-0163).** The MemPalace diary write (step 1), the activity rollup (step 2), and the pushback/lesson capture (within step 1) all run BEFORE the audit pass (step 3). Pre-S-0163 the audit ran first — which fired a false `mempalace_diary_write_skipped` / `mempalace_diary_write_skipped_routine` (the diary genuinely had not been written yet) and, for routine sessions, appended a false entry to `engine/session/diary_pending_index.json`. Sequencing the diary write + rollup before the audit means `validate.py --final-check` sees a complete `mempalace_activity` field and the diary-write check passes truthfully.
 
-Run `tools/validate.py` from the repo root. Resolve any hard-fails — these are blocking by default in the pre-commit hook anyway, so reaching shutdown means the working tree should already be clean of hard-fails. If somehow a hard-fail surfaces (e.g., a file referenced in CROSS_REFERENCES.md that you intended to create but didn't), fix it before continuing.
+### 1. Write session diary entry
 
-Soft-warns are not blocking but must be recorded — they feed health-check telemetry. Note the per-category counts; you'll write them into `outcome_summary` below.
+Per [`mempalace-operations.md`](mempalace-operations.md) "Project usage scope". The MemPalace diary carries the AI's first-person reflection on the session — distinct from `outcome_summary` (outcome-focused) and ENGINE_LOG (third-person artifact narrative). What surprised me, what I noticed but didn't act on, what feels load-bearing for the next session, where my judgment was uncertain.
 
-### 2. Spot-check
+Build sessions only. Default-mode (exploration) sessions skip — no slot, no formal close.
+
+Call `mempalace_diary_write` with `agent_name: "claude"` (project convention per `mempalace-operations.md`). Content shape: 150-400 words, first person. Recommended structure (not required):
+
+- **What I worked on this session** — one paragraph; high-level enough to be findable by `mempalace_diary_read` at the next session's boot.
+- **What surprised me** — premises that didn't hold, side-discoveries, anything that updated my model of how this project works.
+- **What I noticed but deferred** — observations that are out-of-scope for this session but next-session-relevant. (If actionable enough, also surface in HANDOFF.md or as a follow-up task in `outcome_summary`; the diary is the lower-formality channel for things that don't quite warrant a tracked task.)
+- **Where my judgment was uncertain** — places I made a call I'd want a fresh-eyes review on, or where I'd phrase the question differently if I were starting fresh.
+
+After the diary write, run the **`pushback` / `lesson` capture check** (added at S-0041 per the second project health check audit's adoption-gap finding — the tags were defined at S-0032 with zero applications across the eight intervening sessions because the convention was too implicit to reach the AI's authoring loop without an explicit prompt). Ask explicitly:
+
+- **Did this session produce a `pushback` moment?** A `pushback` moment is a verbatim exchange where you (the AI) surfaced an unnamed risk specifically (not generic concern), the user heard it, and the conversation changed direction in response. Self-pushback also qualifies — your own self-critique that the user accepted. If yes, capture it now via `mempalace_add_drawer` per the [`pushback` tag definition in mempalace-tagging-conventions.md](mempalace-tagging-conventions.md). The capture preserves verbatim user framing + verbatim AI pushback + verbatim user acceptance + one-line summary of the change. Without verbatim, the recall value collapses.
+- **Did this session produce a `lesson` candidate?** A `lesson` candidate is a procedural failure with a non-obvious cause and a working fix — "we tried X, it failed because non-obvious Y, the fix that worked was Z." A bug whose cause was obvious-once-named also qualifies if the *identification* was the value. If yes, capture it now via `mempalace_add_drawer` per the [`lesson` tag definition](mempalace-tagging-conventions.md). The capture preserves the failed approach (specific enough to be findable on similar approaches), the non-obvious reason it failed, the working fix, and optional pointers to related ADRs or ops docs.
+
+Both capture decisions are explicit yes/no asks at every shutdown — not a heuristic for the AI to apply by judgment alone (the S-0041 audit measured: judgment-alone produced zero captures across S-0033 → S-0040). When the answer is no, no drawer is written and the session proceeds. When the answer is yes, the drawer is written here so the capture is durable before the archive moves at step 13.
+
+**Diary write is mechanically enforced as of S-0078** (per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md)). The previous posture (a `diary_skipped: 1` self-recorded soft-warn) was load-bearing in name only — Issue #27 confirmed that 12 of 16 Phase 5 routine sessions silently skipped the diary write AND skipped the self-record, leaving the persistent-warn surface inert. Now `validate.py --final-check` (step 3) reads `mempalace_activity.diary_write_calls` from `current.json` and hard-fails (`mempalace_diary_write_skipped`) if zero. The previous `diary_skipped` field was renamed to `mempalace_diary_write_skipped` across existing archives via `engine/tools/migrate_diary_skipped_archive_field.py`.
+
+**Acknowledgement-token escape hatch.** Legitimate edge cases exist (MCP server unreachable; routine session that early-exits with nothing meaningful to reflect on; fresh repo). The AI bypasses the hard-fail by writing a one-line acknowledgement into `outcome_summary` of `current.json` BEFORE the step-3 validate call: `mempalace_unavailable_acknowledged: <one-line reason>`. The validator scans for the token; if present, the hard-fail downgrades to a soft-warn (`mempalace_diary_write_acknowledged_skip`) — which still participates in the 3-of-5 escalation per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md). For routine sessions the validator emits `mempalace_diary_write_skipped_routine` instead of hard-failing and appends an entry to `engine/session/diary_pending_index.json`; the recovery procedure is documented at [`routine-mode-operations.md`](routine-mode-operations.md) "Deferred diary recovery".
+
+### 2. MemPalace activity rollup (per ADR 0056, S-0078)
+
+Run `python3 engine/tools/scan_mempalace_activity.py`. The tool reads `engine/session/current_mempalace.jsonl` (per-session telemetry written by `engine/tools/hooks/post-mempalace-tool-use.sh` on every `mcp__mempalace__*` MCP call), counts calls per tool, and writes the structured `mempalace_activity` field into `engine/session/current.json`. Must run AFTER step 1 (so the diary-write and pushback/lesson-capture calls are counted) and BEFORE step 3 (so `validate.py --final-check` sees the complete field).
+
+Idempotent — re-running overwrites the rollup. Absence of the JSONL file (no MemPalace calls fired this session) writes a zero-count rollup; the audit's adoption check interprets zero counts per the ADR's severity rules.
+
+### 3. Audit pass
+
+Run `python3 engine/tools/validate.py --final-check` from the repo root. The `--final-check` flag includes the MemPalace adoption checks per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md) (S-0078) — the two soft-warns (`mempalace_boot_query_skipped`, `mempalace_diary_read_skipped`) and the hard-fail (`mempalace_diary_write_skipped`, with the acknowledgement-token escape hatch). Because step 1 wrote the diary and step 2 rolled the activity field, this pass sees the diary write truthfully and does not false-fire.
+
+Resolve any hard-fails — these are blocking by default in the pre-commit hook anyway, so reaching shutdown means the working tree should already be clean of hard-fails. If somehow a hard-fail surfaces (e.g., a file referenced in CROSS_REFERENCES.md that you intended to create but didn't), fix it before continuing.
+
+Soft-warns are not blocking but must be recorded — they feed health-check telemetry. Note the per-category counts; you'll write them into `outcome_summary_soft_warns` at step 11.
+
+### 4. Spot-check
 
 For every artifact created or modified in this session, ask:
 
@@ -27,7 +61,7 @@ For every artifact created or modified in this session, ask:
 
 The audit catches structural mistakes. The spot-check catches judgment mistakes.
 
-### 3. Cold-context review pass (sessions that modified tracked Python under engine/ or SQL under product/seed-graph/migrations/)
+### 5. Cold-context review pass (sessions that modified tracked Python under engine/ or SQL under product/seed-graph/migrations/)
 
 Layer 3 of the universal expression contract per [ADR 0039](../adr/0039-universal-expression-contract-across-ai-authoring-patterns.md). Two pattern rows currently carry a Layer 3 cold-review trigger: Python/engine per [ADR 0038](../adr/0038-expression-contract-for-ai-authored-code.md) + [`code-discipline.md`](code-discipline.md), and SQL/migrations per [`migration-discipline.md`](migration-discipline.md). Sessions that did not modify either of those scopes skip this step. Sessions that modified both run both branches.
 
@@ -52,7 +86,7 @@ Record findings from each branch in `engine/session/current.json`'s `outcome_sum
 
 The pass is fresh-eyes by construction: the sub-agent has no memory of the authoring session's premises and so cannot share its blind spots. The mechanism targets the compound-drift failure mode — a wrong premise built upon by internally-consistent artifacts that pass automated checks authored against the same premise. Cold-review surfaces premise drift; lint/type/test/SQL-gate checks do not.
 
-### 4. Update `STATE.md`
+### 6. Update `STATE.md`
 
 Edit the `## Current` table:
 
@@ -65,7 +99,7 @@ Edit the `## Next session work item` block:
 - Replace with the next session's scope. Be concrete: what files get authored, what files get retired, what success looks like. The next session reads this cold; it should be sufficient.
 - If this session uncovered new work that should sit before what was previously next, surface it here and update `ROADMAP.md` if the change crosses a phase boundary.
 
-### 5. Update `ENGINE_LOG.md`
+### 7. Update `ENGINE_LOG.md`
 
 `ENGINE_LOG.md` is the dated-narrative layer for material engine changes — the renamed `CHANGELOG.md` per [ADR 0037](../adr/0037-engine-product-wall-and-changelog-rename.md). The `CHANGELOG.md` filename is reserved for future learner-visible product release content (first entry at Phase 9); session shutdowns write here.
 
@@ -88,7 +122,7 @@ For SQL migrations: log the session-level filenames as authored (e.g., `0001_use
 
 At the next release tag (e.g., `0.1.0` at Phase 0 close), the `[Unreleased]` block gets promoted to a dated section.
 
-### 6. Side-discovery audit
+### 8. Side-discovery audit
 
 Run `python3 engine/tools/audit_side_discoveries.py` from the repo root. The script scans this session's commit messages (range `<eager-claim-SHA>..HEAD`, computed from the eager-claim subject pattern) for follow-up markers — `flagged`, `follow-up`, `follow up`, `TODO`, `FIXME`, `deferred`, `noted for`, `future session`, `next session`, `pending`, `out of scope` — and matches each hit against the `side_discoveries` field in `engine/session/current.json`. Markers preceded within ~12 chars by `no` / `not` / `nothing` / `no longer` are filtered as obvious negations.
 
@@ -106,13 +140,13 @@ If any marker lacks a disposition, the script exits 2 and prints `commit / marke
 }
 ```
 
-Re-run the script. Iterate until exit 0. The total count of dispositions (per type) feeds into the diary entry at step 7 and `outcome_summary` at step 8.
+Re-run the script. Iterate until exit 0. The total count of dispositions (per type) feeds into the diary entry at step 1 and `outcome_summary` at step 11.
 
 If a marker truly is a false positive (e.g., literal text inside a code-discipline doc like "this used to say TODO"), use `acceptable_no_action` with a short reasoning. The `acceptable_no_action` path is the documented escape hatch — using it is normal, not a sign of laziness.
 
 The audit is hard-fail by design: undispositioned markers block the close, mirroring the mechanical-surface discipline the audit itself instantiates. The script does not introduce a new soft-warn category.
 
-#### 6a. HANDOFF-disposition audit
+#### 8a. HANDOFF-disposition audit
 
 Run `python3 engine/tools/audit_handoff_dispositions.py` from the repo root. The script diffs `HANDOFF.md` across this session's range (`<eager-claim-SHA>^..HEAD`) and finds every newly-added section header (`+## ...` in the unified diff). For each, it requires a `**Disposition:**` line in the section body matching one of four accepted forms:
 
@@ -129,7 +163,7 @@ The audit also runs from the pre-commit hook in `closing` mode (the close commit
 
 The audit ignores edits to existing sections — only newly-added section headers are scanned. The retrofit cost on pre-S-0036 entries would be prohibitive; the discipline applies forward only.
 
-#### 6b. Archive structured-fields audit
+#### 8b. Archive structured-fields audit
 
 Run `python3 engine/tools/audit_archive_structured_fields.py` from the repo root. The script reads `engine/session/current.json` and validates that the `outcome_summary_soft_warns` key is present and non-null. Empty dict (`{}`) is permitted — it's the legitimate shape for a session whose `validate.py` emitted no warnings.
 
@@ -141,31 +175,7 @@ The audit also runs from the pre-commit hook in `closing` mode against the stage
 
 Optional secondary check: if the field is present but empty (`{}`) AND the session had ≥3 commits, the audit emits a stderr advisory pointing at the likely "wrote empty by default" pattern. The advisory is informational; the field is technically valid so the audit still exits 0.
 
-### 7. Write session diary entry
-
-Per [`mempalace-operations.md`](mempalace-operations.md) "Project usage scope". The MemPalace diary carries the AI's first-person reflection on the session — distinct from `outcome_summary` (outcome-focused) and ENGINE_LOG (third-person artifact narrative). What surprised me, what I noticed but didn't act on, what feels load-bearing for the next session, where my judgment was uncertain.
-
-Build sessions only. Default-mode (exploration) sessions skip — no slot, no formal close.
-
-Call `mempalace_diary_write` with `agent_name: "claude"` (project convention per `mempalace-operations.md`). Content shape: 150-400 words, first person. Recommended structure (not required):
-
-- **What I worked on this session** — one paragraph; high-level enough to be findable by `mempalace_diary_read` at the next session's boot.
-- **What surprised me** — premises that didn't hold, side-discoveries, anything that updated my model of how this project works.
-- **What I noticed but deferred** — observations that are out-of-scope for this session but next-session-relevant. (If actionable enough, also surface in HANDOFF.md or as a follow-up task in `outcome_summary`; the diary is the lower-formality channel for things that don't quite warrant a tracked task.)
-- **Where my judgment was uncertain** — places I made a call I'd want a fresh-eyes review on, or where I'd phrase the question differently if I were starting fresh.
-
-After the diary write, run the **`pushback` / `lesson` capture check** (added at S-0041 per the second project health check audit's adoption-gap finding — the tags were defined at S-0032 with zero applications across the eight intervening sessions because the convention was too implicit to reach the AI's authoring loop without an explicit prompt). Ask explicitly:
-
-- **Did this session produce a `pushback` moment?** A `pushback` moment is a verbatim exchange where you (the AI) surfaced an unnamed risk specifically (not generic concern), the user heard it, and the conversation changed direction in response. Self-pushback also qualifies — your own self-critique that the user accepted. If yes, capture it now via `mempalace_add_drawer` per the [`pushback` tag definition in mempalace-tagging-conventions.md](mempalace-tagging-conventions.md). The capture preserves verbatim user framing + verbatim AI pushback + verbatim user acceptance + one-line summary of the change. Without verbatim, the recall value collapses.
-- **Did this session produce a `lesson` candidate?** A `lesson` candidate is a procedural failure with a non-obvious cause and a working fix — "we tried X, it failed because non-obvious Y, the fix that worked was Z." A bug whose cause was obvious-once-named also qualifies if the *identification* was the value. If yes, capture it now via `mempalace_add_drawer` per the [`lesson` tag definition](mempalace-tagging-conventions.md). The capture preserves the failed approach (specific enough to be findable on similar approaches), the non-obvious reason it failed, the working fix, and optional pointers to related ADRs or ops docs.
-
-Both capture decisions are explicit yes/no asks at every shutdown — not a heuristic for the AI to apply by judgment alone (the S-0041 audit measured: judgment-alone produced zero captures across S-0033 → S-0040). When the answer is no, no drawer is written and the session proceeds. When the answer is yes, the drawer is written before step 8 so the capture is durable before the archive moves.
-
-If the diary write is skipped (deliberately or by accident), record `diary_skipped: 1` in `outcome_summary_soft_warns` at step 8 below. Per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md)'s 3-of-5 threshold, three skipped diary writes in the last five sessions fire a persistent-warn at the next session's boot. That is the mechanical adoption check — drift surfaces automatically without any session having to remember.
-
-If the MemPalace MCP server is unavailable at shutdown, attempt the write; if it fails, record `diary_skipped: 1` and proceed. The session does not block on the diary.
-
-### 7a. Scope-delivery audit (per ADR 0049)
+### 9. Scope-delivery audit (per ADR 0049)
 
 Before the outcome_summary is written, the AI is prompted explicitly with the literal text:
 
@@ -185,11 +195,11 @@ The AI's structured answer is written to `engine/session/current.json` as the `s
 
 The `user_confirmed_changes` flag is captured for future audit but does not affect the soft-warn. When `delivered: false` and `user_confirmed_changes: true`, the entry passes the audit but the warn still fires. When `delivered: false` and `user_confirmed_changes: false`, the same warn fires; the user's review of the archive will surface the unjustified deviation.
 
-The prompt is asked at every shutdown — not a heuristic for the AI to apply by judgment alone. Same discipline as the `pushback`/`lesson` capture check above (S-0041 audit measured judgment-alone produced zero captures across eight sessions; explicit prompt is the load-bearing surface).
+The prompt is asked at every shutdown — not a heuristic for the AI to apply by judgment alone. Same discipline as the `pushback`/`lesson` capture check at step 1 (S-0041 audit measured judgment-alone produced zero captures across eight sessions; explicit prompt is the load-bearing surface).
 
-### 7b. Defer-handle audit (per ADR 0049 Decision 6, S-0100 amendment / Issue #54)
+### 10. Defer-handle audit (per ADR 0049 Decision 6, S-0100 amendment / Issue #54)
 
-After the scope-delivery audit at 7a, before `outcome_summary` fill at step 8, the AI is prompted explicitly with the literal text:
+After the scope-delivery audit at step 9, before `outcome_summary` fill at step 11, the AI is prompted explicitly with the literal text:
 
 > *Did your `outcome_summary` use any hedge-shaped phrasing — references to "future session", "next session will", "revisit when", "deferred indefinitely", or similar? If yes, declare `next_session_handle` as either an Issue number (`#NN`), a specific session ID (`S-NNNN`), or explicit `null` (when the phrasing is intentional forward-pointer prose, not a deferral).*
 
@@ -203,9 +213,9 @@ The `validate_outcome_summary_unhandled_defer` audit at `--final-check` enforces
 
 Closes Pushback Cluster A from the S-0097 audit. The user adjudicated structured-field formulation over keyword-scan-only at S-0098 — anchors on a positive contract ("must declare the handle") rather than a negative one ("must not use these words"). False positives become "you forgot to declare" rather than "your prose tripped a regex." Two canonical instances captured as `[pushback]`-prefixed drawers in `paideia/problems` (S-0071 "correctable in any future session via a JSON edit"; S-0048 "preserved for manual review").
 
-The prompt is asked at every shutdown — same discipline as 7a; explicit prompting is the load-bearing surface for both deferral mechanisms.
+The prompt is asked at every shutdown — same discipline as step 9; explicit prompting is the load-bearing surface for both deferral mechanisms.
 
-### 8. Fill `session/current.json` `outcome_summary` and `outcome_summary_soft_warns`
+### 11. Fill `session/current.json` `outcome_summary` and `outcome_summary_soft_warns`
 
 `outcome_summary` is ~50 words of prose. What got done, anything noteworthy for the next session, what tradeoffs surfaced. Example shape:
 
@@ -218,8 +228,6 @@ Honest summaries beat flattering ones — health-check trend analysis and the ne
 `outcome_summary_soft_warns` is the structured trend canon per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md). **Per [ADR 0045](../adr/0045-shared-state-integrity-discipline.md) (S-0035 onward), the field is computed by aggregating across every `validate.py` invocation recorded in this session's `engine/tools/validate-history.jsonl` entries — per-category max-count.** This closes a gap in the prior "final validator run only" rule: a soft-warn that fires at boot (e.g., `chromadb_palace_health` under suspicion-level corruption) but resolves before shutdown would otherwise be dropped from the archive, defeating the cross-session 3-of-5 surface. Aggregating across all session invocations means boot-only firings still accumulate.
 
 The boot-only firing case isn't theoretical: the SessionStart hook runs `validate.py --health-probe-only` per ADR 0045, which writes its own validate-history.jsonl entry independent of the final pre-commit run. Without the aggregation change, that entry's findings would never reach the archive.
-
-Plus session-state findings the validator does not see (`diary_skipped` from step 7).
 
 Shape:
 
@@ -236,6 +244,7 @@ Shape:
   "adr_consequences_deliverable_audit": 0,
   "chromadb_palace_health": 0,
   "repo_config_health": 0,
+  "skill_layer1_parity_drift": 0,
   "undeclared_predicate": 0,
   "attribute_shape_inconsistency": 0,
   "missing_rigor_score": 0,
@@ -258,7 +267,7 @@ Shape:
 }
 ```
 
-All known soft-warn categories appear in the block, even with zero counts; absent keys signal "this category did not exist at this session's close" rather than "this category fired zero times." The boot-time persistent-warn surface (per [`soft-warn-lifecycle.md`](soft-warn-lifecycle.md)) reads this field across the last 5 archives and surfaces categories appearing in 3-or-more. The mempalace-availability categories are emitted by `validate.py --final-check` per ADR 0056 (S-0078, S-0089, S-0090, S-0091) reading `mempalace_activity` written by `scan_mempalace_activity.py` at step 0; the previous self-recorded `diary_skipped` was renamed to `mempalace_diary_write_skipped` and is now mechanically detected from telemetry. `mempalace_diary_write_skipped_routine` (added at S-0091) replaces the engine-mode-only `mempalace_diary_write_skipped` hard-fail for routine sessions — when fired, the validator also appends an entry to `engine/session/diary_pending_index.json` so the next boot's SessionStart hook surfaces the deferred-diary count and the user can run the recovery procedure documented at [`routine-mode-operations.md`](routine-mode-operations.md) "Deferred diary recovery". `chromadb_palace_health` and `repo_config_health` are the shared-state probe categories per ADR 0045 — they fire on either suspicion (palace empty, etc.) or hard-broken (segfault, parent core.bare=true) state at any validator invocation during the session. The seven graph-audit categories (`undeclared_predicate` through `suspicious_cross_domain_ratio`) added at S-0037 per [ADR 0016](../adr/0016-graph-construction-needs-live-validation.md) and the [Phase 4 build-readiness gate](../build_readiness/phase_4_graph_validation.md) — they fire when `SUPABASE_DB_URL` is set and the audit runs against the live DB; sessions without DB connectivity record zeros (the audit skips entirely, recording `graph_audit_skipped` in `checks_run` rather than firing any category).
+All known soft-warn categories appear in the block, even with zero counts; absent keys signal "this category did not exist at this session's close" rather than "this category fired zero times." The boot-time persistent-warn surface (per [`soft-warn-lifecycle.md`](soft-warn-lifecycle.md)) reads this field across the last 5 archives and surfaces categories appearing in 3-or-more. `skill_layer1_parity_drift` is the Skill ↔ Layer-1 procedure-parity category per [ADR 0089](../adr/0089-skill-layer1-parity-validator-check.md). The mempalace-availability categories are emitted by `validate.py --final-check` per ADR 0056 (S-0078, S-0089, S-0090, S-0091) reading `mempalace_activity` written by `scan_mempalace_activity.py` at step 2; the previous self-recorded `diary_skipped` was renamed to `mempalace_diary_write_skipped` and is now mechanically detected from telemetry. `mempalace_diary_write_skipped_routine` (added at S-0091) replaces the engine-mode-only `mempalace_diary_write_skipped` hard-fail for routine sessions — when fired, the validator also appends an entry to `engine/session/diary_pending_index.json` so the next boot's SessionStart hook surfaces the deferred-diary count and the user can run the recovery procedure documented at [`routine-mode-operations.md`](routine-mode-operations.md) "Deferred diary recovery". `chromadb_palace_health` and `repo_config_health` are the shared-state probe categories per ADR 0045 — they fire on either suspicion (palace empty, etc.) or hard-broken (segfault, parent core.bare=true) state at any validator invocation during the session. The seven graph-audit categories (`undeclared_predicate` through `suspicious_cross_domain_ratio`) added at S-0037 per [ADR 0016](../adr/0016-graph-construction-needs-live-validation.md) and the [Phase 4 build-readiness gate](../build_readiness/phase_4_graph_validation.md) — they fire when `SUPABASE_DB_URL` is set and the audit runs against the live DB; sessions without DB connectivity record zeros (the audit skips entirely, recording `graph_audit_skipped` in `checks_run` rather than firing any category).
 
 **Aggregation procedure (per ADR 0045):**
 
@@ -268,15 +277,15 @@ All known soft-warn categories appear in the block, even with zero counts; absen
 4. Per ADR 0056 (S-0078), the three `mempalace_*_skipped` categories come from `validate.py --final-check` — they are part of the validate-history.jsonl entries from step 1, not separate session-state. The aggregation procedure picks them up automatically along with all other validator categories.
 5. Ensure every known category from the catalog appears with at least 0; absent keys carry the documented "category didn't exist" semantic.
 
-### 8b. Scan drawer citations (per ADR 0056 S-0093 amendment, Issue #39)
+### 12. Scan drawer citations (per ADR 0056 S-0093 amendment, Issue #39)
 
-After `outcome_summary` is filled at step 8 AND the diary write completed at step 7, run [`engine/tools/scan_mempalace_citations.py`](../tools/scan_mempalace_citations.py) from the repo root. The tool scans `outcome_summary`, today's diary entry (via `mempalace.mcp_server.tool_diary_read`), and commit messages from `git log <eager-claim-sha>..HEAD --format=%B` for three citation patterns (drawer IDs, S-NNNN archive references, tag-named references — see [`mempalace-operations.md`](mempalace-operations.md) "Drawer-citation telemetry"). Writes the nested `mempalace_citations` block under the existing `mempalace_activity` field in `engine/session/current.json`.
+After `outcome_summary` is filled at step 11 AND the diary write completed at step 1, run [`engine/tools/scan_mempalace_citations.py`](../tools/scan_mempalace_citations.py) from the repo root. The tool scans `outcome_summary`, today's diary entry (via `mempalace.mcp_server.tool_diary_read`), and commit messages from `git log <eager-claim-sha>..HEAD --format=%B` for three citation patterns (drawer IDs, S-NNNN archive references, tag-named references — see [`mempalace-operations.md`](mempalace-operations.md) "Drawer-citation telemetry"). Writes the nested `mempalace_citations` block under the existing `mempalace_activity` field in `engine/session/current.json`.
 
-The tool is idempotent — re-running overwrites the block. Substrate-unreachable paths (mempalace import fails) yield empty diary text but the scan still runs against `outcome_summary` + git log; pre-S-0093 archives are unaffected because the new `mempalace_zero_citations_after_search` audit category is gated on session id ≥ S-0093.
+The tool is idempotent — re-running overwrites the block. Substrate-unreachable paths (mempalace import fails) yield empty diary text but the scan still runs against `outcome_summary` + git log; pre-S-0093 archives are unaffected because the `mempalace_zero_citations_after_search` audit category is gated on session id ≥ S-0093.
 
-The closing commit's pre-commit hook re-runs `validate.py --final-check`; the new audit category reads the citations block written by this step. If `mempalace_activity.search_calls > 0` AND `mempalace_activity.mempalace_citations.total == 0`, the soft-warn `mempalace_zero_citations_after_search` fires — observable signal that the boot search ran but the session didn't cite any retrieved drawers in authored artifacts. Persistent firing per ADR 0042's 3-of-5 surface signals the boot-search formulations need tuning OR retrieved drawers aren't being woven into authored work.
+The closing commit's pre-commit hook re-runs `validate.py --final-check`; the audit category reads the citations block written by this step. If `mempalace_activity.search_calls > 0` AND `mempalace_activity.mempalace_citations.total == 0`, the soft-warn `mempalace_zero_citations_after_search` fires — observable signal that the boot search ran but the session didn't cite any retrieved drawers in authored artifacts. Persistent firing per ADR 0042's 3-of-5 surface signals the boot-search formulations need tuning OR retrieved drawers aren't being woven into authored work.
 
-### 9. Archive the claim
+### 13. Archive the claim
 
 ```bash
 mv session/current.json session/archive/S-<NNNN>.json
@@ -305,7 +314,7 @@ Update `session/register_state.json`:
 }
 ```
 
-### 10. Final commit + main FF + push
+### 14. Final commit + main FF + push
 
 Commit message uses Conventional Commits with the session ID:
 
@@ -327,7 +336,7 @@ The wrapper mechanically shape-verifies HEAD (close subject pattern, archive/S-N
 
 No per-push confirmation — the `/start-engine` invocation at session boot already authorizes the shutdown push (per `session-build-lifecycle.md` Push policy). After the push completes, the durable close has landed on `origin/main`; the session is fully closed.
 
-### 11. Close-side worktree preservation (per ADR 0076 Amendment v2, S-0143)
+### 15. Close-side worktree preservation (per ADR 0076 Amendment v2, S-0143)
 
 **The closing session's worktree is NOT swept at close.** It survives close push + parent FF + archive so the user can return to that worktree for follow-up discussion, in-tree review of the session's deliverables, or out-of-scope edits. Both [`engine/tools/routine_worktree_sweep.py`](../tools/routine_worktree_sweep.py) and [`engine/tools/sweep_worktrees.sh`](../tools/sweep_worktrees.sh) carry a `caller's-own-worktree` pre-flight that refuses sweep when invoked against the caller's current working directory — defense-in-depth in case any consumer accidentally targets it at close.
 
@@ -368,7 +377,7 @@ The next session picks up cleanly from STATE.md without re-deriving where things
 
 ## Recovery (interrupted shutdown)
 
-A clean close runs steps 1–10 in sequence. If the session crashes, hits a network error, or otherwise halts mid-shutdown, the observable state determines the recovery path.
+A clean close runs steps 1–14 in sequence. If the session crashes, hits a network error, or otherwise halts mid-shutdown, the observable state determines the recovery path.
 
 ### Pre-recovery sanity check (verify the prior close did not already land)
 
@@ -388,9 +397,9 @@ Concrete trigger condition for the stale-checkout shape: `register_state.json`'s
 
 ### Recovery scenarios
 
-1. **Halted before step 9 (archive).** `current.json` present; `register_state.json` `current_status: in_progress`. Resume from step 1 — run `tools/validate.py`, complete spot-check, run cold-review pass for any modified Python under engine/ and any modified SQL under product/seed-graph/migrations/, finish updating STATE.md / ENGINE_LOG, run the side-discovery audit, write the diary entry, fill `outcome_summary`, then archive and final-commit.
+1. **Halted before step 13 (archive).** `current.json` present; `register_state.json` `current_status: in_progress`. Resume from step 1 — write the diary entry, run the activity rollup, run `tools/validate.py`, complete the spot-check, run the cold-review pass for any modified Python under engine/ and any modified SQL under product/seed-graph/migrations/, finish updating STATE.md / ENGINE_LOG, run the side-discovery audit, fill `outcome_summary`, then archive and final-commit.
 
-2. **Halted between archive (step 9) and final commit (step 10).** `archive/S-<NNNN>.json` present, `current.json` absent, `register_state.json` `current_status: closed`. The archive move sits unstaged or staged in the working tree. Stage and commit the planned final commit; FF main; push.
+2. **Halted between archive (step 13) and final commit (step 14).** `archive/S-<NNNN>.json` present, `current.json` absent, `register_state.json` `current_status: closed`. The archive move sits unstaged or staged in the working tree. Stage and commit the planned final commit; FF main; push.
 
 3. **Halted after final commit, before FF + push.** Final commit exists locally; `git log origin/main..HEAD` shows it. FF main and push. No state edits required.
 
