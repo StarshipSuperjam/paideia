@@ -1,216 +1,429 @@
 {
-  "target_id": "T-PHASE-5-AUDIT",
-  "goal": "Phase 5 graph production audit — SEP-anchored content fitness review across 12 evidence sessions per the master-plan gate report at engine/build_readiness/phase_5_production_audit.md (S-0081 gate PROCEED recommendation; per-subdomain density 35%). Each evidence session produces candidate findings only; closeout disposition is interactive (not in this routine target).",
+  "target_id": "T-SEED-QA",
+  "goal": "Seed-graph QA census — full sweep of all 516 pedagogical_prerequisite edges + all 380 nodes, scoring C1 prerequisite soundness (independent drift check vs the production audit's 13% baseline), C2 teaching_notes traction, and C3 summary cold-readability. 19 shard sessions + 1 closeout. Feeds Phase 6 self-correction. Methodology: engine/build_readiness/seed_qa_audit.md. Shards: engine/build_readiness/seed_qa_evidence/shards.json. Disposition is a later interactive session, not this routine target.",
   "paused": false,
-  "max_sessions": 14,
-  "max_wall_clock_hours": 48,
+  "max_sessions": 22,
+  "max_wall_clock_hours": 30,
   "tasks": [
     {
-      "id": "AUDIT-CB",
-      "name": "Cross-bridge full census (71 edges) — SEP-anchored review of every cross-domain edge; calibration-set whose defect rate triggers within-session sample expansion for downstream subdomain tasks",
+      "id": "SQA-01",
+      "name": "Shard 01 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
       "depends_on": [],
       "criteria": [
-        {"type": "file_exists", "path": "engine/build_readiness/phase_5_production_audit_evidence/crossbridges.md"},
-        {"type": "validate_passes"}
+        {
+          "type": "file_exists",
+          "path": "engine/build_readiness/seed_qa_evidence/shard_01.md"
+        },
+        {
+          "type": "validate_passes"
+        }
       ],
       "scope_lock": {
         "allowed_paths": [
-          "engine/build_readiness/phase_5_production_audit_evidence/crossbridges.md"
+          "engine/build_readiness/seed_qa_evidence/shard_01.md"
         ]
       },
-      "status": "complete"
+      "status": "pending"
     },
     {
-      "id": "AUDIT-EPI",
-      "name": "Epistemology subdomain audit — 25 of 72 edges (35%); ~12 edge-anchored nodes; SEP-anchored review per master-plan prompt template",
-      "depends_on": ["AUDIT-CB"],
+      "id": "SQA-02",
+      "name": "Shard 02 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "depends_on": [],
       "criteria": [
-        {"type": "file_exists", "path": "engine/build_readiness/phase_5_production_audit_evidence/epistemology.md"},
-        {"type": "validate_passes"}
+        {
+          "type": "file_exists",
+          "path": "engine/build_readiness/seed_qa_evidence/shard_02.md"
+        },
+        {
+          "type": "validate_passes"
+        }
       ],
       "scope_lock": {
         "allowed_paths": [
-          "engine/build_readiness/phase_5_production_audit_evidence/epistemology.md"
+          "engine/build_readiness/seed_qa_evidence/shard_02.md"
         ]
       },
-      "status": "complete"
+      "status": "pending"
     },
     {
-      "id": "AUDIT-ETH",
-      "name": "Ethics subdomain audit — 24 of 68 edges (35%); ~12 edge-anchored nodes",
-      "depends_on": ["AUDIT-CB"],
+      "id": "SQA-03",
+      "name": "Shard 03 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "depends_on": [],
       "criteria": [
-        {"type": "file_exists", "path": "engine/build_readiness/phase_5_production_audit_evidence/ethics.md"},
-        {"type": "validate_passes"}
+        {
+          "type": "file_exists",
+          "path": "engine/build_readiness/seed_qa_evidence/shard_03.md"
+        },
+        {
+          "type": "validate_passes"
+        }
       ],
       "scope_lock": {
         "allowed_paths": [
-          "engine/build_readiness/phase_5_production_audit_evidence/ethics.md"
+          "engine/build_readiness/seed_qa_evidence/shard_03.md"
         ]
       },
-      "status": "complete"
+      "status": "pending"
     },
     {
-      "id": "AUDIT-MET",
-      "name": "Metaphysics subdomain audit — 23 of 66 edges (35%); ~12 edge-anchored nodes",
-      "depends_on": ["AUDIT-CB"],
+      "id": "SQA-04",
+      "name": "Shard 04 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "depends_on": [],
       "criteria": [
-        {"type": "file_exists", "path": "engine/build_readiness/phase_5_production_audit_evidence/metaphysics.md"},
-        {"type": "validate_passes"}
+        {
+          "type": "file_exists",
+          "path": "engine/build_readiness/seed_qa_evidence/shard_04.md"
+        },
+        {
+          "type": "validate_passes"
+        }
       ],
       "scope_lock": {
         "allowed_paths": [
-          "engine/build_readiness/phase_5_production_audit_evidence/metaphysics.md"
+          "engine/build_readiness/seed_qa_evidence/shard_04.md"
         ]
       },
-      "status": "complete"
+      "status": "pending"
     },
     {
-      "id": "AUDIT-MIN",
-      "name": "Philosophy of mind subdomain audit — 25 of 70 edges (35%); ~12 edge-anchored nodes",
-      "depends_on": ["AUDIT-CB"],
+      "id": "SQA-05",
+      "name": "Shard 05 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "depends_on": [],
       "criteria": [
-        {"type": "file_exists", "path": "engine/build_readiness/phase_5_production_audit_evidence/mind.md"},
-        {"type": "validate_passes"}
+        {
+          "type": "file_exists",
+          "path": "engine/build_readiness/seed_qa_evidence/shard_05.md"
+        },
+        {
+          "type": "validate_passes"
+        }
       ],
       "scope_lock": {
         "allowed_paths": [
-          "engine/build_readiness/phase_5_production_audit_evidence/mind.md"
+          "engine/build_readiness/seed_qa_evidence/shard_05.md"
         ]
       },
-      "status": "complete"
+      "status": "pending"
     },
     {
-      "id": "AUDIT-LOG",
-      "name": "Logic (philosophical) subdomain audit — 12 of 34 edges (35%); ~8 edge-anchored nodes",
-      "depends_on": ["AUDIT-CB"],
+      "id": "SQA-06",
+      "name": "Shard 06 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "depends_on": [],
       "criteria": [
-        {"type": "file_exists", "path": "engine/build_readiness/phase_5_production_audit_evidence/logic.md"},
-        {"type": "validate_passes"}
+        {
+          "type": "file_exists",
+          "path": "engine/build_readiness/seed_qa_evidence/shard_06.md"
+        },
+        {
+          "type": "validate_passes"
+        }
       ],
       "scope_lock": {
         "allowed_paths": [
-          "engine/build_readiness/phase_5_production_audit_evidence/logic.md"
+          "engine/build_readiness/seed_qa_evidence/shard_06.md"
         ]
       },
-      "status": "complete"
+      "status": "pending"
     },
     {
-      "id": "AUDIT-LAN",
-      "name": "Philosophy of language subdomain audit — 11 of 31 edges (35%); ~8 edge-anchored nodes",
-      "depends_on": ["AUDIT-CB"],
+      "id": "SQA-07",
+      "name": "Shard 07 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "depends_on": [],
       "criteria": [
-        {"type": "file_exists", "path": "engine/build_readiness/phase_5_production_audit_evidence/language.md"},
-        {"type": "validate_passes"}
+        {
+          "type": "file_exists",
+          "path": "engine/build_readiness/seed_qa_evidence/shard_07.md"
+        },
+        {
+          "type": "validate_passes"
+        }
       ],
       "scope_lock": {
         "allowed_paths": [
-          "engine/build_readiness/phase_5_production_audit_evidence/language.md"
+          "engine/build_readiness/seed_qa_evidence/shard_07.md"
         ]
       },
-      "status": "complete"
+      "status": "pending"
     },
     {
-      "id": "AUDIT-SCI",
-      "name": "Philosophy of science subdomain audit — 11 of 30 edges (35%); ~8 edge-anchored nodes",
-      "depends_on": ["AUDIT-CB"],
+      "id": "SQA-08",
+      "name": "Shard 08 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "depends_on": [],
       "criteria": [
-        {"type": "file_exists", "path": "engine/build_readiness/phase_5_production_audit_evidence/science.md"},
-        {"type": "validate_passes"}
+        {
+          "type": "file_exists",
+          "path": "engine/build_readiness/seed_qa_evidence/shard_08.md"
+        },
+        {
+          "type": "validate_passes"
+        }
       ],
       "scope_lock": {
         "allowed_paths": [
-          "engine/build_readiness/phase_5_production_audit_evidence/science.md"
+          "engine/build_readiness/seed_qa_evidence/shard_08.md"
         ]
       },
-      "status": "complete"
+      "status": "pending"
     },
     {
-      "id": "AUDIT-POL",
-      "name": "Political philosophy subdomain audit — 12 of 34 edges (35%); ~8 edge-anchored nodes",
-      "depends_on": ["AUDIT-CB"],
+      "id": "SQA-09",
+      "name": "Shard 09 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "depends_on": [],
       "criteria": [
-        {"type": "file_exists", "path": "engine/build_readiness/phase_5_production_audit_evidence/political.md"},
-        {"type": "validate_passes"}
+        {
+          "type": "file_exists",
+          "path": "engine/build_readiness/seed_qa_evidence/shard_09.md"
+        },
+        {
+          "type": "validate_passes"
+        }
       ],
       "scope_lock": {
         "allowed_paths": [
-          "engine/build_readiness/phase_5_production_audit_evidence/political.md"
+          "engine/build_readiness/seed_qa_evidence/shard_09.md"
         ]
       },
-      "status": "complete"
+      "status": "pending"
     },
     {
-      "id": "AUDIT-AES",
-      "name": "Aesthetics subdomain audit — 11 of 32 edges (35%); ~8 edge-anchored nodes",
-      "depends_on": ["AUDIT-CB"],
+      "id": "SQA-10",
+      "name": "Shard 10 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "depends_on": [],
       "criteria": [
-        {"type": "file_exists", "path": "engine/build_readiness/phase_5_production_audit_evidence/aesthetics.md"},
-        {"type": "validate_passes"}
+        {
+          "type": "file_exists",
+          "path": "engine/build_readiness/seed_qa_evidence/shard_10.md"
+        },
+        {
+          "type": "validate_passes"
+        }
       ],
       "scope_lock": {
         "allowed_paths": [
-          "engine/build_readiness/phase_5_production_audit_evidence/aesthetics.md"
+          "engine/build_readiness/seed_qa_evidence/shard_10.md"
         ]
       },
-      "status": "complete"
+      "status": "pending"
     },
     {
-      "id": "AUDIT-SVC",
-      "name": "Service nodes subdomain audit — 10 of 28 edges (35%); ~8 nodes; emphasis on history-terminator sub-class given S-0081 gate's historical-not-pedagogical pattern",
-      "depends_on": ["AUDIT-CB"],
+      "id": "SQA-11",
+      "name": "Shard 11 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "depends_on": [],
       "criteria": [
-        {"type": "file_exists", "path": "engine/build_readiness/phase_5_production_audit_evidence/service.md"},
-        {"type": "validate_passes"}
+        {
+          "type": "file_exists",
+          "path": "engine/build_readiness/seed_qa_evidence/shard_11.md"
+        },
+        {
+          "type": "validate_passes"
+        }
       ],
       "scope_lock": {
         "allowed_paths": [
-          "engine/build_readiness/phase_5_production_audit_evidence/service.md"
+          "engine/build_readiness/seed_qa_evidence/shard_11.md"
         ]
       },
-      "status": "complete"
+      "status": "pending"
     },
     {
-      "id": "AUDIT-HT-1",
-      "name": "Hubs 1–5 (top 5 by total degree, full-incident-edge review): epistemic_justification (epistemology, deg 14), existence (metaphysics, 11), propositional_knowledge (epistemology, 11), causation (metaphysics, 10), physicalism (mind, 10) — ~48 unique incident edges. Per-edge SEP-anchored verdict + reasoning + confidence per master-plan §T1-A prompt template; per-node review on the 5 hub nodes themselves. Decomposed from former AUDIT-HT at the S-0117 administrative close per Issue #58 (the original single-task scope of 96 edges + 10 nodes + 3 traces hit context cap mid-authoring at S-0117).",
+      "id": "SQA-12",
+      "name": "Shard 12 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "depends_on": [],
+      "criteria": [
+        {
+          "type": "file_exists",
+          "path": "engine/build_readiness/seed_qa_evidence/shard_12.md"
+        },
+        {
+          "type": "validate_passes"
+        }
+      ],
+      "scope_lock": {
+        "allowed_paths": [
+          "engine/build_readiness/seed_qa_evidence/shard_12.md"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "SQA-13",
+      "name": "Shard 13 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "depends_on": [],
+      "criteria": [
+        {
+          "type": "file_exists",
+          "path": "engine/build_readiness/seed_qa_evidence/shard_13.md"
+        },
+        {
+          "type": "validate_passes"
+        }
+      ],
+      "scope_lock": {
+        "allowed_paths": [
+          "engine/build_readiness/seed_qa_evidence/shard_13.md"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "SQA-14",
+      "name": "Shard 14 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "depends_on": [],
+      "criteria": [
+        {
+          "type": "file_exists",
+          "path": "engine/build_readiness/seed_qa_evidence/shard_14.md"
+        },
+        {
+          "type": "validate_passes"
+        }
+      ],
+      "scope_lock": {
+        "allowed_paths": [
+          "engine/build_readiness/seed_qa_evidence/shard_14.md"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "SQA-15",
+      "name": "Shard 15 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "depends_on": [],
+      "criteria": [
+        {
+          "type": "file_exists",
+          "path": "engine/build_readiness/seed_qa_evidence/shard_15.md"
+        },
+        {
+          "type": "validate_passes"
+        }
+      ],
+      "scope_lock": {
+        "allowed_paths": [
+          "engine/build_readiness/seed_qa_evidence/shard_15.md"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "SQA-16",
+      "name": "Shard 16 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "depends_on": [],
+      "criteria": [
+        {
+          "type": "file_exists",
+          "path": "engine/build_readiness/seed_qa_evidence/shard_16.md"
+        },
+        {
+          "type": "validate_passes"
+        }
+      ],
+      "scope_lock": {
+        "allowed_paths": [
+          "engine/build_readiness/seed_qa_evidence/shard_16.md"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "SQA-17",
+      "name": "Shard 17 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "depends_on": [],
+      "criteria": [
+        {
+          "type": "file_exists",
+          "path": "engine/build_readiness/seed_qa_evidence/shard_17.md"
+        },
+        {
+          "type": "validate_passes"
+        }
+      ],
+      "scope_lock": {
+        "allowed_paths": [
+          "engine/build_readiness/seed_qa_evidence/shard_17.md"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "SQA-18",
+      "name": "Shard 18 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "depends_on": [],
+      "criteria": [
+        {
+          "type": "file_exists",
+          "path": "engine/build_readiness/seed_qa_evidence/shard_18.md"
+        },
+        {
+          "type": "validate_passes"
+        }
+      ],
+      "scope_lock": {
+        "allowed_paths": [
+          "engine/build_readiness/seed_qa_evidence/shard_18.md"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "SQA-19",
+      "name": "Shard 19 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "depends_on": [],
+      "criteria": [
+        {
+          "type": "file_exists",
+          "path": "engine/build_readiness/seed_qa_evidence/shard_19.md"
+        },
+        {
+          "type": "validate_passes"
+        }
+      ],
+      "scope_lock": {
+        "allowed_paths": [
+          "engine/build_readiness/seed_qa_evidence/shard_19.md"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "SQA-20",
+      "name": "Closeout — aggregate the 19 shard evidence files into seed_qa_findings.md: overall C1/C2/C3 error rates, per-subdomain breakdown, C1 drift comparison vs the production audit's 13% baseline, pattern clusters, and the 'for Phase 6 self-correction' section. Aggregation only; disposition is a follow-up interactive session.",
       "depends_on": [
-        "AUDIT-CB",
-        "AUDIT-EPI",
-        "AUDIT-ETH",
-        "AUDIT-MET",
-        "AUDIT-MIN",
-        "AUDIT-LOG",
-        "AUDIT-LAN",
-        "AUDIT-SCI",
-        "AUDIT-POL",
-        "AUDIT-AES",
-        "AUDIT-SVC"
+        "SQA-01",
+        "SQA-02",
+        "SQA-03",
+        "SQA-04",
+        "SQA-05",
+        "SQA-06",
+        "SQA-07",
+        "SQA-08",
+        "SQA-09",
+        "SQA-10",
+        "SQA-11",
+        "SQA-12",
+        "SQA-13",
+        "SQA-14",
+        "SQA-15",
+        "SQA-16",
+        "SQA-17",
+        "SQA-18",
+        "SQA-19"
       ],
       "criteria": [
-        {"type": "file_exists", "path": "engine/build_readiness/phase_5_production_audit_evidence/hubs_1_5.md"},
-        {"type": "validate_passes"}
+        {
+          "type": "file_exists",
+          "path": "engine/build_readiness/seed_qa_findings.md"
+        },
+        {
+          "type": "validate_passes"
+        }
       ],
       "scope_lock": {
         "allowed_paths": [
-          "engine/build_readiness/phase_5_production_audit_evidence/hubs_1_5.md"
+          "engine/build_readiness/seed_qa_findings.md"
         ]
       },
-      "status": "complete"
-    },
-    {
-      "id": "AUDIT-HT-2",
-      "name": "Hubs 6–10 (classical_logic (logic, deg 9), meaning (language, 9), normative_ethics (ethics, 9), vienna_circle_logical_positivism (service, 9), aristotelian_four_causes (service, 8) — ~48 unique incident edges) + 3 syllabus traces (gettier_problem (epistemology, BFS depth 4, 11 nodes), modal_realism (metaphysics, depth 5, 8 nodes), social_contract_theory (political philosophy, depth 3, 6 nodes — substituted for absent free_speech per S-0081 gate)). Per master-plan §T1-A prompt template; per master-plan §\"Three diagnostic syllabus traces\". Sequential after AUDIT-HT-1 (depends_on AUDIT-HT-1) so two routine fires don't race to author both halves.",
-      "depends_on": ["AUDIT-HT-1"],
-      "criteria": [
-        {"type": "file_exists", "path": "engine/build_readiness/phase_5_production_audit_evidence/hubs_6_10_and_traces.md"},
-        {"type": "validate_passes"}
-      ],
-      "scope_lock": {
-        "allowed_paths": [
-          "engine/build_readiness/phase_5_production_audit_evidence/hubs_6_10_and_traces.md"
-        ]
-      },
-      "status": "complete"
+      "status": "pending"
     }
   ]
 }

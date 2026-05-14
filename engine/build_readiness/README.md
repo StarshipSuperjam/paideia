@@ -45,6 +45,7 @@ Each class below names: when it gets authored, the contract that governs it, and
 | Report | Master-plan session | Routine block | Status |
 |---|---|---|---|
 | [`phase_5_production_audit.md`](phase_5_production_audit.md) | S-0082 | S-0083+ pending | Master plan landed; routine block pending |
+| [`seed_qa_audit.md`](seed_qa_audit.md) | S-0156 | S-0157+ pending | Master plan landed; routine block pending. Warrant settled in the S-0156 plan-mode session, not a class-2 gate report — see the report's "Warrant note". |
 
 ### 4. Closeout reports — phase-end retrospective
 
