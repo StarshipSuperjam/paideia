@@ -1,0 +1,45 @@
+{
+  "id": "S-0168",
+  "started_at": "2026-05-15T02:08:30Z",
+  "closed_at": "2026-05-15T02:15:05Z",
+  "status": "closed",
+  "mode": "routine",
+  "task_id": "SQA-07",
+  "target_id": "T-SEED-QA",
+  "working_on": "Routine task SQA-07: seed-graph QA census shard 07 — score 27 edges (C1) + 20 nodes (C2/C3)",
+  "declared_scope": "Score shard 07 of the T-SEED-QA census: 27 pedagogical_prerequisite edges against C1 (prerequisite soundness) and 20 nodes against C2 (teaching_notes traction) + C3 (summary cold-readability), per the pinned rubric in engine/build_readiness/seed_qa_audit.md. Single deliverable: engine/build_readiness/seed_qa_evidence/shard_07.md. phase: NA-routine",
+  "approved_plan": "engine/session/current_plan.md",
+  "branch": "claude/awesome-heyrovsky-f46378",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/awesome-heyrovsky-f46378",
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": false,
+    "explanation": "Delivered as declared — shard_07.md authored to the fixed evidence-file schema, all 27 edges scored against C1 and all 20 nodes against C2/C3, no descope or reorder. No user confirmation (unattended routine session). No in-band Issues filed. The auto_target.json SQA-07 status flip rides with the close commit per the Issue #122 lifecycle-push-wrapper sequencing constraint."
+  },
+  "next_session_handle": null,
+  "outcome_summary": "Seventh routine fire of the T-SEED-QA seed-graph QA census. Scored shard 07 — 27 pedagogical_prerequisite edges (C1) + 20 nodes (C2/C3) per the pinned seed_qa_audit.md rubric — and wrote seed_qa_evidence/shard_07.md. Findings: C1 0/27 defective = 0.0% (the census's third 0-defect shard after 04 and 06; 24 Sound, 3 Defensible, 0 Reversed, 0 Weak-redundant); C2 0/20 fail; C3 1/20 fail = 5.0% (N-18 free_play_imagination_understanding, a summary gated on a whole Kantian framework — 'the judgment of taste', technical 'determinate concept', 'universal communicability'). One audit-touched edge: E-13 physicalism->reductionism_in_science, examined as a prune candidate by migration 0063's weak-edge cleanup pass and deliberately KEPT with the evidence annotation it now carries verbatim; the other 26 edges are not audit-touched. Running C1 across shards 01-07: 10.7% / 3.6% / 3.6% / 0.0% / 3.7% / 0.0% / 0.0%, firmly under the production audit's 13% baseline. Two of the 3 Defensibles (E-9 climate_ethics->future_generations, E-26 scientific_theory->law_of_nature) share the recurring could-be-reversed 'target is the more general/co-equal concept' shape that shards 05-06 also flagged; each was held at Defensible on its merits (E-9 has a real concrete-entry-point reading and a 0.9 weight signalling authoring hesitation; E-26 is genuinely near-co-equal) and the recurring shape is flagged for the SQA-20 closeout as a cross-shard rubric-calibration question, which is above an evidence session's remit. The Defensible count (3) is down from shard 06's 6 and within the recent range — the over-Defensible-drift watch item is not worsening, but the shape persists. The C3 fail is the third consecutive shard with a jargon-gated summary (shard 05 N-8, shard 06 N-16, shard 07 N-18) — a real non-noise C3 failure mode, flagged for a closeout pattern entry; N-18 is the clearest of the three (framework-gated, not single-term-gated). Candidate findings only; disposition is the SQA-20 closeout. SQA-07 marked complete; SQA-08 next. No in-band Issues. mempalace_zero_citations_after_search fires because the boot search surfaced only diary/planning drawers (0 substantive decision/pushback drawers above the 0.60 threshold) — the same benign shape every prior census shard saw; the evidence file and diary reference S-0122 and S-0165 prior context as named-session references rather than drawer-ID citations. 0 validator hard-fails (50 checks on --final-check).",
+  "outcome_summary_soft_warns": {
+    "skill_layer1_parity_drift": 1,
+    "mempalace_wing_count_growth": 1,
+    "issue_collision": 7,
+    "missing_rigor_score": 361,
+    "edge_evidence_empty": 46,
+    "mempalace_zero_citations_after_search": 1
+  },
+  "mempalace_activity": {
+    "search_calls": 3,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 0,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 5,
+    "first_call_ts": "2026-05-15T02:03:08Z",
+    "last_call_ts": "2026-05-15T02:13:32Z",
+    "search_first_ts": "2026-05-15T02:03:08Z",
+    "diary_read_first_ts": "2026-05-15T02:03:19Z"
+  }
+}
