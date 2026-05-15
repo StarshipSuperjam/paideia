@@ -1,0 +1,45 @@
+{
+  "id": "S-0170",
+  "started_at": "2026-05-15T04:06:18Z",
+  "closed_at": "2026-05-15T04:23:14Z",
+  "status": "closed",
+  "mode": "routine",
+  "task_id": "SQA-09",
+  "target_id": "T-SEED-QA",
+  "working_on": "Routine task SQA-09: seed-graph QA census shard 09 — score 27 edges (C1) + 20 nodes (C2/C3)",
+  "declared_scope": "Score shard 09 of the T-SEED-QA census: 27 pedagogical_prerequisite edges against C1 (prerequisite soundness) and 20 nodes against C2 (teaching_notes traction) + C3 (summary cold-readability), per the pinned rubric in engine/build_readiness/seed_qa_audit.md. Single deliverable: engine/build_readiness/seed_qa_evidence/shard_09.md. phase: NA-routine",
+  "approved_plan": "engine/session/current_plan.md",
+  "branch": "claude/gracious-grothendieck-887725",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/gracious-grothendieck-887725",
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": false,
+    "explanation": "Delivered as declared — shard_09.md authored to the fixed evidence-file schema, all 27 edges scored against C1 and all 20 nodes against C2/C3, no descope or reorder. No user confirmation (unattended routine session). No in-band Issues filed. The auto_target.json SQA-09 status flip rides with the close commit per the Issue #122 lifecycle-push-wrapper sequencing constraint."
+  },
+  "next_session_handle": null,
+  "outcome_summary": "Ninth routine fire of the T-SEED-QA seed-graph QA census. Scored shard 09 — 27 pedagogical_prerequisite edges (C1) + 20 nodes (C2/C3) per the pinned seed_qa_audit.md rubric — and wrote seed_qa_evidence/shard_09.md. Findings: C1 0/27 defective = 0.0% (the census's FOURTH 0-defect shard after 04/06/07; 25 Sound, 2 Defensible — E-2 modus_ponens->propositional_logic and E-26 propositional_knowledge->knowledge, both instances of the recurring 'target is the more general/foundational concept' shape held at Defensible on concrete-entry-point readings (informal MP exposure preceding formal PL for E-2; everyday usage 'I know that' as entry to the genus knowledge for E-26); 0 Reversed, 0 Weak-redundant). C2 0/20 fail. C3 5/20 fail = 25.0% — N-6 causal_exclusion_argument (non-reductive-physicalism/supervenence/epiphenomenalism framework-gated), N-7 chisholm_paradox (SDL acronym undefined load-bearing, same shape as shard 05 N-8), N-8 bayes_theorem (formula + probability-theory jargon load-bearing, same shape as shard 06 N-16), N-16 representationalism_perception (phenomenal-character ungated; contrast shard 07 N-7 which PASSED with the gloss), N-19 modal_systems_hierarchy (K/T/S4/S5 + accessibility relation framework-gated). FIFTH consecutive shard with the C3 jargon-gating cluster (shards 05/06/07/08/09); the five-instance count is composition-driven (the shard's high concentration of technical-philosophy nodes) rather than authoring drift. The localized authoring differences across adjacent representationalism nodes are striking — shard 07 N-7 representationalism_consciousness PASSED because phenomenal character was glossed as 'what it is like to have an experience'; shard 09 N-16 representationalism_perception FAILED because the same term is ungated. Pattern strong enough now that the SQA-20 closeout should articulate a clear authoring rule: load-bearing first sentence may use technical terms but must gloss each one inline. One audit-touched edge — E-16 expertise->epistemic_dependence, kept-with-annotation by migration 0063 (weak-edge cleanup pass) — scored Sound on audit-validated direction; the audit's keep-with-evidence-annotation decision explicitly endorses the concrete-entry-point reading. Running C1 across shards 01-09: 10.7% / 3.6% / 3.6% / 0.0% / 3.7% / 0.0% / 0.0% / 3.7% / 0.0%; cumulative 23/245 = 9.4%, firmly under the production audit's 13% baseline. Defensible count 2 (counts across shards 04-09: 1/4/6/3/1/2) — over-Defensible-drift watch item is not worsening. Candidate findings only; disposition is the SQA-20 closeout. SQA-09 marked complete; SQA-10 next. No in-band Issues. mempalace_zero_citations_after_search fires because the boot search surfaced 0 drawers above the 0.60 threshold across all three formulations — the same benign shape every prior census shard saw; the evidence file and diary reference prior shards (05/06/07/08) and the production audit (S-0122) as named-session references rather than drawer-ID citations. 0 validator hard-fails (50 checks on --final-check).",
+  "outcome_summary_soft_warns": {
+    "skill_layer1_parity_drift": 1,
+    "mempalace_wing_count_growth": 1,
+    "issue_collision": 7,
+    "missing_rigor_score": 361,
+    "edge_evidence_empty": 46,
+    "mempalace_zero_citations_after_search": 1
+  },
+  "mempalace_activity": {
+    "search_calls": 3,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 0,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 5,
+    "first_call_ts": "2026-05-15T04:03:47Z",
+    "last_call_ts": "2026-05-15T04:21:53Z",
+    "search_first_ts": "2026-05-15T04:03:47Z",
+    "diary_read_first_ts": "2026-05-15T04:04:00Z"
+  }
+}
