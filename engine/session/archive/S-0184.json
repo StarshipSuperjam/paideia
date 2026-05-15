@@ -1,0 +1,60 @@
+{
+  "id": "S-0184",
+  "started_at": "2026-05-15T17:33:17Z",
+  "status": "closed",
+  "mode": "interactive",
+  "working_on": "Health-check audit at S-0184 (cadence trigger overdue by 2; ADR 0057 adversarial-stance audit; window S-0163 \u2192 S-0183)",
+  "declared_scope": "Author the cadence-fired health-check audit report at docs/health-checks/S-0184.md per ADR 0057 (adversarial stance), including the 5 freshness probes, 4 posture sections, pushback/lesson cluster reading, \u22651 non-obvious finding, \u22651 affirmative retire candidate, cold-context probe, and inline user adjudication of two user-pre-named findings (Finding-MEMPALACE: recurring-fix routine? + Finding-ENGINE-LOG: cut a release version?). Approved Issues filed in-session per ADR 0057 revised Decision 1. phase: NA-health-check",
+  "outcome_summary": "Cadence-fired adversarial-stance audit landed end-to-end with inline user adjudication. Two non-obvious findings: A \u2014 MemPalace retrieval broken in three reinforcing ways (HNSW UNKNOWN; upstream wing-filter throws Issue #1; BM25 fallback returns mining pollution; ADR 0057 element 4's prescribed pushback/lesson cluster reading is structurally un-runnable in current substrate); B \u2014 persistent-warn surface saturated, 7 categories at \u226510 persistence, alarm-too-noisy-to-alert pattern. Two user-pre-named adjudications: Finding-MEMPALACE \u2192 option (c) settle Phase-6 recall-substrate decision NOW \u2192 Issue #131; Finding-ENGINE-LOG \u2192 option (d) cut 0.1.0 + structural split + duplication audit \u2192 Issue #132. Finding B \u2192 option B1 separate annotated-baselines bucket \u2192 Issue #133. Inline cleanup: STATE.md prune of accreted verification-prose rows S-0156/0157/0160/0163 (198 \u2192 167 lines, back under 180 threshold). All five S-0162 findings closed at S-0163 \u2014 pipeline worked end-to-end. Cadence stays at 20. mempalace_unavailable_acknowledged: boot mempalace_search ran via CLI (mempalace search, venv binary) for the freshness probe rather than via mcp__mempalace__mempalace_search, so post-mempalace-tool-use hook did not log search/diary_read activity \u2014 same plan-mode-then-claim surface effect as S-0160/S-0162. Diary write + decision drawer landed via MCP and are tracked. validate.py + classifier interaction caused two pre-commit hangs that user resolved by killing zombie processes (PIDs 98390/98393, 1h50m old, from a prior session attempting to commit migration 0067 already landed in S-0183) + authorizing production DB reads inline.",
+  "scope_delivery": {
+    "declared_count": 7,
+    "delivered_count": 7,
+    "in_scope_unmet": [],
+    "in_scope_partial": [],
+    "out_of_scope_delivered": []
+  },
+  "next_session_handle": "Three audit-spawned session-sized work items + PDG papers Session \u03b1 (carried from S-0171 / HANDOFF.md). User adjudication picks order. Issue #131 (Phase-6 recall-substrate decision ADR) ideally lands BEFORE Session \u03b1 since Session \u03b1 depends on decision-drawer recall and the audit confirmed retrieval is broken. Issue #132 (ENGINE_LOG cut + split + duplication audit) and Issue #133 (persistent-warn annotated-baselines bucket) are independent, can interleave. PDG papers Session \u03b1 \u2014 cross-reference audit against 89 ADRs, output engine/build_readiness/pdg_papers_extraction/adr_cross_reference_map.md.",
+  "approved_plan": "/Users/shanekidd/.claude/plans/time-for-health-check-cosmic-wand.md",
+  "branch": "claude/priceless-kowalevski-2da9c4",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/priceless-kowalevski-2da9c4",
+  "mempalace_activity": {
+    "search_calls": 0,
+    "diary_read_calls": 0,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 1,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 2,
+    "first_call_ts": "2026-05-15T18:03:09Z",
+    "last_call_ts": "2026-05-15T18:03:21Z",
+    "search_first_ts": null,
+    "diary_read_first_ts": null
+  },
+  "mempalace_unavailable_acknowledged": "boot mempalace_search ran via venv CLI binary (mempalace search) for the audit's freshness probe per ADR 0057 element 3, not via mcp__mempalace__mempalace_search \u2014 the post-mempalace-tool-use hook only logs MCP calls, so the CLI invocation is invisible to the activity tracker. Same plan-mode-then-claim surface effect as S-0160/S-0162; the search itself happened and produced the audit's gold-signal Finding A.",
+  "closed_at": "2026-05-15T18:30:34Z",
+  "outcome_summary_soft_warns": {
+    "skill_layer1_parity_drift": 1,
+    "mempalace_wing_count_growth": 1,
+    "issue_collision": 11,
+    "missing_rigor_score": 358,
+    "edge_evidence_empty": 46,
+    "mempalace_boot_query_skipped": 1,
+    "mempalace_diary_read_skipped": 1
+  },
+  "mempalace_citations": {
+    "drawer_ids_cited": [
+      "drawer_paideia_decisions_c7c69c6eebe84e38ad9ecc14"
+    ],
+    "tag_citations": [],
+    "session_archive_citations": [
+      "S-0162",
+      "S-0163",
+      "S-0182",
+      "S-0183"
+    ],
+    "total": 5
+  }
+}
