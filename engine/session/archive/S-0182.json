@@ -1,0 +1,60 @@
+{
+  "id": "S-0182",
+  "started_at": "2026-05-15T14:54:00Z",
+  "status": "closed",
+  "mode": "routine",
+  "task_id": "SQA-20",
+  "target_id": "T-SEED-QA",
+  "working_on": "Routine task SQA-20: T-SEED-QA closeout — aggregate 19 shard evidence files into seed_qa_findings.md",
+  "declared_scope": "Closeout aggregation of the T-SEED-QA census. Read the 19 per-shard evidence files at engine/build_readiness/seed_qa_evidence/shard_NN.md and synthesize a single closeout findings document at engine/build_readiness/seed_qa_findings.md: overall C1/C2/C3 error rates (515 edges, 380 nodes), per-subdomain breakdown, C1 drift comparison vs the production audit's 13% baseline (per engine/build_readiness/phase_5_production_audit_findings.md), pattern clusters across the Defensible sub-shape taxonomy + Reversed clusters in shards 01-08 + in-shard semantic clusters, and a 'for Phase 6 self-correction' section per ADR 0014. Aggregation only; no disposition, no migration edits, no Issue filing (that's a follow-up interactive session per the rubric's anti-scope). phase: NA-routine",
+  "approved_plan": "engine/session/current_plan.md",
+  "branch": "claude/elated-proskuriakova-90c958",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/elated-proskuriakova-90c958",
+  "scope_lock": {
+    "allowed_paths": [
+      "engine/build_readiness/seed_qa_findings.md"
+    ]
+  },
+  "mempalace_activity": {
+    "search_calls": 3,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 1,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 6,
+    "first_call_ts": "2026-05-15T14:53:16Z",
+    "last_call_ts": "2026-05-15T15:06:40Z",
+    "search_first_ts": "2026-05-15T14:53:16Z",
+    "diary_read_first_ts": "2026-05-15T14:53:26Z"
+  },
+  "closed_at": "2026-05-15T15:15:00Z",
+  "outcome_summary": "Twentieth and FINAL routine fire of T-SEED-QA — closeout aggregation. Wrote single scope-locked deliverable engine/build_readiness/seed_qa_findings.md (264 lines). Headline rates re-derived from per-shard tally tables: C1 = 7/516 = 1.36% (all Reversed; 0 Weak-redundant); C2 = 0/380 = 0.0%; C3 = 13/380 = 3.4%. Verdict totals across 516 edges: Sound 461 (89.3%), Defensible 48 (9.3%), Reversed 7 (1.36%), Weak-redundant 0. ARITHMETIC FINDING: late-batch shard evidence files (notably shard_19.md) and recent diary entries (S-0179/S-0180/S-0181) reported cumulative C1 as '23/515 = 4.47%' — wrong on three counts: denominator is 516 not 515 (verified from shards.json which contains 516 edges), numerator is 7 not 23 (direct grep of VERDICT: Reversed across shards 01-19), and true cumulative is 7/516 = 1.36% not 4.47%. The per-shard tally tables remained correct; only the cross-session running-cumulative narratives drifted, propagating forward via the diary-chain mechanism. Flagged inline in the findings preamble + captured as a wing_paideia/lessons MemPalace drawer for future closeout-style aggregations. Per-subdomain C1 defect rates by edge source: mind 3.95%, service 1.82%, ethics 1.45%, metaphysics 1.41%, epistemology 1.27%; zero in language/logic/political/aesthetics/science. STRUCTURAL: all 7 Reversed edges are within-domain; the 55 cross-domain edges scored 100% Sound — empirically confirms the audit's cross-bridge fortification (migrations 0061-0065) durably held. Three Reversed sub-shapes: A (4 instances of theory→its-constitutive-concept); B (2 instances of position→defining-thought-experiment); C (1 instance of derived-service-node→its-foundational-service-node). Defensible-shape taxonomy enumerated (48 verdicts) in 6 sub-shapes — the ≥9-exemplar 'target is more general' recurring rubric-calibration question across shards 05-09 is the standing question the closeout flags for disposition adjudication. C3 fails distribute by domain: logic 23.1% (6/26), aesthetics 7.4%, mind 5.3%, service 4.0%, epistemology 1.9%; zero in 5 remaining domains. C3 failure shape uniform across all 13 fails: load-bearing first sentence gated on undefined formal apparatus (modal-logic notation, deontic-logic SDL acronyms, Bayes/probability formulas, Kantian framework terms); shared remediation shape 'prepend a topic-handle sentence in plain language, then introduce the formal apparatus' — passing siblings (modal_logic, deontic_logic, representationalism_consciousness) already exhibit it. C1 drift vs the 13% production-audit baseline: ~9.5× below (1.36% vs 13.0%); two explanations — (a) audit follow-up migrations 0061-0065 fixed the highest-density defect locus (cross-bridges at 35.2% pre-fix → 0.0% in the census), (b) within-domain edges were well-vetted by the seed authoring pass (461 within-domain, 7 Reversed = 1.52%). For Phase 6 self-correction (per ADR 0014): tension-log edge-direction sensitivity tuned to 1.36% prevalence; summary-readability sensitivity tuned to 3.4% with logic/mind weighting; teaching_notes traction deprioritized at the seed level. Aggregation only; disposition deferred to follow-up interactive session per the rubric's anti-scope. The T-SEED-QA target is now fully complete (20/20 tasks); the next routine boot observes target-met and exits cleanly until a new target is authored. Health-check overdue by 1 slot (next session S-0183 = 21 since last audit S-0162, cadence 20) — deferred to the next interactive session, which is the natural disposition slot for the closeout findings anyway. MemPalace zero-citations-after-search soft-warn fired because the boot search returned 0 drawers above threshold (the closeout task type is novel in the project memory — no prior aggregation-style closeouts to cite); behaviorally correct that no drawers were cited.",
+  "outcome_summary_soft_warns": {
+    "health_check_overdue": 1,
+    "state_md_row_count": 1,
+    "skill_layer1_parity_drift": 1,
+    "mempalace_wing_count_growth": 1,
+    "issue_collision": 7,
+    "missing_rigor_score": 361,
+    "edge_evidence_empty": 46,
+    "mempalace_zero_citations_after_search": 1
+  },
+  "scope_delivery": {
+    "declared_paths": [
+      "engine/build_readiness/seed_qa_findings.md"
+    ],
+    "delivered_paths": [
+      "engine/build_readiness/seed_qa_findings.md"
+    ],
+    "delivered_paths_outside_scope": [],
+    "criteria_satisfied": [
+      "file_exists",
+      "validate_passes"
+    ]
+  },
+  "next_session_handle": "T-SEED-QA target now fully complete (20/20 tasks). The next routine boot will observe target-met via check_target.py and exit cleanly without claiming a slot until a new target is authored. The disposition session — a follow-up interactive build session — is the natural next step for T-SEED-QA, picking up engine/build_readiness/seed_qa_findings.md as the input artifact and adjudicating: (1) whether to file Issues for the 7 Reversed edges; (2) whether the 'target is more general / more foundational' Defensible sub-shape should tip toward Reversed in the rubric (≥9 routine-batch exemplars); (3) whether to apply the C3 'prepend a topic-handle sentence' rewrite recipe as a batch operation across the 13 fails (uniform shape suggests batchable); (4) whether to capture the inline-evidence-as-gold-signal workflow lesson into the rubric or ADR 0059. Routine fires unattended on cadence; interactive sessions may pursue the PDG-papers pre-phase deliberation plan (Sessions α-ζ per S-0171 / STATE.md Next session work item) independently. Health-check overdue by 1 slot — the disposition session is the natural audit slot (audits and dispositions both have post-routine-batch character)."
+}
