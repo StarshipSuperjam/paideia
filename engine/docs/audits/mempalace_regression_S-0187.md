@@ -97,6 +97,47 @@ This confirms ADR 0079's premise was structurally fragile from S-0145: the persi
 
 5. **Quarantine accumulation discipline.** 49 quarantine directories accumulated over 4 days. The S-0153 telemetry per ADR 0079 surfaces them via the `mempalace_quarantine_accumulation` soft-warn. A periodic cleanup mechanism (e.g., delete quarantine dirs older than N days) would reduce filesystem load and forensic noise. Trigger-gated on the soft-warn firing.
 
+## Empirical re-verification — the swap-into-live damaged the rebuild's output
+
+S-0187 ran the rebuild via the amended `mempalace_rebuild_hnsw.py` against a scratch palace (`~/.mempalace/palace.S-0187-scratch`). The post-rebuild state on the scratch palace, verified before the swap:
+
+- `<scratch>/45640116-*/link_lists.bin = 6044 bytes` (drawers segment; 678 drawers)
+- `<scratch>/45640116-*/index_metadata.pickle = 80878 bytes`
+- `<scratch>/0ca73a87-*/link_lists.bin = 272 bytes` (closets segment; 51 drawers)
+- `<scratch>/0ca73a87-*/index_metadata.pickle = 6410 bytes`
+
+**The S-0187 amendment's primary claim is empirically verified on the scratch:** `_persist()` fires during the rebuild's batched adds; `link_lists.bin` is non-zero; `index_metadata.pickle` is written.
+
+The atomic-rename swap (`mv scratch → palace; mv old → palace.pre-swap-broken`) completed cleanly. Within ~seconds of the swap, the next `mempalace_search` MCP invocation opened the new palace path. **Immediately after that open:**
+
+- `<live>/45640116-*/link_lists.bin = 0 bytes (0 blocks allocated)` — file content gone; no sparse-file disguise
+- `<live>/45640116-*/index_metadata.pickle` — **file deleted**
+- Same for `0ca73a87-*`
+
+The MCP server (and / or any other consumer process that opens the palace via chromadb's `PersistentClient`) is **destroying the rebuild's persisted state on first read-after-swap**. This is the same fundamental pattern S-0186 reported claiming-to-have-fixed; the S-0187 forensic data shows it's still active.
+
+### Candidate mechanism (unverified; for the follow-up Issue)
+
+Three running mempalace MCP server processes were observed during the swap:
+- PIDs 50594 (1:49PM start), 59088 (2:33PM start), 72901 (post-swap). The OLD MCP servers held chromadb in-memory state from the OLD palace (the one renamed to `.pre-swap-broken`); when they next interact with the path `~/.mempalace/palace`, they may write their stale in-memory state (which contains the "fresh empty" log records for the OLD broken palace) over the rebuilt files on disk. The mtimes confirm: live segments updated at 15:41:36 (matches `mempalace_search` invocation timing); rebuild completed at 15:39:xx.
+
+**The S-0187 amendment is correct at the rebuild boundary; durability of the rebuilt state through the MCP-server-open path is a separate problem layer.**
+
+### What was attempted to repair
+
+- Audit-mode prune drained 67 pollution drawers (745 → 678; confirmed via `mempalace_status`).
+- Scratch-then-swap rebuild via amended tool: rebuild succeeded; scratch state was verified non-zero; swap completed; live state observed as zeroed-by-MCP-open within seconds.
+- Embed-fn check broadened to accept `onnx_mini_lm_l6_v2` (chromadb 1.5.x's named default) in addition to the older `default` sentinel. Subsidiary fix landed inline; was blocking the rebuild's safety check from accepting the live palace's actual embedding-function name.
+
+### What's needed to close the gap (deferred per the diagnostic-only scope)
+
+- Reproduce the destroy-on-open path with `lsof` capture of which MCP-server FDs touch which files at which moment.
+- Confirm whether killing all MCP servers BEFORE the swap (then letting a fresh one spawn post-swap) preserves the rebuild's on-disk state.
+- If yes, the swap procedure documented in `mempalace-operations.md` needs a "kill MCP servers first" step.
+- If no, the destruction is structural to chromadb's open path and a different mitigation is warranted.
+
+This is the substrate-decision tension surfacing again: even with all three S-0187 fixes landed (watchdog + field-name + rebuild amendment), the MCP-server-open destruction is a separate failure layer. Filed as Issue (see below).
+
 ## What worked vs what didn't (honest assessment)
 
 **Worked:**

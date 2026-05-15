@@ -357,7 +357,16 @@ def rebuild_collection(
     rebuild_metadata["hnsw:sync_threshold"] = REBUILD_SYNC_THRESHOLD
     config_json = getattr(col, "configuration_json", None) or {}
     embed_fn = (config_json.get("embedding_function") or {}).get("name", "default")
-    if embed_fn != "default":
+    # chromadb 1.5.x names the default embedding function explicitly in
+    # configuration_json (``onnx_mini_lm_l6_v2``) rather than the older
+    # ``default`` sentinel. Both names refer to the same underlying
+    # ONNX-backed all-MiniLM-L6-v2 model — the same one
+    # ``_build_embedding_function`` reconstructs. Treat both as
+    # "the chromadb default" for the safety check. Custom embedding
+    # functions (sentence-transformers, OpenAI, voyage-ai, etc.) still
+    # produce a different name and fall through to the refuse path.
+    _CHROMADB_DEFAULT_EMBED_FN_NAMES = ("default", "onnx_mini_lm_l6_v2")
+    if embed_fn not in _CHROMADB_DEFAULT_EMBED_FN_NAMES:
         summary["error"] = (
             f"non-default embedding function: {embed_fn!r}. "
             "Manual embedding_function reconstruction required."
