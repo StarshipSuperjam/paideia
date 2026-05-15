@@ -1,0 +1,51 @@
+{
+  "id": "S-0174",
+  "started_at": "2026-05-15T07:07:50Z",
+  "status": "closed",
+  "mode": "routine",
+  "task_id": "SQA-12",
+  "target_id": "T-SEED-QA",
+  "working_on": "Routine task SQA-12: seed-graph QA census shard 12 — score 27 edges (C1) + 20 nodes (C2/C3)",
+  "declared_scope": "Score shard 12 of the T-SEED-QA census: 27 pedagogical_prerequisite edges against C1 (prerequisite soundness) and 20 nodes against C2 (teaching_notes traction) + C3 (summary cold-readability), per the pinned rubric in engine/build_readiness/seed_qa_audit.md. Single deliverable: engine/build_readiness/seed_qa_evidence/shard_12.md. phase: NA-routine",
+  "approved_plan": "engine/session/current_plan.md",
+  "branch": "claude/romantic-curran-b88093",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/romantic-curran-b88093",
+  "scope_lock": {
+    "allowed_paths": [
+      "engine/build_readiness/seed_qa_evidence/shard_12.md"
+    ]
+  },
+  "mempalace_activity": {
+    "search_calls": 3,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 0,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 5,
+    "first_call_ts": "2026-05-15T07:03:26Z",
+    "last_call_ts": "2026-05-15T07:17:04Z",
+    "search_first_ts": "2026-05-15T07:03:26Z",
+    "diary_read_first_ts": "2026-05-15T07:03:39Z"
+  },
+  "closed_at": "2026-05-15T07:19:00Z",
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": false,
+    "explanation": "Delivered as declared — shard_12.md authored to the fixed evidence-file schema; all 27 edges scored against C1 and all 20 nodes against C2/C3; no descope or reorder. No user confirmation (unattended routine session). No in-band Issues filed. The auto_target.json SQA-12 status flip rides with the close commit per the Issue #122 lifecycle-push-wrapper sequencing constraint."
+  },
+  "next_session_handle": null,
+  "outcome_summary": "Twelfth routine fire of the T-SEED-QA seed-graph QA census. Scored shard 12 — 27 pedagogical_prerequisite edges (C1) + 20 nodes (C2/C3) per the pinned seed_qa_audit.md rubric — and wrote seed_qa_evidence/shard_12.md. Findings: C1 0/27 defective = 0.0% (the census's SEVENTH 0-defect shard after 04/06/07/09/10/11; three in a row across 10/11/12); 24 Sound, 3 Defensible (E-5 tropes→bundle_theory trope-variant only — Williams 1953 trope-bundle theory takes tropes as ontological building blocks while Hume's bundle theory of mind used impressions/ideas and Russell's used universals; E-11 formal_proof→classical_logic structural-vs-pedagogical shape — eighth-consecutive-shard instance of 'target is the more pedagogically-familiar concrete concept,' held at Defensible on the structural-priority reading; E-13 DN→IBE NEW SHAPE for the routine batch — two parallel theories of scientific explanation with historical-and-dialectical succession but weak conceptual prereq), 0 Reversed, 0 Weak-redundant. C2: 0/20 fail. C3: 0/20 fail — second consecutive quadruple-0 shard. Zero audit-touched edges (programmatic exact-and-reverse tuple cross-reference against assertion-block tuple lists in 0061–0065 returned zero matches; the lowest audit footprint in the routine batch — vs shard 11's 5/27 = 18.5% and shard 10's 2/27 = 7.4% — making shard 12 the cleanest fresh-authoring drift check available). Cumulative C1 across 01–12: 23/326 = 7.1% (down from 7.7%), continuing to tick DOWN under the 13% baseline as the sample grows. NOVEL pattern for the routine batch: duplicate-prereq shape — E-12 deontology→supererogation AND E-26 normative_ethics→supererogation reach the same target via distinct framework-prereqs (specific-deontological-theory vs broader-normative-ethics-umbrella; Urmson 1958 originally framed supererogation as a problem for any normative theory with a notion of duty, not just deontology); neither strictly subsumes the other; flag for SQA-20 to determine whether the graph systematically carries both specific-and-broader prereq pathways for ethical-concept targets. Four borderline-PASS C3 calls (N-3 formal_proof 'inference rule' unglossed but structural shape parsable; N-10 sensitivity_condition 'possible world' unglossed but counterfactual rephrase rescues; N-15 character_and_content heavy technical vocab in opening but 'I'-example rescue inline; N-16 externalism_epistemic 'justification-conferring factors' jargon BUT 'reliability of the belief-forming process' gloss is in the SAME sentence). All four held at PASS on established calibration. The Defensible cluster sub-shapes are now distinguishable: 'discipline → object-of-study' (shards 05–10), 'umbrella → specific instance' (across multiple shards), and now 'parallel theories with historical succession' (E-13 this shard). Three distinct Defensible flavors all held at Defensible per established calibration. Five non-trivial judgment calls in the session (recorded in detail in the evidence file): E-5 tropes→bundle_theory variant scope, E-11 formal_proof→classical_logic structural vs pedagogical, E-13 DN→IBE new parallel-theories shape, E-18 deontology→kantian_ethics categorial-umbrella-to-instance per shard 10 calibration, E-26 normative_ethics→supererogation duplicate-prereq Sound-not-Weak-redundant. Candidate findings only; disposition is the SQA-20 closeout. SQA-12 marked complete (status flip staged with the close commit per Issue #122 lifecycle-push-wrapper sequencing); SQA-13 next. No in-band Issues. 0 validator hard-fails (50 checks on --final-check). mempalace_zero_citations_after_search fires for the same benign-shape reason as prior census shards: the boot search returned 0 drawers above the 0.60 threshold (no prior-context drawers exist for this specific routine-task pattern), and the diary entry references prior shards (10/11) by named-session reference rather than drawer-ID citation. mempalace_diary_read_late did NOT fire this session — diary read was via the MCP tool surface at boot before plan authoring (the canonical path), unlike S-0173's python-direct read path.",
+  "outcome_summary_soft_warns": {
+    "state_md_row_count": 1,
+    "skill_layer1_parity_drift": 1,
+    "mempalace_wing_count_growth": 1,
+    "issue_collision": 7,
+    "missing_rigor_score": 361,
+    "edge_evidence_empty": 46,
+    "mempalace_zero_citations_after_search": 1
+  }
+}
