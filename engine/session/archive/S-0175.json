@@ -1,0 +1,62 @@
+{
+  "id": "S-0175",
+  "started_at": "2026-05-15T08:05:00Z",
+  "status": "closed",
+  "mode": "routine",
+  "task_id": "SQA-13",
+  "target_id": "T-SEED-QA",
+  "working_on": "Routine task SQA-13: seed-graph QA census shard 13 \u2014 score 27 edges (C1) + 20 nodes (C2/C3)",
+  "declared_scope": "Score shard 13 of the T-SEED-QA census: 27 pedagogical_prerequisite edges against C1 (prerequisite soundness) and 20 nodes against C2 (teaching_notes traction) + C3 (summary cold-readability), per the pinned rubric at engine/build_readiness/seed_qa_audit.md. Write the evidence file at engine/build_readiness/seed_qa_evidence/shard_13.md. Cross-reference audit follow-up migrations 0061-0065 against every shard-13 edge tuple; three edges intersect the audit footprint (E-3 a_theory_of_time->mctaggarts_paradox audit-endorsed as proximate path retained by 0063; E-19 bayesian_epistemology->dutch_book_argument 0063 evidence backfill; E-20 causal_theory_of_reference->causal_theory_of_mental_content 0062 direction flip CB-E-65). phase: NA-routine",
+  "approved_plan": "engine/session/current_plan.md",
+  "branch": "claude/awesome-goodall-9698c0",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/awesome-goodall-9698c0",
+  "scope_lock": {
+    "allowed_paths": [
+      "engine/build_readiness/seed_qa_evidence/shard_13.md"
+    ]
+  },
+  "mempalace_activity": {
+    "search_calls": 3,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 0,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 5,
+    "first_call_ts": "2026-05-15T08:03:52Z",
+    "last_call_ts": "2026-05-15T08:17:00Z",
+    "search_first_ts": "2026-05-15T08:03:52Z",
+    "diary_read_first_ts": "2026-05-15T08:04:02Z"
+  },
+  "closed_at": "2026-05-15T08:25:00Z",
+  "outcome_summary": "Thirteenth routine fire of the T-SEED-QA seed-graph QA census. Scored shard 13 \u2014 27 pedagogical_prerequisite edges (C1) + 20 nodes (C2/C3) per the pinned seed_qa_audit.md rubric \u2014 and wrote seed_qa_evidence/shard_13.md. C1: 0/27 defective = 0.0% (eighth 0-defect shard; fourth consecutive); 26 Sound + 1 Defensible (E-15 virtue_epistemology->intellectual_virtue, framework-introduces-concept reading) + 0 Reversed + 0 Weak-redundant. C2: 0/20 fail. C3: 0/20 fail \u2014 second consecutive quadruple-0 shard (12-13). Three audit-touched edges this shard: E-3 (NEW sub-category \u2014 0063 audit-endorsed as proximate path retained when shortcut time->mctaggarts_paradox was deleted, edge itself unmodified), E-19 (0063 retain-with-annotation evidence backfill), E-20 (0062 direction flip CB-E-65 Kripke-Putnam-precedes-Fodor). All three scored Sound on audit-validated direction. Running C1 across shards 01-13: 10.7/3.6/3.6/0.0/3.7/0.0/0.0/3.7/0.0/0.0/0.0/0.0/0.0%. Cumulative 23/353 = 6.5% (down from 7.1% at shard 12). Two C3 borderline-PASS calls (N-5 knowledge slightly self-referential genus rescued by species naming; N-10 ersatz_modal_realism load-bearing possible-worlds without external gloss but inline-contrast saves) both held at PASS on prior-shard calibration. No in-band Issues, no pushback/lesson capture, no destructive operations. SQA-13 complete; SQA-14 next. 6 shards + closeout remaining.",
+  "outcome_summary_soft_warns": {
+    "state_md_row_count": 1,
+    "skill_layer1_parity_drift": 1,
+    "mempalace_wing_count_growth": 1,
+    "issue_collision": 7,
+    "missing_rigor_score": 361,
+    "edge_evidence_empty": 46,
+    "mempalace_zero_citations_after_search": 1
+  },
+  "scope_delivery": {
+    "allowed_paths_modified": [
+      "engine/build_readiness/seed_qa_evidence/shard_13.md"
+    ],
+    "operational_paths_modified": [
+      "engine/session/register_state.json",
+      "engine/session/current.json",
+      "engine/session/current_plan.md",
+      "engine/session/auto_target.json",
+      "engine/session/archive/S-0175.json",
+      "engine/STATE.md",
+      "engine/ENGINE_LOG.md"
+    ],
+    "out_of_scope_paths_modified": [],
+    "scope_lock_violations": 0
+  },
+  "next_session_handle": "S-0176+ continues T-SEED-QA routine block \u2014 SQA-14 next eligible (6 shards + closeout remaining)."
+}
