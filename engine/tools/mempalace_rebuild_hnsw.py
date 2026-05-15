@@ -101,6 +101,31 @@ DEFAULT_BATCH_SIZE = 5000
 # (e.g., the MCP server adds a drawer between extraction and re-add).
 POST_REBUILD_DIVERGENCE_PCT = 1.0
 
+# S-0187 amendment of ADR 0079. At collection-creation time during a
+# rebuild, override mempalace's _HNSW_BLOAT_GUARD inheritance of
+# ``hnsw:sync_threshold=50_000`` with a low value (3) so chromadb's
+# ``_apply_batch`` _persist() fires after each pagination batch. The
+# rebuilt segment's ``link_lists.bin`` + ``index_metadata.pickle``
+# are written to disk by the time the rebuild finishes, instead of
+# remaining in process memory until a process-exit that never flushes.
+# The S-0186 audit documented the falsification: post-rebuild the
+# segment's link_lists.bin was 0 bytes because the rebuild's adds
+# never crossed the inherited 50_000 threshold. ADR 0079's
+# ≥150-session recurrence interval premise was falsified at 39
+# sessions for this reason. Chromadb's hnsw_params.py validator
+# floors at ``int > 2`` so 3 is the minimum.
+REBUILD_SYNC_THRESHOLD = 3
+
+# Project steady-state sync_threshold per ADR 0079. Applied via
+# ``collection.modify(configuration={...})`` after all paginated adds
+# complete. The retrofit uses chromadb 1.5.x's authoritative
+# ``configuration`` channel; the metadata channel is creation-time
+# advisory only and does not reflect post-modify updates. Day-to-day
+# 1-3-drawers-per-session writes accumulate to 100 every ~33 sessions
+# under normal load; segment persist fires at that cadence under
+# steady state and the recurrence vector is bounded.
+STEADY_STATE_SYNC_THRESHOLD = 100
+
 # Regex for `mempalace repair-status` drawer counts — same shape as
 # probe_palace.py's _REPAIR_STATUS_DRAWERS_RE for consistency.
 _REPAIR_STATUS_DRAWERS_RE = re.compile(
@@ -316,6 +341,20 @@ def rebuild_collection(
 
     col = client.get_collection(collection_name)
     metadata = dict(col.metadata or {})
+    # S-0187 amendment of ADR 0079: at create-collection time below,
+    # the rebuild inherits mempalace's _HNSW_BLOAT_GUARD
+    # ``hnsw:sync_threshold=50_000`` which prevents chromadb's
+    # ``_apply_batch`` _persist() from ever firing during the
+    # rebuild's adds. Override to REBUILD_SYNC_THRESHOLD here so the
+    # segment's HNSW metadata + edge connectivity actually land on
+    # disk during the rebuild. Post-adds, ``_raise_to_steady_state``
+    # below modifies the configuration channel to
+    # STEADY_STATE_SYNC_THRESHOLD per ADR 0079. ``hnsw:batch_size``
+    # is left at the inherited value (50_000) — that's the
+    # anti-bloat protection PR #344 designed for; it controls HNSW
+    # index resize cadence which is independent of persist cadence.
+    rebuild_metadata = dict(metadata)
+    rebuild_metadata["hnsw:sync_threshold"] = REBUILD_SYNC_THRESHOLD
     config_json = getattr(col, "configuration_json", None) or {}
     embed_fn = (config_json.get("embedding_function") or {}).get("name", "default")
     if embed_fn != "default":
@@ -390,7 +429,9 @@ def rebuild_collection(
 
     _emit(
         "out",
-        f"[rebuild] {collection_name}: recreating with metadata={metadata}",
+        f"[rebuild] {collection_name}: recreating with metadata={rebuild_metadata} "
+        f"(S-0187: sync_threshold={REBUILD_SYNC_THRESHOLD} at create; "
+        f"raised to {STEADY_STATE_SYNC_THRESHOLD} after adds complete)",
     )
     try:
         embed_fn_instance = _build_embedding_function(preferred_providers)
@@ -402,11 +443,13 @@ def rebuild_collection(
             )
             new_col = client.create_collection(
                 name=collection_name,
-                metadata=metadata,
+                metadata=rebuild_metadata,
                 embedding_function=embed_fn_instance,
             )
         else:
-            new_col = client.create_collection(name=collection_name, metadata=metadata)
+            new_col = client.create_collection(
+                name=collection_name, metadata=rebuild_metadata
+            )
     except Exception as exc:
         summary["error"] = (
             f"create_collection failed AFTER delete_collection succeeded: {exc}. "
@@ -440,6 +483,43 @@ def rebuild_collection(
         )
         summary["exit_code"] = 3
         return summary
+
+    # S-0187 amendment of ADR 0079: now that all adds have completed
+    # against the low REBUILD_SYNC_THRESHOLD (so the segment's HNSW
+    # state has been persisted to disk), raise to the project
+    # steady-state STEADY_STATE_SYNC_THRESHOLD via chromadb 1.5.x's
+    # ``configuration`` channel — the authoritative runtime source
+    # per ADR 0079 (the metadata channel is creation-time advisory
+    # only and does not reflect post-modify updates).
+    #
+    # Failure here is non-fatal: the rebuild succeeded (drawers
+    # persisted at threshold=3); a failed threshold-raise just means
+    # the live state-going-forward will persist after every 3 writes
+    # instead of every 100, which is wasteful but not broken. Logged
+    # for visibility; summary records the threshold actually applied.
+    try:
+        new_col.modify(
+            configuration={"hnsw": {"sync_threshold": STEADY_STATE_SYNC_THRESHOLD}}
+        )
+        summary["final_sync_threshold"] = STEADY_STATE_SYNC_THRESHOLD
+        _emit(
+            "out",
+            f"[rebuild] {collection_name}: raised sync_threshold "
+            f"{REBUILD_SYNC_THRESHOLD} → {STEADY_STATE_SYNC_THRESHOLD} "
+            f"via configuration channel (steady-state per ADR 0079)",
+        )
+    except Exception as exc:  # noqa: BLE001  # post-rebuild non-fatal
+        summary["final_sync_threshold"] = REBUILD_SYNC_THRESHOLD
+        summary["threshold_raise_warning"] = str(exc)
+        _emit(
+            "err",
+            f"[rebuild] {collection_name}: WARNING — could not raise "
+            f"sync_threshold to {STEADY_STATE_SYNC_THRESHOLD} "
+            f"({type(exc).__name__}: {exc}). Live writes will persist "
+            f"at every {REBUILD_SYNC_THRESHOLD} drawers (wasteful but "
+            f"correct). Run mempalace_set_sync_threshold.py manually "
+            f"post-swap to fix.",
+        )
 
     summary["finished_at"] = time.time()
     summary["elapsed_s"] = summary["finished_at"] - summary["started_at"]
@@ -588,24 +668,29 @@ def main(argv: list[str] | None = None) -> int:
     if pct >= POST_REBUILD_DIVERGENCE_PCT:
         return 3
 
-    # Forward-pointer: per ADR 0079, the rebuild produces fresh collections
-    # that inherit mempalace's _HNSW_BLOAT_GUARD default (50_000) on
-    # sync_threshold. After the user swaps the rebuilt palace into live,
-    # the steady-state threshold (100) should be set via
-    # mempalace_set_sync_threshold.py. The rebuild tool does NOT auto-apply
-    # this — the post-swap operation requires its own backup discipline
-    # (per the user-directed safeguard at S-0145 plan time) and the swap
-    # itself is manual. This pointer makes the next step discoverable.
+    # Forward-pointer: per ADR 0079 (S-0145 + S-0187 amendment), the
+    # rebuild now overrides ``hnsw:sync_threshold=3`` at create-collection
+    # time (so the in-rebuild persist fires after each batch) and raises
+    # to the project steady-state of 100 via ``collection.modify`` after
+    # all adds complete. The pre-S-0187 forward-pointer instructed a
+    # separate ``mempalace_set_sync_threshold.py --threshold 100`` step
+    # post-swap — that's no longer needed; the rebuild self-applies.
+    # ``mempalace_set_sync_threshold.py`` retains a narrower role:
+    # standalone retrofit on a live palace where no rebuild has run.
     _emit(
         "err",
-        "\n[rebuild] post-rebuild forward-pointer (per ADR 0079):\n"
-        "  The rebuilt collections inherit mempalace's 50_000 sync_threshold\n"
-        "  (_HNSW_BLOAT_GUARD default). After the swap into live, set the\n"
-        "  project steady-state threshold (100) with backup:\n"
-        "    python3 engine/tools/mempalace_set_sync_threshold.py \\\n"
-        "      --threshold 100 \\\n"
-        "      --backup-dir ~/.mempalace/palace.S-NNNN-post-rebuild-pre-threshold-switch\n"
-        "  This is a separate operation with its own safeguards; do NOT skip.",
+        "\n[rebuild] post-rebuild status (per ADR 0079 + S-0187 amendment):\n"
+        "  Rebuilt collections were created with sync_threshold=3 (force\n"
+        "  per-batch persist) and raised to 100 (project steady-state)\n"
+        "  via collection.modify(configuration=...) after the adds\n"
+        "  completed. ``link_lists.bin`` + ``index_metadata.pickle``\n"
+        "  should now be present and non-zero on each segment.\n"
+        "  Verify with:\n"
+        "    ls -la <palace>/<segment-uuid>/link_lists.bin\n"
+        "    ls -la <palace>/<segment-uuid>/index_metadata.pickle\n"
+        "  Both files should exist with non-zero size. If link_lists.bin\n"
+        "  is 0 or index_metadata.pickle missing, file an Issue: the\n"
+        "  S-0187 amendment's premise has been falsified.",
     )
     return 0
 
