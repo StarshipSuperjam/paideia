@@ -1,0 +1,18 @@
+{
+  "id": "S-0181",
+  "started_at": "2026-05-15T14:05:26Z",
+  "status": "in_progress",
+  "mode": "routine",
+  "task_id": "SQA-19",
+  "target_id": "T-SEED-QA",
+  "working_on": "Routine task SQA-19: seed-graph QA census shard 19 — score ~27-28 edges (C1) + 20 nodes (C2/C3)",
+  "declared_scope": "Score shard 19 of the T-SEED-QA census (final shard): pedagogical_prerequisite edges against C1 (prerequisite soundness) and 20 nodes against C2 (teaching_notes traction) + C3 (summary cold-readability), per the pinned rubric at engine/build_readiness/seed_qa_audit.md. Write the evidence file at engine/build_readiness/seed_qa_evidence/shard_19.md. Audit cross-reference: inline `evidence` text on the edge is primary gold signal; proximity-check against migrations 0061-0065 with filter 0060 (original cross-bridges, not audit follow-up) is secondary heuristic requiring per-hit exact-tuple inspection. phase: NA-routine",
+  "approved_plan": "engine/session/current_plan.md",
+  "branch": "claude/lucid-moser-6a4de8",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/lucid-moser-6a4de8",
+  "scope_lock": {
+    "allowed_paths": [
+      "engine/build_readiness/seed_qa_evidence/shard_19.md"
+    ]
+  }
+}
