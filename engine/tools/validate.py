@@ -144,6 +144,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -2301,8 +2302,26 @@ def _read_predicate_manifest(
     return declared
 
 
+# S-0187: client-side wall-clock cap for the whole _read_graph_from_db()
+# block. The server-side ``options="-c statement_timeout=30000"``
+# parameter S-0186 set is silently stripped by Supabase's pgbouncer
+# pooler in transaction-pool mode — pgbouncer only forwards
+# session-level parameters that arrive on a fresh session connection,
+# and the project's SUPABASE_DB_URL is the transaction-pool URL.
+# Empirical evidence: S-0187 boot observed an 8+ minute hang on
+# validate.py's pre-commit-hook run with the connection's TCP socket
+# transitioning from ESTABLISHED to gone (the connect AND the queries
+# both completed at some level) yet the process still hung — the
+# downstream behavior is consistent with statement_timeout never
+# firing server-side and the client waiting on an idle socket.
+# 45 s = server-side 30 s budget + connect 10 s + 5 s margin.
+_GRAPH_AUDIT_WALL_CLOCK_TIMEOUT_S = 45.0
+
+
 def _read_graph_from_db(
     connection_string: str,
+    *,
+    wall_clock_timeout_s: float = _GRAPH_AUDIT_WALL_CLOCK_TIMEOUT_S,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Read nodes and edges from the live Supabase DB via psycopg.
 
@@ -2318,6 +2337,10 @@ def _read_graph_from_db(
         connection_string: Postgres URL with credentials. Use the
             service-role pooler URL — the audit bypasses RLS to
             observe ground truth (gate T1-C).
+        wall_clock_timeout_s: client-side total-wall-clock cap on the
+            connect + query block (S-0187). Default
+            ``_GRAPH_AUDIT_WALL_CLOCK_TIMEOUT_S`` (45 s). Tests pass a
+            small value to exercise the cancellation path.
 
     Returns:
         ``(nodes, edges)``. ``nodes`` carry id, label, domain,
@@ -2342,39 +2365,67 @@ def _read_graph_from_db(
     import psycopg  # type: ignore[import-not-found,unused-ignore]
     from psycopg.rows import dict_row  # type: ignore[import-not-found,unused-ignore]
 
-    # Bounded-wait connect (S-0186 hang fix). Without an explicit
-    # ``connect_timeout``, psycopg.connect() blocks indefinitely on
-    # paused / unreachable Supabase instances — the pre-commit hook
-    # then never returns. The 10-second floor matches the existing
-    # pattern in ``engine/tools/setup_env.py:63``. The 30-second
-    # ``statement_timeout`` cap is server-side: PostgreSQL aborts any
-    # query exceeding the limit and the connection returns to the
-    # client. Both caps fail-fast as ``Exception`` raises that the
-    # caller's ``validate_graph()`` handler routes to ``graph_audit``
-    # hard-fail with an actionable error name. Three sessions
-    # (S-0184 boot, S-0185 close, S-0186 close) observed indefinite
-    # hangs against the project's dev Supabase under what appears to
-    # be free-tier pause-on-inactivity — without timeouts the audit
-    # blocks the commit for the duration of the pause (hours to
-    # never). The audit-skip path remains the right disposition when
-    # the env is unset; the bounded-fail path is the right disposition
-    # when the env is set but the server is unresponsive.
+    # Three layers of cap (S-0184/0185/0186/0187):
+    #   1. ``connect_timeout=10`` — bounds the initial connect phase.
+    #   2. ``options="-c statement_timeout=30000"`` — server-side cap,
+    #      EFFECTIVE ONLY on direct-connection URLs. The Supabase
+    #      transaction-pool URL strips this parameter silently; on
+    #      that URL the layer is inert. Retained as a no-cost
+    #      defense-in-depth for direct-connection URLs.
+    #   3. ``wall_clock_timeout_s`` (S-0187) — client-side watchdog
+    #      thread that calls ``conn.cancel()`` (PQcancel; protocol-
+    #      level query termination) if total time in the block
+    #      exceeds the cap. Layer 3 is the load-bearing protection
+    #      against Supabase pgbouncer's parameter-stripping.
     with psycopg.connect(
         connection_string,
         connect_timeout=10,
         options="-c statement_timeout=30000",
     ) as conn:
-        with conn.cursor(row_factory=dict_row) as cur:
-            cur.execute(
-                "SELECT id, label, domain, summary, teaching_notes, "
-                "rigor_score_computed, confidence_level, status "
-                "FROM public.nodes"
-            )
-            nodes = [dict(r) for r in cur.fetchall()]
-            cur.execute(
-                "SELECT id, source_id, target_id, edge_type, evidence FROM public.edges"
-            )
-            edges = [dict(r) for r in cur.fetchall()]
+        done = threading.Event()
+
+        def _watchdog() -> None:
+            # Block up to wall_clock_timeout_s. ``done`` is set when
+            # the queries return cleanly; an unset event after the
+            # wait means the queries are still in flight beyond the
+            # cap. ``conn.cancel()`` issues PQcancel which terminates
+            # the in-flight query at the protocol level — psycopg
+            # raises ``psycopg.errors.QueryCanceled`` (a subclass of
+            # ``Exception``) from the blocked ``cur.execute()`` /
+            # ``cur.fetchall()`` call, which bubbles up to
+            # ``validate_graph()``'s ``except Exception`` and lands
+            # as a ``graph_audit`` hard-fail with the cancellation
+            # message.
+            if not done.wait(wall_clock_timeout_s):
+                try:
+                    conn.cancel()
+                except Exception:  # noqa: BLE001  # daemon thread; swallow
+                    # Failure in the watchdog is best-effort — the
+                    # primary path either succeeds (cap not hit) or
+                    # the query is already in some other terminal
+                    # state. Errors here can't bubble back to the
+                    # caller without joining the thread, which
+                    # would defeat the watchdog's purpose.
+                    pass
+
+        watcher = threading.Thread(
+            target=_watchdog, name="validate-graph-audit-watchdog", daemon=True
+        )
+        watcher.start()
+        try:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute(
+                    "SELECT id, label, domain, summary, teaching_notes, "
+                    "rigor_score_computed, confidence_level, status "
+                    "FROM public.nodes"
+                )
+                nodes = [dict(r) for r in cur.fetchall()]
+                cur.execute(
+                    "SELECT id, source_id, target_id, edge_type, evidence FROM public.edges"
+                )
+                edges = [dict(r) for r in cur.fetchall()]
+        finally:
+            done.set()
     return nodes, edges
 
 

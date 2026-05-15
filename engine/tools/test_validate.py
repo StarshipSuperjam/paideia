@@ -39,6 +39,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -1535,6 +1536,166 @@ class TestReadGraphFromDbTimeouts:
             "statement_timeout option must be set so server-side query waits are "
             "also bounded; protects against in-flight query stalls distinct from "
             "the initial connect"
+        )
+
+    def test_watchdog_cancels_in_flight_query_when_wall_clock_cap_exceeded(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """S-0187: client-side wall-clock cap fires conn.cancel() on hang.
+
+        S-0186 added ``options="-c statement_timeout=30000"`` to bound
+        server-side query waits. Supabase's pgbouncer transaction-pool
+        URL (the project's SUPABASE_DB_URL) silently strips the
+        ``options=-c`` parameter from the startup packet — the server
+        cap is inert there. S-0187's wall-clock watchdog calls
+        ``conn.cancel()`` after the cap; psycopg surfaces a
+        QueryCanceled exception that the caller routes to graph_audit
+        hard-fail. This test stubs a cursor whose ``execute()`` blocks
+        until a Cancel event and verifies the cancellation reaches
+        the cursor within ~2× the watchdog cap.
+        """
+        cancel_called = threading.Event()
+        cursor_unblocked = threading.Event()
+
+        class _BlockingCursor:
+            def __enter__(self) -> "_BlockingCursor":
+                return self
+
+            def __exit__(self, *_: Any) -> None:
+                pass
+
+            def execute(self, _sql: str) -> None:
+                # Block until conn.cancel() fires the unblock event,
+                # OR fail the test if we sit here way past the cap.
+                if not cursor_unblocked.wait(timeout=10.0):
+                    raise AssertionError(
+                        "execute() blocked past 10s without watchdog cancel"
+                    )
+                # Simulate psycopg's behavior on PQcancel — raise a
+                # QueryCanceled-shaped exception to the caller. The
+                # specific subclass doesn't matter for this test;
+                # any Exception bubbles up through the finally and
+                # the caller's except-Exception handler.
+                raise RuntimeError("query cancelled by watchdog (simulated)")
+
+            def fetchall(self) -> list[dict[str, Any]]:  # pragma: no cover
+                return []
+
+        class _StubConn:
+            def __enter__(self) -> "_StubConn":
+                return self
+
+            def __exit__(self, *_: Any) -> None:
+                pass
+
+            def cursor(self, **_kwargs: Any) -> _BlockingCursor:
+                return _BlockingCursor()
+
+            def cancel(self) -> None:
+                # Watchdog fires this; simulate PQcancel by unblocking
+                # the cursor's execute() so it can raise.
+                cancel_called.set()
+                cursor_unblocked.set()
+
+        def stub_connect(_connection_string: str, **_kwargs: Any) -> _StubConn:
+            return _StubConn()
+
+        import sys as _sys
+
+        psycopg_stub = type(_sys)("psycopg")
+        psycopg_stub.connect = stub_connect  # type: ignore[attr-defined]
+        rows_stub = type(_sys)("psycopg.rows")
+
+        def _dict_row(_cursor: object) -> object:
+            return None
+
+        rows_stub.dict_row = _dict_row  # type: ignore[attr-defined]
+        monkeypatch.setitem(_sys.modules, "psycopg", psycopg_stub)
+        monkeypatch.setitem(_sys.modules, "psycopg.rows", rows_stub)
+
+        # Use a 0.5s cap so the test completes quickly. The watchdog
+        # should fire within ~0.5s, conn.cancel() unblocks execute(),
+        # and the RuntimeError bubbles out.
+        with pytest.raises(RuntimeError, match="query cancelled by watchdog"):
+            validate._read_graph_from_db(
+                "postgresql://user:pw@host/db", wall_clock_timeout_s=0.5
+            )
+
+        assert cancel_called.is_set(), (
+            "Watchdog must call conn.cancel() when the wall-clock cap is "
+            "exceeded; otherwise hung Supabase reads block validate.py "
+            "indefinitely (the S-0187 regression of the S-0186 fix)"
+        )
+
+    def test_watchdog_does_not_fire_when_query_completes_within_cap(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Happy path: queries complete fast; ``done.set()`` prevents
+        ``conn.cancel()`` from firing.
+
+        Regression guard against an overly-aggressive watchdog that
+        cancels healthy in-flight queries. The watchdog must observe
+        ``done`` being set before the cap elapses and exit cleanly.
+        """
+        cancel_called = threading.Event()
+
+        class _FastCursor:
+            def __enter__(self) -> "_FastCursor":
+                return self
+
+            def __exit__(self, *_: Any) -> None:
+                pass
+
+            def execute(self, _sql: str) -> None:
+                pass
+
+            def fetchall(self) -> list[dict[str, Any]]:
+                return []
+
+        class _StubConn:
+            def __enter__(self) -> "_StubConn":
+                return self
+
+            def __exit__(self, *_: Any) -> None:
+                pass
+
+            def cursor(self, **_kwargs: Any) -> _FastCursor:
+                return _FastCursor()
+
+            def cancel(self) -> None:
+                cancel_called.set()
+
+        def stub_connect(_connection_string: str, **_kwargs: Any) -> _StubConn:
+            return _StubConn()
+
+        import sys as _sys
+
+        psycopg_stub = type(_sys)("psycopg")
+        psycopg_stub.connect = stub_connect  # type: ignore[attr-defined]
+        rows_stub = type(_sys)("psycopg.rows")
+
+        def _dict_row(_cursor: object) -> object:
+            return None
+
+        rows_stub.dict_row = _dict_row  # type: ignore[attr-defined]
+        monkeypatch.setitem(_sys.modules, "psycopg", psycopg_stub)
+        monkeypatch.setitem(_sys.modules, "psycopg.rows", rows_stub)
+
+        nodes, edges = validate._read_graph_from_db(
+            "postgresql://user:pw@host/db", wall_clock_timeout_s=2.0
+        )
+        assert nodes == []
+        assert edges == []
+        # Allow the watchdog's daemon thread a small moment to observe
+        # ``done`` and exit. If it had spuriously fired, cancel_called
+        # would be set.
+        import time as _t
+
+        _t.sleep(0.05)
+        assert not cancel_called.is_set(), (
+            "Watchdog must NOT call conn.cancel() when queries complete "
+            "within the cap — spurious cancellations would corrupt healthy "
+            "in-flight reads"
         )
 
 
