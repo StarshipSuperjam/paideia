@@ -1,0 +1,18 @@
+{
+  "id": "S-0182",
+  "started_at": "2026-05-15T14:54:00Z",
+  "status": "in_progress",
+  "mode": "routine",
+  "task_id": "SQA-20",
+  "target_id": "T-SEED-QA",
+  "working_on": "Routine task SQA-20: T-SEED-QA closeout — aggregate 19 shard evidence files into seed_qa_findings.md",
+  "declared_scope": "Closeout aggregation of the T-SEED-QA census. Read the 19 per-shard evidence files at engine/build_readiness/seed_qa_evidence/shard_NN.md and synthesize a single closeout findings document at engine/build_readiness/seed_qa_findings.md: overall C1/C2/C3 error rates (515 edges, 380 nodes), per-subdomain breakdown, C1 drift comparison vs the production audit's 13% baseline (per engine/build_readiness/phase_5_production_audit_findings.md), pattern clusters across the Defensible sub-shape taxonomy + Reversed clusters in shards 01-08 + in-shard semantic clusters, and a 'for Phase 6 self-correction' section per ADR 0014. Aggregation only; no disposition, no migration edits, no Issue filing (that's a follow-up interactive session per the rubric's anti-scope). phase: NA-routine",
+  "approved_plan": "engine/session/current_plan.md",
+  "branch": "claude/elated-proskuriakova-90c958",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/elated-proskuriakova-90c958",
+  "scope_lock": {
+    "allowed_paths": [
+      "engine/build_readiness/seed_qa_findings.md"
+    ]
+  }
+}
