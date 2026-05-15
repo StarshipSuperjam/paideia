@@ -1,0 +1,48 @@
+{
+  "id": "S-0187",
+  "started_at": "2026-05-15T21:44:56Z",
+  "status": "closed",
+  "mode": "interactive",
+  "working_on": "Diagnose the post-S-0186 MemPalace substrate regression and land the originally-planned ADR 0079 rebuild-tool amendment.",
+  "outcome_summary": "Diagnostic surfaced 3 coupled root causes for the post-S-0186 regression: (C1) rebuild-tool inherits _HNSW_BLOAT_GUARD sync_threshold=50_000 at create-collection time \u2192 chromadb _persist() never fires during rebuild adds; (C2) S-0186 defensive prune classifier hardcoded em_t.key='created_at' but mempalace writes 'filed_at' \u2192 post_prune_deleted=0 every fire; (C3) S-0186 psycopg connect-timeout fix is inert against Supabase pgbouncer transaction-pool URL (silently strips options=-c). Five inline fixes landed across 5 commits: validate.py client-side wall-clock query watchdog; mempalace_post_hook_prune.py field-name correction; mempalace_rebuild_hnsw.py ADR 0079 amendment (sync_threshold=3 at create + raise to 100 post-adds); subsidiary embed-fn check fix for chromadb 1.5.x; ADR 0079 amendment + findings report. 7 new tests. Empirical verification: rebuild produced verified-non-zero state on scratch palace (link_lists.bin=6044+272 bytes); audit-mode prune drained 745\u2192678 drawers cleanly. NEW critical finding (Issue #134): atomic-swap into live destroyed rebuilt state within seconds of first MCP invocation (link_lists.bin \u2192 0 bytes; index_metadata.pickle deleted). 4 GitHub Issues filed: #134 (MCP-open destroys rebuild \u2014 CRITICAL), #135 (pgbouncer-strips-options), #136 (hook-log fragmentation across 26 worktrees), #137 (mempalace_closets threshold not migrated). 11th consecutive ADR 0053 negative finding.",
+  "outcome_summary_soft_warns": {
+    "skill_layer1_parity_drift": 1,
+    "issue_collision": 10,
+    "missing_rigor_score": 358,
+    "edge_evidence_empty": 46
+  },
+  "approved_plan": "~/.claude/plans/fancy-herding-dongarra.md",
+  "branch": "claude/strange-shockley-934333",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/strange-shockley-934333",
+  "declared_scope": [
+    "engine/tools/validate.py",
+    "engine/tools/test_validate.py",
+    "engine/tools/mempalace_post_hook_prune.py",
+    "engine/tools/test_mempalace_post_hook_prune.py",
+    "engine/tools/mempalace_rebuild_hnsw.py",
+    "engine/tools/test_mempalace_rebuild_hnsw.py",
+    "engine/adr/0079-hnsw-sync-threshold-tuning.md",
+    "engine/docs/audits/mempalace_regression_S-0187.md",
+    "engine/STATE.md",
+    "engine/ENGINE_LOG.md"
+  ],
+  "scope_delivery": "delivered_in_full_with_caveats",
+  "scope_delivery_notes": "Originally-planned ADR 0079 rebuild-tool amendment landed correctly and verified non-zero on scratch palace. Empirical re-verification of Mode 2 search post-swap did NOT close: atomic-swap into live triggered destruction of rebuilt state by MCP-server-open path (within seconds). This is a NEW failure layer (Issue #134) not anticipated by the original plan or by ADR 0090. The amendment is correct at the rebuild boundary; the swap boundary needs separate work. Scope expanded inline (with-user-confirmation) to include the validate.py watchdog fix and the field-name bug fix, both of which were preconditions or coupled root causes the diagnostic surfaced. 5 commits landed; 4 Issues filed; substantive scope delivered.",
+  "next_session_handle": "Issue #134 (MCP-server-open destroys rebuilt segments after swap) is the critical follow-up. Without that fix, the in-rebuild threshold override is correct but the substrate stays broken at the swap boundary. Investigation needed: lsof capture during swap; test whether kill-MCP-first preserves rebuild state; update mempalace-operations.md swap procedure.",
+  "mempalace_activity": {
+    "search_calls": 4,
+    "diary_read_calls": 0,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 0,
+    "status_calls": 2,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 7,
+    "first_call_ts": "2026-05-15T21:40:16Z",
+    "last_call_ts": "2026-05-15T22:49:04Z",
+    "search_first_ts": "2026-05-15T21:40:16Z",
+    "diary_read_first_ts": null
+  }
+}
