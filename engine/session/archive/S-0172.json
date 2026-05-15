@@ -1,0 +1,47 @@
+{
+  "id": "S-0172",
+  "started_at": "2026-05-15T06:02:43Z",
+  "closed_at": "2026-05-15T06:14:20Z",
+  "status": "closed",
+  "mode": "routine",
+  "task_id": "SQA-10",
+  "target_id": "T-SEED-QA",
+  "working_on": "Routine task SQA-10: seed-graph QA census shard 10 — score 27 edges (C1) + 20 nodes (C2/C3)",
+  "declared_scope": "Score shard 10 of the T-SEED-QA census: 27 pedagogical_prerequisite edges against C1 (prerequisite soundness) and 20 nodes against C2 (teaching_notes traction) + C3 (summary cold-readability), per the pinned rubric in engine/build_readiness/seed_qa_audit.md. Single deliverable: engine/build_readiness/seed_qa_evidence/shard_10.md. phase: NA-routine",
+  "approved_plan": "engine/session/current_plan.md",
+  "branch": "claude/agitated-dijkstra-dd6175",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/agitated-dijkstra-dd6175",
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": false,
+    "explanation": "Delivered as declared — shard_10.md authored to the fixed evidence-file schema; all 27 edges scored against C1 and all 20 nodes against C2/C3; no descope or reorder. No user confirmation (unattended routine session). No in-band Issues filed. The auto_target.json SQA-10 status flip rides with the close commit per the Issue #122 lifecycle-push-wrapper sequencing constraint."
+  },
+  "next_session_handle": null,
+  "outcome_summary": "Tenth routine fire of the T-SEED-QA seed-graph QA census. Scored shard 10 — 27 pedagogical_prerequisite edges (C1) + 20 nodes (C2/C3) per the pinned seed_qa_audit.md rubric — and wrote seed_qa_evidence/shard_10.md. Findings: C1 0/27 defective = 0.0% (the census's FIFTH 0-defect shard after 04/06/07/09; 25 Sound, 2 Defensible — E-11 bivalence_principle->counterexample structural-vs-pedagogical shape and E-17 ontology->existence recurring 'target is the more general/foundational concept' shape sixth consecutive shard, both held at Defensible on alternative-reading grounds; 0 Reversed, 0 Weak-redundant). C2: 0/20 fail. C3: 0/20 fail — a break in the 5-shard C3-failure streak (shards 05-09 all produced ≥1 C3 fail; shard 09 produced 5). The break is composition-driven, not authoring drift: shard 10's nodes lean foundational/introductory (turing_test, mental_causation, determinism, philosophical_zombie, multiple_realizability, equality_political, scientific_method) where authoring is pedagogically careful by construction; contrast shard 09's technical-philosophy concentration. Two borderline-PASS C3 calls flagged for closeout consistency review: N-3 fuzzy_logic (t-norms undefined load-bearing in sentence 2 but conceptually glossed across the summary) and N-12 generality_problem (reliabilism undefined load-bearing in sentence 1 but the structural problem independently illustrated by vision-in-good-light examples). Two audit-touched edges this shard (highest in routine batch so far): E-26 pyrrhonian_skepticism->problem_of_induction (0062 direction-flip per S-0122 audit; Pyrrhonian tradition pre-dates Hume's problem by millennia and the Agrippan trilemma does not depend on induction-skepticism), scored Sound on the audit-validated direction; E-19 renaissance_mechanism->vienna_circle_logical_positivism (0061 retyping pass kept THIS specific pair as pedagogical_prerequisite while retyping the source's other outbound edges to historical_influence — a deliberate keep-with-context decision), scored Sound on the audit-keep-decision. Running C1 across shards 01-10: 10.7% / 3.6% / 3.6% / 0.0% / 3.7% / 0.0% / 0.0% / 3.7% / 0.0% / 0.0%; cumulative 23/272 = 8.5% (down from 9.4%), firmly under the production audit's 13% baseline. Defensible count 2 (counts across shards 04-10: 1/4/6/3/1/2/2); over-Defensible-drift watch item not worsening. The 'target-more-general' recurring shape now spans six consecutive shards (05-10), each producing ≥1 instance; the SQA-20 closeout rubric-calibration question (should this tip from Defensible to Reversed?) has six consecutive data points feeding it. Candidate findings only; disposition is the SQA-20 closeout. SQA-10 marked complete; SQA-11 next. No in-band Issues. mempalace_zero_citations_after_search fires because the boot search surfaced 0 drawers above the 0.60 threshold across all three formulations — the same benign shape every prior census shard saw; the evidence file and diary reference prior shards (05/06/07/08/09) and the production audit (S-0122) as named-session references rather than drawer-ID citations. 0 validator hard-fails (50 checks on --final-check).",
+  "outcome_summary_soft_warns": {
+    "state_md_row_count": 1,
+    "skill_layer1_parity_drift": 1,
+    "mempalace_wing_count_growth": 1,
+    "issue_collision": 7,
+    "missing_rigor_score": 361,
+    "edge_evidence_empty": 46,
+    "mempalace_zero_citations_after_search": 1,
+    "validator_runtime_phase_regression": 1
+  },
+  "mempalace_activity": {
+    "search_calls": 3,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 0,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 5,
+    "first_call_ts": "2026-05-15T05:59:53Z",
+    "last_call_ts": "2026-05-15T06:12:25Z",
+    "search_first_ts": "2026-05-15T05:59:53Z",
+    "diary_read_first_ts": "2026-05-15T06:00:06Z"
+  }
+}
