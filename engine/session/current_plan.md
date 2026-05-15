@@ -1,166 +1,186 @@
-paths_to_modify: ["engine/build_readiness/seed_qa_evidence/shard_11.md"]
+paths_to_modify: ["engine/build_readiness/seed_qa_evidence/shard_12.md"]
 criteria_addressed: [0, 1]
 
-# Plan — S-0173 routine task SQA-11
+# Plan — S-0174 routine task SQA-12
 
-Routine evidence session for the T-SEED-QA seed-graph QA census. Task SQA-11: score
-shard 11 — 27 `pedagogical_prerequisite` edges against C1 (prerequisite soundness) and
+Routine evidence session for the T-SEED-QA seed-graph QA census. Task SQA-12: score
+shard 12 — 27 `pedagogical_prerequisite` edges against C1 (prerequisite soundness) and
 20 nodes against C2 (teaching_notes traction) + C3 (summary cold-readability), per the
 pinned rubric in `engine/build_readiness/seed_qa_audit.md`.
 
-Shard content is read from the committed `seed_qa_evidence/shards.json` (`shard_11` key)
-— routine sessions never touch the DB. Parametric judgment first per the rubric; SEP
-fetch reserved for genuinely-uncertain verdicts. Audit follow-up migrations 0061–0065
-were cross-referenced before scoring. This shard carries an unusually heavy audit
-footprint — **five of 27 edges are audit-touched** (vs shard 10's 1-of-27), and three
-of those five involve `modal_logic` as the source endpoint:
+Shard content is read from the committed `seed_qa_evidence/shards.json` (`shard_12`
+key) — routine sessions never touch the DB. Parametric judgment first per the rubric;
+SEP fetch reserved for genuinely-uncertain verdicts. Audit follow-up migrations
+0061–0065 were cross-referenced against every (source, target) tuple in this shard's
+edge set before scoring.
 
-- **E-1 `explanatory_gap → hard_problem_of_consciousness`** — S-0122 audit
-  direction-flip (Levine 1983 precedes and motivates Chalmers 1995). Score Sound on
-  the audit-validated direction.
-- **E-3 `modal_logic → epistemic_closure`** — S-0122 audit direction-flip (modal
-  logic is the formal apparatus; closure is formalized via the K axiom). Score Sound
-  on the audit-validated direction.
-- **E-14 `propositional_attitude → proposition`** — S-0123 cycle-deferral. 0062
-  flipped CB-E-63 from `propositional_attitude → proposition` to `proposition →
-  propositional_attitude` per S-0122 verdict (propositions are content-bearers;
-  attitudes hold propositions). The current shard's edge has the **original
-  pre-flip direction**, which means either (a) the database state was rolled back,
-  (b) this is a different edge with the same endpoints, or (c) the shards.json
-  snapshot pre-dates the flip. Worth scrutinizing — score against the audit-validated
-  direction (proposition → propositional_attitude); if the current direction is
-  pre-flip, that's a Reversed verdict against the audit decision.
-- **E-24 `virtue_ethics → moral_particularism`** — S-0122 audit. Virtue ethics's
-  practical-wisdom focus encodes a commitment to particularism. Score Sound on the
-  audit-validated direction.
-- **E-25 `modal_logic → formal_epistemology`** — S-0122 audit direction-flip
-  (modal logic is foundational; formal epistemology uses modal logic). Score Sound
-  on the audit-validated direction.
+**Zero audit-touched edges this shard.** Cross-reference of every shard-12 edge tuple
+against the assertion-block tuple lists in migrations 0061 / 0062 / 0063 / 0064 / 0065
+returned zero exact-or-reverse matches. This is the lowest audit-footprint shard in
+the routine batch so far (vs shard 11's 5/27 = 18.5% and shard 10's 2/27 = 7.4%). The
+naive grep returned two near-misses worth recording for closeout: (a) `evidence →
+problem_of_induction` (E-9) — 0062 flipped a different edge whose target is
+`problem_of_induction` (`pyrrhonian_skepticism → problem_of_induction`); the
+shard-12 edge is unrelated. (b) `modality → possible_worlds` (E-25) — 0064 backfilled
+evidence for `abstract_object → possible_worlds` and `modality → essence_metaphysical`,
+not for this specific pair. Both edges are scored as fresh authoring, not as
+re-opening any audit decision.
 
-The other 22 edges are fresh, non-audit-touched authoring; any C1 defect found on
-those is a fresh defect, not a re-opening of an audit decision.
+Implication: shard 12 is a clean fresh-authoring drift check. Any C1 defect found here
+is a fresh defect, not a re-opening of an audit decision.
 
 The single deliverable is the scope-locked evidence file
-`engine/build_readiness/seed_qa_evidence/shard_11.md`, written to the fixed schema in
+`engine/build_readiness/seed_qa_evidence/shard_12.md`, written to the fixed schema in
 `seed_qa_audit.md`. This satisfies criterion 0 (`file_exists`) and criterion 1
 (`validate_passes`). No other tracked paths are touched.
 
-Prior-context notes from the diary (last 3 entries — shards 08/09/10):
+## Prior-context notes from the diary (shards 09 / 10 / 11)
 
-1. **Cumulative C1 across shards 01–10: 23 / 272 = 8.5%** — firmly under the
-   production audit's 13% baseline (ticked DOWN from 9.4% to 8.5% with shard 10's
-   0-defect score). Five 0-defect shards (04, 06, 07, 09, 10) bracketing the
-   3.6–3.7% pickup shards. The drift signal is "no drift."
+1. **Cumulative C1 across shards 01–11: 23 / 299 = 7.7%** — firmly under the
+   production audit's 13% baseline. The cumulative rate ticked DOWN from 9.4% at
+   shard 09 → 8.5% at shard 10 → 7.7% at shard 11. Six 0-defect shards bracketing the
+   3.6–3.7% pickup shards.
 
-2. **C3 streak break at shard 10** — shards 05–09 each produced ≥1 C3 fail; shard
-   10 broke the streak (0 fails). The shape is composition-driven, not authoring
-   drift: shard 10's nodes leaned foundational/introductory; shard 09's leaned
-   technical-philosophy. Two borderline-PASS calls on shard 10 (N-3 fuzzy_logic
-   t-norm jargon; N-12 generality_problem reliabilism jargon) flagged for closeout.
+2. **C3 fail-streak shape is composition-driven, not authoring drift.** Shards 05–09
+   each produced ≥1 C3 fail (shard 09 = five); shard 10 broke the streak; shard 11
+   produced one (N-17 conditional_logic — load-bearing modal-logic vocabulary not
+   glossed inline in the summary). Shape predicts: a shard whose nodes lean
+   logic-tech-philosophy or modal-semantics will pick up C3 fails; a shard whose
+   nodes lean foundational/introductory will not.
 
-3. **"Target is the more general/foundational concept" shape** — recurring across
-   shards 05–10 (at least one instance per shard). Established calibration: hold at
-   Defensible (not Reversed) when a real concrete-entry-point reading supports the
-   graph's direction. Rubric-calibration question flagged for the SQA-20 closeout.
-   Six consecutive data points feeding it; shard 11 has at least three candidate
-   instances (see look-aheads below).
+3. **"Target is the more general/foundational concept" shape continues.** Shards
+   05–11 each produced ≥1 instance of the discipline-→-object-of-study or
+   umbrella-→-foundational sub-shape; calibration held at Defensible (not Reversed)
+   when a concrete-entry-point reading supports the graph's direction. The
+   SQA-20 closeout rubric-calibration question now has seven consecutive data points.
+   Shard 11's E-4 `philosophy_of_mind → mind` was flagged as the strongest tip-to-
+   Reversed candidate yet.
 
-4. **Calibration on glossed vs ungated jargon** — load-bearing technical term must
-   be glossed inline (S-0170 representationalism calibration). Same node concept
-   can pass or fail depending on whether the gloss is present.
+4. **Defensible cluster middle band.** Counts across shards 04–11: 1 / 4 / 6 / 3 / 1
+   / 2 / 2 / 4. Over-Defensible-drift watch item not worsening.
 
-Shard-11-specific look-aheads (parametric pre-scan, not the verdict):
+5. **First cycle-deferred companion edge encountered in shard 11** (E-14
+   `propositional_attitude → proposition`). S-0123 cycle-deferral kept the opposite
+   direction as a documented co-companion to break the resulting graph cycle. Scored
+   Sound on the cycle-deferral signal; calibration anchor for any subsequent cases.
 
-- **E-2 `aesthetics → art`, E-12 `aesthetics → aesthetic_property`** — both have
-  aesthetics as source. Aesthetics is the philosophical-study-OF the topic; the
-  standard pedagogical direction is topic-first (art / aesthetic_property) then
-  the discipline that studies them. Recurring "target more general/foundational"
-  shape OR the "discipline→object-of-study" shape. Check whether the concrete-entry-
-  point reading saves the direction (do students learn aesthetics-as-discipline as
-  the doorway to thinking about art and aesthetic properties?). Likely Defensible.
-- **E-4 `philosophy_of_mind → mind`** — most extreme version of the same shape.
-  Philosophy of mind is THE philosophical study of mind; mind is the topic. Standard
-  pedagogical direction is mind-first (you have a mind; you can think about minds)
-  then philosophy of mind (you can do philosophy about that). Likely Defensible
-  on the discipline-as-doorway reading; possibly Reversed on strict reading.
-- **E-18 `anti_intentionalism → intentionalism_artistic`** — anti-intentionalism IS
-  a response to intentionalism (the New Critics's Wimsatt-Beardsley "intentional
-  fallacy" was a response to intentionalism). The natural direction is
-  intentionalism → anti_intentionalism (positive position first, critical response
-  second). Possibly Reversed; check for a concrete-entry-point or audit-validated
-  reading that saves the current direction.
-- **E-26 `semantic_paradox → liar_paradox`** — the liar IS the paradigm semantic
-  paradox. Standard pedagogical direction is liar-first (you encounter it as the
-  paradigmatic case) then semantic_paradox (you theorize the category). But the
-  genus→species reading is also defensible (category-first, then instance). Likely
-  Sound or Defensible.
-- **E-13 `validity_logical → soundness_logical`** — soundness = valid AND true
-  premises. Validity is a component of soundness. Sound (component-prereq).
-- **E-21 `substance → substance_dualism`** — substance is the metaphysical concept;
-  substance dualism is a specific position in philosophy of mind that posits two
-  substances. Sound (umbrella → specific position).
-- **E-22 `scientific_theory → reductionism_in_science`** — reductionism is a
-  meta-theoretic thesis about how theories relate. Theory is the prereq concept.
+## Shard-12-specific look-aheads (parametric pre-scan, not the verdict)
+
+- **E-1 `art → institutional_theory_of_art`** — Dickie's institutional theory is a
+  specific theory of WHAT art is. Topic → theory shape. Sound.
+- **E-2 `meaning → sense_and_reference`** — Frege's Sinn/Bedeutung distinction is the
+  paradigm structural analysis of linguistic meaning. Meaning is the topic;
+  sense/reference is one foundational analysis. Sound (topic → analysis).
+- **E-3 `propositional_knowledge → justified_true_belief`** — JTB IS the standard
+  analysis of propositional knowledge. Topic → analysis. Sound.
+- **E-4 `substance → bundle_theory`, E-5 `tropes → bundle_theory`** — bundle theory
+  (Hume, Russell) analyzes substance/object as a bundle of properties (or tropes).
+  E-4 is umbrella-→-theory (substance is the umbrella metaphysical category; bundle
+  theory is one analysis). E-5 is prereq-component-→-theory (tropes are the
+  ontological building blocks bundle theory works with). Both likely Sound.
+- **E-6 `vienna_circle_logical_positivism → behaviorism_logical`** — logical
+  behaviorism (Ryle, Carnap, Hempel) was developed by Vienna-Circle-adjacent
+  philosophers as the philosophy-of-mind application of verificationism (mental
+  state ascriptions are reducible to behavioral dispositions). Long historical jump
+  but the conceptual prereq is real. Likely Sound; watch for Weak-redundant if a
+  more proximate prereq (verificationism, anti-mentalism) exists in the graph.
+- **E-7 `kripke_semantics → conditional_logic`** — Kripke-style frames with
+  accessibility relations are the model-theoretic apparatus for both modal logic and
+  Stalnaker/Lewis counterfactual conditional logic. The model-theoretic prereq is
+  real. Likely Sound.
+- **E-8 `epistemic_justification → externalism_epistemic`** — externalism is a
+  position about WHAT justification consists in (reliabilism, proper-functionalism).
+  Topic → theory. Sound.
+- **E-9 `evidence → problem_of_induction`** — Hume's problem is whether
+  evidence-from-past-instances justifies belief about future ones. Evidence is the
+  conceptual prereq for the problem (the problem is about evidence's role). Sound.
+- **E-10 `phenomenal_consciousness → hard_problem_of_consciousness`** — Block's
+  phenomenal/access distinction precedes and motivates Chalmers's hard problem.
   Sound.
-- **E-23 `existence → numerical_identity`** — numerical identity is about being one
-  and the same thing; existence is presupposed. Sound (same shape as shard 10's
-  E-15 `existence → causation`, scored Sound).
-- **E-15 `scientific_realism → constructive_empiricism`** — constructive empiricism
-  (van Fraassen) is the canonical anti-realist position. Same shape as shard 10's
-  E-22 `reductionism_in_science → multiple_realizability_in_science` and shard 07's
-  audit-validated `physicalism → reductionism_in_science`. Sound on the
-  presupposes-target-of-criticism reading.
-- **E-19 `composition_mereological → simples` and E-9 `knowledge → virtue_epistemology`,
-  E-17 `moral_realism → moral_naturalism`, E-20 `epistemic_justification → coherentism`,
-  E-11 `consciousness → higher_order_theory_consciousness`, E-6 `meaning → use_theory_of_meaning`,
-  E-10 `modal_logic → counterfactual_conditional`, E-27 `accessibility_relation →
-  kripke_semantics`, E-7 `epistemic_justification → propositional_knowledge`,
-  E-8 `event → causation`, E-5 `causal_theory_of_reference → semantic_externalism`** —
-  all default-Sound on first inspection (umbrella→species, framework→specialization,
-  or component-prereq shape).
-- **E-16 `communitarianism → multiculturalism`** — communitarianism (Taylor, Sandel,
-  MacIntyre) and multiculturalism (Kymlicka) are parallel/overlapping political-
-  philosophy positions. Whether one strictly prerequisites the other or whether
-  they're parallel responses to the liberal-individualist mainstream is unclear.
-  Possibly Defensible.
-- **N-3 `integrated_information_theory`** — Φ (phi) is load-bearing technical
-  apparatus in the first sentence ("a system is conscious to the degree that its
-  informational structure is irreducibly integrated, measured by the quantity Φ").
-  Apply C3 strictly — is Φ glossed enough inline that a cold reader gets it?
-- **N-8 `rigid_designator`** — "designates the same object in every possible world
-  in which that object exists" is the conceptual core. Modal-semantics vocabulary.
-  Check inline gloss.
-- **N-13 `qualia_functionalism`** — "qualia are functional properties" — both
-  qualia and functionalism are technical terms. C3 likely PASS via the contextual
-  gloss "individuated by their typical causal relations to perceptual inputs,
-  cognitive states, and behavioral outputs."
-- **N-15 `depiction`** — Wollheim's "seeing-in" is the technical core; check inline
-  gloss in the first sentence.
-- **N-17 `conditional_logic`** — Stalnaker/Lewis counterfactual logic; "non-truth-
-  functional binary connective" and "accessibility structure" appear in the first
-  sentence. Strict-reading FAIL candidate.
-- **N-9 `phenomenal_consciousness`, N-4 `access_consciousness`** — paired Block
-  distinction. Check whether each summary stands on its own without requiring the
-  other.
-- **N-12 `vagueness`** — borderline cases, sorites paradox. Likely PASS (familiar
-  examples in the summary).
-- **N-6 `justice_bioethical`** — long teaching_notes (UNOS, Belmont, Tuskegee).
-  C2 trivially PASS; C3 check on the bioethics-specific framing in the summary.
+- **E-11 `formal_proof → classical_logic`** — slightly tricky. Formal proof is a
+  general syntactic notion; classical logic is one specific proof system. Standard
+  pedagogical direction is classical-logic-first (you learn modus ponens, then you
+  understand "proof"). Edge runs opposite. Possibly Defensible on the
+  "formal-syntactic-machinery is the umbrella" reading, possibly Reversed on the
+  pedagogical reading. Flag for careful scoring.
+- **E-12 `deontology → supererogation`, E-26 `normative_ethics → supererogation`** —
+  supererogation (going beyond duty) is a category that emerges where there is a
+  notion of duty/obligation. E-12 (deontology as the duty-centric ethical tradition)
+  is the proximate prereq. E-26 (normative_ethics as the broader umbrella) is a
+  more distant prereq. Both Sound on their own; E-26 may be Weak-redundant if E-12
+  already encodes the duty-prereq more proximately. Calibration question.
+- **E-13 `deductive_nomological_model → inference_to_the_best_explanation`** — DN
+  model (Hempel) is covering-law; IBE (Harman) is abductive. Both are accounts of
+  scientific explanation but they're parallel rivals, not one prereq of the other.
+  Possibly Weak-redundant or Reversed; check whether one historically/conceptually
+  preconditions the other.
+- **E-14 `intentionality → meaning`** — intentionality (aboutness, Brentano) is the
+  mental property; meaning is the semantic property. Standard direction in
+  philosophy of mind is mental-intentionality-first; in philosophy of language it
+  often runs meaning-first. Possibly Sound on Brentano-Husserl-Searle reading;
+  possibly Reversed on the language-first reading. Flag for careful scoring.
+- **E-15 `modus_tollens → falsificationism`** — Popper's falsificationism is the
+  application of modus tollens to scientific theories (if T predicts P and ¬P, then
+  ¬T). Inference rule → philosophical application. Sound.
+- **E-16 `social_epistemology → epistemic_injustice`** — Fricker's epistemic
+  injustice operates within the social-epistemology framework (knowers as situated
+  social agents). Framework → specific account. Sound.
+- **E-17 `reference → sense_and_reference`** — sense/reference IS Frege's analysis
+  of reference (and meaning). Reference is the topic; sense/reference is the
+  Fregean analysis. Topic → analysis. Sound.
+- **E-18 `deontology → kantian_ethics`** — Kantian ethics is the canonical
+  deontological theory but historically Kant invented it; deontology is a
+  category-name that came later. Standard pedagogical direction is Kant-first
+  (you learn the categorical imperative) → deontology (the category-name).
+  Edge runs opposite. Same "umbrella → specific theory" shape as elsewhere. Likely
+  Defensible.
+- **E-19 `probability_mathematical → expected_value`** — expected value is defined
+  in terms of probability. Component-prereq. Sound.
+- **E-20 `existence → event`** — events are entities that exist; existence is
+  presupposed. Component-prereq. Sound (same shape as shard 10's E-15 `existence →
+  causation`).
+- **E-21 `knowledge → social_epistemology`** — social epistemology is epistemology
+  applied to socially-situated knowers. Topic → specialization. Sound.
+- **E-22 `social_epistemology → epistemic_dependence`** — epistemic dependence
+  (Hardwick, Coady) is a phenomenon studied within social epistemology. Framework
+  → specific phenomenon. Sound.
+- **E-23 `scientific_theory → scientific_realism`** — scientific realism is a
+  position about the truth-content of scientific theories. Theory is the prereq
+  concept. Sound.
+- **E-24 `belief → credence`** — credence (subjective probability) is a
+  graded/quantitative refinement of binary belief. Topic → refinement. Sound.
+- **E-25 `modality → possible_worlds`** — possible worlds (Lewis, Kripke) are the
+  standard model-theoretic apparatus for modal claims. Modality is the topic;
+  possible worlds is one analysis. Sound.
+- **E-27 `kantian_aesthetic_judgment → free_play_imagination_understanding`** — the
+  free play of imagination and understanding is Kant's specific account of WHAT
+  pure aesthetic judgment consists in (Critique of Judgment, §§9, 35). Topic →
+  Kant's analysis. Sound.
+
+Node look-aheads (C3 cold-readability watch list):
+
+- **N-2 `mereology`** — formal theory of parts and wholes; "part-whole structure"
+  is the conceptual core, easy to gloss. Likely PASS.
+- **N-3 `formal_proof`** — Gentzen-style natural deduction or Hilbert axiomatic
+  proof; load-bearing technical apparatus. Check inline gloss.
+- **N-4 `representational_theory_of_mind`** — Fodor; "Language of Thought";
+  computational-formal symbols. Technical-philosophy node. C3 watch.
+- **N-7 `function_mathematical`** — formal definition (ordered pairs, domain,
+  codomain). Math-tech node. Check whether the summary glosses for a cold reader.
+- **N-8 `duhem_quine_thesis`** — confirmation holism; "no experiment tests a
+  hypothesis in isolation." Check inline gloss of confirmation-holism vocabulary.
+- **N-10 `sensitivity_condition`** — Nozick's tracking theory; "if p were false, S
+  would not believe p." Check inline statement of the counterfactual condition.
+- **N-11 `deflationary_theory_of_truth`** — equivalence schema / T-schema /
+  Tarski / Horwich; logic-tech vocabulary. C3 watch.
+- **N-12 `demarcation_problem`** — Popper's falsifiability criterion; "what
+  distinguishes science from pseudoscience." Familiar-domain framing; likely PASS.
+- **N-14 `chinese_room_argument`** — Searle 1980 thought experiment; concrete
+  example carries cold readers. Likely PASS.
+- **N-16 `externalism_epistemic`** — load-bearing technical position; check
+  whether the "justification depends on factors outside the head" gloss is inline.
+- **N-20 `modus_tollens`** — basic inference rule (if A→B and ¬B, then ¬A); concrete
+  symbolic form usually glosses well. Likely PASS.
 
 These are pre-scan flags, not verdicts. The actual scoring follows the rubric in the
 evidence file.
-
-## Prior context (MemPalace boot search)
-
-_Generated by `engine/tools/mempalace_boot_search.py` at 2026-05-15T06:19:00Z. Three formulations × similarity ≥0.60 = 4 drawers._
-
-### Literal — `shard 11 qa census score 27 edges c1 prerequisite soundness 20 nodes c2 teaching_notes traction c3 summary cold-readability per the seed_qa_audit md rubric read the shard from seed_qa_evidence shards json write the evidence file`
-- **wing_claude/diary** (source: `?`; sim: 0.61) — SESSION:2026-05-15|S-0172|routine.T-SEED-QA.SQA-10|seed-graph.QA.census.shard.10|★★★ What I worked on. Tenth routine fire of the T-SEED-QA census. Scored shard 10 — 27 pedagogic...
-- **sessions/planning** (source: `af166e8d-af02-4471-afd3-601e640ada15.jsonl`; sim: 0.62) — **Results** - Wrote [engine/build_readiness/seed_qa_evidence/shard_10.md](engine/build_readiness/seed_qa_evidence/shard_10.md): 27 edges scored against C1, 20 nodes against C2/C...
-
-### Conceptual — `shard census score edges prerequisite soundness`
-- _no drawers above threshold_
-
-### Adjacent — `shard 11 qa census score 27 edges c1 prerequisite soundness 20 nodes c2 teaching_notes traction c3 summary cold-readability per the seed_qa_audit md rubric read the shard from seed_qa_evidence shards json write the evidence file lessons pushback`
-- **wing_claude/diary** (source: `?`; sim: 0.62) — SESSION:2026-05-15|S-0172|routine.T-SEED-QA.SQA-10|seed-graph.QA.census.shard.10|★★★ What I worked on. Tenth routine fire of the T-SEED-QA census. Scored shard 10 — 27 pedagogic...
-- **sessions/planning** (source: `af166e8d-af02-4471-afd3-601e640ada15.jsonl`; sim: 0.62) — **Results** - Wrote [engine/build_readiness/seed_qa_evidence/shard_10.md](engine/build_readiness/seed_qa_evidence/shard_10.md): 27 edges scored against C1, 20 nodes against C2/C...
