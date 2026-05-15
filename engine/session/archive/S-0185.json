@@ -1,0 +1,49 @@
+{
+  "id": "S-0185",
+  "started_at": "2026-05-15T19:12:24Z",
+  "status": "in_progress",
+  "mode": "interactive",
+  "working_on": "Author ADR 0090 — Phase-6 recall-substrate decision per Issue #131 (A1-PROPER: substrate preservation + maintenance + upstream coordination + empirical investigation)",
+  "declared_scope": "Author engine ADR 0090 (phase-6 recall-substrate decision) at engine/adr/0090-phase-6-recall-substrate-decision.md committing to A1-PROPER per Issue #131 user adjudication after four rounds of plan-mode pushback. ADR sections: Status/Context (three S-0184 modes + ADR 0079 falsified recurrence interval + S-0086 scale-back precedent + upstream activity findings — PR #1424 merged, PR #1511 + PR #1463 + Issue #1489 + Issue #1082 open — and the @meretrout 2026-05-15 scale-boundedness of Mode 2)/Decision (six commitments: empirical verification first, maintenance for verified gaps, upstream coordination, ADR 0079 recurrence investigation, substrate preservation, A3-now future option)/Alternatives Considered per ADR 0077 (A1-INITIAL, A2, A3-now, hybrid all rejected with full Pros/Cons/Rejected-because)/Load-bearing premises per ADR 0084 (cross-cutting trigger fires)/Consequences (S-0186+ deliverables enumerated)/See also. Cascade per ADR 0041: See-also back-pointers in engine ADRs 0056, 0057, 0079. New first-exercise readiness note at engine/build_readiness/recall_substrate_fix_campaign_first_exercise.md per ADR 0053. MemPalace decision drawer capturing the four-round deliberation. ENGINE_LOG Added entry. STATE.md update (ADR count 89→90; next-session-work rotation; current/last session rows). Close Issue #131 with comment naming ADR 0090 + A1-PROPER + empirical-verification-first + S-0186+ sequence. phase: phase-6-prep",
+  "outcome_summary": "ADR 0090 authored committing to A1-PROPER — comprehensive in-project fix campaign with scheduled maintenance + upstream coordination + empirical investigation. Substrate (MemPalace) preserved per S-0086 scale-back precedent (narrow rather than replace). Four rounds of plan-mode pushback exercised the ADR 0084 extraction step in practice: R1 hybrid→patch-and-run; R2 A3-now→glossed coupling costs (embedding-API dependency, hook rewrites, ~500+ drawer migration, S-0093 tooling replacement); R3 A1-PROPER converged; R4 upstream investigation surfaced PR #1424 ALREADY MERGED (Mode 3 partial fix — `_wing_from_transcript_path` reads cwd from JSONL), PR #1511 filed TODAY 2026-05-15 (`MEMPALACE_WING` env var override), PR #1463 OPEN (Mode 2 BM25 fallback), @meretrout 2026-05-15 correction that Mode 2 is scale-bound at 328K drawers (our 22K palace likely unaffected). Strategic shift: from settle-replacement to settle-coordination-posture. Six commitments: empirical verification first (S-0186); maintenance for verified gaps; upstream coordination; ADR 0079 recurrence investigation (39 vs ≥150 sessions falsified); substrate preserved; open A3 future option. Cascade per ADR 0041: See-also back-pointers in ADRs 0056/0057/0079. First-exercise readiness note authored with T1-A through T1-D criteria. MemPalace decision drawer `drawer_paideia_decisions_b569d4b9e712a57a5159f8de` captures the deliberation. Issue #131 closed with detailed comment. ENGINE_LOG Added entry. STATE.md ADR count 89→90; next-session-work rotation (S-0186 verification + investigation is the priority). mempalace_unavailable_acknowledged: this session did not invoke `mcp__mempalace__mempalace_search` or `mcp__mempalace__mempalace_diary_read` — the session was a substrate-decision ADR authoring, not a session that needed prior-context recall (boot context came from the audit report S-0184 and the user's framing in Issue #131, which were directly read). The Round 4 upstream investigation used `gh pr list` / `gh issue list` / `gh issue view` rather than mempalace_search because the target was upstream MemPalace/mempalace, not our project's drawers. Diary write + decision drawer captured via MCP (mempalace_activity.diary_write_calls=1, add_drawer_calls=1).",
+  "scope_delivery": {
+    "declared_count": 9,
+    "delivered_count": 9,
+    "in_scope_unmet": [],
+    "in_scope_partial": [],
+    "out_of_scope_delivered": []
+  },
+  "next_session_handle": "S-0186 priority work: ADR 0090 commitment 1 (empirical re-verification) + commitment 4 (ADR 0079 recurrence investigation). Probe current mempalace 3.3.5 behavior against the 22K-drawer palace per mode (HNSW UNKNOWN; wing-filter throws at our scale; wing scatter post-PR-#1424). Find out why HNSW UNKNOWN recurred at 39 sessions vs ADR 0079's ≥150 expected — probe persist behavior, verify threshold setting (configuration channel vs metadata channel), check write-path distribution between drawers/closets. Findings land at engine/docs/audits/mempalace_state_S-0186.md and inform the S-0187+ wiring decisions per commitment 2 (rebuild cadence, prune schedule, conditional Mode 2 contract refinement). The PDG papers Session α (carried from S-0171/HANDOFF.md) is unblocked by ADR 0090's substrate-decision settlement and can run concurrent with or after S-0186 verification.",
+  "approved_plan": "/Users/shanekidd/.claude/plans/we-need-to-resolve-quirky-lark.md",
+  "branch": "claude/lucid-elbakyan-0f657f",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/lucid-elbakyan-0f657f",
+  "mempalace_activity": {
+    "search_calls": 0,
+    "diary_read_calls": 0,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 1,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 2,
+    "first_call_ts": "2026-05-15T19:22:17Z",
+    "last_call_ts": "2026-05-15T19:28:23Z",
+    "search_first_ts": null,
+    "diary_read_first_ts": null
+  },
+  "mempalace_unavailable_acknowledged": "Session did not invoke mcp__mempalace__mempalace_search or mcp__mempalace__mempalace_diary_read — boot context came from direct reads of the audit report S-0184 + Issue #131; the Round 4 upstream investigation used gh CLI against MemPalace/mempalace, not project-drawer search. Diary write + decision drawer landed via MCP.",
+  "closed_at": "2026-05-15T19:30:00Z",
+  "outcome_summary_soft_warns": {
+    "adr_index_inconsistent": 0,
+    "phase_mismatch_declared_scope": 1,
+    "skill_layer1_parity_drift": 1,
+    "mempalace_wing_count_growth": 1,
+    "issue_collision": 10,
+    "missing_rigor_score": 358,
+    "edge_evidence_empty": 46,
+    "mempalace_boot_query_skipped": 1,
+    "mempalace_diary_read_skipped": 1
+  }
+}
