@@ -1,0 +1,45 @@
+{
+  "id": "S-0169",
+  "started_at": "2026-05-15T03:08:00Z",
+  "closed_at": "2026-05-15T03:25:00Z",
+  "status": "closed",
+  "mode": "routine",
+  "task_id": "SQA-08",
+  "target_id": "T-SEED-QA",
+  "working_on": "Routine task SQA-08: seed-graph QA census shard 08 — score 27 edges (C1) + 20 nodes (C2/C3)",
+  "declared_scope": "Score shard 08 of the T-SEED-QA census: 27 pedagogical_prerequisite edges against C1 (prerequisite soundness) and 20 nodes against C2 (teaching_notes traction) + C3 (summary cold-readability), per the pinned rubric in engine/build_readiness/seed_qa_audit.md. Single deliverable: engine/build_readiness/seed_qa_evidence/shard_08.md. phase: NA-routine",
+  "approved_plan": "engine/session/current_plan.md",
+  "branch": "claude/romantic-shannon-9b158a",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/romantic-shannon-9b158a",
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": false,
+    "explanation": "Delivered as declared — shard_08.md authored to the fixed evidence-file schema, all 27 edges scored against C1 and all 20 nodes against C2/C3, no descope or reorder. No user confirmation (unattended routine session). No in-band Issues filed. The auto_target.json SQA-08 status flip rides with the close commit per the Issue #122 lifecycle-push-wrapper sequencing constraint."
+  },
+  "next_session_handle": null,
+  "outcome_summary": "Eighth routine fire of the T-SEED-QA seed-graph QA census. Scored shard 08 — 27 pedagogical_prerequisite edges (C1) + 20 nodes (C2/C3) per the pinned seed_qa_audit.md rubric — and wrote seed_qa_evidence/shard_08.md. Findings: C1 1/27 defective = 3.7% (E-4 computational_theory_of_mind->turing_test, Reversed — fresh authoring defect, not audit-touched; the Turing Test is the historical and pedagogical entry to CTM, not vice versa, per standard intro-philosophy-of-mind textbooks); 25 Sound, 1 Defensible (E-11 free_will->determinism, recurring 'target is the more general/foundational concept' shape from shards 05/06/07), 1 Reversed, 0 Weak-redundant. C2 0/20 fail. C3 2/20 fail = 10.0% — N-9 accessibility_relation (Kripke-semantics-framework-gated) AND N-19 phenomenal_intentionality (philosophy-of-mind-aboutness-framework-gated). Zero audit-touched edges (no shard pair matches migrations 0061-0065 forward or reverse). Running C1 across shards 01-08: 10.7% / 3.6% / 3.6% / 0.0% / 3.7% / 0.0% / 0.0% / 3.7%, firmly under the production audit's 13% baseline. The C3 jargon-gating cluster strengthens to FOUR consecutive shards (05 N-8 SDL/modal-closure, 06 N-16 credence/notation, 07 N-18 Kantian framework, 08 N-9 + N-19) of the same load-bearing-first-sentence-gated-on-undefined-framework shape; this shard produced two instances rather than one — the mechanism is reliable, not noise. The over-Defensible-drift watch item is NOT worsening (Defensible count 1, down from shard 06's 6 and shard 07's 3); the single E-11 instance shares the recurring shape but is held at Defensible on its merits. E-4 is the strongest-warranted Reversed call of the recent census run; recorded with detailed rationale so the SQA-20 closeout can disposition cleanly without re-deriving. Candidate findings only; disposition is the SQA-20 closeout. SQA-08 marked complete; SQA-09 next. No in-band Issues. mempalace_zero_citations_after_search fires because the boot search surfaced 0 drawers above the 0.60 threshold across all three formulations — the same benign shape every prior census shard saw; the evidence file and diary reference prior shards (05/06/07) and the production audit (S-0122) as named-session references rather than drawer-ID citations. 0 validator hard-fails (50 checks on --final-check).",
+  "outcome_summary_soft_warns": {
+    "skill_layer1_parity_drift": 1,
+    "mempalace_wing_count_growth": 1,
+    "issue_collision": 7,
+    "missing_rigor_score": 361,
+    "edge_evidence_empty": 46,
+    "mempalace_zero_citations_after_search": 1
+  },
+  "mempalace_activity": {
+    "search_calls": 3,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 0,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 5,
+    "first_call_ts": "2026-05-15T03:05:55Z",
+    "last_call_ts": "2026-05-15T03:23:07Z",
+    "search_first_ts": "2026-05-15T03:05:55Z",
+    "diary_read_first_ts": "2026-05-15T03:06:06Z"
+  }
+}
