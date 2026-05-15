@@ -105,6 +105,66 @@ The hybrid posture trades roughly:
 
 **Versions at decision time**: mempalace 3.3.5; chromadb 1.5.9 (transitive). S-0144 investigation was against mempalace 3.3.4 + chromadb 1.5.8 (also a transitive at the time). The chromadb line numbers shifted across 1.5.8 → 1.5.9 (e.g., `_apply_batch` 286→278; `close_persistent_index` 540→511; `Client.close()` 596→590); the mempalace line numbers are mostly stable except `_HNSW_BLOAT_GUARD` (54 → 52). Mechanism is identical across all four version pairs.
 
+## Amendment (S-0187): in-rebuild threshold override
+
+The S-0145 deliverables shipped working but the **≥150-session recurrence-interval premise was falsified at 39 sessions** by the S-0184 audit. [ADR 0090](0090-phase-6-recall-substrate-decision.md) commitment 4 committed to investigating why. The S-0186 audit ([`engine/docs/audits/mempalace_state_S-0186.md`](../docs/audits/mempalace_state_S-0186.md)) named the root cause; this amendment (S-0187) lands the actionable mechanism.
+
+### What was falsified
+
+ADR 0079's "≥150-session recurrence at threshold=100" assumed that the post-S-0145 retrofit (`mempalace_set_sync_threshold.py --threshold 100` on the live palace, post-rebuild) made the persist mechanism reliable. S-0184 observed HNSW UNKNOWN at 39 sessions — far under the predicted window.
+
+### Mechanism-level explanation (per S-0186 audit + S-0187 forensic re-verification)
+
+Two coupled gaps in the S-0145 design:
+
+1. **Rebuild-time threshold inheritance.** `mempalace_rebuild_hnsw.py` (S-0084) recreates collections via `client.create_collection(name=..., metadata=metadata)` where `metadata = dict(col.metadata or {})` — copying mempalace's `_HNSW_BLOAT_GUARD` `hnsw:sync_threshold=50_000` from the existing collection. chromadb's `PersistentLocalHnswSegment._sync_threshold` is set from this metadata at creation time. The rebuild's `collection.add()` calls per pagination batch never accumulate 50_000 records in a single batch (the rebuild uses batches of 5K), so `_apply_batch._persist()` (line 280 in chromadb 1.5.9 `local_persistent_hnsw.py`) never fires during the rebuild. `link_lists.bin` stays 0 bytes; `index_metadata.pickle` is never written.
+
+2. **Retroactive threshold updates don't flush in-memory state.** The S-0145 `mempalace_set_sync_threshold.py` retrofit operates against the *live* palace via `collection.modify(configuration={'hnsw': {'sync_threshold': 100}})`. This affects FUTURE writes only — it doesn't trigger a flush of the un-persisted in-memory state from the rebuild. The post-rebuild palace was thus in the broken state from creation; subsequent normal-load writes accumulated against the threshold-100 ceiling but the original un-flushed state never went away.
+
+The S-0187 forensic re-verification confirmed the empirical signature on the live palace 8 hours after S-0186's own rebuild:
+
+- `~/.mempalace/palace/<drawers-seg-uuid>/link_lists.bin = 0 bytes`
+- `~/.mempalace/palace/<closets-seg-uuid>/link_lists.bin = 0 bytes`
+- Neither active segment carries `index_metadata.pickle`
+- 49 quarantine directories (13 `.drift-*` + 36 `.corrupt-*`) — upstream `quarantine_stale_hnsw` (mempalace 3.3.5 chroma.py:105-108) firing on every open against the un-flushed shape, replacing each "bad" segment with a fresh-empty placeholder the next open also quarantines
+
+### The mechanism this amendment lands
+
+`mempalace_rebuild_hnsw.py` now overrides `hnsw:sync_threshold` at the rebuild's create-collection call:
+
+- **Create-time:** metadata passed to `client.create_collection()` includes `"hnsw:sync_threshold": REBUILD_SYNC_THRESHOLD` (= 3, the chromadb `int > 2` validator floor). Each pagination batch crosses the threshold; `_persist()` fires per batch; `link_lists.bin` + `index_metadata.pickle` actually land on disk during the rebuild.
+- **Post-adds:** after `_add_paginated()` completes and the count check passes, the tool calls `new_col.modify(configuration={"hnsw": {"sync_threshold": STEADY_STATE_SYNC_THRESHOLD}})` (= 100, the project steady-state). This is chromadb 1.5.x's authoritative runtime channel.
+- **`hnsw:batch_size`** is left at the inherited 50_000 — that's the anti-bloat protection PR #344 designed; it controls HNSW *index resize* cadence (independent of persist cadence). Unaffected.
+
+### Deliverables (S-0187)
+
+- Modified: [`engine/tools/mempalace_rebuild_hnsw.py`](../tools/mempalace_rebuild_hnsw.py) — new `REBUILD_SYNC_THRESHOLD` (= 3) and `STEADY_STATE_SYNC_THRESHOLD` (= 100) constants; create-collection metadata override; post-adds `collection.modify` raise; post-rebuild forward-pointer updated to reflect that the rebuild self-applies the threshold (the prior pointer to `mempalace_set_sync_threshold.py` is no longer needed in the rebuild path; the standalone tool retains a narrower role for live-palace retrofit outside a rebuild context).
+- Modified: [`engine/tools/test_mempalace_rebuild_hnsw.py`](../tools/test_mempalace_rebuild_hnsw.py) — two new regression guards (`test_rebuild_sets_steady_state_sync_threshold_post_adds`, `test_rebuild_uses_rebuild_threshold_at_create_collection`); existing `test_rebuild_against_synthetic_palace_preserves_count_and_metadata` updated to reflect intentional metadata mutation.
+- Empirical re-verification record at [`engine/docs/audits/mempalace_regression_S-0187.md`](../docs/audits/mempalace_regression_S-0187.md) — the S-0187 diagnostic findings; Probes 1–6 + classifier-bug discovery (separate from this amendment but discovered in the same session).
+
+### Scheduled-rebuild cadence decision (ADR 0090 commitment 2a)
+
+ADR 0090 commitment 2a deferred the cadence question pending the recurrence-interval investigation outcome. With the S-0187 amendment landed:
+
+**Decision: no scheduled rebuild at this time.** The rebuild-tool amendment (this section) addresses the recurrence root cause directly; the defensive post-hook prune (S-0186; S-0187 field-name fix) prevents the wing-scatter compounding factor. The combined posture should make the recurrence interval much longer than the falsified 39 sessions; absent empirical evidence that the new mechanism is itself insufficient, scheduled-rebuild machinery would be premature.
+
+**Re-evaluation triggers (named so this is not silent deferral):**
+
+- HNSW UNKNOWN status surfaces in any health-check audit between S-0187 and the next cadence-20 audit (S-0204) → escalate to scheduled-rebuild ADR.
+- ≥1 instance of `mempalace_hnsw_status_suspect` soft-warn fires in the next 30 sessions → reconsider.
+- Any future `mempalace_hnsw_divergence` soft-warn ≥10% pre-S-0204 → reconsider.
+- If S-0204 audit (cadence-20) and S-0224 audit both surface MemPalace-substrate findings related to this mechanism → fire ADR 0090 commitment 6 reconsideration trigger.
+
+The re-evaluation surface is monitored via the existing `validate.py` soft-warn telemetry (`mempalace_hnsw_status_suspect`, `mempalace_hnsw_divergence`, `mempalace_quarantine_accumulation`) — no new mechanism needed to detect.
+
+### ADR 0053 first-exercise readiness criterion: NO (0/4 satisfied)
+
+No new session mode; no new validator soft-warn category; no new state file; this amendment + the related field-name fix touch [`mempalace_rebuild_hnsw.py`](../tools/mempalace_rebuild_hnsw.py) + [`test_mempalace_rebuild_hnsw.py`](../tools/test_mempalace_rebuild_hnsw.py) + [`mempalace_post_hook_prune.py`](../tools/mempalace_post_hook_prune.py) + [`test_mempalace_post_hook_prune.py`](../tools/test_mempalace_post_hook_prune.py) + this ADR + the findings report — 6 files total, of which 4 are tooling. ≥5 tooling-files threshold is borderline; the rebuild + classifier are tightly coupled subjects, not cross-cutting. Treated as a single mechanism's amendment, not a new mechanism. **11th consecutive negative finding** for ADR 0053.
+
+### Versions at amendment time
+
+mempalace 3.3.5; chromadb 1.5.9 (unchanged from S-0145).
+
 ## See also
 
 - [ADR 0045](0045-shared-state-integrity-discipline.md) — the detection-side spine this ADR extends with prevention.
