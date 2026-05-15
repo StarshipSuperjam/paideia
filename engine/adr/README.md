@@ -77,6 +77,7 @@ The engine collection has **45 ADRs total — all Accepted**. Engine ADRs are ab
 | [0083](0083-validate-py-mirror-to-ci.md) | Mirror `validate.py` gate to GitHub Actions CI (renumbered from 0065 at S-0149 to resolve cross-partition collision with product ADR 0065) | Accepted |
 | [0084](0084-pushback-rule-extraction-step-for-high-stakes-decisions.md) | Pushback rule extension: explicit extraction step for high-stakes decision classes | Accepted |
 | [0089](0089-skill-layer1-parity-validator-check.md) | Skill ↔ Layer-1 procedure-parity validator check | Accepted |
+| [0090](0090-phase-6-recall-substrate-decision.md) | Phase-6 recall-substrate decision: MemPalace preserved with active maintenance + upstream coordination | Accepted |
 
 ## Adding a new engine ADR
 

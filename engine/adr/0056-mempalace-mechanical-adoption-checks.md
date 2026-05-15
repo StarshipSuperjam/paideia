@@ -211,3 +211,4 @@ Considered and rejected. Wrapping every MCP tool call would be invasive (every t
 - [Issue #39](https://github.com/StarshipSuperjam/paideia/issues/39) — S-0093 amendment (drawer-citation telemetry).
 - [`engine/tools/mempalace_boot_search.py`](../tools/mempalace_boot_search.py) — Issue #38 deliverable.
 - [`engine/tools/scan_mempalace_citations.py`](../tools/scan_mempalace_citations.py) — Issue #39 deliverable.
+- [ADR 0090](0090-phase-6-recall-substrate-decision.md) — back-pointer per [ADR 0041](0041-cascade-analysis-discipline.md) cascade discipline. The substrate decision preserves this ADR's mechanical-adoption-check layer; the `mempalace_zero_citations_after_search` soft-warn this ADR (S-0093 amendment) committed is the load-bearing telemetry input the substrate decision relied on (25/30 sessions firing per S-0184) when evaluating retrieval utility.
