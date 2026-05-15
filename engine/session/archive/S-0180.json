@@ -1,0 +1,59 @@
+{
+  "id": "S-0180",
+  "started_at": "2026-05-15T13:07:44Z",
+  "status": "closed",
+  "mode": "routine",
+  "task_id": "SQA-18",
+  "target_id": "T-SEED-QA",
+  "working_on": "Routine task SQA-18: seed-graph QA census shard 18 — score 27 edges (C1) + 20 nodes (C2/C3)",
+  "declared_scope": "Score shard 18 of the T-SEED-QA census: 27 pedagogical_prerequisite edges against C1 (prerequisite soundness) and 20 nodes against C2 (teaching_notes traction) + C3 (summary cold-readability), per the pinned rubric at engine/build_readiness/seed_qa_audit.md. Write the evidence file at engine/build_readiness/seed_qa_evidence/shard_18.md. Audit cross-reference: inline `evidence` text on the edge is primary gold signal; proximity-check against migrations 0061-0065 with filter 0060 (original cross-bridges, not audit follow-up) is secondary heuristic requiring per-hit exact-tuple inspection. phase: NA-routine",
+  "approved_plan": "engine/session/current_plan.md",
+  "branch": "claude/focused-taussig-951c54",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/focused-taussig-951c54",
+  "scope_lock": {
+    "allowed_paths": [
+      "engine/build_readiness/seed_qa_evidence/shard_18.md"
+    ]
+  },
+  "mempalace_activity": {
+    "search_calls": 3,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 0,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 5,
+    "first_call_ts": "2026-05-15T13:04:24Z",
+    "last_call_ts": "2026-05-15T13:20:46Z",
+    "search_first_ts": "2026-05-15T13:04:24Z",
+    "diary_read_first_ts": "2026-05-15T13:04:59Z"
+  },
+  "closed_at": "2026-05-15T13:23:00Z",
+  "outcome_summary": "Eighteenth routine fire of T-SEED-QA. Shard 18: C1 0/27 defective (0.0%) — 24 Sound, 3 Defensible (E-13 biocentrism→animal_ethics, E-19 temporal_parts→mereology, E-25 political_obligation→conservatism — all SAME sub-shape 'specific → broader' inverted-from-canonical, the sub-shape shard 17 introduced via E-5/E-6 now has FIVE exemplars across two consecutive shards), 0 Reversed, 0 Weak-redundant. C2 0/20 fail. C3 0/20 fail. THIRTEENTH 0-defect shard; NINTH consecutive quadruple-0 (10–18). FIRST shard in the routine batch with ZERO audit-touched edges — zero of shard 18's 27 edges carry inline `evidence` text (the gold signal), all 9 proximity hits resolve to false-positives (1 exact-tuple hit confirmed false via 0063 SQL postcondition referencing the `evidence` column + a different tuple). Workflow now hardens across SIX consecutive shards (13–18): inline `evidence` is necessary-and-sufficient gold signal. Three distinctive within-shard clusters: two-edge introduction-of-the-debate from a single source (E-15 scientific_realism→no_miracles_argument argument-for + E-24 scientific_realism→pessimistic_meta_induction argument-against, FIRST instance in routine batch); two-edge sub-relation cluster (E-21/E-27 propositional_knowledge→ testimonial_knowledge + understanding); two-edge paraconsistent rejection cluster (E-12 bivalence→dialetheism + E-26 explosion→paraconsistent_logic). One borderline-PASS C3 call held per established anchors (N-9 mctaggarts_paradox A-series/B-series structural-shape gloss). Cumulative C1 across 01–18 = 23/488 = 4.71% — down from 4.99%, well under the 13% production-audit baseline. The 4.71% rate over 488/516 edges (94.6%) makes the census's headline finding settled regardless of shard 19's outcome. SQA-18 complete; SQA-19 next (1 shard + closeout to go).",
+  "outcome_summary_soft_warns": {
+    "state_md_row_count": 1,
+    "skill_layer1_parity_drift": 1,
+    "mempalace_wing_count_growth": 1,
+    "issue_collision": 7,
+    "missing_rigor_score": 361,
+    "edge_evidence_empty": 46,
+    "mempalace_zero_citations_after_search": 1
+  },
+  "scope_delivery": {
+    "declared_paths": [
+      "engine/build_readiness/seed_qa_evidence/shard_18.md"
+    ],
+    "delivered_paths": [
+      "engine/build_readiness/seed_qa_evidence/shard_18.md"
+    ],
+    "delivered_paths_outside_scope": [],
+    "criteria_satisfied": [
+      "file_exists",
+      "validate_passes"
+    ]
+  },
+  "next_session_handle": "T-SEED-QA routine block (18 of 20 tasks done). SQA-19 next eligible (status=pending, no dependencies). Routine fires unattended on cadence; interactive sessions may pursue the PDG-papers pre-phase deliberation plan (Sessions α–ζ per S-0171 / STATE.md Next session work item) independently."
+}
