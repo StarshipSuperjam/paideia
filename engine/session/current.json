@@ -1,0 +1,18 @@
+{
+  "id": "S-0179",
+  "started_at": "2026-05-15T12:05:15Z",
+  "status": "in_progress",
+  "mode": "routine",
+  "task_id": "SQA-17",
+  "target_id": "T-SEED-QA",
+  "working_on": "Routine task SQA-17: seed-graph QA census shard 17 — score 27 edges (C1) + 20 nodes (C2/C3)",
+  "declared_scope": "Score shard 17 of the T-SEED-QA census: 27 pedagogical_prerequisite edges against C1 (prerequisite soundness) and 20 nodes against C2 (teaching_notes traction) + C3 (summary cold-readability), per the pinned rubric at engine/build_readiness/seed_qa_audit.md. Write the evidence file at engine/build_readiness/seed_qa_evidence/shard_17.md. Audit cross-reference: inline `evidence` text on the edge is primary gold signal; proximity-check against migrations 0061-0065 with filter 0060 (original cross-bridges, not audit follow-up) is secondary heuristic requiring per-hit exact-tuple inspection. phase: NA-routine",
+  "approved_plan": "engine/session/current_plan.md",
+  "branch": "claude/epic-wilson-7404b6",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/epic-wilson-7404b6",
+  "scope_lock": {
+    "allowed_paths": [
+      "engine/build_readiness/seed_qa_evidence/shard_17.md"
+    ]
+  }
+}
