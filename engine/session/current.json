@@ -1,0 +1,11 @@
+{
+  "id": "S-0171",
+  "started_at": "2026-05-14T22:30:00Z",
+  "status": "in_progress",
+  "mode": "interactive",
+  "working_on": "Convert exploration-mode PDG papers deep-extraction work to a build session: commit the 11 artifacts in engine/build_readiness/pdg_papers_extraction/ + engine/STATE.md pre-phase plan update + ENGINE_LOG entry + close per session-shutdown-sequence. User direction: bake the pre-phase deliberation plan into project plans so tomorrow's interactive sessions pick it up.",
+  "outcome_summary": null,
+  "approved_plan": "~/.claude/plans/there-are-two-papers-parsed-aho.md",
+  "branch": "claude/quizzical-northcutt-91ea60",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/quizzical-northcutt-91ea60"
+}
