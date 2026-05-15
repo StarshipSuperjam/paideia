@@ -1,0 +1,11 @@
+{
+  "id": "S-0183",
+  "started_at": "2026-05-15T16:04:54Z",
+  "status": "in_progress",
+  "mode": "interactive",
+  "working_on": "T-SEED-QA disposition — 7 C1 reversals (migration 0066), 13 C3 rewrites (migration 0067), ADR 0059 amendment, rubric Issue",
+  "outcome_summary": null,
+  "approved_plan": "/Users/shanekidd/.claude/plans/graceful-marinating-pudding.md",
+  "branch": "claude/youthful-poitras-207c04",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/youthful-poitras-207c04"
+}
