@@ -1,0 +1,18 @@
+{
+  "id": "S-0177",
+  "started_at": "2026-05-15T10:04:43Z",
+  "status": "in_progress",
+  "mode": "routine",
+  "task_id": "SQA-15",
+  "target_id": "T-SEED-QA",
+  "working_on": "Routine task SQA-15: seed-graph QA census shard 15 — score 27 edges (C1) + 20 nodes (C2/C3)",
+  "declared_scope": "Score shard 15 of the T-SEED-QA census: 27 pedagogical_prerequisite edges against C1 (prerequisite soundness) and 20 nodes against C2 (teaching_notes traction) + C3 (summary cold-readability), per the pinned rubric at engine/build_readiness/seed_qa_audit.md. Write the evidence file at engine/build_readiness/seed_qa_evidence/shard_15.md. Cross-reference audit follow-up migrations 0061-0065 against every shard-15 edge tuple via exact-and-reverse tuple comparison. phase: NA-routine",
+  "approved_plan": "engine/session/current_plan.md",
+  "branch": "claude/zen-kare-e2a2a4",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/zen-kare-e2a2a4",
+  "scope_lock": {
+    "allowed_paths": [
+      "engine/build_readiness/seed_qa_evidence/shard_15.md"
+    ]
+  }
+}
