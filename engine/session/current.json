@@ -1,0 +1,12 @@
+{
+  "id": "S-0185",
+  "started_at": "2026-05-15T19:12:24Z",
+  "status": "in_progress",
+  "mode": "interactive",
+  "working_on": "Author ADR 0090 — Phase-6 recall-substrate decision per Issue #131 (A1-PROPER: substrate preservation + maintenance + upstream coordination + empirical investigation)",
+  "declared_scope": "Author engine ADR 0090 (phase-6 recall-substrate decision) at engine/adr/0090-phase-6-recall-substrate-decision.md committing to A1-PROPER per Issue #131 user adjudication after four rounds of plan-mode pushback. ADR sections: Status/Context (three S-0184 modes + ADR 0079 falsified recurrence interval + S-0086 scale-back precedent + upstream activity findings — PR #1424 merged, PR #1511 + PR #1463 + Issue #1489 + Issue #1082 open — and the @meretrout 2026-05-15 scale-boundedness of Mode 2)/Decision (six commitments: empirical verification first, maintenance for verified gaps, upstream coordination, ADR 0079 recurrence investigation, substrate preservation, A3-now future option)/Alternatives Considered per ADR 0077 (A1-INITIAL, A2, A3-now, hybrid all rejected with full Pros/Cons/Rejected-because)/Load-bearing premises per ADR 0084 (cross-cutting trigger fires)/Consequences (S-0186+ deliverables enumerated)/See also. Cascade per ADR 0041: See-also back-pointers in engine ADRs 0056, 0057, 0079. New first-exercise readiness note at engine/build_readiness/recall_substrate_fix_campaign_first_exercise.md per ADR 0053. MemPalace decision drawer capturing the four-round deliberation. ENGINE_LOG Added entry. STATE.md update (ADR count 89→90; next-session-work rotation; current/last session rows). Close Issue #131 with comment naming ADR 0090 + A1-PROPER + empirical-verification-first + S-0186+ sequence. phase: phase-6-prep",
+  "outcome_summary": null,
+  "approved_plan": "/Users/shanekidd/.claude/plans/we-need-to-resolve-quirky-lark.md",
+  "branch": "claude/lucid-elbakyan-0f657f",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/lucid-elbakyan-0f657f"
+}
