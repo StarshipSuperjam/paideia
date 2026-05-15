@@ -1,13 +1,13 @@
 {
   "target_id": "T-SEED-QA",
-  "goal": "Seed-graph QA census — full sweep of all 516 pedagogical_prerequisite edges + all 380 nodes, scoring C1 prerequisite soundness (independent drift check vs the production audit's 13% baseline), C2 teaching_notes traction, and C3 summary cold-readability. 19 shard sessions + 1 closeout. Feeds Phase 6 self-correction. Methodology: engine/build_readiness/seed_qa_audit.md. Shards: engine/build_readiness/seed_qa_evidence/shards.json. Disposition is a later interactive session, not this routine target.",
+  "goal": "Seed-graph QA census \u2014 full sweep of all 516 pedagogical_prerequisite edges + all 380 nodes, scoring C1 prerequisite soundness (independent drift check vs the production audit's 13% baseline), C2 teaching_notes traction, and C3 summary cold-readability. 19 shard sessions + 1 closeout. Feeds Phase 6 self-correction. Methodology: engine/build_readiness/seed_qa_audit.md. Shards: engine/build_readiness/seed_qa_evidence/shards.json. Disposition is a later interactive session, not this routine target.",
   "paused": false,
   "max_sessions": 22,
   "max_wall_clock_hours": 30,
   "tasks": [
     {
       "id": "SQA-01",
-      "name": "Shard 01 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "name": "Shard 01 QA census \u2014 score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
       "depends_on": [],
       "criteria": [
         {
@@ -27,7 +27,7 @@
     },
     {
       "id": "SQA-02",
-      "name": "Shard 02 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "name": "Shard 02 QA census \u2014 score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
       "depends_on": [],
       "criteria": [
         {
@@ -47,7 +47,7 @@
     },
     {
       "id": "SQA-03",
-      "name": "Shard 03 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "name": "Shard 03 QA census \u2014 score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
       "depends_on": [],
       "criteria": [
         {
@@ -67,7 +67,7 @@
     },
     {
       "id": "SQA-04",
-      "name": "Shard 04 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "name": "Shard 04 QA census \u2014 score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
       "depends_on": [],
       "criteria": [
         {
@@ -87,7 +87,7 @@
     },
     {
       "id": "SQA-05",
-      "name": "Shard 05 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "name": "Shard 05 QA census \u2014 score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
       "depends_on": [],
       "criteria": [
         {
@@ -107,7 +107,7 @@
     },
     {
       "id": "SQA-06",
-      "name": "Shard 06 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "name": "Shard 06 QA census \u2014 score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
       "depends_on": [],
       "criteria": [
         {
@@ -127,7 +127,7 @@
     },
     {
       "id": "SQA-07",
-      "name": "Shard 07 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "name": "Shard 07 QA census \u2014 score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
       "depends_on": [],
       "criteria": [
         {
@@ -147,7 +147,7 @@
     },
     {
       "id": "SQA-08",
-      "name": "Shard 08 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "name": "Shard 08 QA census \u2014 score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
       "depends_on": [],
       "criteria": [
         {
@@ -167,7 +167,7 @@
     },
     {
       "id": "SQA-09",
-      "name": "Shard 09 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "name": "Shard 09 QA census \u2014 score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
       "depends_on": [],
       "criteria": [
         {
@@ -187,7 +187,7 @@
     },
     {
       "id": "SQA-10",
-      "name": "Shard 10 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "name": "Shard 10 QA census \u2014 score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
       "depends_on": [],
       "criteria": [
         {
@@ -207,7 +207,7 @@
     },
     {
       "id": "SQA-11",
-      "name": "Shard 11 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "name": "Shard 11 QA census \u2014 score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
       "depends_on": [],
       "criteria": [
         {
@@ -227,7 +227,7 @@
     },
     {
       "id": "SQA-12",
-      "name": "Shard 12 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "name": "Shard 12 QA census \u2014 score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
       "depends_on": [],
       "criteria": [
         {
@@ -247,7 +247,7 @@
     },
     {
       "id": "SQA-13",
-      "name": "Shard 13 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "name": "Shard 13 QA census \u2014 score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
       "depends_on": [],
       "criteria": [
         {
@@ -267,7 +267,7 @@
     },
     {
       "id": "SQA-14",
-      "name": "Shard 14 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "name": "Shard 14 QA census \u2014 score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
       "depends_on": [],
       "criteria": [
         {
@@ -287,7 +287,7 @@
     },
     {
       "id": "SQA-15",
-      "name": "Shard 15 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "name": "Shard 15 QA census \u2014 score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
       "depends_on": [],
       "criteria": [
         {
@@ -307,7 +307,7 @@
     },
     {
       "id": "SQA-16",
-      "name": "Shard 16 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "name": "Shard 16 QA census \u2014 score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
       "depends_on": [],
       "criteria": [
         {
@@ -323,11 +323,11 @@
           "engine/build_readiness/seed_qa_evidence/shard_16.md"
         ]
       },
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "SQA-17",
-      "name": "Shard 17 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "name": "Shard 17 QA census \u2014 score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
       "depends_on": [],
       "criteria": [
         {
@@ -347,7 +347,7 @@
     },
     {
       "id": "SQA-18",
-      "name": "Shard 18 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "name": "Shard 18 QA census \u2014 score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
       "depends_on": [],
       "criteria": [
         {
@@ -367,7 +367,7 @@
     },
     {
       "id": "SQA-19",
-      "name": "Shard 19 QA census — score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
+      "name": "Shard 19 QA census \u2014 score ~27 edges (C1 prerequisite soundness) + 20 nodes (C2 teaching_notes traction, C3 summary cold-readability) per the seed_qa_audit.md rubric; read the shard from seed_qa_evidence/shards.json, write the evidence file",
       "depends_on": [],
       "criteria": [
         {
@@ -387,7 +387,7 @@
     },
     {
       "id": "SQA-20",
-      "name": "Closeout — aggregate the 19 shard evidence files into seed_qa_findings.md: overall C1/C2/C3 error rates, per-subdomain breakdown, C1 drift comparison vs the production audit's 13% baseline, pattern clusters, and the 'for Phase 6 self-correction' section. Aggregation only; disposition is a follow-up interactive session.",
+      "name": "Closeout \u2014 aggregate the 19 shard evidence files into seed_qa_findings.md: overall C1/C2/C3 error rates, per-subdomain breakdown, C1 drift comparison vs the production audit's 13% baseline, pattern clusters, and the 'for Phase 6 self-correction' section. Aggregation only; disposition is a follow-up interactive session.",
       "depends_on": [
         "SQA-01",
         "SQA-02",
