@@ -1,0 +1,43 @@
+{
+  "id": "S-0186",
+  "started_at": "2026-05-15T19:56:32Z",
+  "closed_at": "2026-05-15T21:26:31Z",
+  "status": "closed",
+  "mode": "interactive",
+  "working_on": "Get MemPalace back into working order: rebuild HNSW + re-apply sync_threshold=100 + extend prune tool with sessions-pollution mode + prune ~21,893 transcript-pollution drawers + 110 orphan-wing drawers + wire defensive post-hook prune + author empirical findings report (ADR 0090 commitments 1, 2, 4 executed in-session).",
+  "declared_scope": "Restore MemPalace working order per ADR 0090 commitments 1 (empirical re-verification), 2 (maintenance for confirmed-broken gaps \u2014 at least the prune + defensive hook layer), and 4 (ADR 0079 recurrence-interval investigation). Plan A: rebuild HNSW + threshold=100. Plan C: extend prune_mempalace.py with --audit-sessions-pollution mode + apply orphan-wings + sessions-pollution prunes. Plan D: wire defensive post-hook prune via new mempalace_post_hook_prune.py + extend mempalace-hook-wrapper.sh. Plan E: author engine/docs/audits/mempalace_state_S-0186.md findings report + update STATE.md + ENGINE_LOG.md + first-exercise readiness note + capture MemPalace decision drawer + diary write.",
+  "outcome_summary": "All three S-0184 modes confirmed broken at our 22K-drawer scale and restored end-to-end. Mode 1: HNSW UNKNOWN despite sync_threshold=100; root cause traced empirically to chromadb _persist() never firing when sync_threshold=50000 (mempalace _HNSW_BLOAT_GUARD) is inherited at collection creation \u2014 link_lists.bin=0 bytes means no graph connectivity. Fixed by rebuilding with sync_threshold=3 at creation time (batch=100 forces per-batch persist); link_lists.bin now 6024 bytes; status=OK divergence=0. ADR 0079 recurrence-interval premise (\u2265150 sessions) explained: post-rebuild threshold-switch to 100 is retroactive-only and does not flush the un-flushed initial-rebuild state \u2014 every cold reopen finds the degenerate index. Mode 2: wing-filter throws 'Error finding id' traced to the same root cause (degenerate HNSW); falsifies @meretrout 2026-05-15 'scale-bound at 328K' claim \u2014 reproduced at 673 drawers AND fixed by the Mode 1 fix. mempalace_search wing='paideia' room='decisions' now returns 15 relevant curated drawers per query with similarities 0.44-0.66 (top hit: ADR 0090 decision drawer at 0.504). Mode 3: 21,998 of 22,676 (97%) drawers in upstream-hardcoded 'sessions' wing. Pruned via new audit-sessions-pollution mode (21,893 drawers) + existing --audit-orphan-wings (110 drawers); consolidated 105 sessions/decisions into paideia/decisions (245 total). Palace 22,676\u2192673 (97% reduction); wing count 101\u21924. Defensive recurrence prevention wired: new mempalace_post_hook_prune.py invoked from mempalace-hook-wrapper.sh on probe-healthy paths with bounded scope (wing+room+created_at>HOOK_START_TS), advisory exit codes, idempotent; retires when upstream PR #1511 lands. **In-context bug fix surfaced by the recurring 3-session pre-commit hang on the Supabase graph audit:** validate.py _read_graph_from_db() and all four apply_migration.py psycopg.connect() call sites lacked connect_timeout. Added connect_timeout=10 to all 5 + server-side statement_timeout=30000 on the read-only validate.py call. Verified empirically against TEST-NET-1 IP (bounded-fail in 10.10s vs prior indefinite hang). 52 new pytests total (39 prune + 12 post-hook prune + 1 timeout regression), all green. Findings report at engine/docs/audits/mempalace_state_S-0186.md. STATE.md updated, ENGINE_LOG.md Added+Changed+Fixed entries, first-exercise readiness note T1-A/T1-B/T1-D closed and T1-C partial-closed. MemPalace decision drawer drawer_paideia_decisions_3ffb1b56e0e74de520d55bc2 captures the empirical findings + fix narrative. Diary write at session close. S-0187 priority: amend mempalace_rebuild_hnsw.py to set sync_threshold=3 at creation time (the actionable amendment from this session's investigation).",
+  "scope_delivery": {
+    "declared_count": 5,
+    "delivered_count": 5,
+    "in_scope_unmet": [],
+    "in_scope_partial": [],
+    "out_of_scope_delivered": []
+  },
+  "next_session_handle": "S-0187 priority: update engine/tools/mempalace_rebuild_hnsw.py to set hnsw:sync_threshold=3 at COLLECTION CREATION time (overriding mempalace's _HNSW_BLOAT_GUARD 50_000 during the rebuild) and raise to 100 after all adds complete. This is the root-cause fix S-0186 verified empirically \u2014 the rebuild itself, not a post-rebuild retrofit, must set the threshold low so chromadb's _persist() fires during the add loop and link_lists.bin is populated progressively. Sized: ~30 LOC + tests + ADR 0079 amendment naming the new behavior + ops-doc cross-reference in mempalace-operations.md 'Persist-threshold tuning' subsection. Closes T1-C in engine/build_readiness/recall_substrate_fix_campaign_first_exercise.md. Then decide on scheduled-rebuild cadence (per-shutdown vs per-N-sessions) per ADR 0090 commitment 2a \u2014 may not be needed if the rebuild-tool amendment + defensive post-hook prune (S-0186) suffice to prevent recurrence.",
+  "approved_plan": "/Users/shanekidd/.claude/plans/i-just-spent-two-iterative-horizon.md",
+  "branch": "claude/magical-bhabha-c20f19",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/magical-bhabha-c20f19",
+  "mempalace_activity": {
+    "search_calls": 15,
+    "diary_read_calls": 0,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 1,
+    "status_calls": 2,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 3,
+    "total_calls": 22,
+    "first_call_ts": "2026-05-15T19:45:39Z",
+    "last_call_ts": "2026-05-15T20:44:24Z",
+    "search_first_ts": "2026-05-15T19:46:01Z",
+    "diary_read_first_ts": null
+  },
+  "outcome_summary_soft_warns": {
+    "skill_layer1_parity_drift": 1,
+    "missing_rigor_score": 358,
+    "edge_evidence_empty": 46,
+    "mempalace_diary_read_skipped": 1
+  }
+}
