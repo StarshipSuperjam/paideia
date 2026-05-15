@@ -1,0 +1,45 @@
+{
+  "id": "S-0167",
+  "started_at": "2026-05-15T01:08:09Z",
+  "closed_at": "2026-05-15T01:14:08Z",
+  "status": "closed",
+  "mode": "routine",
+  "task_id": "SQA-06",
+  "target_id": "T-SEED-QA",
+  "working_on": "Routine task SQA-06: seed-graph QA census shard 06 — score 27 edges (C1) + 20 nodes (C2/C3)",
+  "declared_scope": "Score shard 06 of the T-SEED-QA census: 27 pedagogical_prerequisite edges against C1 (prerequisite soundness) and 20 nodes against C2 (teaching_notes traction) + C3 (summary cold-readability), per the pinned rubric in engine/build_readiness/seed_qa_audit.md. Single deliverable: engine/build_readiness/seed_qa_evidence/shard_06.md. phase: NA-routine",
+  "approved_plan": "engine/session/current_plan.md",
+  "branch": "claude/stupefied-hertz-0851dd",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/stupefied-hertz-0851dd",
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": false,
+    "explanation": "Delivered as declared — shard_06.md authored to the fixed evidence-file schema, all 27 edges scored against C1 and all 20 nodes against C2/C3, no descope or reorder. No user confirmation (unattended routine session). No in-band Issues filed. The auto_target.json SQA-06 status flip rides with the close commit per the Issue #122 lifecycle-push-wrapper sequencing constraint."
+  },
+  "next_session_handle": null,
+  "outcome_summary": "Sixth routine fire of the T-SEED-QA seed-graph QA census. Scored shard 06 — 27 pedagogical_prerequisite edges (C1) + 20 nodes (C2/C3) per the pinned seed_qa_audit.md rubric — and wrote seed_qa_evidence/shard_06.md. Findings: C1 0/27 defective = 0.0% (the census's second 0-defect shard after shard 04; 21 Sound, 6 Defensible); C2 0/20 fail; C3 1/20 fail = 5.0% (N-16 conditionalization, borderline jargon/notation-gated summary). Zero audit-touched edges — no shard-06 (source,target) pair matches the S-0122 follow-up migrations 0061-0065. The 6-Defensible count is a notable rise (shard 04 had 1, shard 05 had 4); each was re-checked and confirmed a genuine 'supportable on a citable alternative reading, not canonical' call rather than disguised uncertainty, but three (E-12 social_contract_theory->political_obligation, E-17 truth_conditional_semantics->compositionality, E-21 propositional_attitude->intentionality) share a could-be-reversed 'target is the more general/foundational concept' shape and are flagged prominently for the SQA-20 closeout's consistency review — the monotone-ish 1->4->6 rise across shards 04-06 is exactly the drift signal S-0165's audit-the-auditor was built to catch, named explicitly in the evidence file. Running C1 across shards 01-06: 10.7% / 3.6% / 3.6% / 0.0% / 3.7% / 0.0%, firmly under the production audit's 13% baseline. Candidate findings only; disposition is the SQA-20 closeout. SQA-06 marked complete; SQA-07 next. No in-band Issues. mempalace_zero_citations_after_search fires because the boot search surfaced 0 drawers above the 0.60 threshold — same benign shape every prior census shard saw; the diary entry and evidence file operate fully within the pinned methodology and reference S-0122/S-0165 prior context. 0 validator hard-fails (50 checks on --final-check).",
+  "outcome_summary_soft_warns": {
+    "skill_layer1_parity_drift": 1,
+    "mempalace_wing_count_growth": 1,
+    "issue_collision": 7,
+    "missing_rigor_score": 361,
+    "edge_evidence_empty": 46,
+    "mempalace_zero_citations_after_search": 1
+  },
+  "mempalace_activity": {
+    "search_calls": 3,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "add_drawer_calls": 0,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 5,
+    "first_call_ts": "2026-05-15T01:02:53Z",
+    "last_call_ts": "2026-05-15T01:12:39Z",
+    "search_first_ts": "2026-05-15T01:02:53Z",
+    "diary_read_first_ts": "2026-05-15T01:03:04Z"
+  }
+}

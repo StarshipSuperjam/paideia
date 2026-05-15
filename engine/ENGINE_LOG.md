@@ -10,6 +10,12 @@ This project does not yet follow [Semantic Versioning](https://semver.org/) — 
 
 ## [Unreleased]
 
+### Added (S-0167 — `T-SEED-QA` routine task SQA-06)
+
+- **[`engine/build_readiness/seed_qa_evidence/shard_06.md`](build_readiness/seed_qa_evidence/shard_06.md)** — shard 06 evidence file for the seed-graph QA census. 27 `pedagogical_prerequisite` edges scored against C1 (prerequisite soundness), 20 nodes against C2 (teaching_notes traction) + C3 (summary cold-readability), per the pinned `seed_qa_audit.md` rubric. C1: 0/27 defective (0.0%) — the census's second 0-defect shard; 21 Sound, 6 Defensible. C2: 0/20 fail. C3: 1/20 fail (5.0%) — N-16 conditionalization, borderline jargon/notation-gated summary ("credence" undefined + `Pr_old(H | E)` notation in the load-bearing first sentence). Zero audit-touched edges (no shard-06 (source,target) pair matches the S-0122 follow-up migrations 0061–0065).
+
+**Rationale**: sixth routine fire of the `T-SEED-QA` census (6 of 20 tasks done; SQA-07 next). Running C1 across shards 01–06: 10.7% / 3.6% / 3.6% / 0.0% / 3.7% / 0.0%, still firmly under the production audit's 13% baseline. The 6-Defensible cluster is a notable rise (shard 04 had 1, shard 05 had 4) — each verdict was re-checked and confirmed as a genuine "supportable on a citable alternative reading, not canonical" call, not disguised uncertainty, but three of them (E-12, E-17, E-21) share a could-be-reversed "target is the more general/foundational concept" shape and are flagged prominently for the SQA-20 closeout's consistency review. Candidate findings only; disposition is the SQA-20 closeout. No ADR (reuses the established audit-routine pattern).
+
 ### Added (S-0166 — `T-SEED-QA` routine task SQA-05)
 
 - **[`engine/build_readiness/seed_qa_evidence/shard_05.md`](build_readiness/seed_qa_evidence/shard_05.md)** — shard 05 evidence file for the seed-graph QA census. 27 `pedagogical_prerequisite` edges scored against C1 (prerequisite soundness), 20 nodes against C2 (teaching_notes traction) + C3 (summary cold-readability), per the pinned `seed_qa_audit.md` rubric. C1: 1/27 defective (3.7%) — 22 Sound, 4 Defensible, 1 Reversed (E-7 property_dualism→philosophical_zombie). C2: 0/20 fail. C3: 1/20 fail (5.0%) — N-8 ross_paradox, jargon-gated summary. Three audit-touched edges (E-11 + E-27 post-0062-flip, both verify Sound; E-20 0064-annotated, scored Defensible).
