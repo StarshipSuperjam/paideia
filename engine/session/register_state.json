@@ -25,7 +25,7 @@
       "reason": "S-0097 user direction: raise from 10 to 20 because routine sessions (per ADR 0051) consume slots in 8\u201312-session batches executing similar tasks against a single target, producing largely-converged telemetry across the batch \u2014 cadence-10 was sized when slot-count tracked roughly with telemetry-variety (mostly heterogeneous interactive build sessions). A 20-session window better captures \u22651 routine batch plus several interactive sessions, producing a more diverse audit-input pool. Raise or lower further if subsequent audits show drift accumulating between checks (lower) or audits consistently producing no actionable findings (raise further)."
     }
   ],
-  "last_audit_session": "S-0162",
+  "last_audit_session": "S-0184",
   "last_audit_session_field_history": [
     {
       "field_added_at": "S-0041",
