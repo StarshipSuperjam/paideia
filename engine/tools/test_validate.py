@@ -1467,6 +1467,77 @@ class TestReadPredicateManifest:
         assert result == {"pedagogical_prerequisite", "historical_influence"}
 
 
+class TestReadGraphFromDbTimeouts:
+    """_read_graph_from_db: bounded-wait connect + statement-level timeout.
+
+    S-0186 surfaced a recurring hang (S-0184 boot, S-0185 close, S-0186
+    close) where validate.py's graph-audit step blocked indefinitely on
+    paused / unreachable Supabase. ``psycopg.connect()`` without an
+    explicit ``connect_timeout`` waits forever for the server response.
+    These tests assert the two caps actually wire through to psycopg.
+    """
+
+    def test_connect_called_with_connect_timeout_and_statement_timeout(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Ensure both bounded-wait parameters are passed to psycopg.connect()."""
+        captured: dict[str, Any] = {}
+
+        class _StubCursor:
+            def __enter__(self) -> "_StubCursor":
+                return self
+
+            def __exit__(self, *_: Any) -> None:
+                pass
+
+            def execute(self, _sql: str) -> None:
+                pass
+
+            def fetchall(self) -> list[dict[str, Any]]:
+                return []
+
+        class _StubConn:
+            def __enter__(self) -> "_StubConn":
+                return self
+
+            def __exit__(self, *_: Any) -> None:
+                pass
+
+            def cursor(self, **_kwargs: Any) -> _StubCursor:
+                return _StubCursor()
+
+        def stub_connect(connection_string: str, **kwargs: Any) -> _StubConn:
+            captured["connection_string"] = connection_string
+            captured["kwargs"] = kwargs
+            return _StubConn()
+
+        import sys as _sys
+
+        psycopg_stub = type(_sys)("psycopg")
+        psycopg_stub.connect = stub_connect  # type: ignore[attr-defined]
+        rows_stub = type(_sys)("psycopg.rows")
+
+        def _dict_row(_cursor: object) -> object:
+            return None
+
+        rows_stub.dict_row = _dict_row  # type: ignore[attr-defined]
+        monkeypatch.setitem(_sys.modules, "psycopg", psycopg_stub)
+        monkeypatch.setitem(_sys.modules, "psycopg.rows", rows_stub)
+
+        validate._read_graph_from_db("postgresql://user:pw@host/db")
+
+        assert captured["connection_string"] == "postgresql://user:pw@host/db"
+        assert captured["kwargs"].get("connect_timeout") == 10, (
+            "connect_timeout must be set to a finite value; absent value caused "
+            "the S-0184/0185/0186 indefinite hang against paused Supabase"
+        )
+        assert "statement_timeout=30000" in captured["kwargs"].get("options", ""), (
+            "statement_timeout option must be set so server-side query waits are "
+            "also bounded; protects against in-flight query stalls distinct from "
+            "the initial connect"
+        )
+
+
 class TestValidateGraphIntegration:
     """validate_graph end-to-end with a monkey-patched DB reader."""
 

@@ -73,6 +73,14 @@ mkdir -p "$LOG_DIR" 2>/dev/null
 # Capture stderr to a temp file so the failure log line can include a snippet.
 STDERR_FILE="$(mktemp 2>/dev/null || echo "/tmp/mempalace-hook-stderr.$$")"
 
+# Capture the wrapper start timestamp BEFORE invoking mempalace. Used
+# by the defensive post-hook sessions-wing pollution prune (per ADR
+# 0090 commitment 2b) — the prune deletes only drawers added with
+# created_at > $HOOK_START_TS, leaving prior hook fires' content
+# alone. Retire when upstream MemPalace PR #1511 lands (MEMPALACE_WING
+# env-var override) and the source pollution stops.
+HOOK_START_TS="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
 # ---------------------------------------------------------------------------
 # Resolve mempalace binary
 # ---------------------------------------------------------------------------
@@ -188,6 +196,7 @@ if [ "$SNAPSHOT_TAKEN" -eq 1 ]; then
 fi
 
 ROLLBACK_DONE=0
+POST_PRUNE_DELETED="-"
 case "$PROBE_VERDICT" in
     broken-*)
         # Roll back palace from snapshot; restore KG.
@@ -214,6 +223,27 @@ case "$PROBE_VERDICT" in
             rm -rf "$PALACE_LAST_GOOD" 2>/dev/null
             mv "$PALACE_PRE_MINE" "$PALACE_LAST_GOOD" 2>/dev/null
         fi
+
+        # Defensive post-hook sessions-wing pollution prune. Per ADR
+        # 0090 commitment 2b. Deletes drawers added by THIS hook fire
+        # into ``sessions/<noise-room>`` while preserving curated rooms
+        # (decisions/lessons/pushback/diary) in the same wing. Runs
+        # only on probe-healthy paths so a rolled-back state is not
+        # mutated further. Failures are logged but do NOT block the
+        # hook — the prune is advisory recurrence-prevention, not a
+        # capture-integrity gate.
+        POST_PRUNE_PY="$REPO_ROOT/engine/tools/mempalace_post_hook_prune.py"
+        if [ -f "$POST_PRUNE_PY" ] && command -v python3 >/dev/null 2>&1; then
+            POST_PRUNE_OUT="$(python3 "$POST_PRUNE_PY" --since "$HOOK_START_TS" 2>&1)"
+            POST_PRUNE_EXIT=$?
+            if [ "$POST_PRUNE_EXIT" -eq 0 ]; then
+                # Parse the count from the stderr message; default to 0 on no-op.
+                POST_PRUNE_DELETED="$(echo "$POST_PRUNE_OUT" | sed -n 's/.*deleted \([0-9]*\) sessions-wing.*/\1/p')"
+                [ -z "$POST_PRUNE_DELETED" ] && POST_PRUNE_DELETED=0
+            else
+                POST_PRUNE_DELETED="err-$POST_PRUNE_EXIT"
+            fi
+        fi
         ;;
 esac
 
@@ -228,11 +258,11 @@ rm -rf "$KG_SNAPSHOT_DIR" 2>/dev/null
 TIMESTAMP="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
 if [ "$EXIT_CODE" -eq 0 ]; then
-    echo "$TIMESTAMP OK args=$* exit=0 probe=$PROBE_VERDICT" >>"$LOG_FILE" 2>/dev/null
+    echo "$TIMESTAMP OK args=$* exit=0 probe=$PROBE_VERDICT post_prune_deleted=$POST_PRUNE_DELETED" >>"$LOG_FILE" 2>/dev/null
 else
     # Single-line stderr snippet (newlines collapsed, capped at 500 chars).
     STDERR_SNIPPET="$(tr '\n' ' ' <"$STDERR_FILE" 2>/dev/null | head -c 500)"
-    echo "$TIMESTAMP FAIL args=$* exit=$EXIT_CODE probe=$PROBE_VERDICT rollback=$ROLLBACK_DONE stderr=$STDERR_SNIPPET" >>"$LOG_FILE" 2>/dev/null
+    echo "$TIMESTAMP FAIL args=$* exit=$EXIT_CODE probe=$PROBE_VERDICT rollback=$ROLLBACK_DONE post_prune_deleted=$POST_PRUNE_DELETED stderr=$STDERR_SNIPPET" >>"$LOG_FILE" 2>/dev/null
 fi
 
 rm -f "$STDERR_FILE" 2>/dev/null

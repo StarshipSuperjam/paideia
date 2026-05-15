@@ -250,7 +250,11 @@ def check_already_applied(db_url: str, migration_name: str) -> tuple[bool | None
     except ImportError:
         return None, "psycopg module not importable"
     try:
-        with psycopg.connect(db_url) as conn:
+        with psycopg.connect(
+            db_url,
+            connect_timeout=10,
+            options="-c statement_timeout=600000",
+        ) as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     "SELECT 1 FROM supabase_migrations.schema_migrations "
@@ -276,7 +280,12 @@ def apply_migration_body(db_url: str, sql_text: str) -> tuple[bool, str]:
     except ImportError:
         return False, "psycopg module not importable"
     try:
-        with psycopg.connect(db_url, autocommit=True) as conn:
+        with psycopg.connect(
+            db_url,
+            autocommit=True,
+            connect_timeout=10,
+            options="-c statement_timeout=600000",
+        ) as conn:
             with conn.cursor() as cur:
                 cur.execute(sql_text)
     except psycopg.OperationalError as exc:
@@ -301,7 +310,12 @@ def record_in_schema_migrations(
         return False, "psycopg module not importable"
     version = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     try:
-        with psycopg.connect(db_url, autocommit=True) as conn:
+        with psycopg.connect(
+            db_url,
+            autocommit=True,
+            connect_timeout=10,
+            options="-c statement_timeout=600000",
+        ) as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     "INSERT INTO supabase_migrations.schema_migrations "
@@ -404,7 +418,12 @@ def verify_postconditions(
     except ImportError:
         return False, ["psycopg module not importable"]
     failures: list[str] = []
-    with psycopg.connect(db_url, autocommit=True) as conn:
+    with psycopg.connect(
+        db_url,
+        autocommit=True,
+        connect_timeout=10,
+        options="-c statement_timeout=600000",
+    ) as conn:
         with conn.cursor() as cur:
             for select_sql, expected_int in assertions:
                 cur.execute(select_sql)

@@ -2342,7 +2342,28 @@ def _read_graph_from_db(
     import psycopg  # type: ignore[import-not-found,unused-ignore]
     from psycopg.rows import dict_row  # type: ignore[import-not-found,unused-ignore]
 
-    with psycopg.connect(connection_string) as conn:
+    # Bounded-wait connect (S-0186 hang fix). Without an explicit
+    # ``connect_timeout``, psycopg.connect() blocks indefinitely on
+    # paused / unreachable Supabase instances — the pre-commit hook
+    # then never returns. The 10-second floor matches the existing
+    # pattern in ``engine/tools/setup_env.py:63``. The 30-second
+    # ``statement_timeout`` cap is server-side: PostgreSQL aborts any
+    # query exceeding the limit and the connection returns to the
+    # client. Both caps fail-fast as ``Exception`` raises that the
+    # caller's ``validate_graph()`` handler routes to ``graph_audit``
+    # hard-fail with an actionable error name. Three sessions
+    # (S-0184 boot, S-0185 close, S-0186 close) observed indefinite
+    # hangs against the project's dev Supabase under what appears to
+    # be free-tier pause-on-inactivity — without timeouts the audit
+    # blocks the commit for the duration of the pause (hours to
+    # never). The audit-skip path remains the right disposition when
+    # the env is unset; the bounded-fail path is the right disposition
+    # when the env is set but the server is unresponsive.
+    with psycopg.connect(
+        connection_string,
+        connect_timeout=10,
+        options="-c statement_timeout=30000",
+    ) as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute(
                 "SELECT id, label, domain, summary, teaching_notes, "

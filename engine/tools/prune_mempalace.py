@@ -8,8 +8,8 @@ S-0092 signal probe (engine/docs/audits/historical-wings-signal-probe-
 S-0092.md) which verified zero preservation candidates across the
 37,634-drawer population.
 
-Three modes
------------
+Four modes
+----------
 - ``--audit-mined-ops-docs`` — list/delete drawers in the ``paideia``
   wing's ``general`` and ``operations`` rooms whose ``added_by``
   metadata equals exactly ``claude-s0002`` (the S-0002 mining
@@ -31,6 +31,16 @@ Three modes
   delete-only and does not wire ``--preserve-ids``. If a future
   similar wing surfaces signal candidates, extend
   ``audit_historical_paths()`` at that point.
+- ``--audit-sessions-pollution`` — list/delete drawers in the
+  ``sessions`` wing's noise rooms (``technical``, ``planning``,
+  ``architecture``, ``general``, ``problems``). Per ADR 0090
+  commitment 2b. Upstream ``mempalace/hooks_cli.py:649-650`` hardcodes
+  ``--wing sessions`` on the transcript-mining subprocess; this audit
+  drains the resulting pollution while preserving curated rooms
+  (``decisions``, ``lessons``, ``pushback``, ``diary``,
+  ``operations``) in the same wing. Retire when upstream PR #1511
+  (``MEMPALACE_WING`` env-var override) lands and the hook wrapper
+  wires the override.
 
 Common flags
 ------------
@@ -103,6 +113,27 @@ _MINED_ADDED_BY = "claude-s0002"
 
 # Rooms in the ``paideia`` wing where mined ops-doc drawers landed.
 _MINED_ROOMS = ("general", "operations")
+
+# S-0186 sessions-wing pollution classifier per ADR 0090 commitment 2b.
+# Upstream ``mempalace/hooks_cli.py:649-650`` hardcodes
+# ``--wing sessions`` on ``_ingest_transcript`` subprocess; every Stop
+# / PreCompact hook fire mines the active transcript into the
+# ``sessions`` wing across these high-volume noise rooms. At S-0186
+# audit time the live palace had 22,676 drawers, of which 21,893 (97%)
+# were transcript-mining pollution distributed across these five rooms
+# in the ``sessions`` wing alone. The classifier is wing+room-exact —
+# room='decisions' (105 curated drawers), 'lessons', 'pushback',
+# 'diary', 'operations' are explicitly preserved even when wing-mis'd.
+# Retire when upstream PR #1511 (MEMPALACE_WING env-var override)
+# lands and the hook wrapper wires the override.
+_SESSIONS_POLLUTION_WING = "sessions"
+_SESSIONS_POLLUTION_ROOMS = (
+    "technical",
+    "planning",
+    "architecture",
+    "general",
+    "problems",
+)
 
 
 @dataclass
@@ -180,6 +211,30 @@ def enumerate_orphan_wing_drawers(
         if _ORPHAN_WING_RE.match(wing):
             out.append((wing, str(internal_id)))
     return out
+
+
+def enumerate_sessions_pollution_ids(con: sqlite3.Connection) -> list[str]:
+    """Return chromadb internal IDs of sessions-wing transcript-pollution drawers.
+
+    Joins ``embedding_metadata`` against itself to select drawers in
+    ``sessions/<polluted-room>`` per the S-0186 audit classifier.
+    Curated rooms in the same wing (``decisions``, ``lessons``,
+    ``pushback``, ``diary``, ``operations``) are excluded by the room
+    whitelist — they remain in the sessions wing if the user does not
+    consolidate them into ``paideia``.
+    """
+    placeholders = ",".join("?" for _ in _SESSIONS_POLLUTION_ROOMS)
+    sql = f"""
+        SELECT DISTINCT em_w.id
+        FROM embedding_metadata em_w
+        JOIN embedding_metadata em_r ON em_w.id = em_r.id
+        WHERE em_w.key='wing' AND em_w.string_value=?
+          AND em_r.key='room' AND em_r.string_value IN ({placeholders})
+        """  # nosec B608  # placeholder string construction; values parameterized via execute()
+    rows = con.execute(
+        sql, (_SESSIONS_POLLUTION_WING, *_SESSIONS_POLLUTION_ROOMS)
+    ).fetchall()
+    return [str(r[0]) for r in rows]
 
 
 def enumerate_historical_paths(con: sqlite3.Connection) -> list[tuple[str, int]]:
@@ -422,6 +477,49 @@ def audit_orphan_wings(palace_path: Path, *, apply: bool) -> AuditReport:
     return report
 
 
+def audit_sessions_pollution(palace_path: Path, *, apply: bool) -> AuditReport:
+    """Audit + optionally delete sessions-wing transcript-pollution drawers.
+
+    Per ADR 0090 commitment 2b (S-0186 deliverable). The upstream
+    ``_ingest_transcript`` hardcodes ``--wing sessions`` on the
+    transcript-mining subprocess, so every Stop / PreCompact hook fire
+    appends terminal-output capture into ``sessions/<noise-room>``.
+    The S-0184 freshness probe found ``mempalace_search`` returning
+    these polluted drawers as BM25-fallback top hits, displacing
+    curated decision / lesson / pushback content. This audit drains
+    that pollution while preserving curated rooms in the same wing.
+
+    The pre-flight ``--backup-dir`` gate is enforced by ``main()``
+    before this function is called when ``apply=True``.
+    """
+    report = AuditReport(mode="sessions-pollution")
+    con = open_sqlite_ro(palace_path)
+    try:
+        internal_ids = enumerate_sessions_pollution_ids(con)
+    finally:
+        con.close()
+
+    report.candidates = [{"internal_id": iid} for iid in internal_ids]
+    report.sample = sample_drawers(palace_path, internal_ids, n=5)
+    report.notes.append(
+        f"Classifier: wing={_SESSIONS_POLLUTION_WING!r}, "
+        f"room IN {_SESSIONS_POLLUTION_ROOMS}. Curated rooms in the same "
+        f"wing (decisions/lessons/pushback/diary/operations) are "
+        f"preserved by room-whitelist exclusion."
+    )
+    report.notes.append(
+        "Upstream source: mempalace/hooks_cli.py:649-650 hardcodes "
+        "--wing sessions on _ingest_transcript. Retire this mode when "
+        "upstream PR #1511 (MEMPALACE_WING env-var override) lands and "
+        "the hook wrapper wires the override."
+    )
+
+    if apply and internal_ids:
+        uuids = fetch_drawer_uuids(palace_path, internal_ids)
+        report.deleted = delete_drawers_by_uuid(palace_path, uuids)
+    return report
+
+
 def audit_historical_paths(palace_path: Path, *, apply: bool) -> AuditReport:
     """Audit + optionally delete historical full-encoded-path wing drawers.
 
@@ -553,6 +651,15 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Audit/delete historical full-encoded-path wing drawers (Issue #41).",
     )
+    mode.add_argument(
+        "--audit-sessions-pollution",
+        action="store_true",
+        help=(
+            "Audit/delete sessions-wing transcript-mining pollution in noise "
+            "rooms (technical/planning/architecture/general/problems). ADR 0090 "
+            "commitment 2b. Preserves curated rooms in the same wing."
+        ),
+    )
     parser.add_argument(
         "--palace",
         help="Palace path override (also MEMPALACE_PROBE_PALACE_PATH env).",
@@ -580,6 +687,7 @@ def main(argv: list[str] | None = None) -> int:
         args.audit_mined_ops_docs
         or args.audit_orphan_wings
         or args.audit_historical_paths
+        or args.audit_sessions_pollution
     )
     if args.apply and is_mutating_mode:
         if not args.backup_dir:
@@ -606,6 +714,8 @@ def main(argv: list[str] | None = None) -> int:
         report = audit_mined_ops_docs(palace_path, apply=args.apply)
     elif args.audit_orphan_wings:
         report = audit_orphan_wings(palace_path, apply=args.apply)
+    elif args.audit_sessions_pollution:
+        report = audit_sessions_pollution(palace_path, apply=args.apply)
     else:
         report = audit_historical_paths(palace_path, apply=args.apply)
 

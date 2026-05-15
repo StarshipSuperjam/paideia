@@ -54,6 +54,14 @@ def _build_palace(tmp_path: Path) -> Path:
             "drawer_historical_fullpath_a",
             "drawer_historical_fullpath_b",
             "drawer_historical_second_wing",
+            "drawer_sessions_technical_pollution",
+            "drawer_sessions_planning_pollution",
+            "drawer_sessions_architecture_pollution",
+            "drawer_sessions_general_pollution",
+            "drawer_sessions_problems_pollution",
+            "drawer_sessions_decisions_curated",
+            "drawer_sessions_lessons_curated",
+            "drawer_sessions_diary_curated",
         ],
         documents=[
             "mined chunk of MISSION.md",
@@ -68,6 +76,14 @@ def _build_palace(tmp_path: Path) -> Path:
             "auto-capture from old worktree path A",
             "second auto-capture from same old worktree A",
             "auto-capture from a different old worktree B",
+            "[soft-warn:foo] terminal output transcript-mined into sessions",
+            "ROADMAP planning chunk mined into sessions wing",
+            "ADR architecture excerpt mined into sessions wing",
+            "general transcript fragment mined into sessions wing",
+            "validator soft-warn dump mined into sessions/problems",
+            "curated decision drawer authored via mempalace_add_drawer",
+            "curated lesson drawer authored via mempalace_add_drawer",
+            "curated session diary entry",
         ],
         metadatas=[
             {"wing": "paideia", "room": "general", "added_by": "claude-s0002"},
@@ -91,6 +107,14 @@ def _build_palace(tmp_path: Path) -> Path:
                 "wing": "-Users-other--claude-worktrees-baz-qux-34efgh",
                 "room": "general",
             },
+            {"wing": "sessions", "room": "technical"},
+            {"wing": "sessions", "room": "planning"},
+            {"wing": "sessions", "room": "architecture"},
+            {"wing": "sessions", "room": "general"},
+            {"wing": "sessions", "room": "problems"},
+            {"wing": "sessions", "room": "decisions", "added_by": "claude"},
+            {"wing": "sessions", "room": "lessons", "added_by": "claude"},
+            {"wing": "sessions", "room": "diary"},
         ],
     )
     # Add a closet pointing at the first historical wing so the
@@ -339,8 +363,8 @@ def test_audit_mined_ops_docs_apply_deletes_mined_only(tmp_path: Path) -> None:
     assert counts.get("claude-s0002", 0) == 0
     # claude-s0002-manual preserved.
     assert counts.get("claude-s0002-manual", 0) == 1
-    # claude (post-mining manual) preserved.
-    assert counts.get("claude", 0) == 2
+    # claude (post-mining manual + sessions/{decisions,lessons} curated) preserved.
+    assert counts.get("claude", 0) == 4
 
 
 def test_audit_orphan_wings_apply_deletes_orphans_only(tmp_path: Path) -> None:
@@ -409,6 +433,109 @@ def test_audit_historical_paths_apply_idempotent(tmp_path: Path) -> None:
     assert second.deleted == 0
     # Candidates list reflects current population, not original.
     assert second.candidates == []
+
+
+# ---------------------------------------------------------------------------
+# sessions-pollution mode (ADR 0090 commitment 2b)
+# ---------------------------------------------------------------------------
+
+
+def test_enumerate_sessions_pollution_ids_matches_noise_rooms_only(
+    tmp_path: Path,
+) -> None:
+    """Classifier returns sessions/<noise-room> drawers and excludes curated rooms."""
+    palace_dir = _build_palace(tmp_path)
+    con = prune_mempalace.open_sqlite_ro(palace_dir)
+    try:
+        ids = prune_mempalace.enumerate_sessions_pollution_ids(con)
+    finally:
+        con.close()
+    # Five noise-room drawers in the fixture; decisions/lessons/diary preserved.
+    assert len(ids) == 5
+    # Verify via UUID mapping that no curated room was caught.
+    uuids = prune_mempalace.fetch_drawer_uuids(palace_dir, ids)
+    assert "drawer_sessions_decisions_curated" not in uuids
+    assert "drawer_sessions_lessons_curated" not in uuids
+    assert "drawer_sessions_diary_curated" not in uuids
+
+
+def test_audit_sessions_pollution_dry_run_finds_five_candidates(
+    tmp_path: Path,
+) -> None:
+    palace_dir = _build_palace(tmp_path)
+    report = prune_mempalace.audit_sessions_pollution(palace_dir, apply=False)
+    assert report.mode == "sessions-pollution"
+    assert len(report.candidates) == 5
+    assert report.deleted == 0
+
+
+def test_audit_sessions_pollution_apply_deletes_noise_preserves_curated(
+    tmp_path: Path,
+) -> None:
+    palace_dir = _build_palace(tmp_path)
+    report = prune_mempalace.audit_sessions_pollution(palace_dir, apply=True)
+    assert report.deleted == 5
+
+    # Verify post-state via direct sqlite query.
+    db = palace_dir / "chroma.sqlite3"
+    con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    rows = con.execute(
+        """
+        SELECT em_w.string_value AS wing, em_r.string_value AS room, COUNT(DISTINCT em_w.id)
+        FROM embedding_metadata em_w
+        JOIN embedding_metadata em_r ON em_w.id=em_r.id
+        WHERE em_w.key='wing' AND em_w.string_value='sessions'
+          AND em_r.key='room'
+        GROUP BY em_w.string_value, em_r.string_value
+        """
+    ).fetchall()
+    con.close()
+    by_room = {room: n for _, room, n in rows}
+    # Noise rooms drained.
+    assert by_room.get("technical", 0) == 0
+    assert by_room.get("planning", 0) == 0
+    assert by_room.get("architecture", 0) == 0
+    assert by_room.get("general", 0) == 0
+    assert by_room.get("problems", 0) == 0
+    # Curated rooms preserved.
+    assert by_room.get("decisions", 0) == 1
+    assert by_room.get("lessons", 0) == 1
+    assert by_room.get("diary", 0) == 1
+
+
+def test_audit_sessions_pollution_note_cites_upstream_source(tmp_path: Path) -> None:
+    """Apply / dry-run notes name the upstream-hardcode origin and retire trigger."""
+    palace_dir = _build_palace(tmp_path)
+    report = prune_mempalace.audit_sessions_pollution(palace_dir, apply=False)
+    joined = " ".join(report.notes)
+    assert "hooks_cli.py" in joined
+    assert "PR #1511" in joined or "MEMPALACE_WING" in joined
+
+
+def test_audit_sessions_pollution_apply_idempotent(tmp_path: Path) -> None:
+    """Second apply on the same palace deletes nothing (no pollution left)."""
+    palace_dir = _build_palace(tmp_path)
+    first = prune_mempalace.audit_sessions_pollution(palace_dir, apply=True)
+    assert first.deleted == 5
+    second = prune_mempalace.audit_sessions_pollution(palace_dir, apply=True)
+    assert second.deleted == 0
+
+
+def test_audit_sessions_pollution_excludes_paideia_wing(tmp_path: Path) -> None:
+    """Drawers in paideia/<same-room-names> are NOT touched (wing-exact match)."""
+    palace_dir = _build_palace(tmp_path)
+    report = prune_mempalace.audit_sessions_pollution(palace_dir, apply=True)
+    assert report.deleted == 5
+    # Verify paideia-wing drawers are untouched.
+    db = palace_dir / "chroma.sqlite3"
+    con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    rows = con.execute(
+        "SELECT string_value, COUNT(DISTINCT id) FROM embedding_metadata "
+        "WHERE key='wing' GROUP BY string_value"
+    ).fetchall()
+    con.close()
+    wings = dict(rows)
+    assert wings.get("paideia", 0) == 5  # all 5 paideia-wing drawers preserved
 
 
 def test_enumerate_historical_path_drawer_internal_ids_aggregates_across_wings(
