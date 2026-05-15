@@ -1,10 +1,16 @@
 """Tests for engine/tools/mempalace_post_hook_prune.py.
 
 Build a small chromadb palace seeded with two cohorts of sessions-wing
-drawers (created_at before vs after the test's ``since`` timestamp)
+drawers (``filed_at`` before vs after the test's ``since`` timestamp)
 and one curated drawer per preserved room (decisions / lessons /
 diary). Verify the prune deletes ONLY the post-``since`` pollution
 cohort.
+
+The fixture uses mempalace's actual drawer-timestamp metadata key
+(``filed_at``) — the S-0186 original used ``created_at`` which
+mempalace does not write; the classifier-vs-fixture mismatch hid the
+bug because both sides were wrong-of-fact in parallel. S-0187
+corrected both the classifier in production and the fixture here.
 
 Per-fixture chromadb spin-up costs ~30s (embedding model load); kept
 compact — one shared fixture-build with multiple targeted assertions.
@@ -66,17 +72,17 @@ def _build_palace(tmp_path: Path) -> Path:
             "fresh content in paideia wing (NOT sessions; must be preserved)",
         ],
         metadatas=[
-            {"wing": "sessions", "room": "technical", "created_at": BEFORE},
-            {"wing": "sessions", "room": "planning", "created_at": BEFORE},
-            {"wing": "sessions", "room": "technical", "created_at": AFTER},
-            {"wing": "sessions", "room": "planning", "created_at": AFTER},
-            {"wing": "sessions", "room": "architecture", "created_at": AFTER},
-            {"wing": "sessions", "room": "general", "created_at": AFTER},
-            {"wing": "sessions", "room": "problems", "created_at": AFTER},
-            {"wing": "sessions", "room": "decisions", "created_at": AFTER},
-            {"wing": "sessions", "room": "lessons", "created_at": AFTER},
-            {"wing": "sessions", "room": "diary", "created_at": AFTER},
-            {"wing": "paideia", "room": "technical", "created_at": AFTER},
+            {"wing": "sessions", "room": "technical", "filed_at": BEFORE},
+            {"wing": "sessions", "room": "planning", "filed_at": BEFORE},
+            {"wing": "sessions", "room": "technical", "filed_at": AFTER},
+            {"wing": "sessions", "room": "planning", "filed_at": AFTER},
+            {"wing": "sessions", "room": "architecture", "filed_at": AFTER},
+            {"wing": "sessions", "room": "general", "filed_at": AFTER},
+            {"wing": "sessions", "room": "problems", "filed_at": AFTER},
+            {"wing": "sessions", "room": "decisions", "filed_at": AFTER},
+            {"wing": "sessions", "room": "lessons", "filed_at": AFTER},
+            {"wing": "sessions", "room": "diary", "filed_at": AFTER},
+            {"wing": "paideia", "room": "technical", "filed_at": AFTER},
         ],
     )
     del col
@@ -119,7 +125,7 @@ def test_enumerate_recent_pollution_matches_only_post_since_noise(
 
 
 def test_enumerate_recent_pollution_excludes_older_drawers(tmp_path: Path) -> None:
-    """Drawers with created_at <= since stay in place."""
+    """Drawers with filed_at <= since stay in place."""
     palace_dir = _build_palace(tmp_path)
     ids = mempalace_post_hook_prune.enumerate_recent_pollution_internal_ids(
         palace_dir, SINCE
@@ -229,6 +235,60 @@ def test_main_silent_when_no_candidates(
     assert rc == 0
     captured = capsys.readouterr()
     assert "deleted" not in captured.err
+
+
+def test_classifier_uses_filed_at_not_created_at(tmp_path: Path) -> None:
+    """S-0187 regression guard: the timestamp-filter field name must match
+    what mempalace actually writes (``filed_at``), not the wrong-of-fact
+    ``created_at`` the original S-0186 implementation hardcoded.
+
+    Empirical signal: against the project's live palace at S-0187 boot,
+    ``SELECT DISTINCT key FROM embedding_metadata`` returned ``filed_at``
+    and ``date`` as the timestamp-shaped keys, never ``created_at``. The
+    bug silently matched zero rows for ~12 hours and 67 drawers of
+    post-rebuild pollution — the defensive prune logged
+    ``post_prune_deleted=0`` on every fire while ``mempalace_status``
+    showed the wing growing. This test pins the field name as a
+    constant to make any future drift loud.
+
+    Plus: a palace seeded with ``created_at`` (the wrong key) must
+    return zero candidates from the classifier, confirming the
+    fixture-vs-reality discipline.
+    """
+    # Pin the constant. Any future rename without empirical justification
+    # will need to update both this assertion and the production code
+    # in lockstep.
+    assert mempalace_post_hook_prune._DRAWER_TIMESTAMP_KEY == "filed_at", (
+        "Mempalace writes drawer-add timestamps as `filed_at` (verified "
+        "empirically at S-0187 boot against the live palace). Changing "
+        "this constant without re-verifying mempalace's metadata schema "
+        "risks reintroducing the S-0186 silent-zero-match bug."
+    )
+
+    # Fixture-vs-reality: build a palace with WRONG field name; classifier
+    # must return 0 (cannot match the bad fixture).
+    chromadb = pytest.importorskip("chromadb")
+    palace_dir = tmp_path / ".mempalace" / "palace"
+    palace_dir.mkdir(parents=True)
+    client = chromadb.PersistentClient(path=str(palace_dir))
+    col = client.get_or_create_collection("mempalace_drawers")
+    col.add(
+        ids=["drawer_with_wrong_field"],
+        documents=["pollution drawer with the wrong timestamp field name"],
+        # NB: ``created_at`` — the wrong key. The classifier must NOT
+        # match this even though the wing+room qualify.
+        metadatas=[{"wing": "sessions", "room": "technical", "created_at": AFTER}],
+    )
+    del col, client
+
+    ids = mempalace_post_hook_prune.enumerate_recent_pollution_internal_ids(
+        palace_dir, SINCE
+    )
+    assert ids == [], (
+        f"Classifier returned {len(ids)} candidate(s) against a palace "
+        f"seeded with 'created_at' (the wrong key) — the classifier is "
+        f"matching the wrong field name, exactly the S-0186 bug"
+    )
 
 
 def test_classifier_constants_mirror_prune_mempalace() -> None:

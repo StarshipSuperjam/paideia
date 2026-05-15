@@ -15,7 +15,7 @@ Bounded scope (defensive — narrower than the audit-mode classifier):
 - Wing exact match: ``sessions``.
 - Room IN the same noise-room set as ``audit_sessions_pollution`` in
   ``prune_mempalace.py``.
-- ``created_at`` (drawer metadata) strictly greater than ``--since``.
+- ``filed_at`` (drawer metadata) strictly greater than ``--since``.
 
 The ``--since`` parameter is the hook-wrapper's captured start
 timestamp (ISO-8601 UTC). Drawers older than that window are NOT
@@ -25,6 +25,26 @@ for them.
 
 Idempotent: re-running with the same ``--since`` is a no-op once the
 matching drawers are gone (no candidates to delete).
+
+S-0187 field-name correction
+----------------------------
+Original implementation hardcoded ``em_t.key='created_at'``. Mempalace
+does not write a ``created_at`` metadata field on drawers; it writes
+``filed_at`` (ISO-8601 with microseconds, e.g.
+``2026-05-15T13:48:32.596151``). The classifier silently matched zero
+rows from S-0186 (deploy) through S-0187 (regression diagnostic) — the
+defensive prune never deleted anything across ~12 hours and 67
+drawers of post-rebuild pollution. S-0187 diagnostic surfaced this via
+Probe 4 (live ``SELECT DISTINCT key FROM embedding_metadata``).
+
+Lexical comparison on ISO-8601 strings is still the right shape: ISO
+format is sort-stable, so ``filed_at > since_iso`` returns drawers
+added after the hook fire's captured start. The hook wrapper writes
+``HOOK_START_TS`` without microseconds (e.g. ``2026-05-15T19:56:32Z``);
+mempalace's ``filed_at`` carries microseconds — lexical ``>`` on
+``2026-05-15T13:48:32.596151`` vs ``2026-05-15T13:48:32Z`` is True
+because ``.`` (0x2E) < ``Z`` (0x5A), so the boundary is conservatively
+inclusive of the hook fire's own writes. That's the desired behavior.
 
 Exit codes
 ----------
@@ -76,14 +96,23 @@ def resolve_palace_path(arg_palace: str | None) -> Path:
     return Path.home() / ".mempalace" / "palace"
 
 
+# Mempalace writes ``filed_at`` (ISO-8601 with microseconds) as the
+# drawer-add timestamp. S-0187 diagnostic confirmed the field name
+# against the live palace; ``created_at`` from the original S-0186
+# implementation was wrong-of-fact and matched zero rows. See module
+# docstring "S-0187 field-name correction" for the empirical record.
+_DRAWER_TIMESTAMP_KEY = "filed_at"
+
+
 def enumerate_recent_pollution_internal_ids(
     palace_path: Path, since_iso: str
 ) -> list[str]:
     """Return chromadb internal IDs of recent sessions-wing pollution.
 
-    The created_at metadata is an ISO-8601 timestamp string captured
-    by mempalace at drawer-add time. Lexical comparison (``>``)
-    works correctly for ISO-8601 strings — the format is sort-stable.
+    The ``filed_at`` metadata is an ISO-8601 timestamp string captured
+    by mempalace at drawer-add time (microsecond precision; e.g.
+    ``2026-05-15T13:48:32.596151``). Lexical comparison (``>``) works
+    correctly for ISO-8601 strings — the format is sort-stable.
     """
     db = palace_path / "chroma.sqlite3"
     if not db.is_file():
@@ -96,13 +125,18 @@ def enumerate_recent_pollution_internal_ids(
         JOIN embedding_metadata em_t ON em_w.id = em_t.id
         WHERE em_w.key='wing' AND em_w.string_value=?
           AND em_r.key='room' AND em_r.string_value IN ({placeholders})
-          AND em_t.key='created_at' AND em_t.string_value > ?
+          AND em_t.key=? AND em_t.string_value > ?
         """  # nosec B608  # placeholder string construction; values parameterized via execute()
     con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
     try:
         rows = con.execute(
             sql,
-            (_SESSIONS_POLLUTION_WING, *_SESSIONS_POLLUTION_ROOMS, since_iso),
+            (
+                _SESSIONS_POLLUTION_WING,
+                *_SESSIONS_POLLUTION_ROOMS,
+                _DRAWER_TIMESTAMP_KEY,
+                since_iso,
+            ),
         ).fetchall()
     finally:
         con.close()
