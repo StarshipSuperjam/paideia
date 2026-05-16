@@ -143,6 +143,7 @@ Rejected because: Tool composition discipline favors small concerns with clear c
 - [`engine/operations/tools-validate-interpretation.md`](../operations/tools-validate-interpretation.md) — persistent-warn annotation for `dependabot_pr_stale`.
 - [`engine/build_readiness/dependabot_visibility_first_exercise.md`](../build_readiness/dependabot_visibility_first_exercise.md) — first-exercise readiness note.
 - [`engine/tools/probe_versions.py`](../tools/probe_versions.py) — D1 implementation.
+- [ADR 0091](0091-engine-memory-substrate-sqlite-fts5.md) — S-0188 substrate replacement. The `chromadb` and `mempalace` version lines retire from the boot-time visibility surface at S-0193. `sqlite3` is stdlib (its version visibility comes through Python's own version line); the new MCP server stays in-tree (`engine/memory/mcp_server.py`) so no new external dependency line is added.
 - [`engine/tools/scan_dependabot_prs.py`](../tools/scan_dependabot_prs.py) — D2 implementation.
 - [`engine/tools/validate.py`](../tools/validate.py) — D3 implementation (`validate_dependabot_pr_stale`).
 - [`engine/tools/hooks/session-start.sh`](../tools/hooks/session-start.sh) — wire-in for D1 + D2.

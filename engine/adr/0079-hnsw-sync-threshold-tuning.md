@@ -1,8 +1,9 @@
 # ADR 0079 — HNSW sync_threshold tuning for cross-session metadata persistence
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR 0091](0091-engine-memory-substrate-sqlite-fts5.md)
 - **Date:** 2026-05-13
 - **Deciders:** S-0145
+- **Superseded at:** S-0188 (2026-05-16) — HNSW persist concerns retire with chromadb. ADR 0091 replaces the substrate with SQLite + FTS5; the WAL-mode + atomic-commit + foreign-keys discipline of stdlib `sqlite3` is the new durability story. The S-0187 in-rebuild `sync_threshold=3` amendment + the S-0186 `psycopg.connect_timeout` watchdog work surface decoupled from the substrate decision (watchdog survives in `validate.py`; sync_threshold logic deletes with `mempalace_set_sync_threshold.py` at S-0193). Removal lands at S-0193 per ADR 0091 Consequences.
 
 ## Context
 

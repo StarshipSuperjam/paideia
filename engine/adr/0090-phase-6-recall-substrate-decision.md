@@ -1,8 +1,9 @@
 # ADR 0090 — Phase-6 recall-substrate decision: MemPalace preserved with active maintenance + upstream coordination
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR 0091](0091-engine-memory-substrate-sqlite-fts5.md)
 - **Date:** 2026-05-15
 - **Deciders:** S-0185
+- **Superseded at:** S-0188 (2026-05-16) — Issue #134 (S-0187 finding: MCP-server-open destroys rebuild within seconds of atomic swap) empirically falsified commitment 2a ("scheduled rebuild is sustainable maintenance"). Combined with 5 additional sessions of zero-citation telemetry, the cost calculus shifted. ADR 0091 commits to a SQLite + FTS5 engine-owned substrate that decouples from upstream MemPalace's release cadence and holds the engine/product wall per ADR 0037.
 
 ## Context
 
@@ -159,6 +160,7 @@ If three consecutive health-check audits (S-0205, S-0225, S-0245 at cadence-20) 
 
 ## See also
 
+- [ADR 0091](0091-engine-memory-substrate-sqlite-fts5.md) — **supersedes** this ADR (S-0188). Replaces MemPalace substrate with SQLite + FTS5 owned by the engine; preserves transcript capture + curated drawers + diary surfaces; retires upstream coordination posture (commitment 3) since the new substrate is decoupled from mempalace's release cadence.
 - [ADR 0056](0056-mempalace-mechanical-adoption-checks.md) — the mechanical adoption-check layer this ADR preserves; the `mempalace_zero_citations_after_search` soft-warn is the load-bearing telemetry input.
 - [ADR 0057](0057-adversarial-stance-for-health-check-audits.md) — element 4's cluster-reading workflow is conditionally refined per commitment 2c; the freshness-probe inventory's `pushback`/`lesson` cluster reading shape is contingent on the empirical verification.
 - [ADR 0079](0079-hnsw-sync-threshold-tuning.md) — the prior fix campaign whose recurrence-interval premise was falsified by S-0184; commitment 4 commits to investigating why.

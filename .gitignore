@@ -63,4 +63,12 @@ engine/tools/validate-history.jsonl
 # Written by engine/tools/hooks/post-mempalace-tool-use.sh on every
 # mcp__mempalace__* call; rolled up into archive `mempalace_activity` field
 # at session close; deleted after rollup. Per-clone, never committed.
+# Retires at S-0193 with the MemPalace substrate per ADR 0091.
 engine/session/current_mempalace.jsonl
+
+# Engine-memory substrate (SQLite + FTS5) per ADR 0091.
+# Single per-clone file; gitignored so the substrate data stays local-only.
+# Cross-device continuity is user-managed (matches MemPalace's chromadb
+# behavior). File regenerates empty on first connect at a new clone.
+engine/.memory/*
+!engine/.memory/.gitkeep

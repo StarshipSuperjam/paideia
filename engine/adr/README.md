@@ -49,7 +49,7 @@ The engine collection has **45 ADRs total — all Accepted**. Engine ADRs are ab
 | [0053](0053-mechanism-first-exercise-gate.md) | Mechanism-first-exercise gate for novel cross-cutting mechanisms | Accepted |
 | [0054](0054-lifecycle-push-wrapping-against-default-branch-push-gate.md) | Lifecycle-push wrapping against the Default Branch Push gate | Accepted |
 | [0055](0055-apply-migration-wrapping-against-production-reads-gate.md) | Apply-migration wrapping against the Production Reads gate | Accepted |
-| [0056](0056-mempalace-mechanical-adoption-checks.md) | MemPalace mechanical adoption checks | Accepted |
+| [0056](0056-mempalace-mechanical-adoption-checks.md) | MemPalace mechanical adoption checks | Superseded by ADR 0091 |
 | [0057](0057-adversarial-stance-for-health-check-audits.md) | Adversarial stance for project health-check audits | Accepted |
 | [0058](0058-canonical-timestamp-format-and-helper.md) | Canonical timestamp format and shared timestamps.py helper | Accepted |
 | [0059](0059-audit-time-structural-reference-fetching.md) | Audit-time fetching of public structural references for verdict fortification | Accepted |
@@ -70,14 +70,15 @@ The engine collection has **45 ADRs total — all Accepted**. Engine ADRs are ab
 | [0076](0076-build-mode-lifecycle-push-wrapping.md) | Build-mode lifecycle-push wrapping (sibling to ADR 0054) | Accepted |
 | [0077](0077-adr-template-alternatives-considered-section.md) | ADR template gains "Alternatives Considered" section; Deprecated ADRs join the back-reference orphan check | Accepted |
 | [0078](0078-revert-and-rollback-discipline.md) | Revert and rollback discipline | Accepted |
-| [0079](0079-hnsw-sync-threshold-tuning.md) | HNSW sync_threshold tuning for cross-session metadata persistence | Accepted |
+| [0079](0079-hnsw-sync-threshold-tuning.md) | HNSW sync_threshold tuning for cross-session metadata persistence | Superseded by ADR 0091 |
 | [0080](0080-boot-time-dependency-version-visibility.md) | Boot-time dependency version visibility + stale Dependabot PR surface | Accepted |
 | [0081](0081-ship-multi-model-orchestration-skill.md) | `/ship` multi-model orchestration skill | Accepted |
 | [0082](0082-routine-boot-freshness-and-concurrency-defense.md) | Routine-mode boot freshness and concurrency defense (renumbered from 0052 at S-0149 to resolve cross-partition collision with product ADR 0052) | Accepted |
 | [0083](0083-validate-py-mirror-to-ci.md) | Mirror `validate.py` gate to GitHub Actions CI (renumbered from 0065 at S-0149 to resolve cross-partition collision with product ADR 0065) | Accepted |
 | [0084](0084-pushback-rule-extraction-step-for-high-stakes-decisions.md) | Pushback rule extension: explicit extraction step for high-stakes decision classes | Accepted |
 | [0089](0089-skill-layer1-parity-validator-check.md) | Skill ↔ Layer-1 procedure-parity validator check | Accepted |
-| [0090](0090-phase-6-recall-substrate-decision.md) | Phase-6 recall-substrate decision: MemPalace preserved with active maintenance + upstream coordination | Accepted |
+| [0090](0090-phase-6-recall-substrate-decision.md) | Phase-6 recall-substrate decision: MemPalace preserved with active maintenance + upstream coordination | Superseded by ADR 0091 |
+| [0091](0091-engine-memory-substrate-sqlite-fts5.md) | Engine-memory substrate: SQLite + FTS5 (replaces MemPalace; supersedes ADR 0090) | Accepted |
 
 ## Adding a new engine ADR
 

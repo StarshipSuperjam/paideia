@@ -1,8 +1,9 @@
 # ADR 0056 — MemPalace mechanical adoption checks
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR 0091](0091-engine-memory-substrate-sqlite-fts5.md)
 - **Date:** 2026-05-06
 - **Deciders:** S-0078
+- **Superseded at:** S-0188 (2026-05-16) — the 9 mechanical adoption checks retire with the MemPalace substrate itself. ADR 0091 replaces the substrate with SQLite + FTS5 owned by the engine; new replacement soft-warns (`engine_memory_zero_citations_after_search`, `engine_memory_diary_write_skipped`, `engine_memory_capture_failure`) take over the adoption-check role for the new surface. Removal lands at S-0193 per ADR 0091 Consequences.
 
 ## Context
 
