@@ -1,0 +1,11 @@
+{
+  "id": "S-0188",
+  "started_at": "2026-05-16T05:36:34Z",
+  "status": "in_progress",
+  "mode": "interactive",
+  "working_on": "Author ADR 0091 (engine-memory substrate SQLite+FTS5; supersedes ADR 0090) + cascade announce (5 ADR status flips/amendments; first-exercise readiness note; Issue #138 open; STATE.md + ENGINE_LOG + .gitignore updates). First session of the 6-session MemPalace removal rollout per plan ~/.claude/plans/mempalace-overhead-is-dragging-twinkly-harp.md.",
+  "outcome_summary": null,
+  "approved_plan": "/Users/shanekidd/.claude/plans/mempalace-overhead-is-dragging-twinkly-harp.md",
+  "branch": "claude/jovial-chatelet-235c97",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/jovial-chatelet-235c97"
+}
