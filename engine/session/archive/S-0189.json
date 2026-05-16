@@ -1,0 +1,37 @@
+{
+  "id": "S-0189",
+  "started_at": "2026-05-16T07:24:39Z",
+  "closed_at": "2026-05-16T07:37:34Z",
+  "status": "closed",
+  "mode": "interactive",
+  "working_on": "Engine-memory foundations package (engine/memory/ schema + connection + MCP skeleton) — first implementation session of the ADR 0091 cutover; closes T1-A in the first-exercise readiness note.",
+  "outcome_summary": "Engine-memory foundations package landed per ADR 0091 / Issue #138. New engine/memory/ package: schema.py (single SCHEMA_SQL multi-statement string applied via executescript(); 6 regular tables — schema_version, drawers, diary, lineage, capture_state, query_log — plus drawers_fts FTS5 virtual table plus 3 sync triggers plus 6 indexes; all DDL CREATE … IF NOT EXISTS, schema_version seed via INSERT OR IGNORE — idempotent by construction); connection.py (get_conn / healthcheck / resolve_db_path; path resolution explicit-arg / ENGINE_MEMORY_PATH / git-rev-parse fallback with GIT_* scrub per ADR 0045; WAL mode + busy_timeout=5000 + foreign_keys=ON + Python exp() fallback for S-0191 BM25 retrieval SQL); mcp_server.py (JSON-RPC stdio skeleton mirroring mempalace's pattern; empty TOOLS registry at S-0189; responds to initialize / tools/list / ping / tools/call / notifications / unknown methods); README.md (6-tool ceiling enumeration; file location + cross-device-sync caveat); plus conftest.py (autouse _scrub_git_env per ADR 0045) and test files test_schema.py / test_connection.py / test_mcp_server.py (31 pytests, all green). engine/.memory/.gitkeep added (data dir marker; .sqlite3 file created on first get_conn). Namespace-package convention (no __init__.py) matches engine/tools. pyproject.toml gains [tool.pytest.ini_options] pythonpath = [\".\"] + [tool.mypy] explicit_package_bases + namespace_packages + mypy_path = \".\" — both additive (engine/tools tests + mypy invocations unaffected). T1-A criterion CLOSED per engine/build_readiness/engine_memory_substrate_first_exercise.md: fresh-clone smoke + integrity_check + idempotent re-open all pass; FTS5 sync-trigger round-trip end-to-end verified via sqlite3 CLI; engine/tools regression suite (1503 tests) unaffected; full validate.py exits 0 with soft-warns at baseline only (skill_layer1_parity_drift 1 / mempalace_hnsw_status_suspect 1 [retires at S-0193] / issue_collision 13 / missing_rigor_score 358 / edge_evidence_empty 46 — all annotated baselines). STATE.md + ENGINE_LOG [Unreleased] + first-exercise readiness-note Empirical record updated. No production reads against paideia-dev; no apply_migration.py extension (engine memory is SQLite-only, not Postgres). Discovery: mid-session pre-commit hard-fails surfaced 2 small bugs (mcp_server.py missing 'from __future__ import annotations' for PEP-604 union-type syntax under Python 3.9 hook contexts; mypy needs explicit_package_bases for the namespace-package layout) — both fixed in-context per the no-session-cascade rule. Mid-session deliverable push denied by auto-mode classifier; commit batched for close push. Mempalace boot search + diary read skipped — engine memory substrate doesn't exist yet (substrate cutover in flight); the approved plan ~/.claude/plans/typed-petting-rossum.md is the authoritative ground-truth for this session.",
+  "outcome_summary_soft_warns": {
+    "skill_layer1_parity_drift": 1,
+    "mempalace_hnsw_status_suspect": 1,
+    "issue_collision": 13,
+    "missing_rigor_score": 358,
+    "edge_evidence_empty": 46
+  },
+  "approved_plan": "/Users/shanekidd/.claude/plans/typed-petting-rossum.md",
+  "branch": "claude/bold-mestorf-66741d",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/bold-mestorf-66741d",
+  "mempalace_unavailable_acknowledged": "skipped boot mempalace_search + diary_read + close diary_write — the engine-memory substrate cutover per ADR 0091 is in flight (this session is the first implementation session) and the approved plan at ~/.claude/plans/typed-petting-rossum.md (sub-plan of the parent multi-session plan at ~/.claude/plans/mempalace-overhead-is-dragging-twinkly-harp.md) is the authoritative ground-truth. Mempalace retrieval is structurally about to be replaced; capturing this session's reflection into mempalace would be filed into the substrate scheduled for removal at S-0193. The S-0192 export-and-replay carries forward only curated decision/pushback/lesson drawers, not session-by-session diary entries — so the cost of skipping the diary write is bounded (outcome_summary + ENGINE_LOG + the readiness-note Empirical record + the approved plan all carry the session's reflection content for downstream sessions).",
+  "mempalace_activity": {
+    "search_calls": 0,
+    "diary_read_calls": 0,
+    "diary_write_calls": 0,
+    "add_drawer_calls": 0,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 0,
+    "first_call_ts": null,
+    "last_call_ts": null,
+    "search_first_ts": null,
+    "diary_read_first_ts": null
+  },
+  "next_session_handle": "S-0190 — Engine-memory capture surface + dual-write per Issue #138 + parent plan ~/.claude/plans/mempalace-overhead-is-dragging-twinkly-harp.md section 'S-0190'. Build session. This is the session that preserves mempalace's load-bearing affordance — auto-captured transcript chunks via Stop/PreCompact hooks. Deliverables: engine/memory/transcript_capture.py (~200 LOC; reads transcript JSONL via Claude Code hook env vars; chunks if large; INSERTs as room='work', source_kind='hook_stop' or 'hook_precompact', tags=['transcript']; idempotent against re-fire); engine/memory/capture.py (~50 LOC thin wrapper); engine/memory/diary.py (~80 LOC); engine_memory_add_drawer + engine_memory_diary_write MCP tools wired (2 of 6); new engine/tools/hooks/engine-memory-capture.sh; .claude/settings.json rewires Stop + PreCompact hooks to BOTH mempalace-hook-wrapper.sh AND engine-memory-capture.sh (dual-write per ADR 0078 safety posture). Closes T1-B at first natural Stop hook fire post-S-0190. Carries one open S-0189 question — Risk #9 in the parent plan: verify Claude Code hook env-var contract for transcript JSONL path resolution (small probe script in transcript_capture.py first, then author the capture logic against the verified contract; fallback if resolution fails: capture script emits engine_memory_capture_transcript_path_missing soft-warn and exits 0)."
+}
