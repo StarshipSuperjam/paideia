@@ -72,6 +72,33 @@ dependencies = [
     "mempalace>=3.3.5",
 ]
 
+[tool.pytest.ini_options]
+# Repo-root on PYTHONPATH so absolute imports work in tests. Required by
+# the engine-memory package per ADR 0091 — `engine/memory/test_*.py`
+# uses `from engine.memory.connection import get_conn` (matches the
+# absolute imports inside `engine/memory/mcp_server.py`). The existing
+# `engine/tools/test_*.py` files use direct module imports
+# (`from check_target import ...`), which continue to work because
+# pytest's default `prepend` import mode also adds the test's directory
+# to sys.path. Adding `.` here is additive — both patterns coexist.
+pythonpath = ["."]
+
+[tool.mypy]
+# Namespace-package support for the absolute-import paradigm used by the
+# engine-memory package (per ADR 0091). Without explicit_package_bases,
+# mypy resolves engine/memory/schema.py both as `schema` (closest
+# non-__init__.py dir) and as `engine.memory.schema` (when imported via
+# the repo root), producing the "Source file found twice" error.
+#
+# Discovery: at S-0189, validate.py's per-file mypy invocation
+# (`mypy --strict <file_args>`) was the surfacing path. The flag is
+# additive; engine/tools/ files keep resolving as their direct module
+# names because they sit one directory deep and have no parent
+# __init__.py either.
+explicit_package_bases = true
+namespace_packages = true
+mypy_path = "."
+
 [tool.uv]
 # Lockfile generated and committed per ADR 0064. Regenerate with `uv lock`
 # only when dependencies change — no drive-by refreshes mid-session.
