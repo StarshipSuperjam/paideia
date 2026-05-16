@@ -3763,6 +3763,86 @@ def validate_mempalace_adoption() -> ValidationResult:
     return r
 
 
+def validate_engine_memory_adoption() -> ValidationResult:
+    """Closed-loop boot-search-effectiveness check for the engine-memory substrate.
+
+    Per ADR 0091 cutover window: this is the sibling of
+    :func:`validate_mempalace_adoption`'s
+    ``mempalace_zero_citations_after_search`` soft-warn. Both fire during
+    the cutover (S-0190 → S-0193). Reads ``current.json``'s
+    ``engine_memory_activity`` field (populated by the
+    ``scan_engine_memory_activity.py`` tool wired at S-0192/S-0193 per
+    the parent plan).
+
+    Soft-warn fires when ``search_calls > 0`` AND
+    ``engine_memory_citations.total == 0`` — the session ran the boot
+    search but no drawer IDs / session refs / tag-named refs appear in
+    outcome_summary, diary, or commit messages. Same logic as the
+    mempalace_ predecessor; signals the new substrate's retrieval is
+    happening but not surfacing into authored work.
+
+    **Graceful no-op until S-0192:** if ``engine_memory_activity`` is
+    absent (which it will be through S-0191 — no scan tool yet), the
+    check skips silently. Same defensive pattern as
+    :func:`validate_mempalace_adoption` uses for missing
+    ``mempalace_activity``. The structured-archive audit
+    (``audit_archive_structured_fields.py``) does NOT require this
+    field until the field is added to ``REQUIRED_ARCHIVE_FIELDS`` (a
+    separate change landing alongside the scan tool).
+
+    Default-mode (exploration, non-build) sessions are exempt: when
+    ``current.json`` is absent, the function returns a clean
+    ValidationResult after recording one check.
+
+    Gated by the ``--final-check`` CLI flag.
+    """
+    r = ValidationResult()
+    r.add_check("validate_engine_memory_adoption")
+
+    current_path = REPO_ROOT / "engine" / "session" / "current.json"
+    if not current_path.is_file():
+        return r
+
+    try:
+        current = json.loads(current_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return r
+
+    activity = current.get("engine_memory_activity")
+    if not isinstance(activity, dict):
+        # Field absent through S-0191 (no scan tool yet); same gentle
+        # skip as mempalace_activity. Re-engages once the scan tool
+        # populates it.
+        return r
+
+    search_calls = int(activity.get("search_calls", 0))
+    citations_raw = activity.get("engine_memory_citations")
+    citations: dict[str, Any] = citations_raw if isinstance(citations_raw, dict) else {}
+    citations_total = int(citations.get("total", 0))
+
+    if search_calls > 0 and citations_total == 0:
+        r.soft_warn(
+            "engine_memory_zero_citations_after_search",
+            f"search_calls={search_calls} but "
+            "engine_memory_citations.total=0. The session ran the "
+            "engine-memory boot search but no drawer IDs, S-NNNN archive "
+            "references, or tag-named drawer references appear in "
+            "outcome_summary, the session's diary entry, or commit "
+            "messages. Retrieval happened; observable behavior change "
+            "did not. Mirrors the mempalace_zero_citations_after_search "
+            "predecessor (per ADR 0056 S-0093 amendment, Issue #39); "
+            "fires alongside it during the ADR 0091 cutover window "
+            "(S-0190 → S-0193). Persistent firing across 3+ of last 5 "
+            "sessions per ADR 0042 lifecycle indicates the boot-search "
+            "effectiveness gap — tune the formulation set in "
+            "engine/memory/boot_surface.py (FORMULATION_OPERATOR mapping "
+            "or to_fts5_match logic) or escalate per "
+            "engine/operations/soft-warn-lifecycle.md.",
+        )
+
+    return r
+
+
 # ---------------------------------------------------------------------------
 # Outcome-summary unhandled-defer detection (ADR 0049 Decision 6 / Issue #54)
 # ---------------------------------------------------------------------------
@@ -5024,6 +5104,7 @@ def main(argv: list[str] | None = None) -> int:
         # standing phases the audit at ADR 0063 names).
         if args.final_check:
             overall.merge(validate_mempalace_adoption())
+            overall.merge(validate_engine_memory_adoption())
             overall.merge(validate_outcome_summary_unhandled_defer())
 
     duration_total_ms = (time.monotonic() - start) * 1000

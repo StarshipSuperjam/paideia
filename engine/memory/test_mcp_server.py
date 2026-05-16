@@ -1,11 +1,13 @@
 """Tests for ``engine/memory/mcp_server.py`` — JSON-RPC skeleton dispatch.
 
-At S-0190 the registry holds 2 of 6 eventual tools
-(``engine_memory_add_drawer`` + ``engine_memory_diary_write``); the
-remaining 4 land at S-0191. Tests cover the protocol-level methods
-(``initialize``, ``tools/list``, ``ping``), the tools/call dispatch for
-both wired tools and a not-yet-wired tool (``engine_memory_search``
-returns -32601 until S-0191), notifications, and unknown methods.
+At S-0191 the registry holds all 6 tools per ADR 0091 Decision
+commitment 5 (the pre-committed surface ceiling): the 2 wired at S-0190
+(``engine_memory_add_drawer`` + ``engine_memory_diary_write``) plus the
+4 wired at S-0191 (``engine_memory_search``, ``engine_memory_get_drawer``,
+``engine_memory_list_drawers``, ``engine_memory_diary_read``). Tests
+cover the protocol-level methods (``initialize``, ``tools/list``,
+``ping``), tools/call dispatch + the unknown-tool -32601 path,
+notifications, and unknown methods.
 """
 
 from __future__ import annotations
@@ -29,13 +31,20 @@ def test_initialize_returns_protocol_handshake() -> None:
     assert "capabilities" in result
 
 
-def test_tools_list_returns_two_at_s0190() -> None:
+def test_tools_list_returns_all_six_at_s0191() -> None:
     req = {"jsonrpc": "2.0", "id": 2, "method": "tools/list"}
     resp = mcp_server.handle_request(req)
     assert resp is not None
     tools = resp["result"]["tools"]
     names = {t["name"] for t in tools}
-    assert names == {"engine_memory_add_drawer", "engine_memory_diary_write"}
+    assert names == {
+        "engine_memory_add_drawer",
+        "engine_memory_diary_write",
+        "engine_memory_search",
+        "engine_memory_get_drawer",
+        "engine_memory_list_drawers",
+        "engine_memory_diary_read",
+    }
     # Each tool advertises a non-empty description and an inputSchema.
     for t in tools:
         assert t["description"]
@@ -43,17 +52,20 @@ def test_tools_list_returns_two_at_s0190() -> None:
 
 
 def test_tools_call_unknown_tool_returns_minus_32601() -> None:
-    """Tools not yet wired (S-0191 work) return JSON-RPC method-not-found."""
+    """Tools outside the 6-tool surface return JSON-RPC method-not-found."""
     req = {
         "jsonrpc": "2.0",
         "id": 3,
         "method": "tools/call",
-        "params": {"name": "engine_memory_search", "arguments": {"query": "x"}},
+        "params": {
+            "name": "engine_memory_bogus_unwired",
+            "arguments": {"foo": "bar"},
+        },
     }
     resp = mcp_server.handle_request(req)
     assert resp is not None
     assert resp["error"]["code"] == -32601
-    assert "engine_memory_search" in resp["error"]["message"]
+    assert "engine_memory_bogus_unwired" in resp["error"]["message"]
 
 
 def test_tools_call_add_drawer_round_trip(tmp_path: Path) -> None:
