@@ -1,0 +1,36 @@
+{
+  "id": "S-0188",
+  "started_at": "2026-05-16T05:36:34Z",
+  "closed_at": "2026-05-16T05:45:35Z",
+  "status": "closed",
+  "mode": "interactive",
+  "working_on": "Author ADR 0091 (engine-memory substrate SQLite+FTS5; supersedes ADR 0090) + cascade announce. First session of the 6-session MemPalace removal rollout per plan ~/.claude/plans/mempalace-overhead-is-dragging-twinkly-harp.md.",
+  "outcome_summary": "ADR 0091 lands (engine-memory substrate SQLite+FTS5 owned by the engine; supersedes ADR 0090 on Issue #134 falsification of its commitment 2a). Cascade: 3 ADRs flip to Superseded (0090, 0056, 0079); ADR 0057 amended in-body (Consequences cluster-detection paragraph substrate-coupled; Decision elements stay Accepted); 4 See-also forward pointers (0045/0050/0080/0037); engine/adr/README.md index updated. First-exercise readiness note authored per ADR 0053 (5 Tier-1 criteria distributed across S-0189-S-0193). Issue #138 opens with 5-session implementation roadmap; Issue #131 acquires supersession-pointer comment. STATE.md updated (ADR count 90→91; next-session names S-0189). ENGINE_LOG [Unreleased] gains Added/Changed/Closed entries. .gitignore adds engine/.memory/. Mempalace decision drawer captured (drawer_paideia_decisions_074ebcf5212266b3384ff850; final use of old surface; carries forward via S-0192 export-replay). Validate.py: 0 hard fails, 409 soft-warns all annotated baselines. No code changes this session — substrate creation begins at S-0189.",
+  "outcome_summary_soft_warns": {
+    "skill_layer1_parity_drift": 1,
+    "issue_collision": 4,
+    "missing_rigor_score": 358,
+    "edge_evidence_empty": 46
+  },
+  "approved_plan": "/Users/shanekidd/.claude/plans/mempalace-overhead-is-dragging-twinkly-harp.md",
+  "branch": "claude/jovial-chatelet-235c97",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/jovial-chatelet-235c97",
+  "mempalace_unavailable_acknowledged": "skipped boot mempalace_search + diary_read at session start to conserve context — the approved plan ~/.claude/plans/mempalace-overhead-is-dragging-twinkly-harp.md is the authoritative ground-truth for this session's authoring (ADR 0091 + cascade + readiness note + Issue #138 + STATE.md + ENGINE_LOG + decision drawer). One deliberate mempalace_add_drawer call landed at close to capture the supersession (drawer_paideia_decisions_074ebcf5212266b3384ff850). Diary write skipped — outcome_summary + ENGINE_LOG + ADR 0091's own narrative carry the session's reflection content; the S-0192 export-and-replay will carry the decision drawer forward into the new substrate.",
+  "mempalace_activity": {
+    "search_calls": 0,
+    "diary_read_calls": 0,
+    "diary_write_calls": 0,
+    "add_drawer_calls": 1,
+    "status_calls": 0,
+    "list_drawers_calls": 0,
+    "kg_calls": 0,
+    "tunnel_calls": 0,
+    "other_calls": 0,
+    "total_calls": 1,
+    "first_call_ts": "2026-05-16T05:45:00Z",
+    "last_call_ts": "2026-05-16T05:45:00Z",
+    "search_first_ts": null,
+    "diary_read_first_ts": null
+  },
+  "next_session_handle": "S-0189 — Engine-memory schema + foundations package per Issue #138 + approved plan ~/.claude/plans/mempalace-overhead-is-dragging-twinkly-harp.md. Build session. Deliverables: new engine/memory/ package (schema.py idempotent CREATE…IF NOT EXISTS for 5 tables + drawers_fts FTS5 + triggers + schema_version seed; connection.py stdlib sqlite3 + WAL + PRAGMA foreign_keys=ON + busy_timeout=5000 + exp function fallback registration + path resolution via ENGINE_MEMORY_PATH or git rev-parse; mcp_server.py skeleton; README.md). engine/.memory/.gitkeep. Tests test_connection.py + test_schema.py using :memory: SQLite. apply_migration.py NOT modified — engine memory does not use Postgres migration discipline. Closes T1-A in engine/build_readiness/engine_memory_substrate_first_exercise.md."
+}
