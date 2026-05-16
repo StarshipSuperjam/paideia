@@ -57,6 +57,17 @@ Five Tier 1 criteria, one per implementation session:
 - No code changes yet; substrate creation begins at S-0189.
 - Tier 1 status at S-0188 close: all 5 Tier 1 criteria PENDING (none of S-0189–S-0193 has fired yet).
 
-### S-0189 through S-0193 — populated as each session closes
+### S-0189 (foundations package) — 2026-05-16 — T1-A CLOSED
+
+- **T1-A criterion closed.** `engine/memory/` package authored: `schema.py` (single `SCHEMA_SQL` multi-statement string applied via `executescript()`; all DDL `CREATE … IF NOT EXISTS`; `schema_version` seed via `INSERT OR IGNORE`); `connection.py` (`get_conn()` + `healthcheck()` + `resolve_db_path()`; WAL mode + `busy_timeout=5000` + `foreign_keys=ON` + `exp` function fallback); `mcp_server.py` (JSON-RPC stdio skeleton; empty tool registry; responds to `initialize` / `tools/list` / `ping` / `tools/call` / notifications); `README.md`; plus `conftest.py` + 3 test files.
+- **T1-A primary verification** (per readiness-note criterion): `python -c "from engine.memory.connection import get_conn; conn = get_conn(); conn.execute('SELECT 1'); conn.execute('PRAGMA integrity_check')"` against a fresh empty `engine/.memory/` produces `'ok'` + creates the file with all expected tables, the FTS5 virtual table, all 3 triggers, and the `schema_version=1` seed row. Idempotent re-invocation produces identical state.
+- **`.tables` listing on the populated file:** `capture_state  drawers  drawers_fts  drawers_fts_config  drawers_fts_data  drawers_fts_docsize  drawers_fts_idx  diary  lineage  query_log  schema_version` (the `drawers_fts_*` shadow tables are FTS5-internal).
+- **FTS5 sync trigger round-trip** verified end-to-end via the sqlite3 CLI: `INSERT INTO drawers (... 'hello world uniqueneedlexyz')` → `SELECT content FROM drawers_fts WHERE drawers_fts MATCH 'uniqueneedlexyz'` returns the content → `DELETE FROM drawers WHERE id='test-1'` cascades to remove the FTS5 row.
+- **pytest: 31 passed in 0.12s** against the new `engine/memory/` tests (24 schema/connection + 7 mcp_server skeleton). engine/tools/ regression suite (1503 tests) unaffected: `1503 passed in 120.59s`.
+- **Full `validate.py` exits 0** with no hard-fails; soft-warns at baseline (carryover only — `skill_layer1_parity_drift: 1`, `mempalace_hnsw_status_suspect: 1`, `issue_collision: 13`, `missing_rigor_score: 358`, `edge_evidence_empty: 46`; the `mempalace_*` warns retire with the substrate at S-0193).
+- **Namespace-package convention** (no `__init__.py` in `engine/memory/`) adopted to match `engine/tools/`. pyproject.toml gains `[tool.pytest.ini_options]` `pythonpath = ["."]` + `[tool.mypy]` `explicit_package_bases` / `namespace_packages` / `mypy_path = "."` so absolute imports work for tests and per-file mypy invocations resolve consistently.
+- Tier 1 status at S-0189 close: **T1-A CLOSED**; T1-B (capture surface) PENDING at S-0190; T1-C (read surface + verification gate) PENDING at S-0191; T1-D (migration replay) PENDING at S-0192; T1-E (removal) PENDING at S-0193.
+
+### S-0190 through S-0193 — populated as each session closes
 
 (To be filled in by each implementation session.)
