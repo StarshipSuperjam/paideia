@@ -153,12 +153,24 @@ from typing import Any, NamedTuple
 
 # Local helpers at engine/tools/{scrub_env,_venv_reexec}.py — ADR 0045 / Issue #14.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _venv_reexec import ensure_venv_python  # noqa: E402
+from _venv_reexec import ensure_venv_python  # type: ignore[import-not-found]  # noqa: E402
 
-ensure_venv_python()  # re-exec under venv if psycopg is unavailable
+# Re-exec under venv only when invoked as a script. Calling
+# ``ensure_venv_python()`` at module-import time meant pytest's collection
+# of ``test_validate.py`` triggered a mid-process ``os.execv`` to the venv
+# python — which the harness's bash output capture cannot follow (the
+# replacement process inherits the FDs but the wrapper has already detached
+# the read end on the original process). Symptom: pytest engine/tools
+# reports "collecting ..." and exits with no test output, looking like a
+# silent hang. Direct invocations (``python3 engine/tools/validate.py``)
+# still re-exec via the ``__main__`` branch below — discovered at S-0190
+# while debugging the engine/tools regression "hang" that was actually
+# successful tests with invisible output.
+if __name__ == "__main__":
+    ensure_venv_python()
 
-from scrub_env import scrubbed_env  # noqa: E402
-from timestamps import emit, emit_micros, parse  # noqa: E402  # ADR 0058
+from scrub_env import scrubbed_env  # type: ignore[import-not-found]  # noqa: E402
+from timestamps import emit, emit_micros, parse  # type: ignore[import-not-found]  # noqa: E402  # ADR 0058
 
 
 # ---------------------------------------------------------------------------
@@ -3349,7 +3361,7 @@ def _mempalace_boot_step_ran_late(
         first_ts = parse(raw.strip())
     except (ValueError, TypeError):
         return False
-    return first_ts > started_at
+    return bool(first_ts > started_at)
 
 
 def validate_mempalace_adoption() -> ValidationResult:
@@ -4883,7 +4895,7 @@ def main(argv: list[str] | None = None) -> int:
     # visible without requiring the parent shell to source .env. Does
     # NOT override pre-set values, so explicit `KEY=value python3 ...`
     # invocations still win.
-    from load_env import load_dotenv_walk_up
+    from load_env import load_dotenv_walk_up  # type: ignore[import-not-found]
 
     load_dotenv_walk_up()
 

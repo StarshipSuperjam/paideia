@@ -41,14 +41,54 @@ def ensure_venv_python(required_module: str = "psycopg") -> None:
     No-op when:
       - ``required_module`` is already importable under the current interpreter
         (find_spec returns a non-None spec), OR
+      - the caller module is being IMPORTED rather than invoked as a script
+        (see "Script-vs-import detection" below — S-0190 fix), OR
       - no ``.venv/bin/python3`` exists on the walk-up from this file's
         directory to the filesystem root.
 
     Otherwise replaces the current process with the venv interpreter via
     :func:`os.execv`. Does not return on a successful re-exec.
+
+    **Script-vs-import detection (S-0190, Issue #14 follow-up).** Pre-S-0190,
+    every caller (``validate.py``, ``setup_env.py``, ``check_target.py``,
+    ``seed_qa_shard.py``) invoked this at module-import time. That meant
+    ``pytest engine/tools`` collecting ``test_validate.py`` (or any test that
+    transitively imports one of those modules) triggered a mid-collection
+    ``os.execv`` to the venv python. The harness's bash output capture cannot
+    follow the exec — the replacement process inherits the FDs but the
+    wrapper has already detached the read end on the original process.
+    Symptom: pytest reports "collecting ..." and exits with no visible test
+    output, looking like a silent hang. Three S-0190 attempts to run
+    ``pytest engine/tools`` for regression verification were killed
+    prematurely because of this. The fix: inspect the caller's stack frame
+    and the ``__main__`` module's ``__file__``; if they don't match, we're
+    being imported (not invoked as script) and we skip the re-exec.
+    Imported callers under non-venv python will still hit
+    ``ImportError`` on the genuine ``import psycopg`` line — that's an
+    honest, visible failure rather than a silent hang. Direct invocations
+    (``python3 engine/tools/validate.py``) still re-exec correctly.
     """
     if importlib.util.find_spec(required_module) is not None:
         return
+
+    # Skip re-exec when we're being imported (not invoked as main script).
+    # ``sys.modules['__main__']`` is the entry-point module; its ``__file__``
+    # tells us what was invoked. The caller frame is one up from us.
+    import inspect
+
+    main_mod = sys.modules.get("__main__")
+    main_file = getattr(main_mod, "__file__", None) if main_mod is not None else None
+    if main_file is not None:
+        try:
+            caller_file = inspect.stack()[1].filename
+            if os.path.realpath(caller_file) != os.path.realpath(main_file):
+                return  # imported by something else — no re-exec
+        except (IndexError, OSError):
+            # If we can't introspect the stack, fall through to the legacy
+            # behavior. Safer to attempt re-exec than to silently no-op when
+            # the caller genuinely needs it.
+            pass
+
     here = Path(__file__).resolve().parent
     for candidate in (here, *here.parents):
         venv_python = candidate / ".venv" / "bin" / "python3"
