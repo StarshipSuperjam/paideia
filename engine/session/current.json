@@ -1,0 +1,14 @@
+{
+  "id": "S-0189",
+  "started_at": "2026-05-16T07:24:39Z",
+  "status": "in_progress",
+  "mode": "interactive",
+  "working_on": "Engine-memory foundations package (engine/memory/ schema + connection + MCP skeleton) — first implementation session of the ADR 0091 cutover; closes T1-A in the first-exercise readiness note.",
+  "declared_scope": "Author engine/memory/ package (schema.py, connection.py, mcp_server.py skeleton, README.md, __init__.py) + conftest.py + test_schema.py + test_connection.py. SQLite + FTS5 substrate per ADR 0091; idempotent CREATE … IF NOT EXISTS schema applied at first connect. No production reads against paideia-dev; no apply_migration.py extension. Closes T1-A criterion. phase: NA-engine-memory",
+  "outcome_summary": null,
+  "scope_delivery": null,
+  "next_session_handle": null,
+  "approved_plan": "~/.claude/plans/typed-petting-rossum.md",
+  "branch": "claude/bold-mestorf-66741d",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/bold-mestorf-66741d"
+}
