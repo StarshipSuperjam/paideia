@@ -46,17 +46,19 @@ import logging  # noqa: E402
 from typing import Any  # noqa: E402
 
 from engine.memory.connection import get_conn  # noqa: E402
+from engine.memory.tools import REGISTRY as _REGISTRY  # noqa: E402
 
 PROTOCOL_VERSION = "2024-11-05"
 SERVER_NAME = "engine_memory"
-SERVER_VERSION = "0.1.0"
+SERVER_VERSION = "0.2.0"
 
 logger = logging.getLogger(SERVER_NAME)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
-# Tool registry. Empty at S-0189; populated by S-0190+ wiring.
-# Shape: {tool_name: {"input_schema": {...}, "handler": callable}}
-TOOLS: dict[str, dict[str, Any]] = {}
+# Tool registry. S-0190 wires 2 of 6; S-0191 adds 4 more rows to
+# engine/memory/tools.py REGISTRY. The dict is rebuilt on import so a
+# test that monkeypatches REGISTRY needs to re-import this module.
+TOOLS: dict[str, dict[str, Any]] = dict(_REGISTRY)
 
 
 def _restore_stdout() -> None:
@@ -162,7 +164,11 @@ def main() -> None:
     # connections on demand.
     conn = get_conn()
     conn.close()
-    logger.info("engine_memory MCP server starting (no tools wired at S-0189)")
+    logger.info(
+        "engine_memory MCP server starting (%d tool%s wired)",
+        len(TOOLS),
+        "" if len(TOOLS) == 1 else "s",
+    )
 
     while True:
         try:

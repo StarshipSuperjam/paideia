@@ -58,7 +58,10 @@
       "Bash(bash engine/tools/hooks/post-state-edit.sh:*)",
       "Bash(bash engine/tools/hooks/post-mempalace-tool-use.sh:*)",
       "Bash(bash engine/tools/hooks/mempalace-hook-wrapper.sh:*)",
+      "Bash(bash engine/tools/hooks/engine-memory-capture.sh:*)",
       "Bash(bash engine/tools/hooks/pre-commit:*)",
+      "Bash(python3 -m engine.memory.capture:*)",
+      "Bash(python3 -m engine.memory.mcp_server:*)",
 
       "Bash(date:*)",
       "Bash(ls:*)",
@@ -88,6 +91,10 @@
           {
             "type": "command",
             "command": "engine/tools/hooks/mempalace-hook-wrapper.sh --hook stop --harness claude-code"
+          },
+          {
+            "type": "command",
+            "command": "engine/tools/hooks/engine-memory-capture.sh stop"
           }
         ]
       }
@@ -99,6 +106,10 @@
           {
             "type": "command",
             "command": "engine/tools/hooks/mempalace-hook-wrapper.sh --hook precompact --harness claude-code"
+          },
+          {
+            "type": "command",
+            "command": "engine/tools/hooks/engine-memory-capture.sh precompact"
           }
         ]
       }

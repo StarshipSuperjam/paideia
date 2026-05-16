@@ -22,17 +22,17 @@ Per [`mempalace-operations.md`](../../../engine/operations/mempalace-operations.
 
 Build sessions only. Default-mode (exploration) sessions skip — no slot, no formal close.
 
-Call `mempalace_diary_write` with `agent_name: "claude"` (project convention). Content shape: 150-400 words, first person. Recommended structure:
+Call `mempalace_diary_write` (or `engine_memory_diary_write` once the S-0192 cutover lands per [ADR 0091](../../../engine/adr/0091-engine-memory-substrate-sqlite-fts5.md)) with `agent_name: "claude"` (project convention). Content shape: 150-400 words, first person. Recommended structure:
 
-- **What I worked on this session** — high-level enough to be findable by `mempalace_diary_read` at the next session's boot.
+- **What I worked on this session** — high-level enough to be findable by `mempalace_diary_read` (or `engine_memory_diary_read` post-S-0192) at the next session's boot.
 - **What surprised me** — premises that didn't hold, side-discoveries.
 - **What I noticed but deferred** — observations next-session-relevant. (If actionable enough, also surface in HANDOFF.md or as a follow-up task in `outcome_summary`.)
 - **Where my judgment was uncertain** — places I made a call I'd want a fresh-eyes review on.
 
 After the diary write, run the **`pushback` / `lesson` capture check** (added at S-0041 per the second project health check audit's adoption-gap finding — the tags were defined at S-0032 with zero applications across S-0033 → S-0040 because the convention was too implicit to reach the AI's authoring loop without an explicit prompt). Ask explicitly:
 
-- **Did this session produce a `pushback` moment?** (Verbatim exchange where AI surfaced an unnamed risk specifically, user heard it, conversation changed direction. Self-pushback also qualifies.) If yes, capture now via `mempalace_add_drawer` per the [`pushback` tag definition](../../../engine/operations/mempalace-tagging-conventions.md). Verbatim user framing + verbatim AI pushback + verbatim user acceptance + one-line summary.
-- **Did this session produce a `lesson` candidate?** (Procedural failure with non-obvious cause + working fix; bug whose cause was obvious-once-named also qualifies if identification was the value.) If yes, capture now via `mempalace_add_drawer` per the [`lesson` tag definition](../../../engine/operations/mempalace-tagging-conventions.md). Failed approach + non-obvious reason + working fix + optional ADR/ops-doc pointers.
+- **Did this session produce a `pushback` moment?** (Verbatim exchange where AI surfaced an unnamed risk specifically, user heard it, conversation changed direction. Self-pushback also qualifies.) If yes, capture now via `mempalace_add_drawer` (or `engine_memory_add_drawer` post-S-0192) per the [`pushback` tag definition](../../../engine/operations/mempalace-tagging-conventions.md). Verbatim user framing + verbatim AI pushback + verbatim user acceptance + one-line summary.
+- **Did this session produce a `lesson` candidate?** (Procedural failure with non-obvious cause + working fix; bug whose cause was obvious-once-named also qualifies if identification was the value.) If yes, capture now via `mempalace_add_drawer` (or `engine_memory_add_drawer` post-S-0192) per the [`lesson` tag definition](../../../engine/operations/mempalace-tagging-conventions.md). Failed approach + non-obvious reason + working fix + optional ADR/ops-doc pointers.
 
 Both capture decisions are explicit yes/no asks at every shutdown — judgment-alone produced zero captures across the eight sessions between tag definition (S-0032) and the audit (S-0041). When the answer is no, no drawer is written. When yes, the drawer lands here so capture is durable before the archive moves at step 13.
 
