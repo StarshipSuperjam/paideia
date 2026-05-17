@@ -241,7 +241,13 @@ def get_changed_paths_between(
     explicit refs (e.g., HEAD~1 vs HEAD) instead of always ``{remote}/{target}..HEAD``.
     None on git error.
     """
-    result = _run_git(["diff", "--name-status", f"{base}..{head}"], repo)
+    # --no-renames forces git to report rename as separate D + A statuses
+    # rather than R; the close-shape verifier expects A on archive/S-NNNN.json
+    # and D on current.json. Without this flag, `git mv current.json
+    # archive/S-NNNN.json` reports as R098 and the verifier misses both.
+    result = _run_git(
+        ["diff", "--name-status", "--no-renames", f"{base}..{head}"], repo
+    )
     if result.returncode != 0:
         return None
     out: list[tuple[str, str]] = []

@@ -132,6 +132,16 @@ EAGER_CLAIM_ALLOWED_PATHS = {
 CLOSE_ALLOWED_GLOBS: tuple[str, ...] = (
     *check_routine_scope.OPERATIONAL_ALLOWLIST,
     "engine/STATE.md",
+    # Per Issue #139 (S-0192): first-exercise readiness notes per ADR 0053
+    # carry session-tied empirical records (a Tier-1 closure block is
+    # appended at the session whose work closes the criterion). Closing
+    # those notes alongside STATE.md + ENGINE_LOG.md is the natural shape;
+    # forcing a 2-commit split per Tier-1 closure (the prior wrapper
+    # contract) introduced friction at S-0189 / S-0190 / S-0191 close.
+    # Bounded scope: only ``*.md`` under ``engine/build_readiness/`` —
+    # the directory's contract is markdown empirical records + gate
+    # reports per ADR 0040 + ADR 0053 (no Python, no JSON).
+    "engine/build_readiness/*.md",
 )
 
 
@@ -187,7 +197,12 @@ def get_changed_paths_since(
     None on git error.
     """
     ref = f"{remote}/{target}"
-    result = _run_git(["diff", "--name-status", f"{ref}..HEAD"], repo)
+    # --no-renames forces git to report rename as separate D + A statuses
+    # rather than R; the close-shape verifier expects A on archive/S-NNNN.json
+    # and D on current.json. Without this flag, `git mv current.json
+    # archive/S-NNNN.json` reports as R098 and the verifier misses both.
+    # Sibling fix to build_lifecycle_push.get_changed_paths_between.
+    result = _run_git(["diff", "--name-status", "--no-renames", f"{ref}..HEAD"], repo)
     if result.returncode != 0:
         return None
     out: list[tuple[str, str]] = []

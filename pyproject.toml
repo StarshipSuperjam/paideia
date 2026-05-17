@@ -97,7 +97,19 @@ pythonpath = ["."]
 # __init__.py either.
 explicit_package_bases = true
 namespace_packages = true
-mypy_path = "."
+# mypy_path is colon-separated. Repo root resolves engine.* / product.*
+# absolute imports; engine/tools resolves the sibling-import pattern
+# used by engine/tools/{check_routine_scope,routine_lifecycle_push,
+# build_lifecycle_push,...}.py — they import each other via bare module
+# names (`import check_routine_scope`) and the test files do likewise
+# via `sys.path.insert(0, str(Path(__file__).resolve().parent))` at
+# runtime. mypy doesn't follow sys.path manipulation; without engine/tools
+# on mypy_path, every commit touching these files surfaces "Cannot find
+# implementation or library stub for module named 'check_routine_scope'"
+# import-not-found errors and the pre-commit code-gates hard-fail.
+# Surfaced at S-0192 (resolving Issue #139's wrapper fixes): same import
+# pattern, never explicitly aligned in mypy config.
+mypy_path = ".:engine/tools"
 
 [tool.uv]
 # Lockfile generated and committed per ADR 0064. Regenerate with `uv lock`

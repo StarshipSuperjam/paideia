@@ -574,9 +574,10 @@ def test_close_rejects_when_archive_path_format_wrong(tmp_path: Path) -> None:
 
 def test_close_allowed_globs_derived_from_canonical_operational_allowlist() -> None:
     """Structural test: CLOSE_ALLOWED_GLOBS must contain every entry of
-    check_routine_scope.OPERATIONAL_ALLOWLIST plus engine/STATE.md. Locks in
-    the canonical-source alignment so a future drift (constant added to one
-    list but not the other) is caught at test time."""
+    check_routine_scope.OPERATIONAL_ALLOWLIST plus engine/STATE.md plus
+    engine/build_readiness/*.md (per Issue #139). Locks in the canonical-
+    source alignment so a future drift (constant added to one list but not
+    the other) is caught at test time."""
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import check_routine_scope  # noqa: PLC0415
 
@@ -588,6 +589,75 @@ def test_close_allowed_globs_derived_from_canonical_operational_allowlist() -> N
         "CLOSE_ALLOWED_GLOBS must include engine/STATE.md "
         "(close commits update STATE.md per session-shutdown-sequence)"
     )
+    assert "engine/build_readiness/*.md" in close_set, (
+        "CLOSE_ALLOWED_GLOBS must include engine/build_readiness/*.md "
+        "(Issue #139: first-exercise readiness notes carry session-tied "
+        "empirical records appended at close per ADR 0053)"
+    )
+
+
+def test_close_accepts_build_readiness_md_edit(tmp_path: Path) -> None:
+    """Issue #139: A close commit that touches engine/build_readiness/*.md
+    must be accepted, not refused as out-of-allowlist."""
+    _origin, clone = _make_origin_with_clone(tmp_path)
+    _make_eager_claim_commit(clone)
+    _git(["push"], clone)
+
+    sess_dir = clone / "engine" / "session"
+    state = json.loads((sess_dir / "register_state.json").read_text())
+    state["current_status"] = "closed"
+    (sess_dir / "register_state.json").write_text(json.dumps(state) + "\n")
+    archive_dir = sess_dir / "archive"
+    archive_dir.mkdir(exist_ok=True)
+    (archive_dir / "S-0060.json").write_text(json.dumps({"id": "S-0060"}) + "\n")
+    (sess_dir / "current.json").unlink()
+    (sess_dir / "current_plan.md").unlink()
+    # Touch a build_readiness readiness note as part of close (the Issue
+    # #139 pattern — first-exercise readiness empirical record).
+    readiness_dir = clone / "engine" / "build_readiness"
+    readiness_dir.mkdir(parents=True, exist_ok=True)
+    (readiness_dir / "fake_mechanism_first_exercise.md").write_text(
+        "# Fake mechanism\n\n## Empirical record\n\n- S-0060: T1-A closed.\n"
+    )
+    _git(["add", "-A"], clone)
+    _git(
+        ["commit", "-m", "chore(session): close S-0060 — with readiness-note edit"],
+        clone,
+    )
+    ok, reason = verify_close_shape(clone, "origin", "main")
+    assert ok, f"close-with-readiness-note rejected: {reason}"
+
+
+def test_close_detects_rename_as_add_plus_delete(tmp_path: Path) -> None:
+    """Rename-detection fix: `git mv current.json archive/S-NNNN.json` must
+    be reported by get_changed_paths_since as separate D + A statuses, not
+    as a single R-status rename. The verifier requires both."""
+    _origin, clone = _make_origin_with_clone(tmp_path)
+    _make_eager_claim_commit(clone)
+    _git(["push"], clone)
+
+    sess_dir = clone / "engine" / "session"
+    state = json.loads((sess_dir / "register_state.json").read_text())
+    state["current_status"] = "closed"
+    (sess_dir / "register_state.json").write_text(json.dumps(state) + "\n")
+    archive_dir = sess_dir / "archive"
+    archive_dir.mkdir(exist_ok=True)
+    # Use `git mv` (the discipline session-shutdown-sequence step 13 prescribes).
+    # Before --no-renames flag, this surfaced as R098 and the close verifier
+    # missed both required statuses.
+    _git(
+        ["mv", "engine/session/current.json", "engine/session/archive/S-0060.json"],
+        clone,
+    )
+    # Modify the archive file slightly to mimic close-time field changes
+    archive_data = json.loads((archive_dir / "S-0060.json").read_text())
+    archive_data["status"] = "closed"
+    (archive_dir / "S-0060.json").write_text(json.dumps(archive_data) + "\n")
+    (sess_dir / "current_plan.md").unlink()
+    _git(["add", "-A"], clone)
+    _git(["commit", "-m", "chore(session): close S-0060 — via git mv"], clone)
+    ok, reason = verify_close_shape(clone, "origin", "main")
+    assert ok, f"git-mv close rejected (rename-detection bug): {reason}"
 
 
 # ---------------------------------------------------------------------------
