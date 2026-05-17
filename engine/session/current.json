@@ -1,0 +1,11 @@
+{
+  "id": "S-0192",
+  "started_at": "2026-05-17T00:17:39Z",
+  "status": "in_progress",
+  "mode": "interactive",
+  "working_on": "Engine-memory cutover: migrate curated MemPalace drawers + diary into the new SQLite/FTS5 substrate, swap MCP entries, atomically rewire CLAUDE.md + 3 SKILLs + 3 Layer-1 ops docs, add engine_memory PostToolUse hook + activity rollup, remove mempalace Stop/PreCompact hook entries, author 2 new ops docs, amend ADR 0091 + parent plan for S-0191 boot_search_results correction. Closes T1-D per engine_memory_substrate_first_exercise.md.",
+  "outcome_summary": null,
+  "approved_plan": "/Users/shanekidd/.claude/plans/toasty-sleeping-fiddle.md",
+  "branch": "claude/zealous-lederberg-6c2367",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/zealous-lederberg-6c2367"
+}
