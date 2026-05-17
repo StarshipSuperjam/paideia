@@ -79,6 +79,7 @@ The engine collection has **45 ADRs total — all Accepted**. Engine ADRs are ab
 | [0089](0089-skill-layer1-parity-validator-check.md) | Skill ↔ Layer-1 procedure-parity validator check | Accepted |
 | [0090](0090-phase-6-recall-substrate-decision.md) | Phase-6 recall-substrate decision: MemPalace preserved with active maintenance + upstream coordination | Superseded by ADR 0091 |
 | [0091](0091-engine-memory-substrate-sqlite-fts5.md) | Engine-memory substrate: SQLite + FTS5 (replaces MemPalace; supersedes ADR 0090) | Accepted |
+| [0092](0092-per-session-changelog-directory.md) | Per-session changelog directory replaces monolithic ENGINE_LOG.md (supersedes ADR 0037 in part) | Accepted |
 
 ## Adding a new engine ADR
 
