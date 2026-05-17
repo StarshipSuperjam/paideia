@@ -1,0 +1,14 @@
+{
+  "id": "S-0197",
+  "started_at": "2026-05-17T16:39:33Z",
+  "status": "in_progress",
+  "mode": "interactive",
+  "working_on": "Close Issues #143/#144/#145 — three Tier-A in-context fixes for the action-needed soft-warn lane (cross_reference_broken + adr_consequences_deliverable_audit + timestamp_helper_bypass)",
+  "declared_scope": "Edit product/docs/CROSS_REFERENCES.md:49 to re-point the retired mempalace-operations.md link to engine-memory-operations.md (Issue #143). Edit engine/adr/0045-shared-state-integrity-discipline.md and engine/adr/0079-hnsw-sync-threshold-tuning.md Consequences sections to convert retired-file deliverable pointers (backtick/link form) to plain prose with retirement annotations citing ADR 0091, ending the audit-trigger on S-0193-demolished files (Issue #144). Edit engine/tools/scan_engine_memory_citations.py:92-95 + line 192 to route date-only generation through the canonical timestamps.today() helper per ADR 0058 (Issue #145). Verify validate.py reports zero counts for the three soft-warn categories before commit; close all three Issues via gh with commit-sha comments. phase: NA-engine-cleanup",
+  "outcome_summary": null,
+  "scope_delivery": null,
+  "next_session_handle": null,
+  "approved_plan": "/Users/shanekidd/.claude/plans/we-need-to-close-quirky-bird.md",
+  "branch": "claude/gracious-morse-8e2cb9",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/gracious-morse-8e2cb9"
+}
