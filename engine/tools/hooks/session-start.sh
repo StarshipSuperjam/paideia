@@ -34,6 +34,13 @@
 #      The calibration window per soft-warn-lifecycle.md is in effect until
 #      5 structured-field archives accumulate (≈ S-0033); during the window,
 #      the surface emits "calibration window in effect" instead.
+#      At S-0196 per Issue #133, the surface split into two output lanes:
+#      action-needed (categories firing >=3/5 without a documented
+#      annotation) and annotated-baselines (categories firing >=3/5 that
+#      carry an annotation in tools-validate-interpretation.md's
+#      "Persistent-warn annotation" section, surfaced as a single-line
+#      count). The split makes new threshold-crossings visible without
+#      competing against documented-expected baselines.
 #
 #   3. Shared-state health probe — per ADR 0045. Runs
 #      `validate.py --health-probe-only` (sub-second on a 130 MB
@@ -971,13 +978,38 @@ for archive in "${RECENT_ARCHIVES[@]}"; do
     done < <(jq -r '.outcome_summary_soft_warns // {} | to_entries[] | "\(.key)\t\(.value)"' "$archive" 2>/dev/null)
 done
 
+# Load the annotated-category list once via the helper. The helper parses
+# the "Persistent-warn annotation" H2 section of
+# engine/operations/tools-validate-interpretation.md (Issue #133 / S-0196
+# per ADR 0042). Failure modes (helper absent, parse error, exit != 0):
+# leave ANNOTATED_LIST empty so all categories surface as action-needed —
+# graceful degradation preserves visibility on parser break.
+ANNOTATED_HELPER="$REPO_ROOT/engine/tools/scan_persistent_warn_annotations.py"
+ANNOTATED_LIST=""
+if [ -f "$ANNOTATED_HELPER" ]; then
+    ANNOTATED_LIST="$(python3 "$ANNOTATED_HELPER" 2>/dev/null)"
+fi
+
+# Returns success (0) if $1 is a category name carried in ANNOTATED_LIST,
+# failure (1) otherwise. Bash 3.2-safe: newline-anchored grep against
+# the captured list.
+_is_annotated() {
+    local target="$1"
+    if [ -z "$ANNOTATED_LIST" ]; then
+        return 1
+    fi
+    printf '%s\n' "$ANNOTATED_LIST" | grep -qx -- "$target"
+}
+
+# Pass 1 — action-needed lane (categories firing >=3/5 without an
+# annotation). Header + per-line surface + the existing tail hint.
 PERSISTENT_FOUND=0
 for ((i=0; i<${#CATEGORY_NAMES[@]}; i++)); do
     cat="${CATEGORY_NAMES[$i]}"
     firings=${CATEGORY_FIRINGS[$i]}
-    if [ "$firings" -ge 3 ]; then
+    if [ "$firings" -ge 3 ] && ! _is_annotated "$cat"; then
         if [ "$PERSISTENT_FOUND" -eq 0 ]; then
-            echo "[session-start] Persistent warns:" >&2
+            echo "[session-start] Persistent warns (action-needed):" >&2
             PERSISTENT_FOUND=1
         fi
         echo "  - $cat fired in $firings of the last 5 sessions." >&2
@@ -989,7 +1021,34 @@ if [ "$PERSISTENT_FOUND" -eq 1 ]; then
         echo "  Per engine/operations/soft-warn-lifecycle.md, consider addressing inline,"
         echo "  promoting to hard-fail, or accepting via tools-validate-interpretation.md."
     } >&2
-else
+fi
+
+# Pass 2 — annotated-baselines lane (categories firing >=3/5 that carry
+# a documented annotation). Single-line summary count + pointer.
+# Categories continue to fire per-commit; this lane is the periodic
+# reminder that the bucket exists, without competing with action-needed
+# alerts. Per Issue #133 / S-0196.
+ANNOTATED_FOUND=0
+for ((i=0; i<${#CATEGORY_NAMES[@]}; i++)); do
+    cat="${CATEGORY_NAMES[$i]}"
+    firings=${CATEGORY_FIRINGS[$i]}
+    if [ "$firings" -ge 3 ] && _is_annotated "$cat"; then
+        ANNOTATED_FOUND=$((ANNOTATED_FOUND + 1))
+    fi
+done
+
+if [ "$ANNOTATED_FOUND" -ge 1 ]; then
+    {
+        if [ "$ANNOTATED_FOUND" -eq 1 ]; then
+            label="category"
+        else
+            label="categories"
+        fi
+        echo "[session-start] Persistent warns (annotated baselines): $ANNOTATED_FOUND $label carrying annotated-baseline status; see engine/operations/tools-validate-interpretation.md \"Persistent-warn annotation\". These continue to fire per-commit but do not surface as action-needed."
+    } >&2
+fi
+
+if [ "$PERSISTENT_FOUND" -eq 0 ] && [ "$ANNOTATED_FOUND" -eq 0 ]; then
     echo "[session-start] Persistent warns: none above the 3-of-5 threshold."
 fi
 
@@ -1059,5 +1118,5 @@ if [ -f "$SCHEDULED_AUDITS_FILE" ]; then
     fi
 fi
 
-log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=$PERSISTENT_FOUND scheduled=$SCHEDULED_FOUND probe=$PROBE_STATUS mcp=$MCP_PROBE_STATUS threshold=$THRESHOLD_PROBE_STATUS backlog=$BACKLOG_STATUS scope_non_yes=$SCOPE_NON_YES conflict=$CONFLICT_STATUS env_pointer=$ENV_POINTER_STATUS stale_check=$STALE_CHECK_STATUS boot_sweep=$SWEEP_STATUS"
+log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=$PERSISTENT_FOUND persistent-warns-annotated=$ANNOTATED_FOUND scheduled=$SCHEDULED_FOUND probe=$PROBE_STATUS mcp=$MCP_PROBE_STATUS threshold=$THRESHOLD_PROBE_STATUS backlog=$BACKLOG_STATUS scope_non_yes=$SCOPE_NON_YES conflict=$CONFLICT_STATUS env_pointer=$ENV_POINTER_STATUS stale_check=$STALE_CHECK_STATUS boot_sweep=$SWEEP_STATUS"
 exit 0
