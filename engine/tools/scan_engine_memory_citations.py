@@ -92,13 +92,15 @@ Cross-references
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
 import json
 import re
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from timestamps import today as today_helper  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CURRENT_PATH = REPO_ROOT / "engine" / "session" / "current.json"
@@ -189,7 +191,7 @@ def fetch_today_diary(agent_name: str = "claude") -> str:
         return ""
     # Today's date in UTC (engine_memory diary uses datetime('now')
     # which is UTC by default in SQLite, per engine/memory/schema.py).
-    today_str = datetime.now(timezone.utc).date().isoformat()
+    today_str = today_helper()
     for entry in entries:
         if not isinstance(entry, dict):
             continue
