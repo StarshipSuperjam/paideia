@@ -416,7 +416,7 @@ The S-0101 systematic sweep (per the classification map above) added no further 
 
 **Why classified informational-only:** sibling to `engine_memory_boot_query_skipped`. The category surfaces a engine-memory adoption gap (no `engine_memory_diary_read` call) for cross-session trend visibility. Same passive-observability rationale per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md). The diary-read skip is correctable in-session by invoking `engine_memory_diary_read` once via the MCP tool with `agent_name="claude" last_n=3`, but the absence of the call within a single session is not a per-session-action signal.
 
-**What still warrants action:** persistent firing across 3-of-5 sessions per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md) is the audit-time surface. Combined persistent firing with `engine_memory_boot_query_skipped` is signal that the project's engine-memory consumption discipline (boot-search + diary-read at session start) is structurally lapsing rather than per-session lapsing.
+**What still warrants action:** persistent firing across 3-of-5 sessions per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md) is the audit-time surface. Combined persistent firing with `engine_memory_boot_query_skipped` is signal that the project's engine-memory consumption discipline (boot-search + diary-read at session start) is structurally lapsing rather than per-session lapsing. **Boot-surface note (S-0196):** also annotated below for boot-surface suppression per [Issue #133](https://github.com/StarshipSuperjam/paideia/issues/133) — the per-boot recurrence saturated the alert lane; the cadence-fired audit retains the longer-window view.
 
 ## Persistent-warn annotation
 
@@ -447,6 +447,22 @@ The first three annotations land at the S-0077 audit (`docs/health-checks/S-0077
 **Resolution condition:** the Phase 6 self-correction backlog counter (per the Phase 5 closeout's "Forward pointers to Phase 6+" rigor-calibration deliverable) drains as Phase 6 routine sessions backfill `rigor_score_computed` against topology-bearing nodes. Does not require resolution to commit; structural per the architecture.md formula's expectation that topology data feeds the rigor score.
 
 **Why annotated rather than addressed:** addressing in Phase 5 was the wrong shape — the rigor score depends on neighborhood structure (inbound edges), and partial seeds during phase build-up genuinely cannot compute the score reliably. The Phase 5 closeout deferred the calibration to Phase 6 as a pre-decided architectural choice, not a slip.
+
+### `edge_evidence_empty` (annotated S-0196)
+
+**Expected when:** `SUPABASE_DB_URL` is set and the graph audit runs against the production seed. The category fires at high baseline against the existing ~71 NULL-evidence cross-bridges documented in the S-0122 production audit. Routine-mode work that does not author new cross-bridges does not reduce the baseline.
+
+**Resolution condition:** Phase 6 self-correction backfills the missing `evidence` payloads as part of the cross-bridge-fortification work plan (the same surface that drains `missing_rigor_score`). When the audit-documented cross-bridges acquire evidence rows, the per-session firing count drops to whatever new authoring introduces.
+
+**Why annotated rather than addressed:** the S-0146 introduction (per [Issue #62](https://github.com/StarshipSuperjam/paideia/issues/62) Proposal 1) shipped as deferred-re-audit pending ≥10 archives of post-introduction telemetry. The S-0184 cadence audit (≥10 archives accumulated) confirmed steady-state high baseline; Phase 6 backfill is the resolution surface and Phase 6 has not opened. Cross-reference: the deferred-re-audit entry below preserves the introduction context; this annotation is the boot-surface suppression hook landed via [Issue #133](https://github.com/StarshipSuperjam/paideia/issues/133) at S-0196.
+
+### `engine_memory_diary_read_skipped` (annotated S-0196)
+
+**Expected when:** any session whose boot procedure does not invoke `engine_memory_diary_read`. Per S-0098 the category is classified `informational-only-accepted` — fires by design when a session legitimately skips the diary read (short hot-fix sessions, mid-session resumption from a prior interactive context, audit-only sessions) and the audit-time signal lives in cross-session aggregation, not per-session correction.
+
+**Resolution condition:** does not require resolution to commit. The signal is consumed by the cadence-fired audit's review of structured archive data — a sustained gap between session count and diary-read count over N sessions is the actionable shape, not the per-session fire.
+
+**Why annotated rather than addressed:** the boot surface was burying genuinely-action-needed alerts under per-boot recurrence of this category through S-0184 → S-0196 (3-of-5 firings in every window). The annotation suppresses the boot surface so the cadence-fired audit (which consumes the same archive data with a longer window) remains the audit-time signal — preserves the design intent without saturating the alert lane. Cross-reference: the `informational-only-accepted` entry above preserves the per-fire interpretation; this annotation is the boot-surface suppression hook landed via [Issue #133](https://github.com/StarshipSuperjam/paideia/issues/133) at S-0196.
 
 ## Actively-tracked, deferred re-audit
 
@@ -486,9 +502,11 @@ Until re-audit, the categories carry their as-shipped semantics from their intro
 
 **Re-audit at S-0117**.
 
-### `edge_evidence_empty` (deferred re-audit; introduced S-0146)
+### `edge_evidence_empty` (deferred re-audit; introduced S-0146; promoted to Persistent-warn annotation S-0196)
 
-**Why deferred:** introduced at S-0146 per [Issue #62](https://github.com/StarshipSuperjam/paideia/issues/62) Proposal 1. Predicate runs only when `SUPABASE_DB_URL` is set; expected to fire at high baseline against the existing 71 cross-bridges (universally NULL evidence per the S-0122 audit). Audit-time backfill of pre-S-0146 cross-bridges is a deferred cleanup pass. Re-audit at the next cadence audit once at least 10 archives carry post-introduction telemetry, by which point either the backfill has landed (low-fire steady state) or the high-baseline informational role is confirmed (re-classify accordingly).
+**Why deferred:** introduced at S-0146 per [Issue #62](https://github.com/StarshipSuperjam/paideia/issues/62) Proposal 1. Predicate runs only when `SUPABASE_DB_URL` is set; expected to fire at high baseline against the existing 71 cross-bridges (universally NULL evidence per the S-0122 audit). Audit-time backfill of pre-S-0146 cross-bridges is a deferred cleanup pass.
+
+**Re-audit verdict (S-0184):** the cadence audit window (≥10 post-introduction archives) confirmed steady-state high baseline — Phase 6 backfill is the resolution surface and Phase 6 has not opened. The category was promoted to the Persistent-warn annotation section above at S-0196 per [Issue #133](https://github.com/StarshipSuperjam/paideia/issues/133) for boot-surface suppression; this deferred-re-audit entry is preserved as the introduction-context record.
 
 ### `top_level_discipline_label_as_prereq_source` (deferred re-audit; introduced S-0146)
 
