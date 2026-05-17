@@ -32,7 +32,7 @@ The engine collection has **45 ADRs total — all Accepted**. Engine ADRs are ab
 | [0016](0016-graph-construction-needs-live-validation.md) | Graph construction needs live validation | Accepted |
 | [0022](0022-periodic-project-health-checks.md) | Periodic project health checks | Accepted |
 | [0036](0036-expression-contract-for-inward-documents.md) | Expression contract for inward-facing documentation | Accepted |
-| [0037](0037-engine-product-wall-and-changelog-rename.md) | Engine / product wall; CHANGELOG.md renames to ENGINE_LOG.md | Accepted |
+| [0037](0037-engine-product-wall-and-changelog-rename.md) | Engine / product wall; CHANGELOG.md renames to ENGINE_LOG.md | Superseded in part by ADR 0092 (ENGINE_LOG-naming/structure clauses only; the engine/product wall partition remains Accepted) |
 | [0038](0038-expression-contract-for-ai-authored-code.md) | Expression contract for AI-authored code | Accepted |
 | [0039](0039-universal-expression-contract-across-ai-authoring-patterns.md) | Universal expression contract across AI authoring patterns | Accepted |
 | [0040](0040-build-readiness-gate-before-substantive-build-sessions.md) | Build-readiness gate before substantive build sessions | Accepted |
