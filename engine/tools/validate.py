@@ -1875,6 +1875,27 @@ def validate_sql_gates(files: list[Path]) -> ValidationResult:
 # service-role bypasses RLS so the audit observes ground truth.
 SUPABASE_DB_URL_ENV = "SUPABASE_DB_URL"
 
+# Path-aware graph-audit skip (Issue #142). Pre-commit invocations of
+# validate.py inherit SUPABASE_DB_URL from the walk-up loader (ADR 0049)
+# regardless of whether the staged change actually touches the graph.
+# When pgbouncer is paused or under load, psycopg.connect() can hang
+# inside psycopg.wait_c past the connect_timeout in ways the S-0186
+# fix did not cover (transaction-pool URL strips session-level
+# options=-c statement_timeout=...). The cheapest mitigation per the
+# Issue's three-direction analysis is to bypass connection entirely
+# when no staged path is graph-affecting. The set below is conservative:
+# the migrations directory (where seed authoring lives), the validator
+# itself (changes to audit logic warrant a re-run), and the migration
+# apply wrapper (changes to the apply path warrant a re-run). Manual
+# (non-pre-commit) invocations of validate.py are not affected — the
+# path-aware skip only fires when staged paths are inspectable and
+# none intersect this prefix set.
+GRAPH_AFFECTING_PATH_PREFIXES = (
+    "product/seed-graph/migrations/",
+    "engine/tools/validate.py",
+    "engine/tools/apply_migration.py",
+)
+
 # Canonical edge-type registry, parsed at audit time per ADR 0016 +
 # gate T2-G. Path is post-S-0024 partition (was supabase/migrations/).
 PREDICATE_MANIFEST_PATH = (
@@ -2682,6 +2703,46 @@ def _detect_prereq_direction_summary_inconsistency(
     return sorted(findings)
 
 
+def _staged_paths_affect_graph() -> bool | None:
+    """Return whether any staged path is graph-affecting (Issue #142).
+
+    Disposition tri-state:
+      * True  — at least one staged path matches
+        ``GRAPH_AFFECTING_PATH_PREFIXES`` (proceed with audit).
+      * False — staged paths exist and none are graph-affecting
+        (caller may safely skip the connection attempt entirely).
+      * None  — cannot determine (not in a git work tree, the git
+        invocation failed, or zero staged paths). Likely a manual
+        invocation of ``validate.py`` rather than the pre-commit
+        hook; caller proceeds with normal audit logic.
+
+    The 5-second subprocess timeout bounds the worst-case behaviour
+    if the git environment itself misbehaves. ``check=False`` keeps
+    a non-zero exit code (e.g., running outside a repo) from raising;
+    we treat it as "cannot determine" instead.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--name-only", "--cached"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (subprocess.SubprocessError, FileNotFoundError, OSError):
+        return None
+    if result.returncode != 0:
+        return None
+    staged = [line for line in result.stdout.splitlines() if line.strip()]
+    if not staged:
+        return None
+    for path in staged:
+        for prefix in GRAPH_AFFECTING_PATH_PREFIXES:
+            if path.startswith(prefix):
+                return True
+    return False
+
+
 def _write_snapshot(
     snapshot_path: Path,
     nodes: list[dict[str, Any]],
@@ -2773,6 +2834,24 @@ def validate_graph(
     if not conn_str:
         r.add_check("graph_audit_skipped")
         return r
+
+    # Path-aware skip per Issue #142: when running under the pre-commit
+    # hook and the staged change set doesn't touch the graph, bypass
+    # the connection attempt entirely. The S-0186 connect_timeout=10 +
+    # S-0187 wall-clock watchdog cap connection establishment, but the
+    # Supabase transaction-pool URL goes through pgbouncer which strips
+    # session-level options=-c statement_timeout=... silently — so
+    # psycopg.wait_c can hold past the cap under load. Skipping when
+    # the audit isn't warranted is the cheapest mitigation per the
+    # Issue's three-direction analysis. Manual invocations of
+    # validate.py (no staged paths) and explicit ``connection_string``
+    # overrides (test paths) are unaffected: the helper returns None
+    # when staged paths cannot be enumerated.
+    if connection_string is None:
+        staged_affects = _staged_paths_affect_graph()
+        if staged_affects is False:
+            r.add_check("graph_audit_skipped_no_staged_graph_paths")
+            return r
 
     try:
         nodes, edges = _read_graph_from_db(conn_str)

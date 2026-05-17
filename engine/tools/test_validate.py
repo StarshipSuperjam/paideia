@@ -1710,6 +1710,10 @@ class TestValidateGraphIntegration:
     ) -> None:
         monkeypatch.setenv("SUPABASE_DB_URL", "postgresql://stub")
         monkeypatch.setattr(validate, "_read_graph_from_db", lambda _: (nodes, edges))
+        # Pin the path-aware skip helper to "cannot determine" so the
+        # tests are independent of the developer's staged-paths state.
+        # The skip path is exercised separately in TestStagedPathsSkip.
+        monkeypatch.setattr(validate, "_staged_paths_affect_graph", lambda: None)
 
     def test_clean_graph_runs_all_categories(
         self, monkeypatch: pytest.MonkeyPatch
@@ -1783,6 +1787,139 @@ class TestValidateGraphIntegration:
         monkeypatch.setattr(validate, "_read_graph_from_db", boom)
         r = validate_graph()
         assert any("DB connection or query failed" in m for m in r.hard_fails)
+
+
+class TestStagedPathsAffectGraph:
+    """``_staged_paths_affect_graph``: tri-state helper for Issue #142."""
+
+    def _patch_git(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        *,
+        stdout: str = "",
+        returncode: int = 0,
+        raise_exc: Exception | None = None,
+    ) -> None:
+        def fake_run(*_args: Any, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+            if raise_exc is not None:
+                raise raise_exc
+            return subprocess.CompletedProcess(
+                args=["git", "diff", "--name-only", "--cached"],
+                returncode=returncode,
+                stdout=stdout,
+                stderr="",
+            )
+
+        monkeypatch.setattr("engine.tools.validate.subprocess.run", fake_run)
+
+    def test_no_staged_returns_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Empty staged-list means manual invocation; caller proceeds."""
+        self._patch_git(monkeypatch, stdout="")
+        assert validate._staged_paths_affect_graph() is None
+
+    def test_only_non_graph_staged_returns_false(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """All staged paths outside the prefix set → safe to skip."""
+        self._patch_git(
+            monkeypatch,
+            stdout="engine/operations/code-discipline.md\nproduct/docs/MISSION.md\n",
+        )
+        assert validate._staged_paths_affect_graph() is False
+
+    def test_migration_staged_returns_true(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A staged seed migration warrants the audit run."""
+        self._patch_git(
+            monkeypatch,
+            stdout="product/seed-graph/migrations/0099_seed_test.sql\n",
+        )
+        assert validate._staged_paths_affect_graph() is True
+
+    def test_validate_py_staged_returns_true(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A change to the validator itself warrants a re-run."""
+        self._patch_git(monkeypatch, stdout="engine/tools/validate.py\n")
+        assert validate._staged_paths_affect_graph() is True
+
+    def test_apply_migration_staged_returns_true(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A change to the migration apply wrapper warrants a re-run."""
+        self._patch_git(monkeypatch, stdout="engine/tools/apply_migration.py\n")
+        assert validate._staged_paths_affect_graph() is True
+
+    def test_mixed_staged_returns_true(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Mixed bag with one graph-affecting path → audit runs."""
+        self._patch_git(
+            monkeypatch,
+            stdout=(
+                "engine/operations/code-discipline.md\n"
+                "product/seed-graph/migrations/0099_seed_test.sql\n"
+                "product/docs/MISSION.md\n"
+            ),
+        )
+        assert validate._staged_paths_affect_graph() is True
+
+    def test_git_failure_returns_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A non-zero git exit is treated as 'cannot determine'."""
+        self._patch_git(monkeypatch, returncode=128)
+        assert validate._staged_paths_affect_graph() is None
+
+    def test_subprocess_exception_returns_none(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """File-not-found / timeout → 'cannot determine', caller proceeds."""
+        self._patch_git(monkeypatch, raise_exc=FileNotFoundError("git"))
+        assert validate._staged_paths_affect_graph() is None
+
+
+class TestStagedPathsSkip:
+    """``validate_graph`` short-circuits when staged paths don't affect graph."""
+
+    def test_skip_when_no_graph_paths_staged(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Non-graph stages with SUPABASE_DB_URL set still skip safely."""
+        monkeypatch.setenv("SUPABASE_DB_URL", "postgresql://stub")
+        monkeypatch.setattr(validate, "_staged_paths_affect_graph", lambda: False)
+
+        def boom(_: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+            raise AssertionError(
+                "_read_graph_from_db must not be called when the audit is "
+                "skipped via path-aware gating"
+            )
+
+        monkeypatch.setattr(validate, "_read_graph_from_db", boom)
+        r = validate_graph()
+        assert r.hard_fails == []
+        assert "graph_audit_skipped_no_staged_graph_paths" in r.checks_run
+        assert "graph_audit" not in r.checks_run
+
+    def test_no_skip_when_helper_returns_none(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Manual invocation (helper returns None) proceeds with the audit."""
+        monkeypatch.setenv("SUPABASE_DB_URL", "postgresql://stub")
+        monkeypatch.setattr(validate, "_staged_paths_affect_graph", lambda: None)
+        monkeypatch.setattr(validate, "_read_graph_from_db", lambda _: ([], []))
+        r = validate_graph()
+        assert "graph_audit" in r.checks_run
+        assert "graph_audit_skipped_no_staged_graph_paths" not in r.checks_run
+
+    def test_explicit_connection_string_bypasses_skip(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Tests with explicit conn-string never trigger the path-aware skip."""
+        monkeypatch.setattr(validate, "_read_graph_from_db", lambda _: ([], []))
+        # The helper would say "skip" but the explicit connection_string
+        # overrides — caller signaled intent to run.
+        monkeypatch.setattr(validate, "_staged_paths_affect_graph", lambda: False)
+        r = validate_graph(connection_string="postgresql://explicit")
+        assert "graph_audit" in r.checks_run
+        assert "graph_audit_skipped_no_staged_graph_paths" not in r.checks_run
 
 
 class TestValidateGraphSnapshot:
