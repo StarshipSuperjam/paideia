@@ -93,7 +93,7 @@ If the session is build-mode (interactive `/start-engine`), scope_lock does not 
 If the diff touches any file under `engine/adr/` or `product/adr/`, OR touches a function/migration explicitly named in an existing ADR (grep ADR corpus for the modified function names):
 
 - Verify an ADR was amended or authored in this same session (check the diff's commit messages for ADR file additions/modifications).
-- Verify the `engine/ENGINE_LOG.md` `[Unreleased]` section reflects the change.
+- Verify the session has authored a per-session changelog entry at `engine/changelog/<YYYY>/S-NNNN-*.md` (per [ADR 0092](../../engine/adr/0092-per-session-changelog-directory.md)) reflecting the change.
 - If either is missing, flag `ADR-citation gap` and set verdict to NO-GO.
 
 #### engine_memory decisions-room drawer check

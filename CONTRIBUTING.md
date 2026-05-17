@@ -11,7 +11,7 @@ Paideia is built primarily by AI sessions running under [Claude Code](https://cl
 - [`CLAUDE.md`](CLAUDE.md) — AI orientation; auto-loaded at every session start. The startup ceremony, three session modes (exploration / build / routine), standing rules, and budget guidance live here.
 - [`engine/operations/README.md`](engine/operations/README.md) — index of procedural docs. Read [`engine/operations/session-build-lifecycle.md`](engine/operations/session-build-lifecycle.md) and [`engine/operations/session-shutdown-sequence.md`](engine/operations/session-shutdown-sequence.md) for the build-session lifecycle.
 - [`engine/STATE.md`](engine/STATE.md) — current phase, next session's work item.
-- [`engine/ENGINE_LOG.md`](engine/ENGINE_LOG.md) — Keep-a-Changelog-format material-change log.
+- [`engine/changelog/`](engine/changelog/) — per-session changelog directory per [ADR 0092](engine/adr/0092-per-session-changelog-directory.md); one entry per material-change session. Aggregate views via `python3 engine/tools/changelog_aggregate.py`. Historical pre-S-0198 monolithic file preserved at [`engine/changelog/_history/ENGINE_LOG-pre-0.1.0.md`](engine/changelog/_history/ENGINE_LOG-pre-0.1.0.md).
 - [`engine/adr/README.md`](engine/adr/README.md) and [`product/adr/README.md`](product/adr/README.md) — the decisions that shape the project (engine-side vs. product-side per [ADR 0037](engine/adr/0037-engine-product-wall-and-changelog-rename.md)).
 
 ## Code style and gates

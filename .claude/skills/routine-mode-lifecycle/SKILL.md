@@ -155,7 +155,7 @@ The wrapper verifies the commit's subject matches a conventional-commits prefix 
 - `engine/session/auto_target.json` (status fields only)
 - `engine/session/archive/S-*.json`
 - `engine/session/register_state.json`
-- `engine/ENGINE_LOG.md`
+- `engine/changelog/<YYYY>/S-NNNN-*.md` (per ADR 0092)
 - `HANDOFF.md`
 
 **Discovered findings outside current task scope** → `gh issue create` per [ADR 0048](../../../engine/adr/0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md) issue-discipline. No tracked files touched. Continue with assigned task.
@@ -182,7 +182,7 @@ Same as `/start-engine` close per [`session-shutdown-sequence`](../session-shutd
 - **Audit pass** — `python3 engine/tools/validate.py --final-check` (the `--final-check` flag includes the engine_memory adoption checks per ADR 0091, S-0192).
 - **Spot-check.**
 - Update `engine/STATE.md` (next-session pointer + last-session line)
-- Update `engine/ENGINE_LOG.md` under `[Unreleased]`
+- Write a per-session changelog entry to `engine/changelog/<YYYY>/<S-NNNN>-<slug>.md` if the session produced material engine-change (per ADR 0092)
 - Fill `outcome_summary` in `current.json` (~50 words)
 - Archive `current.json` → `engine/session/archive/S-<NNNN>.json`
 - Final commit + main FF, then close push via the lifecycle wrapper (per ADR 0054):
