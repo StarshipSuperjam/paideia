@@ -10,6 +10,50 @@
 
 ---
 
+## S-0193 mempalace backup retention + residual prose disposition
+
+**Disposition:** deferred-with-user-confirmation
+
+**Authored:** 2026-05-17 (S-0193 close)
+
+**Pickup target:** any post-S-0193 session — informational; no immediate action required.
+
+### Mempalace data backup
+
+Mempalace palace tarballed at the start of S-0193 before any other action:
+
+- **Path:** `~/.mempalace-backup-S-0193-20260517T012057Z.tar.gz`
+- **Size:** 167MB compressed (320MB uncompressed)
+- **SHA-256:** `d6f23743adb0a238031be3f5a143088a353b57dab26b8c58cf472d54a9582e39`
+- **Entries:** 372
+- **Verification:** `tar tzf <path>` exits 0; entry count + SHA captured at create time.
+
+**Retention discipline.** Keep on disk until 5 sessions post-cutover (i.e., through S-0198 inclusive) confirm engine_memory recall is empirically satisfactory AND the user explicitly signals OK to delete. If a gap is later discovered (a load-bearing drawer missing from engine_memory that the migration extension didn't catch), recovery procedure is:
+
+1. Restore palace from backup: `tar -xzf ~/.mempalace-backup-S-0193-20260517T012057Z.tar.gz -C ~/.mempalace/`
+2. Temporarily reinstall the deleted deps: `uv add chromadb mempalace`
+3. Re-checkout `engine/memory/migrate_from_mempalace.py` (still on disk in the worktree per the plan — deletion deferred until backup-retention period expires).
+4. Run with `--db-path` pointing at the substrate; the source-agnostic lineage lookup makes the re-run idempotent against existing content.
+
+### Residual mempalace prose disposition
+
+Per the plan's stated fallback (allowed halt at sensible boundary when prose cleanup exceeds budget): the strict T1-E gate ("git grep -i mempalace zero matches outside ENGINE_LOG + 3 superseded ADRs") is **structurally met** (no live mempalace tooling; no live mempalace hooks; no live mempalace tool references in active surfaces; engine_memory is the sole memory substrate) but **prose-strict is not**.
+
+Residual mempalace references count at S-0193 close: ~87 across:
+- Non-superseded ADRs (~50) — predominantly bibliographic links to mempalace-named ADRs (`0056-mempalace-mechanical-adoption-checks.md`, `0079-hnsw-sync-threshold-tuning.md`). These are valid pointers to superseded-ADR bodies preserved per status-conventions.
+- Ops docs (~13 with 23+ in `tools-validate-interpretation.md`) — historical entries in audit-rubric tables describing retired soft-warns' fire-rate classifications, plus ADR cross-reference links.
+
+[Issue #140](https://github.com/StarshipSuperjam/paideia/issues/140) tracks the long-tail cleanup; it can be picked up as a session-sized item when convenient.
+
+### Cross-references
+
+- [`engine/adr/0091-engine-memory-substrate-sqlite-fts5.md`](engine/adr/0091-engine-memory-substrate-sqlite-fts5.md) — the substrate ADR.
+- [`engine/build_readiness/engine_memory_substrate_first_exercise.md`](engine/build_readiness/engine_memory_substrate_first_exercise.md) — T1-E closure entry.
+- [`engine/docs/audits/engine_memory_migration_S-0193.md`](engine/docs/audits/engine_memory_migration_S-0193.md) — migration extension audit.
+- [`engine/docs/audits/engine_memory_parity_S-0193.md`](engine/docs/audits/engine_memory_parity_S-0193.md) — HARD GATE PASS report.
+
+---
+
 ## PDG papers extraction — pre-phase deliberation plan ready for interactive pickup
 
 **Disposition:** deferred-with-user-confirmation
