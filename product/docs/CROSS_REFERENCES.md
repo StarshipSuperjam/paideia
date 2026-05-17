@@ -46,7 +46,7 @@ Operational artifacts that depend on each other. Changes propagate.
 - [`engine/STATE.md`](../../engine/STATE.md) (next-session work item) → consumed by `/start-engine` and [`engine/operations/session-build-lifecycle.md`](../../engine/operations/session-build-lifecycle.md).
 - [`engine/session/register_state.json`](../../engine/session/register_state.json) → consumed by `/start-engine`, [`engine/operations/session-build-lifecycle.md`](../../engine/operations/session-build-lifecycle.md), [`engine/operations/health-check.md`](../../engine/operations/health-check.md) (cadence trigger).
 - [`engine/tools/validate.py`](../../engine/tools/validate.py) → run by `engine/tools/hooks/pre-commit`; output interpretation in [`engine/operations/tools-validate-interpretation.md`](../../engine/operations/tools-validate-interpretation.md).
-- [`.claude/settings.json`](../../.claude/settings.json) → defines stop / precompact hooks per [`engine/operations/mempalace-operations.md`](../../engine/operations/mempalace-operations.md).
+- [`.claude/settings.json`](../../.claude/settings.json) → defines stop / precompact hooks per [`engine/operations/engine-memory-operations.md`](../../engine/operations/engine-memory-operations.md) (post-S-0193 successor to the retired `mempalace-operations.md` per ADR 0091).
 
 ## Phase-boundary checks
 
