@@ -147,6 +147,15 @@
             "command": "engine/tools/hooks/post-mempalace-tool-use.sh"
           }
         ]
+      },
+      {
+        "matcher": "mcp__engine_memory__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "engine/tools/hooks/post-engine-memory-tool-use.sh"
+          }
+        ]
       }
     ]
   }

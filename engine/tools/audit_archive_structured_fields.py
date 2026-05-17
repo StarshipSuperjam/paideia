@@ -140,6 +140,12 @@ REQUIRED_ARCHIVE_FIELDS: list[dict[str, Any]] = [
         "adr": "ADR 0056 (S-0078)",
     },
     {
+        "field": "engine_memory_activity",
+        "since_session": "S-0192",
+        "shape": "dict",
+        "adr": "ADR 0091 (S-0192)",
+    },
+    {
         "field": "next_session_handle",
         "since_session": "S-0100",
         "shape": "str_or_null",

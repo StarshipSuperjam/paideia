@@ -3764,31 +3764,50 @@ def validate_mempalace_adoption() -> ValidationResult:
 
 
 def validate_engine_memory_adoption() -> ValidationResult:
-    """Closed-loop boot-search-effectiveness check for the engine-memory substrate.
+    """Adoption checks for the engine-memory substrate per ADR 0091.
 
-    Per ADR 0091 cutover window: this is the sibling of
-    :func:`validate_mempalace_adoption`'s
-    ``mempalace_zero_citations_after_search`` soft-warn. Both fire during
-    the cutover (S-0190 → S-0193). Reads ``current.json``'s
-    ``engine_memory_activity`` field (populated by the
-    ``scan_engine_memory_activity.py`` tool wired at S-0192/S-0193 per
-    the parent plan).
+    Sibling of :func:`validate_mempalace_adoption` covering the
+    six-tool engine_memory MCP surface (ADR 0091 Decision 5). Reads
+    ``current.json``'s ``engine_memory_activity`` field (populated by
+    ``scan_engine_memory_activity.py`` at shutdown step 2 per ADR 0091).
 
-    Soft-warn fires when ``search_calls > 0`` AND
-    ``engine_memory_citations.total == 0`` — the session ran the boot
-    search but no drawer IDs / session refs / tag-named refs appear in
-    outcome_summary, diary, or commit messages. Same logic as the
-    mempalace_ predecessor; signals the new substrate's retrieval is
-    happening but not surfacing into authored work.
+    Categories:
 
-    **Graceful no-op until S-0192:** if ``engine_memory_activity`` is
-    absent (which it will be through S-0191 — no scan tool yet), the
-    check skips silently. Same defensive pattern as
-    :func:`validate_mempalace_adoption` uses for missing
-    ``mempalace_activity``. The structured-archive audit
-    (``audit_archive_structured_fields.py``) does NOT require this
-    field until the field is added to ``REQUIRED_ARCHIVE_FIELDS`` (a
-    separate change landing alongside the scan tool).
+    - ``engine_memory_boot_query_skipped`` (soft-warn) — no
+      ``engine_memory_search`` call recorded.
+    - ``engine_memory_diary_read_skipped`` (soft-warn) — no
+      ``engine_memory_diary_read`` call recorded.
+    - ``engine_memory_diary_write_skipped`` (HARD-FAIL, **engine mode
+      only**) — no ``engine_memory_diary_write`` call AND no
+      acknowledgement token ``engine_memory_unavailable_acknowledged:
+      <reason>`` in ``outcome_summary``. Routine sessions emit
+      ``engine_memory_diary_write_skipped_routine`` (soft-warn)
+      instead — the user directive against routine-line halts on
+      memory-substrate availability (per the mempalace S-0091
+      precedent) carries to the new substrate.
+    - ``engine_memory_diary_write_acknowledged_skip`` (soft-warn) —
+      token present; hard-fail downgraded. Persistent skips fire the
+      3-of-5 escalation per ADR 0042.
+    - ``engine_memory_zero_citations_after_search`` (soft-warn) —
+      ``search_calls > 0`` AND ``engine_memory_citations.total == 0``
+      (closed-loop boot-search-effectiveness check; mirrors the
+      mempalace predecessor introduced at S-0093 per Issue #39).
+
+    No substrate-availability probe — engine_memory is a local SQLite
+    file with no MCP-server-side intermittency to detect (the
+    mempalace ``substrate_at_close`` / ``substrate_intermittent``
+    categories don't apply). The escape-hatch token surface still
+    exists for legitimate edge cases (early-exit sessions with
+    nothing meaningful to reflect on, filesystem-broken recovery).
+
+    **Graceful no-op when ``engine_memory_activity`` is absent.** The
+    field is the responsibility of ``scan_engine_memory_activity.py``;
+    if it hasn't run (default-mode exploration session, or
+    pre-shutdown commit), the validator skips silently. The
+    structured-archive audit
+    (``audit_archive_structured_fields.py``) hard-fails missing field
+    at closing-commit time (since S-0192 per the
+    ``REQUIRED_ARCHIVE_FIELDS`` row).
 
     Default-mode (exploration, non-build) sessions are exempt: when
     ``current.json`` is absent, the function returns a clean
@@ -3810,12 +3829,81 @@ def validate_engine_memory_adoption() -> ValidationResult:
 
     activity = current.get("engine_memory_activity")
     if not isinstance(activity, dict):
-        # Field absent through S-0191 (no scan tool yet); same gentle
-        # skip as mempalace_activity. Re-engages once the scan tool
-        # populates it.
         return r
 
     search_calls = int(activity.get("search_calls", 0))
+    diary_read_calls = int(activity.get("diary_read_calls", 0))
+    diary_write_calls = int(activity.get("diary_write_calls", 0))
+
+    if search_calls == 0:
+        r.soft_warn(
+            "engine_memory_boot_query_skipped",
+            "No engine_memory_search call recorded during this session. "
+            "The boot-time engine-memory query (CLAUDE.md startup ceremony "
+            "step 3 / session-build-lifecycle step 3 / "
+            "routine-mode-lifecycle step 5.5) did not run, or its "
+            "telemetry was not captured.",
+        )
+
+    if diary_read_calls == 0:
+        r.soft_warn(
+            "engine_memory_diary_read_skipped",
+            "No engine_memory_diary_read call recorded during this "
+            "session. The boot-time diary read "
+            "(session-build-lifecycle step 3b / routine-mode-lifecycle "
+            "step 5.6) did not run.",
+        )
+
+    mode_raw = current.get("mode")
+    mode = mode_raw if isinstance(mode_raw, str) else "interactive"
+
+    if diary_write_calls == 0:
+        outcome_summary = current.get("outcome_summary") or ""
+        if not isinstance(outcome_summary, str):
+            outcome_summary = ""
+        token_present = "engine_memory_unavailable_acknowledged:" in outcome_summary
+
+        if token_present:
+            r.soft_warn(
+                "engine_memory_diary_write_acknowledged_skip",
+                "⚠️  DIARY WRITE SKIPPED — DO NOT BURY THIS\n"
+                "No engine_memory_diary_write call recorded; "
+                "'engine_memory_unavailable_acknowledged:' token in "
+                "outcome_summary. Hard-fail downgraded to soft-warn "
+                "(token is honestly valid). Persistent acknowledged-"
+                "skips fire the 3-of-5 escalation per ADR 0042. The "
+                "single-session use is itself investigation-worthy: "
+                "engine_memory is a local SQLite file with no MCP-"
+                "server-side intermittency — substrate unavailability "
+                "implies a filesystem issue or a deliberate early-exit "
+                "session with nothing meaningful to reflect on. Address "
+                "before the next session boot.",
+            )
+        elif mode == "routine":
+            r.soft_warn(
+                "engine_memory_diary_write_skipped_routine",
+                "⚠️  ROUTINE DIARY DEFERRED — DO NOT BURY THIS\n"
+                "No engine_memory_diary_write call recorded; no "
+                "'engine_memory_unavailable_acknowledged:' token in "
+                "outcome_summary. Routine mode does not hard-fail on "
+                "memory-substrate availability (per the S-0091 mempalace "
+                "precedent carried to engine_memory). Run "
+                "engine_memory_diary_write at the next interactive "
+                "session to capture the missing reflection.",
+            )
+        else:
+            r.hard_fail(
+                "engine_memory_diary_write_skipped: no "
+                "engine_memory_diary_write call recorded during this "
+                "engine session, and no "
+                "'engine_memory_unavailable_acknowledged: <reason>' token "
+                "in outcome_summary. Per ADR 0091: engine sessions must "
+                "write a diary entry at close (the only first-person "
+                "reflection layer). Either invoke engine_memory_diary_write "
+                "now, or write the token + a one-line reason into "
+                "outcome_summary and re-run validate.py --final-check."
+            )
+
     citations_raw = activity.get("engine_memory_citations")
     citations: dict[str, Any] = citations_raw if isinstance(citations_raw, dict) else {}
     citations_total = int(citations.get("total", 0))
