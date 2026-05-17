@@ -31,7 +31,10 @@ def make_full_payload(
     """Build a payload that satisfies every applicable required field.
 
     Tests use this as a default and override specific fields to test
-    individual failure modes.
+    individual failure modes. Includes the archive-only `closed_at` and
+    `status` fields (S-0194) so the payload is valid in both in-flight
+    and archive-input modes — the mode_scope filter skips them on
+    in-flight reads anyway.
     """
     payload: dict[str, object] = {
         "id": session_id,
@@ -49,6 +52,11 @@ def make_full_payload(
             "first_call_ts": None,
             "last_call_ts": None,
         },
+        "closed_at": "2026-05-17T00:00:00Z",
+        "status": "closed",
+        # next_session_handle required since S-0100; explicit-null is the
+        # load-bearing "no defer" semantic per ADR 0049 Decision 6.
+        "next_session_handle": None,
     }
     payload.update(overrides)
     return payload
@@ -73,6 +81,25 @@ def test_required_fields_are_well_formed() -> None:
         assert "adr" in row
         assert parse_session_id(row["since_session"]) is not None
         assert row["shape"] in ("dict", "str", "int", "list", "str_or_null")
+        # mode_scope is optional; when present, must be one of the two
+        # canonical values (S-0194).
+        mode_scope = row.get("mode_scope")
+        if mode_scope is not None:
+            assert mode_scope in ("all", "archive_only")
+
+
+def test_closed_at_and_status_rows_are_archive_only() -> None:
+    """S-0194: closed_at + status are archive-only (in-flight current.json
+    has them null/in_progress and must not hard-fail on it)."""
+    closed_at_row = next(
+        r for r in REQUIRED_ARCHIVE_FIELDS if r["field"] == "closed_at"
+    )
+    status_row = next(r for r in REQUIRED_ARCHIVE_FIELDS if r["field"] == "status")
+    assert closed_at_row.get("mode_scope") == "archive_only"
+    assert status_row.get("mode_scope") == "archive_only"
+    assert closed_at_row["shape"] == "str"
+    assert status_row["shape"] == "str"
+    assert status_row["allowed_values"] == ["closed", "closed_partial"]
 
 
 def test_allowed_values_rows_are_well_formed() -> None:
@@ -298,6 +325,7 @@ def test_next_session_handle_field_absent_hard_fails_at_s0100(
 ) -> None:
     """Missing `next_session_handle` on S-0100+ archive — Issue #54 closure."""
     payload = make_full_payload(session_id="S-0100")
+    del payload["next_session_handle"]
     p = write_current(tmp_path, payload)
     rc = main(["--current-path", str(p), "--repo-root", str(tmp_path)])
     assert rc == 2
@@ -554,3 +582,151 @@ def test_archive_history_no_archive_dir(tmp_path: Path) -> None:
     """Archive-history mode tolerates a missing archive directory."""
     out = archive_history_report(tmp_path / "no-such-dir")
     assert "no archive directory" in out
+
+
+# ----- S-0194: closed_at + status archive-only enforcement --------------------
+
+
+def test_inflight_currentjson_does_not_require_closed_at_or_status(
+    tmp_path: Path,
+) -> None:
+    """In-flight current.json has status='in_progress' and no closed_at;
+    the archive_only mode_scope filter must skip both fields so the
+    in-flight audit passes. Empirically: a session that has just eager-
+    claimed writes current.json with status='in_progress' and the audit
+    is invoked at validate.py --final-check time (NOT --from-stdin); it
+    must not hard-fail on the fields that step 13 fills."""
+    payload: dict[str, object] = {
+        "id": "S-0194",
+        "started_at": "2026-05-17T04:41:02Z",
+        "status": "in_progress",
+        "mode": "interactive",
+        "outcome_summary_soft_warns": {},
+        "engine_memory_activity": {
+            "search_calls": 0,
+            "diary_read_calls": 0,
+            "diary_write_calls": 0,
+            "add_drawer_calls": 0,
+            "get_drawer_calls": 0,
+            "list_drawers_calls": 0,
+            "other_calls": 0,
+            "total_calls": 0,
+            "first_call_ts": None,
+            "last_call_ts": None,
+        },
+        "next_session_handle": None,
+        # NB: no closed_at, status is in_progress — both forbidden in
+        # archive_only mode, both fine in in-flight mode.
+    }
+    p = write_current(tmp_path, payload)
+    rc = main(["--current-path", str(p), "--repo-root", str(tmp_path)])
+    assert rc == 0
+
+
+def test_from_stdin_hard_fails_when_closed_at_absent(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Pre-commit hook on closing commit pipes the staged archive JSON
+    via --from-stdin. If closed_at is absent for an S-0194-or-later
+    archive, the audit hard-fails — defends going forward against the
+    empirical S-0187 / S-0191 lapse class."""
+    import io
+
+    payload_dict = make_full_payload(session_id="S-0194")
+    del payload_dict["closed_at"]
+    payload = json.dumps(payload_dict)
+    monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
+    rc = main(["--from-stdin", "--repo-root", str(tmp_path)])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "HARD-FAIL" in err
+    assert "closed_at" in err
+    assert "missing" in err.lower()
+
+
+def test_from_stdin_hard_fails_when_status_is_in_progress(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Pre-commit hook on closing commit refuses status='in_progress' on
+    an S-0194-or-later archived JSON — defends against the empirical
+    S-0185 / S-0190 lapse class."""
+    import io
+
+    payload = json.dumps(make_full_payload(session_id="S-0194", status="in_progress"))
+    monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
+    rc = main(["--from-stdin", "--repo-root", str(tmp_path)])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "HARD-FAIL" in err
+    assert "status" in err
+    assert "allowed value set" in err
+
+
+def test_from_stdin_passes_with_closed_partial(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`closed_partial` is the budget-cap-reached close shape; passes."""
+    import io
+
+    payload = json.dumps(
+        make_full_payload(session_id="S-0194", status="closed_partial")
+    )
+    monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
+    rc = main(["--from-stdin", "--repo-root", str(tmp_path)])
+    assert rc == 0
+
+
+def test_archive_history_reports_missing_closed_at(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Archive-history mode surfaces an S-0194+ archive missing closed_at."""
+    archive_dir = tmp_path / "engine" / "session" / "archive"
+    archive_dir.mkdir(parents=True)
+    payload = make_full_payload(session_id="S-0194")
+    del payload["closed_at"]
+    archive_dir.joinpath("S-0194.json").write_text(json.dumps(payload))
+
+    rc = main(["--archive-history", "--repo-root", str(tmp_path)])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "S-0194.json" in out
+    assert "closed_at" in out
+    assert "missing" in out.lower()
+
+
+def test_archive_history_reports_status_in_progress(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Archive-history mode surfaces an S-0194+ archive with
+    status='in_progress'."""
+    archive_dir = tmp_path / "engine" / "session" / "archive"
+    archive_dir.mkdir(parents=True)
+    payload = make_full_payload(session_id="S-0194", status="in_progress")
+    archive_dir.joinpath("S-0194.json").write_text(json.dumps(payload))
+
+    rc = main(["--archive-history", "--repo-root", str(tmp_path)])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "S-0194.json" in out
+    assert "status" in out
+    assert "allowed value set" in out
+
+
+def test_archive_history_does_not_surface_pre_s0194_closed_at_gaps(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """closed_at + status are only enforced from S-0194 onward. A
+    pre-S-0194 archive missing closed_at must NOT generate a finding —
+    avoids 51 historical noise findings against archives that predate
+    the empirical enforcement."""
+    archive_dir = tmp_path / "engine" / "session" / "archive"
+    archive_dir.mkdir(parents=True)
+    payload = make_full_payload(session_id="S-0150")
+    del payload["closed_at"]
+    archive_dir.joinpath("S-0150.json").write_text(json.dumps(payload))
+
+    rc = main(["--archive-history", "--repo-root", str(tmp_path)])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "S-0150.json" not in out  # no finding generated for this archive
+    assert "no findings" in out

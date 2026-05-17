@@ -17,6 +17,7 @@ Added by        Field                                  Field-absence emerged at 
 ADR 0042        ``outcome_summary_soft_warns``         S-0057 archive                 S-0065
 ADR 0051        ``mode``                               S-0065 + S-0069 archives       S-0077
 ADR 0091        ``engine_memory_activity``             (none — declared at S-0192)    n/a
+shutdown step 13 ``closed_at`` + ``status``            S-0185/0187/0190/0191          S-0194
 ==============  =====================================  =============================  ============
 
 The S-0078 closure parameterizes the audit to a declarative
@@ -111,8 +112,15 @@ EMPTY_DICT_COMMIT_THRESHOLD = 3
 # session vintage from which it became required, the expected JSON shape,
 # and the ADR that introduced it. An optional `allowed_values` key (a list)
 # constrains a string field to a canonical vocabulary — a value outside the
-# set hard-fails, the same as a shape mismatch. Add a row when a new
-# structured-field ADR lands — do NOT change the audit logic itself.
+# set hard-fails, the same as a shape mismatch. An optional `mode_scope`
+# key controls when the check applies: "all" (default — checked against
+# both in-flight current.json and archived JSON) or "archive_only"
+# (checked only when the input represents an archived close, i.e., the
+# --from-stdin path used by the pre-commit hook OR the --archive-history
+# walk). The archive_only scope exists for fields whose load-bearing
+# values are only written at shutdown step 13 (closed_at, status) and
+# whose in-flight value is intentionally null/in_progress. Add a row when
+# a new structured-field ADR lands — do NOT change the audit logic itself.
 REQUIRED_ARCHIVE_FIELDS: list[dict[str, Any]] = [
     {
         "field": "outcome_summary_soft_warns",
@@ -144,6 +152,32 @@ REQUIRED_ARCHIVE_FIELDS: list[dict[str, Any]] = [
         "since_session": "S-0100",
         "shape": "str_or_null",
         "adr": "ADR 0049 Decision 6 (S-0100 amendment)",
+    },
+    # S-0194 (this session): close the empirical closure-failure pattern
+    # observed across S-0184 → S-0193 (4 of 10 archives carried wrong
+    # status or missing closed_at after the close commit landed). Step 13
+    # of session-shutdown-sequence.md instructs the AI to add closed_at
+    # and flip status to closed at archive time, but the audit was never
+    # extended to enforce. mode_scope="archive_only" so the in-flight
+    # current.json (status="in_progress", closed_at absent) continues to
+    # pass while the post-step-13 archive (or staged-archive piped through
+    # --from-stdin on the closing commit) gets enforced.
+    {
+        "field": "closed_at",
+        "since_session": "S-0194",
+        "shape": "str",
+        "adr": "session-shutdown-sequence.md step 13 (always required; "
+        "enforced post-empirically at S-0194)",
+        "mode_scope": "archive_only",
+    },
+    {
+        "field": "status",
+        "since_session": "S-0194",
+        "shape": "str",
+        "adr": "session-shutdown-sequence.md step 13 (always required; "
+        "enforced post-empirically at S-0194)",
+        "allowed_values": ["closed", "closed_partial"],
+        "mode_scope": "archive_only",
     },
 ]
 
@@ -193,14 +227,33 @@ def shape_check(value: Any, expected: str) -> str | None:
     return None
 
 
-def applicable_fields(session_id_int: int | None) -> list[dict[str, Any]]:
-    """Return REQUIRED_ARCHIVE_FIELDS rows applicable to a session id."""
+def applicable_fields(
+    session_id_int: int | None, is_archive_input: bool = False
+) -> list[dict[str, Any]]:
+    """Return REQUIRED_ARCHIVE_FIELDS rows applicable to a session id.
+
+    ``is_archive_input`` controls the ``mode_scope`` filter (S-0194):
+    rows declared with ``mode_scope="archive_only"`` are skipped when the
+    input represents an in-flight ``current.json`` (the default call from
+    shutdown-time validate.py audits) and applied when the input
+    represents an archived close (the ``--from-stdin`` pre-commit hook
+    path and the ``--archive-history`` walk).
+    """
     if session_id_int is None:
-        # Session id unparseable — defensively check every field. The check
-        # itself will hard-fail if the session lacks any of them.
+        # Session id unparseable — defensively check every field
+        # unconditionally (bypass both mode_scope and vintage filters).
+        # The check itself will hard-fail if the session lacks any. This
+        # matches the pre-S-0194 semantic: when we can't classify the
+        # input, audit everything.
         return list(REQUIRED_ARCHIVE_FIELDS)
     out: list[dict[str, Any]] = []
     for row in REQUIRED_ARCHIVE_FIELDS:
+        # Mode-scope filter — fields scoped to archive-only are skipped
+        # on in-flight current.json reads. archive_only kicks in when
+        # called via --from-stdin (closing-commit pre-commit hook) or
+        # --archive-history (per-archive walk).
+        if row.get("mode_scope") == "archive_only" and not is_archive_input:
+            continue
         since = parse_session_id(row.get("since_session"))
         if since is not None and session_id_int >= since:
             out.append(row)
@@ -229,17 +282,23 @@ def session_commit_count(repo: Path) -> int | None:
 
 
 def audit_one(
-    data: dict[str, Any], source_label: str, repo: Path | None
+    data: dict[str, Any],
+    source_label: str,
+    repo: Path | None,
+    is_archive_input: bool = False,
 ) -> tuple[int, list[str]]:
     """Audit a single session payload. Returns (exit_code, advisory_lines).
 
     Hard-fail messages are printed to stderr inside this function.
     Advisory lines are returned for the caller to print (stderr) — they
     do not affect the exit code.
+
+    ``is_archive_input`` is passed through to ``applicable_fields`` to
+    control the ``mode_scope="archive_only"`` filter (S-0194).
     """
     session_id_str = data.get("id") if isinstance(data.get("id"), str) else None
     session_id_int = parse_session_id(session_id_str)
-    fields = applicable_fields(session_id_int)
+    fields = applicable_fields(session_id_int, is_archive_input=is_archive_input)
     advisories: list[str] = []
     failures: list[str] = []
 
@@ -347,7 +406,7 @@ def archive_history_report(archive_dir: Path) -> str:
         if session_id_int is None:
             session_id_int = parse_session_id(archive.stem)
 
-        for row in applicable_fields(session_id_int):
+        for row in applicable_fields(session_id_int, is_archive_input=True):
             field = row["field"]
             expected = row["shape"]
             since = row.get("since_session", "?")
@@ -479,12 +538,25 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 2
 
-    rc, advisories = audit_one(data, source_label, repo)
+    # --from-stdin is the pre-commit hook's closing-commit path; it pipes
+    # the staged archive JSON. Default path reads in-flight current.json.
+    # Per S-0194: mode_scope="archive_only" rows (closed_at, status)
+    # apply on the former and skip on the latter.
+    is_archive_input = bool(args.from_stdin)
+
+    rc, advisories = audit_one(
+        data, source_label, repo, is_archive_input=is_archive_input
+    )
     for advisory in advisories:
         print(f"[audit-archive-structured-fields] {advisory}", file=sys.stderr)
 
     if rc == 0:
-        n_fields = len(applicable_fields(parse_session_id(data.get("id"))))
+        n_fields = len(
+            applicable_fields(
+                parse_session_id(data.get("id")),
+                is_archive_input=is_archive_input,
+            )
+        )
         print(
             f"[audit-archive-structured-fields] PASS: {n_fields} "
             f"required field{'s' if n_fields != 1 else ''} present "
