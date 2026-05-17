@@ -14,7 +14,7 @@ At the end of every build session — once substantive work is at a commitable c
 
 ### 1. Write session diary entry
 
-Per [`engine-memory-operations.md`](engine-memory-operations.md). The engine_memory diary carries the AI's first-person reflection on the session — distinct from `outcome_summary` (outcome-focused) and ENGINE_LOG (third-person artifact narrative). What surprised me, what I noticed but didn't act on, what feels load-bearing for the next session, where my judgment was uncertain.
+Per [`engine-memory-operations.md`](engine-memory-operations.md). The engine_memory diary carries the AI's first-person reflection on the session — distinct from `outcome_summary` (outcome-focused) and the per-session changelog entry (third-person artifact narrative). What surprised me, what I noticed but didn't act on, what feels load-bearing for the next session, where my judgment was uncertain.
 
 Build sessions only. Default-mode (exploration) sessions skip — no slot, no formal close.
 
@@ -92,35 +92,48 @@ Edit the `## Current` table:
 
 - **Last build session** → `S-<this session's id> (<date>) — <one-line summary>`.
 - **Last commit on main** → leave the placeholder pointing at `git log --oneline -1 main`; the next session reads it live.
-- **Trim policy (size guard)**: delete every row labeled "Prior build session" or "Prior-prior build session" from the table — keep only the new "Last build session" row. These rows duplicate ENGINE_LOG.md; accumulating them without a drop bound caused STATE.md to exceed the MCP tool read limit at S-0069. If STATE.md still exceeds ~20,000 tokens after the row drop, also collapse the "Current phase" cell to the current-state summary form: `Phase N — <description> (in progress/closed; S-XXXX → present). N/M tasks complete. K ADRs — J Accepted + L Superseded — A engine + B product. Full session history in ENGINE_LOG.md.`
+- **Trim policy (size guard)**: delete every row labeled "Prior build session" or "Prior-prior build session" from the table — keep only the new "Last build session" row. These rows duplicate per-session changelog entries; accumulating them without a drop bound caused STATE.md to exceed the MCP tool read limit at S-0069. If STATE.md still exceeds ~20,000 tokens after the row drop, also collapse the "Current phase" cell to the current-state summary form: `Phase N — <description> (in progress/closed; S-XXXX → present). N/M tasks complete. K ADRs — J Accepted + L Superseded — A engine + B product. Full session history in engine/changelog/ + engine/session/archive/.`
 
 Edit the `## Next session work item` block:
 
 - Replace with the next session's scope. Be concrete: what files get authored, what files get retired, what success looks like. The next session reads this cold; it should be sufficient.
 - If this session uncovered new work that should sit before what was previously next, surface it here and update `ROADMAP.md` if the change crosses a phase boundary.
 
-### 7. Update `ENGINE_LOG.md`
+### 7. Write per-session changelog entry (only on material change)
 
-`ENGINE_LOG.md` is the dated-narrative layer for material engine changes — the renamed `CHANGELOG.md` per [ADR 0037](../adr/0037-engine-product-wall-and-changelog-rename.md). The `CHANGELOG.md` filename is reserved for future learner-visible product release content (first entry at Phase 9); session shutdowns write here.
+Per [ADR 0092](../adr/0092-per-session-changelog-directory.md). If the session produced material engine-change content, write a per-session entry to `engine/changelog/<YYYY>/<S-NNNN>-<slug>.md`. The 12 enumerated `material_change_class` values in [`engine/schemas/changelog-entry.schema.json`](../schemas/changelog-entry.schema.json): `adr` / `policy` / `check` / `audit` / `operation` / `tool` / `skill` / `module` / `schema` / `infrastructure` / `docs` / `mixed`.
 
-Under `[Unreleased]`, add entries by category (Added / Changed / Removed / Deprecated / Fixed / Security). Material-change criteria — log it if it meets *any* of these:
+YAML frontmatter required (validated by `engine/tools/validate.py`'s `check_changelog_entries`):
+
+- `session_id` (`S-NNNN`)
+- `session_type` (`build` / `routine` / `exploration`)
+- `closed_at` (ISO 8601 UTC; route through `engine.tools.timestamps.emit()` per ADR 0058)
+- `material_change_class` (one of the 12 above)
+- `module` (the module surface most affected; `multi` if cross-module)
+- `summary` (optional; max 200 chars)
+
+Body bounded to 50 lines soft / 70 lines hard (validator categories `changelog_entry_soft_cap` / `changelog_entry_hard_cap`). The cap forces summary-plus-pointers shape; the structured archive at `engine/session/archive/S-NNNN.json` carries the canonical session record.
+
+Material-change criteria — write an entry if the session produced any of:
 
 - New top-level file or directory.
 - New or removed ADR.
-- New or removed entry in `docs/`.
+- New or removed entry in `engine/operations/` or `product/docs/`.
 - Breaking change to a schema, predicate, or commitment.
-- New session-protocol behavior (hooks, commands, register fields).
-- New or changed ENGINE_LOG-tracked design commitment.
+- New session-protocol behavior (hooks, commands, register fields, skills).
+- Substantive infrastructure work (new tool, new check, new module).
+- New or removed migration under `product/seed-graph/migrations/`.
 
 Skip these — not material:
 
-- In-session commit messages on application code (Phase 9+; tracked in git only).
 - Typo fixes, formatting cleanups, link repairs.
 - Minor wording revisions inside an existing doc.
+- Test-only changes that exercise existing surface.
+- In-session commit messages on application code (Phase 9+; tracked in git only).
 
-For SQL migrations: log the session-level filenames as authored (e.g., `0001_users.sql`, `0002_nodes.sql`). Supabase migration version tracking is separate and automatic — `supabase db push` records its own deployment-version metadata in the dev DB. The two are orthogonal; ENGINE_LOG records what the session wrote, Supabase records what got applied where.
+**When in doubt, no entry is better than an empty one.** The structured archive still closes; the changelog is the categorical narrative view over material engine changes only.
 
-At the next release tag (e.g., `0.1.0` at Phase 0 close), the `[Unreleased]` block gets promoted to a dated section.
+Aggregator: `python3 engine/tools/changelog_aggregate.py` synthesizes Keep-a-Changelog `[Unreleased]` views from entries since the latest engine-side release tag. Release tags follow the `engine-v<N.N.N>` convention (first: `engine-v0.1.0` at S-0198 close).
 
 ### 8. Side-discovery audit
 
@@ -237,7 +250,6 @@ Shape:
   "adr_missing_status": 0,
   "adr_index_inconsistent": 0,
   "cross_reference_broken": 0,
-  "engine_log_format": 0,
   "state_format": 0,
   "superseded_adr_currency": 0,
   "adr_back_reference_orphan": 2,
@@ -341,9 +353,9 @@ Design docs in `docs/` (not the operations procedures, the project-content docs:
 - **Idea surfaces but isn't ready for a file** → file a GitHub Issue with the `enhancement` label per [ADR 0048](../adr/0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md). (Pre-S-0083 the project captured these in `product/docs/ideation.md`; that file retired at S-0083 per Issue #29 once the function had structurally migrated to Issues.)
 - **Deprecated files** → absorption + delete pattern. (a) Absorb the reasoning into the right downstream artifact (an ADR for structural decisions; a doc revision for content; an engine_memory `decisions`-room drawer for the conversational story). (b) `git rm` the original. Recovery is via git tag (e.g., `pre-foundation-v0.0.0`) or `git show <commit>:<path>`. Update any references in `docs/CROSS_REFERENCES.md` and consuming docs in the same commit. *Escape hatch:* if a retired structural artifact (a schema, graph snapshot, migration export) would benefit from in-tree side-by-side comparison with a current artifact — and that need is referenced from a current ADR or doc — file it as `_archive/<descriptive-slug>/MANIFEST.md` + the artifact (one-off, not the default). The S-0003 retirement of `design-reasoning.md` and the S-0002 retirement of `CONTEXT.md` are absorption + delete examples; neither was archived because the reasoning was fully redistributed.
 - **Dead ends** → don't record. Design docs are forward-looking; engine_memory `exploration` drawers carry the dead-end reasoning if anyone ever needs it.
-- **Note dates only where the date is the artifact's content.** An ENGINE_LOG entry's date, a Resolved-tension marker's `Resolved: YYYY-MM-DD`, an ADR's `Date:` header field — these are the artifact doing its job. Inside body prose of governed files (per [`document-voice.md`](document-voice.md)), revision dates and session-attribution markers like `**Added: YYYY-MM-DD (S-NNNN)**` migrate to ENGINE_LOG and git history; the body describes present state, not the path the file took to it.
+- **Note dates only where the date is the artifact's content.** A changelog entry's `closed_at` frontmatter date, a Resolved-tension marker's `Resolved: YYYY-MM-DD`, an ADR's `Date:` header field — these are the artifact doing its job. Inside body prose of governed files (per [`document-voice.md`](document-voice.md)), revision dates and session-attribution markers like `**Added: YYYY-MM-DD (S-NNNN)**` migrate to engine/changelog/ entries and git history; the body describes present state, not the path the file took to it.
 
-These updates each generate an ENGINE_LOG entry per the material-change criteria above.
+These updates each generate a per-session changelog entry per the material-change criteria above.
 
 ## Partial closure (budget cap reached)
 
@@ -363,7 +375,7 @@ A clean close runs steps 1–14 in sequence. If the session crashes, hits a netw
 
 ### Pre-recovery sanity check (verify the prior close did not already land)
 
-**Before invoking any recovery scenario below, verify the prior close did not already land upstream.** A fresh worktree opened immediately after a prior session closed cleanly may show post-eager-claim state (current.json present, register status in_progress, STATE.md pre-close) because the worktree's checked-out files reflect a commit that pre-dates the close — not because the close was halted. Running recovery on a stale checkout produces real corruption from a phantom problem (re-archiving an already-archived current.json, re-editing STATE.md atop the close narrative, duplicate ENGINE_LOG entries). The discovery surface that prompted this check was the post-S-0033 stale-checkout boundary case (HANDOFF.md, retroactively dispositioned at S-0041).
+**Before invoking any recovery scenario below, verify the prior close did not already land upstream.** A fresh worktree opened immediately after a prior session closed cleanly may show post-eager-claim state (current.json present, register status in_progress, STATE.md pre-close) because the worktree's checked-out files reflect a commit that pre-dates the close — not because the close was halted. Running recovery on a stale checkout produces real corruption from a phantom problem (re-archiving an already-archived current.json, re-editing STATE.md atop the close narrative, duplicate changelog entries). The discovery surface that prompted this check was the post-S-0033 stale-checkout boundary case (HANDOFF.md, retroactively dispositioned at S-0041).
 
 Run:
 
@@ -379,7 +391,7 @@ Concrete trigger condition for the stale-checkout shape: `register_state.json`'s
 
 ### Recovery scenarios
 
-1. **Halted before step 13 (archive).** `current.json` present; `register_state.json` `current_status: in_progress`. Resume from step 1 — write the diary entry, run the activity rollup, run `tools/validate.py`, complete the spot-check, run the cold-review pass for any modified Python under engine/ and any modified SQL under product/seed-graph/migrations/, finish updating STATE.md / ENGINE_LOG, run the side-discovery audit, fill `outcome_summary`, then archive and final-commit.
+1. **Halted before step 13 (archive).** `current.json` present; `register_state.json` `current_status: in_progress`. Resume from step 1 — write the diary entry, run the activity rollup, run `tools/validate.py`, complete the spot-check, run the cold-review pass for any modified Python under engine/ and any modified SQL under product/seed-graph/migrations/, finish updating STATE.md / write the changelog entry per step 7, run the side-discovery audit, fill `outcome_summary`, then archive and final-commit.
 
 2. **Halted between archive (step 13) and final commit (step 14).** `archive/S-<NNNN>.json` present, `current.json` absent, `register_state.json` `current_status: closed`. The archive move sits unstaged or staged in the working tree. Stage and commit the planned final commit; FF main; push.
 

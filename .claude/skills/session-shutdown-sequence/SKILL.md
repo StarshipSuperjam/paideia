@@ -1,6 +1,6 @@
 ---
 name: session-shutdown-sequence
-description: Close a Paideia build session — write the session diary, audit, spot-check, cold-context review pass for modified Python and SQL, update STATE.md and ENGINE_LOG.md, fill outcome_summary plus structured outcome_summary_soft_warns, archive current.json, final commit + FF + push. Invoke when substantive work has reached a commitable checkpoint and the session is ready to close.
+description: Close a Paideia build session — write the session diary, audit, spot-check, cold-context review pass for modified Python and SQL, update STATE.md and write a per-session changelog entry under engine/changelog/<YYYY>/ when material engine change occurred, fill outcome_summary plus structured outcome_summary_soft_warns, archive current.json, final commit + FF + push. Invoke when substantive work has reached a commitable checkpoint and the session is ready to close.
 disable-model-invocation: true
 ---
 
@@ -18,7 +18,7 @@ At the end of every build session — once substantive work is at a commitable c
 
 ### 1. Write session diary entry
 
-Per [`engine-memory-operations.md`](../../../engine/operations/engine-memory-operations.md). The engine_memory diary carries the AI's first-person reflection on the session — distinct from `outcome_summary` (outcome-focused) and ENGINE_LOG (third-person artifact narrative). What surprised me, what I noticed but didn't act on, what feels load-bearing for the next session, where my judgment was uncertain.
+Per [`engine-memory-operations.md`](../../../engine/operations/engine-memory-operations.md). The engine_memory diary carries the AI's first-person reflection on the session — distinct from `outcome_summary` (outcome-focused) and the per-session changelog entry (third-person artifact narrative). What surprised me, what I noticed but didn't act on, what feels load-bearing for the next session, where my judgment was uncertain.
 
 Build sessions only. Default-mode (exploration) sessions skip — no slot, no formal close.
 
@@ -104,26 +104,41 @@ Edit the `## Next session work item` block:
 
 The `post-state-edit.sh` hook (per [ADR 0043](../../../engine/adr/0043-hook-architecture.md)) will surface a stderr reminder if either the "Last build session" row or the "Next session work item" block is empty or placeholder. The reminder is informational; the AI may proceed if the apparent emptiness is intentional (rare).
 
-### 7. Update `engine/ENGINE_LOG.md`
+### 7. Write per-session changelog entry (only on material change)
 
-`ENGINE_LOG.md` is the dated-narrative layer for material engine changes — the renamed `CHANGELOG.md` per [ADR 0037](../../../engine/adr/0037-engine-product-wall-and-changelog-rename.md). The `CHANGELOG.md` filename is reserved for future learner-visible product release content (first entry at Phase 9).
+Per [ADR 0092](../../../engine/adr/0092-per-session-changelog-directory.md). If the session produced material engine-change content, write a per-session entry to `engine/changelog/<YYYY>/<S-NNNN>-<slug>.md`. The 12 enumerated `material_change_class` values in [`engine/schemas/changelog-entry.schema.json`](../../../engine/schemas/changelog-entry.schema.json): `adr` / `policy` / `check` / `audit` / `operation` / `tool` / `skill` / `module` / `schema` / `infrastructure` / `docs` / `mixed`.
 
-Under `[Unreleased]`, add entries by category (Added / Changed / Removed / Deprecated / Fixed / Security). Material-change criteria — log it if it meets *any* of these:
+YAML frontmatter required (validated by `engine/tools/validate.py`'s `check_changelog_entries`):
+
+- `session_id` (`S-NNNN`)
+- `session_type` (`build` / `routine` / `exploration`)
+- `closed_at` (ISO 8601 UTC; route through `engine.tools.timestamps.emit()` per ADR 0058)
+- `material_change_class` (one of the 12 above)
+- `module` (the module surface most affected; `multi` if cross-module)
+- `summary` (optional; max 200 chars)
+
+Body bounded to 50 lines soft / 70 lines hard (validator categories `changelog_entry_soft_cap` / `changelog_entry_hard_cap`). The cap forces summary-plus-pointers shape; the structured archive at `engine/session/archive/S-NNNN.json` carries the canonical session record.
+
+Material-change criteria — write an entry if the session produced any of:
 
 - New top-level file or directory.
 - New or removed ADR.
 - New or removed entry in `engine/operations/` or `product/docs/`.
 - Breaking change to a schema, predicate, or commitment.
 - New session-protocol behavior (hooks, commands, register fields, skills).
-- New or changed ENGINE_LOG-tracked design commitment.
+- Substantive infrastructure work (new tool, new check, new module).
+- New or removed migration under `product/seed-graph/migrations/`.
 
 Skip these — not material:
 
-- In-session commit messages on application code (Phase 9+; tracked in git only).
 - Typo fixes, formatting cleanups, link repairs.
 - Minor wording revisions inside an existing doc.
+- Test-only changes that exercise existing surface.
+- In-session commit messages on application code (Phase 9+; tracked in git only).
 
-For SQL migrations: log the session-level filenames as authored. Supabase migration version tracking is separate and automatic.
+**When in doubt, no entry is better than an empty one.** The structured archive still closes; the changelog is the categorical narrative view over material engine changes only.
+
+Aggregator: `python3 engine/tools/changelog_aggregate.py` synthesizes Keep-a-Changelog `[Unreleased]` views from entries since the latest engine-side release tag. Release tags follow the `engine-v<N.N.N>` convention (first: `engine-v0.1.0` at S-0198 close).
 
 ### 8. Side-discovery audit
 
@@ -219,7 +234,6 @@ The prompt is asked at every shutdown — same discipline as step 9. Judgment-al
   "adr_missing_status": 0,
   "adr_index_inconsistent": 0,
   "cross_reference_broken": 0,
-  "engine_log_format": 0,
   "state_format": 0,
   "superseded_adr_currency": 0,
   "adr_back_reference_orphan": 2,
@@ -306,9 +320,9 @@ Design docs in `product/docs/` (`architecture.md`, `pedagogy.md`, `tensions.md`,
 - **Idea surfaces but isn't ready for a file** → file a GitHub Issue with the `enhancement` label per [ADR 0048](../../../engine/adr/0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md). (Pre-S-0083 captured in `product/docs/ideation.md`; retired at S-0083 per Issue #29.)
 - **Deprecated files** → absorption + delete pattern. Absorb reasoning into the right downstream artifact, then `git rm` the original. Recovery via git tags or `git show <commit>:<path>`. Update references in cross-reference maps in the same commit.
 - **Dead ends** → don't record. Design docs are forward-looking; engine_memory `exploration` drawers carry dead-end reasoning if anyone needs it.
-- **Note dates only where the date is the artifact's content.** ENGINE_LOG entry dates, Resolved-tension markers, ADR Date headers — these are the artifact doing its job. Inside body prose, revision dates and session-attribution markers migrate to ENGINE_LOG and git history.
+- **Note dates only where the date is the artifact's content.** Per-session changelog entry `closed_at` dates, Resolved-tension markers, ADR Date headers — these are the artifact doing its job. Inside body prose, revision dates and session-attribution markers migrate to engine/changelog/ entries and git history.
 
-These updates each generate an ENGINE_LOG entry per the material-change criteria above.
+These updates each generate a per-session changelog entry per the material-change criteria above.
 
 ## Partial closure (budget cap reached)
 
