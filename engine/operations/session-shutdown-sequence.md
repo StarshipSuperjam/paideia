@@ -282,32 +282,19 @@ The block feeds `validate.py --final-check`'s `engine_memory_zero_citations_afte
 
 ### 13. Archive the claim
 
+Run the deterministic step-13 mutation tool ([`engine/tools/archive_session.py`](../tools/archive_session.py), per S-0194):
+
 ```bash
-mv session/current.json session/archive/S-<NNNN>.json
+python3 engine/tools/archive_session.py
+# or for a budget-cap-reached close:
+python3 engine/tools/archive_session.py --partial
 ```
 
-Add a `closed_at` timestamp and update `status` to `closed` (or `closed_partial` if you hit a budget cap mid-work):
+The tool performs all four mutations atomically: writes `engine/session/archive/S-<NNNN>.json` with `closed_at` (canonical UTC via [`engine/tools/timestamps.py`](../tools/timestamps.py)) and `status` set to `closed` (or `closed_partial` with `--partial`); flips `engine/session/register_state.json` `current_status` to `closed`; deletes `engine/session/current.json`. Idempotent rerun is safe. Exit codes 0 (success or idempotent no-op) / 2 (verification refused — manual adjudication needed) / 3 (filesystem error) follow the wrapper-tool convention shared with [`build_lifecycle_push.py`](../tools/build_lifecycle_push.py), [`routine_lifecycle_push.py`](../tools/routine_lifecycle_push.py), [`apply_migration.py`](../tools/apply_migration.py).
 
-```json
-{
-  "id": "S-<NNNN>",
-  "started_at": "...",
-  "closed_at": "<ISO-8601 UTC>",
-  "status": "closed",
-  ...
-  "outcome_summary": "..."
-}
-```
+The tool's existence closes the empirical S-0185 / S-0187 / S-0190 / S-0191 lapse class: pre-S-0194 step 13 was a manual `mv` + JSON edit + JSON edit, and 4 of the last 10 sessions closed with archive JSONs missing one or both of the manually-edited fields. The new audit defense at [`engine/tools/audit_archive_structured_fields.py`](../tools/audit_archive_structured_fields.py) (REQUIRED_ARCHIVE_FIELDS, S-0194 extension) hard-fails the closing pre-commit hook if `closed_at` or `status` is absent or malformed on the staged archive; the tool ensures both are written correctly so the audit always passes by construction.
 
-Update `session/register_state.json`:
-
-```json
-{
-  "next_id": "<unchanged from claim>",
-  "last_claimed": "S-<NNNN>",
-  "current_status": "closed"
-}
-```
+**Do not edit the archive JSON or register_state.json by hand at this step.** Manual edits are the failure mode this tool exists to eliminate. If the tool refuses with exit 2, read the stderr reason, fix the underlying state issue (a malformed in-flight `current.json`, a pre-existing archive at the destination, a register-state mismatch), and rerun.
 
 ### 14. Final commit + main FF + push
 

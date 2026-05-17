@@ -249,32 +249,19 @@ The block feeds `validate.py --final-check`'s `engine_memory_zero_citations_afte
 
 ### 13. Archive the claim
 
+Run the deterministic step-13 mutation tool ([`engine/tools/archive_session.py`](../../../engine/tools/archive_session.py), per S-0194):
+
 ```bash
-git mv engine/session/current.json engine/session/archive/S-<NNNN>.json
+python3 engine/tools/archive_session.py
+# or for a budget-cap-reached close:
+python3 engine/tools/archive_session.py --partial
 ```
 
-Edit the archived file to add a `closed_at` timestamp and update `status` to `closed` (or `closed_partial` if the session hit a budget cap mid-work):
+The tool atomically writes `engine/session/archive/S-<NNNN>.json` with `closed_at` (canonical UTC via [`engine/tools/timestamps.py`](../../../engine/tools/timestamps.py)) and `status` set to `closed` (or `closed_partial`); flips `engine/session/register_state.json` `current_status` to `closed`; deletes `engine/session/current.json`. Idempotent. Exit codes 0 (success or idempotent no-op) / 2 (verification refused — manual adjudication needed) / 3 (filesystem error) per the wrapper-tool convention.
 
-```json
-{
-  "id": "S-<NNNN>",
-  "started_at": "...",
-  "closed_at": "<ISO-8601 UTC>",
-  "status": "closed",
-  "outcome_summary": "...",
-  "outcome_summary_soft_warns": { ... }
-}
-```
+The closing pre-commit hook runs [`audit_archive_structured_fields.py`](../../../engine/tools/audit_archive_structured_fields.py) `--from-stdin` against the staged archive and hard-fails if `closed_at` is absent or `status` is anything other than `closed`/`closed_partial` (S-0194 extension). The tool ensures both fields are written correctly so the audit always passes by construction.
 
-Update `engine/session/register_state.json`:
-
-```json
-{
-  "next_id": "<unchanged from claim>",
-  "last_claimed": "S-<NNNN>",
-  "current_status": "closed"
-}
-```
+**Do not edit the archive JSON or register_state.json by hand at this step** — manual JSON editing was the empirical failure mode (S-0185 / S-0187 / S-0190 / S-0191 closed with malformed archives) the tool exists to eliminate. If the tool refuses with exit 2, read the stderr reason, fix the underlying state issue, and rerun.
 
 ### 14. Final commit + main FF + push
 
