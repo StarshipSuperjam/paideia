@@ -64,6 +64,72 @@ def test_extract_keywords_handles_kebab_and_snake() -> None:
     assert "and" not in keywords  # also a stopword
 
 
+def test_extract_keywords_drops_s0195_infra_stopwords() -> None:
+    """S-0195 stopword expansion (Issue #141) locks the no-regression contract.
+
+    The T3-C noisy-warn gate fired with 10+ collisions/session across
+    S-0184–S-0193 dominated by generic infrastructure terms appearing in
+    every commit message. The expanded set must drop these terms while
+    preserving substantive identifiers (snake_case symbols, kebab-case
+    names, domain terms) that distinguish meaningful collisions.
+
+    Note on tokenization: the keyword regex (``_WORD_RE`` =
+    ``[A-Za-z][A-Za-z0-9_-]+``) splits on slashes and dots, so file
+    paths like ``engine/tools/validate.py`` decompose into ``engine``,
+    ``tools``, ``validate``, ``py`` — the stopworded infra terms drop
+    out and ``validate`` survives as the substantive match anchor.
+    """
+    sample = (
+        "touch engine_log status step against archive close "
+        "github issues each claude work pass amendment consequences "
+        "with audit operations update tools docs commit extend "
+        "verify verification call file landing rewrite tuning since "
+        "either follow-up plus requires"
+    )
+    keywords = extract_keywords(sample)
+    # Newly-added infra stopwords (Issue #141 set) — must drop.
+    for stop in (
+        "touch",
+        "status",
+        "step",
+        "against",
+        "archive",
+        "close",
+        "github",
+        "issues",
+        "each",
+        "claude",
+        "work",
+        "pass",
+        "amendment",
+        "consequences",
+        "audit",
+        "operations",
+        "update",
+        "tools",
+        "docs",
+        "commit",
+        "extend",
+        "verify",
+        "verification",
+        "call",
+        "file",
+        "landing",
+        "rewrite",
+        "tuning",
+        "since",
+        "either",
+        "follow-up",
+        "plus",
+        "requires",
+    ):
+        assert stop not in keywords, f"{stop!r} should be stopworded"
+    # Substantive snake_case identifier survives as a single keyword.
+    assert "engine_log" in keywords
+    # Pre-S-0195 stopword still in effect.
+    assert "phase" not in extract_keywords("phase 5 epistemology")
+
+
 # ---------------------------------------------------------------------------
 # read_declared_scope
 # ---------------------------------------------------------------------------

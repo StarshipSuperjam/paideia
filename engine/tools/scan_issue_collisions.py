@@ -46,9 +46,14 @@ CLI
 Out of scope
 ------------
 - No issue creation, editing, or closing.
-- Stopword list is intentionally minimal — the false-positive surface is
-  acceptable (AI/user reviews each warn). Tuning deferred to first
-  noisy-warn surfacing per gate report T3-C.
+- Stopword list expanded at S-0195 per Issue #141 after the T3-C
+  noisy-warn gate fired (10+ collision warns in 10 consecutive sessions
+  S-0184 through S-0193). The set below adds Paideia-specific
+  infrastructure terms that pervade every session's commit messages
+  ("engine", "operations", "tools", "session", "commit", "audit", ...)
+  without being load-bearing match anchors. Confidence-tier split (the
+  shape-A complement) waits on Issue #133 landing the general
+  persistent-warn bucket framework.
 - No matching against Issues in closed state.
 """
 
@@ -71,10 +76,19 @@ from scrub_env import scrubbed_env  # noqa: E402
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CURRENT_JSON = "engine/session/current.json"
 
-# Minimal stopword list. Intentionally small; tuning deferred to first
-# false-positive surfacing per gate report T3-C.
+# Stopword list. Two strata:
+#   * Generic English function words (small core unchanged since
+#     authoring).
+#   * Paideia-infrastructure terms added at S-0195 per Issue #141.
+#     The T3-C noisy-warn gate fired with 10+ collisions/session across
+#     S-0184–S-0193 dominated by generic infra words that appear in
+#     every commit message ("engine", "operations", "tools", ...).
+#     These words are not load-bearing match anchors — a collision
+#     surfaces meaningfully only when a substantive identifier (file
+#     path, named symbol, domain term) overlaps with an Issue body.
 _STOPWORDS = frozenset(
     {
+        # Generic English function words
         "a",
         "an",
         "and",
@@ -103,9 +117,55 @@ _STOPWORDS = frozenset(
         "were",
         "will",
         "with",
+        # Pre-S-0195 Paideia anchors
         "phase",
         "session",
         "scope",
+        # S-0195 expansion per Issue #141 — words named in the Issue
+        # body that pervade every session's commit-message scope.
+        "tool",
+        "tools",
+        "docs",
+        "commit",
+        "audit",
+        "engine",
+        "operations",
+        "close",
+        "closing",
+        "add",
+        "update",
+        "extend",
+        "file",
+        "call",
+        "verify",
+        "verification",
+        "status",
+        "step",
+        "against",
+        "archive",
+        # S-0195 expansion — additional infra terms observed in the
+        # S-0193/S-0194/S-0195 collision-warn surfaces that match the
+        # same "generic infrastructure" shape (high frequency, no
+        # discriminating power in a collision context).
+        "github",
+        "issues",
+        "each",
+        "claude",
+        "work",
+        "pass",
+        "state",
+        "json",
+        "since",
+        "either",
+        "follow-up",
+        "rewrite",
+        "tuning",
+        "touch",
+        "landing",
+        "plus",
+        "requires",
+        "consequences",
+        "amendment",
     }
 )
 
