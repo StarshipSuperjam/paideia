@@ -44,19 +44,19 @@ Suppress categories carrying an annotation in `engine/operations/tools-validate-
 
 The calibration window per `soft-warn-lifecycle.md` is in effect until 5 structured-field archives accumulate (≈ S-0033). During the window, surface defers.
 
-### 3. Query MemPalace
+### 3. Query engine_memory
 
-Use the MemPalace MCP tool `mempalace_search` with terms derived from `engine/STATE.md`'s next-session work item. Surface anything the user previously named that's relevant. Skip if MemPalace is not yet initialized (early sessions before S-0002).
+Use the `engine_memory_search` MCP tool with terms derived from `engine/STATE.md`'s next-session work item. Surface anything previously recorded that's relevant. (Pre-S-0192 sessions used `mempalace_search` per ADR 0056; ADR 0091 supersedes that contract.)
 
-**Mechanically backstopped by `mempalace_boot_query_skipped` soft-warn (per ADR 0056, S-0078).** The PostToolUse hook at `engine/tools/hooks/post-mempalace-tool-use.sh` records the call to `engine/session/current_mempalace.jsonl`; `validate.py --final-check` at shutdown emits the soft-warn if no `mempalace_search` call landed during the session.
+**Mechanically backstopped by `engine_memory_boot_query_skipped` soft-warn (per ADR 0091, S-0192).** The PostToolUse hook at `engine/tools/hooks/post-engine-memory-tool-use.sh` records the call to `engine/session/current_engine_memory.jsonl`; `validate.py --final-check` at shutdown emits the soft-warn if no `engine_memory_search` call landed during the session.
 
-**Boot-search orchestrator (per ADR 0056 S-0093 amendment, Issue #38).** Run `python3 engine/tools/mempalace_boot_search.py` at this step. The orchestrator runs three formulations of the work-item phrase (literal / conceptual / adjacent) through `mempalace.mcp_server.tool_search` with `min_similarity=0.6`, filters returned drawers, and writes an idempotent `## Prior context (MemPalace boot search)` section into `engine/session/current_plan.md`. JSONL telemetry shim writes one entry per formulation to `current_mempalace.jsonl` so `search_calls` increments correctly. Read the output section before authoring the session plan; cite drawers that bear on the work in plan rationale or commit messages so the closed-loop `mempalace_zero_citations_after_search` audit at shutdown stays clean.
+**Boot-search orchestrator (per ADR 0091, S-0192).** Run `python3 -m engine.memory.boot_surface` at this step. The orchestrator runs three formulations of the work-item phrase (literal / conceptual / adjacent) through FTS5 + BM25 + recency + tag-class-boost retrieval, deduplicates and ranks, and writes an idempotent `## Prior context (engine memory)` section into `engine/session/current_plan.md`. One `query_log` row is written per formulation. Read the output section before authoring the session plan; cite drawers that bear on the work in plan rationale or commit messages so the closed-loop `engine_memory_zero_citations_after_search` audit at shutdown stays clean.
 
 ### 3b. Read recent diary entries
 
-Per [`mempalace-operations.md`](../../../engine/operations/mempalace-operations.md) "Project usage scope" (diary adopted at S-0032). Call `mempalace_diary_read agent_name="claude" last_n=3` to see the previous three sessions' first-person AI reflections — what surprised the prior AI, what they noticed but deferred, what felt load-bearing for this session, where their judgment was uncertain. Surface anything that bears on the work about to be claimed; skip silently when the diary is empty (early adoption window).
+Per [`engine-memory-operations.md`](../../../engine/operations/engine-memory-operations.md). Call `engine_memory_diary_read agent_name="claude" last_n=3` to see the previous three sessions' first-person AI reflections — what surprised the prior AI, what they noticed but deferred, what felt load-bearing for this session, where their judgment was uncertain. Surface anything that bears on the work about to be claimed; skip silently when the diary is empty.
 
-**Mechanically backstopped by `mempalace_diary_read_skipped` soft-warn (per ADR 0056, S-0078).**
+**Mechanically backstopped by `engine_memory_diary_read_skipped` soft-warn (per ADR 0091, S-0192).**
 
 ### 4. Read referenced docs
 
@@ -76,6 +76,16 @@ If the report is **absent** for a session work item that requires one, convert t
 If the report is **present but contains unresolved Tier 1 items**, halt and escalate to the user — the gate session did not finish its job. Do not attempt to resolve Tier 1 in-flight; the build session's mode is auto-by-default for routine judgment, not for foundational decisions.
 
 Operational sessions (health checks, ENGINE_LOG-only edits, retrievability cleanups, gate sessions themselves) skip this step.
+
+### 5b. Concurrent-session collision check
+
+Per [Issue #3](https://github.com/StarshipSuperjam/paideia/issues/3) / S-0048. Run [`engine/tools/check_session_conflict.py`](../../../engine/tools/check_session_conflict.py). The tool inspects `engine/session/register_state.json` and `engine/session/current.json` and disposes:
+
+- **Exit 0** (no conflict): `current_status` is `closed` (or absent), or `current.json` is absent. Proceed to step 6.
+- **Exit 1** (recent collision or ambiguous mid-window): a session is in flight (`current_status: in_progress`, `started_at` < 24h). Do NOT claim a new slot — the eager-claim would overwrite the rival's `current.json` and corrupt its archive. Surface the tool's stderr to the user and refuse: name the rival session ID, name the cooperation procedure (pause the routine via `auto_target.json` `paused: true`, or wait for the rival to close), and exit the boot procedure cleanly.
+- **Exit 2** (stale): an `in_progress` session has been open for >24h with no close. Almost certainly a dead session. Offer auto-recovery to the user: edit `register_state.json` to set `current_status: 'closed'`, archive the stale `current.json` to `engine/session/archive/<rival_id>.json` with `status: closed_partial`, then re-run the boot procedure.
+
+The [`session-start.sh`](../../../engine/tools/hooks/session-start.sh) hook surfaces the same finding from the harness side but never blocks — this skill step is the actual refusal point.
 
 ### 6. Eager-claim ritual
 
@@ -182,17 +192,17 @@ ln -s ../../engine/tools/hooks/pre-commit pre-commit
 
 Verify: `head -3 .git/hooks/pre-commit` resolves and prints the bash shebang plus the Paideia hook header.
 
-### MemPalace capture-hook failure log
+### engine_memory capture-hook failure log
 
-The `Stop` and `PreCompact` hooks invoke [`engine/tools/hooks/mempalace-hook-wrapper.sh`](../../../engine/tools/hooks/mempalace-hook-wrapper.sh), which always exits 0 to the harness and routes capture failures to `.claude/logs/mempalace-hook.log` (gitignored per-clone state).
+The `Stop` and `PreCompact` hooks invoke [`engine/tools/hooks/engine-memory-capture.sh`](../../../engine/tools/hooks/engine-memory-capture.sh), which always exits 0 to the harness and routes capture failures (python missing, substrate write failed) to `.claude/logs/engine-memory-hook.log` (gitignored per-clone state).
 
-At session boot, after reading STATE.md and before the MemPalace context query, check the log:
+At session boot, after reading STATE.md and before the engine_memory context query, check the log:
 
 ```bash
-test -s .claude/logs/mempalace-hook.log && cat .claude/logs/mempalace-hook.log
+test -s .claude/logs/engine-memory-hook.log && cat .claude/logs/engine-memory-hook.log
 ```
 
-If non-empty, surface contents to the user — capture may have failed silently in earlier sessions. Acknowledged entries can be cleared by truncating the file (`: > .claude/logs/mempalace-hook.log`).
+If non-empty, surface contents to the user — capture may have failed silently in earlier sessions. Acknowledged entries can be cleared by truncating the file (`: > .claude/logs/engine-memory-hook.log`).
 
 ## Closing the session
 

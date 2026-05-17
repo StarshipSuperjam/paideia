@@ -90,10 +90,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "engine/tools/hooks/mempalace-hook-wrapper.sh --hook stop --harness claude-code"
-          },
-          {
-            "type": "command",
             "command": "engine/tools/hooks/engine-memory-capture.sh stop"
           }
         ]
@@ -103,10 +99,6 @@
       {
         "matcher": "",
         "hooks": [
-          {
-            "type": "command",
-            "command": "engine/tools/hooks/mempalace-hook-wrapper.sh --hook precompact --harness claude-code"
-          },
           {
             "type": "command",
             "command": "engine/tools/hooks/engine-memory-capture.sh precompact"

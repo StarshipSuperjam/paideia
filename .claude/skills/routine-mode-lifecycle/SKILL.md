@@ -61,19 +61,19 @@ Count routine-mode session archives matching the active `target_id` in `engine/s
 
 Walk tasks in order. Pick the first whose `status == pending` AND every task id in `depends_on` has `status == complete`. None found (all remaining `blocked` or unsatisfied dependencies) → write HANDOFF "no eligible task in `<target_id>`" → exit 0 without claiming.
 
-### 5.5. MemPalace boot query (per ADR 0056, S-0078; orchestrated S-0093)
+### 5.5. engine_memory boot query (per ADR 0091, S-0192)
 
-Run `python3 engine/tools/mempalace_boot_search.py` at this step. The orchestrator resolves the work-item phrase from `auto_target.json`'s active task `name`, runs three formulations (literal / conceptual / adjacent) through `mempalace.mcp_server.tool_search` with `min_similarity=0.6`, filters returned drawers, writes an idempotent `## Prior context (MemPalace boot search)` section into `engine/session/current_plan.md`, and appends one JSONL telemetry line per formulation to `current_mempalace.jsonl` so `search_calls` increments correctly. Substrate-unreachable paths emit a "MemPalace substrate unreachable at boot" notice and skip the telemetry shim.
+Run `python3 -m engine.memory.boot_surface` at this step. The orchestrator resolves the work-item phrase from `auto_target.json`'s active task `name`, runs three formulations (literal / conceptual / adjacent) through FTS5 + BM25 + recency + tag-class-boost retrieval against `engine/.memory/engine_memory.sqlite3`, deduplicates and ranks, writes an idempotent `## Prior context (engine memory)` section into `engine/session/current_plan.md`, and writes one `query_log` row per formulation.
 
-The plan body authored at step 6 should reference drawers from the orchestrator's section that bear on the task. Citations in plan rationale or commit messages satisfy the closed-loop `mempalace_zero_citations_after_search` audit at shutdown.
+The plan body authored at step 6 should reference drawers from the orchestrator's section that bear on the task. Citations in plan rationale or commit messages satisfy the closed-loop `engine_memory_zero_citations_after_search` audit at shutdown.
 
-**Mechanically backstopped by `mempalace_boot_query_skipped` soft-warn.** `validate.py --final-check` at shutdown step 3 emits the soft-warn if no `mempalace_search` call landed (orchestrator + AI-driven combined).
+**Mechanically backstopped by `engine_memory_boot_query_skipped` soft-warn.** `validate.py --final-check` at shutdown step 3 emits the soft-warn if no `engine_memory_search` call landed (orchestrator + AI-driven combined).
 
-### 5.6. MemPalace diary read (per ADR 0056, S-0078)
+### 5.6. engine_memory diary read (per ADR 0091, S-0192)
 
-Call `mempalace_diary_read agent_name="claude" last_n=3`. Surface anything bearing on the picked task in the plan rationale.
+Call `engine_memory_diary_read agent_name="claude" last_n=3`. Surface anything bearing on the picked task in the plan rationale.
 
-**Mechanically backstopped by `mempalace_diary_read_skipped` soft-warn.**
+**Mechanically backstopped by `engine_memory_diary_read_skipped` soft-warn.**
 
 ### 6. Plan authoring
 
@@ -173,13 +173,13 @@ After the work commits clean: re-run task criteria via `python3 engine/tools/che
 
 ### 11. Run the standard shutdown sequence
 
-Same as `/start-engine` close per [`session-shutdown-sequence`](../session-shutdown-sequence/SKILL.md). The full enumeration (Issue #27 root-cause fix at S-0078 — the prior subset-enumeration silently dropped the diary write and pushback/lesson capture asks across 12 of 16 Phase 5 routine sessions). **Ordering per Issue #126 (S-0163): the diary write + pushback/lesson capture + activity rollup all precede the audit pass — pre-S-0163 the audit ran first and fired a false `mempalace_diary_write_skipped_routine` plus a false `diary_pending_index.json` entry because the diary genuinely had not been written yet.**
+Same as `/start-engine` close per [`session-shutdown-sequence`](../session-shutdown-sequence/SKILL.md). The full enumeration (Issue #27 root-cause fix at S-0078 — the prior subset-enumeration silently dropped the diary write and pushback/lesson capture asks across 12 of 16 Phase 5 routine sessions). **Ordering per Issue #126 (S-0163): the diary write + pushback/lesson capture + activity rollup all precede the audit pass — pre-S-0163 the audit ran first and fired a false `engine_memory_diary_write_skipped_routine` plus a false `diary_pending_index.json` entry because the diary genuinely had not been written yet.**
 
-- **MemPalace diary write** (canonical step 1 in `session-shutdown-sequence.md`; explicitly enumerated here per Issue #27 fix). Call `mempalace_diary_write agent_name="claude" entry="..."`. The shape and content guidance lives in `session-shutdown-sequence.md` step 1. Skipping this step fires `mempalace_diary_write_skipped_routine` (validator) and appends a `diary_pending_index.json` entry UNLESS `outcome_summary` carries the `mempalace_unavailable_acknowledged: <reason>` token.
-- **Pushback capture check** (canonical step 1). Ask explicitly: "Did this session produce a `pushback` moment?" — if yes, capture via `mempalace_add_drawer` per `mempalace-tagging-conventions.md`.
-- **Lesson capture check** (canonical step 1). Ask explicitly: "Did this session produce a `lesson` candidate?" — if yes, capture via `mempalace_add_drawer`.
-- **MemPalace activity rollup** — `python3 engine/tools/scan_mempalace_activity.py` (per ADR 0056, S-0078). Reads `engine/session/current_mempalace.jsonl` (PostToolUse-hook telemetry) and writes the `mempalace_activity` field to `current.json`. Run AFTER the diary write (so the diary-write call is counted) and BEFORE the audit pass (so `validate.py --final-check` sees the complete field).
-- **Audit pass** — `python3 engine/tools/validate.py --final-check` (the `--final-check` flag includes the MemPalace adoption checks per ADR 0056, S-0078).
+- **engine_memory diary write** (canonical step 1 in `session-shutdown-sequence.md`; explicitly enumerated here per Issue #27 fix). Call `engine_memory_diary_write agent_name="claude" entry="..."`. The shape and content guidance lives in `session-shutdown-sequence.md` step 1. Skipping this step fires `engine_memory_diary_write_skipped_routine` (validator) and appends a `diary_pending_index.json` entry UNLESS `outcome_summary` carries the `engine_memory_unavailable_acknowledged: <reason>` token.
+- **Pushback capture check** (canonical step 1). Ask explicitly: "Did this session produce a `pushback` moment?" — if yes, capture via `engine_memory_add_drawer` per `engine-memory-conventions.md`.
+- **Lesson capture check** (canonical step 1). Ask explicitly: "Did this session produce a `lesson` candidate?" — if yes, capture via `engine_memory_add_drawer`.
+- **engine_memory activity rollup** — `python3 engine/tools/scan_engine_memory_activity.py` (per ADR 0056, S-0078). Reads `engine/session/current_engine_memory.jsonl` (PostToolUse-hook telemetry) and writes the `engine_memory_activity` field to `current.json`. Run AFTER the diary write (so the diary-write call is counted) and BEFORE the audit pass (so `validate.py --final-check` sees the complete field).
+- **Audit pass** — `python3 engine/tools/validate.py --final-check` (the `--final-check` flag includes the engine_memory adoption checks per ADR 0091, S-0192).
 - **Spot-check.**
 - Update `engine/STATE.md` (next-session pointer + last-session line)
 - Update `engine/ENGINE_LOG.md` under `[Unreleased]`

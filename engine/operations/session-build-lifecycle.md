@@ -28,11 +28,17 @@ A build session is any conversation that types `Start Engine` or invokes `/start
 
    The overdue-catchup logic replaces the prior `next_id % cadence == 0` strict-modulo at S-0041 ([ADR 0022](../adr/0022-periodic-project-health-checks.md) + [ADR 0043](../adr/0043-hook-architecture.md) Consequences amendments) — strict-modulo silently slid the trigger by a full cadence whenever the aligned slot was consumed (S-0040's slot was taken by deferred-fix work, leaving the next fire at S-0050, a 19-session gap). The SessionStart hook (`engine/tools/hooks/session-start.sh`) emits the same surface from the harness side regardless of how the session is launched. If `last_audit_session` is absent (legacy `register_state.json`, pre-S-0041), the hook falls back to strict-modulo with a stderr log line so the regression surfaces.
 
-3. **Query MemPalace.** Use `mempalace_search` with terms derived from STATE.md's next-session work item. Surface anything the user previously named that's relevant. Skip if MemPalace is not yet initialized (early sessions before S-0002 close). **Mechanically backstopped by `mempalace_boot_query_skipped` soft-warn (per ADR 0056, S-0078)** — `engine/tools/hooks/post-mempalace-tool-use.sh` records the call to `engine/session/current_mempalace.jsonl`; `validate.py --final-check` at shutdown step 3 emits the soft-warn if no `mempalace_search` call landed.
+2b. **Persistent-warn surface.** Per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md). Read the last 5 `engine/session/archive/S-NNNN.json` files (or all that exist if fewer). For each soft-warn category appearing in `outcome_summary_soft_warns` with a non-zero count in 3-or-more of those archives, surface:
 
-   **Boot-search orchestrator (per ADR 0056 S-0093 amendment, Issue #38).** Invoke [`engine/tools/mempalace_boot_search.py`](../tools/mempalace_boot_search.py) at this step. The orchestrator runs three formulations of the work-item phrase (literal / conceptual / adjacent) through `mempalace.mcp_server.tool_search` with `min_similarity=0.6`, filters returned drawers, and writes an idempotent `## Prior context (MemPalace boot search)` section into `engine/session/current_plan.md`. JSONL telemetry shim writes one entry per formulation to `current_mempalace.jsonl` so `search_calls` increments correctly (the orchestrator imports `tool_search` directly, bypassing the PostToolUse hook). The AI reads the section before authoring the session plan; surfaced drawers that bear on the work get cited in plan rationale or commit messages, satisfying the closed-loop `mempalace_zero_citations_after_search` audit at shutdown.
+   > "Soft-warn `<category>` has fired in N of the last K sessions; consider addressing or escalating per `engine/operations/soft-warn-lifecycle.md`."
 
-3b. **Read recent diary entries.** Per [`mempalace-operations.md`](mempalace-operations.md) "Project usage scope" (diary adopted at S-0032). Call `mempalace_diary_read agent_name="claude" last_n=3` to see the previous three sessions' first-person AI reflections — what surprised the prior AI, what they noticed but deferred, what felt load-bearing for this session, where their judgment was uncertain. Surface anything that bears on the work about to be claimed; skip silently when the diary is empty (early adoption window). **Mechanically backstopped by `mempalace_diary_read_skipped` soft-warn (per ADR 0056, S-0078).**
+   Suppress categories carrying an annotation in `engine/operations/tools-validate-interpretation.md`'s "Persistent-warn annotation" section. Surfacing is informational; the session decides whether to address inline, queue follow-up, or escalate per the 10-session-persistence criterion.
+
+3. **Query engine_memory.** Use the `engine_memory_search` MCP tool with terms derived from STATE.md's next-session work item. Surface anything previously recorded that's relevant. (Pre-S-0192 sessions used `mempalace_search` per ADR 0056; ADR 0091 supersedes that contract.) **Mechanically backstopped by `engine_memory_boot_query_skipped` soft-warn (per ADR 0091, S-0192)** — `engine/tools/hooks/post-engine-memory-tool-use.sh` records the call to `engine/session/current_engine_memory.jsonl`; `validate.py --final-check` at shutdown step 3 emits the soft-warn if no `engine_memory_search` call landed.
+
+   **Boot-search orchestrator (per ADR 0091, S-0192).** Invoke `python3 -m engine.memory.boot_surface` at this step. The orchestrator runs three formulations of the work-item phrase (literal / conceptual / adjacent) through FTS5 + BM25 + recency + tag-class-boost retrieval, deduplicates and ranks, and writes an idempotent `## Prior context (engine memory)` section into `engine/session/current_plan.md`. One `query_log` row is written per formulation. The AI reads the section before authoring the session plan; surfaced drawers that bear on the work get cited in plan rationale or commit messages, satisfying the closed-loop `engine_memory_zero_citations_after_search` audit at shutdown.
+
+3b. **Read recent diary entries.** Per [`engine-memory-operations.md`](engine-memory-operations.md). Call `engine_memory_diary_read agent_name="claude" last_n=3` to see the previous three sessions' first-person AI reflections — what surprised the prior AI, what they noticed but deferred, what felt load-bearing for this session, where their judgment was uncertain. Surface anything that bears on the work about to be claimed; skip silently when the diary is empty. **Mechanically backstopped by `engine_memory_diary_read_skipped` soft-warn (per ADR 0091, S-0192).**
 
 4. **Read referenced docs.** STATE.md and ROADMAP.md will name specific files relevant to the work. Read them before claiming the slot — the slot claim should be informed.
 
@@ -191,17 +197,17 @@ The `diff` step lets you compare the diverged content to the incoming commit. If
 
 The `parent_ff()` failure is non-fatal — the wrapper exits 0 (push succeeded). The push itself landed; the parent's stale HEAD is a separate problem the next session's boot-freshness gate ([ADR 0082](../adr/0082-routine-boot-freshness-and-concurrency-defense.md)) will catch.
 
-### MemPalace capture-hook failure log
+### engine_memory capture-hook failure log
 
-The Stop and PreCompact hooks invoke [`tools/hooks/mempalace-hook-wrapper.sh`](../tools/hooks/mempalace-hook-wrapper.sh), which always exits 0 to the harness and routes capture failures (binary missing, daemon down, capture errored) to `.claude/logs/mempalace-hook.log`. The log is gitignored per-clone state.
+The Stop and PreCompact hooks invoke [`tools/hooks/engine-memory-capture.sh`](../tools/hooks/engine-memory-capture.sh), which always exits 0 to the harness and routes capture failures (venv python missing, substrate write failed, jq absent) to `.claude/logs/engine-memory-hook.log`. The log is gitignored per-clone state.
 
-At session boot, after reading STATE.md and before the MemPalace context query, check the log. If `.claude/logs/mempalace-hook.log` exists and is non-empty, surface its contents to the user — capture may have failed silently in earlier sessions running from this worktree, and the conversational substrate they recorded may be missing from MemPalace.
+At session boot, after reading STATE.md and before the engine_memory context query, check the log. If `.claude/logs/engine-memory-hook.log` exists and is non-empty, surface its contents to the user — capture may have failed silently in earlier sessions running from this worktree, and the conversational substrate they recorded may be missing from engine_memory.
 
 ```bash
-test -s .claude/logs/mempalace-hook.log && cat .claude/logs/mempalace-hook.log
+test -s .claude/logs/engine-memory-hook.log && cat .claude/logs/engine-memory-hook.log
 ```
 
-Acknowledged entries can be cleared by truncating the file (`: > .claude/logs/mempalace-hook.log`); fresh failures will append on the next hook fire. Persistent failures usually mean the `mempalace` binary is not in PATH from the harness's environment or the MemPalace daemon is not running — see [`mempalace-operations.md`](mempalace-operations.md) for diagnosis steps.
+Acknowledged entries can be cleared by truncating the file (`: > .claude/logs/engine-memory-hook.log`); fresh failures will append on the next hook fire. Persistent failures usually mean the venv python isn't resolving or the substrate file path is unwritable — see [`engine-memory-operations.md`](engine-memory-operations.md) for diagnosis steps.
 
 ## See also
 
