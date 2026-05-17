@@ -1,9 +1,14 @@
 """SQLite connection factory for the engine-memory substrate.
 
 Path resolution order: explicit ``path`` arg → ``ENGINE_MEMORY_PATH``
-env var → ``<repo root>/engine/.memory/engine_memory.sqlite3`` (the
-repo root is the worktree root returned by ``git rev-parse
---show-toplevel``; subprocess env scrubbed per ADR 0045).
+env var → ``<main repo root>/engine/.memory/engine_memory.sqlite3``.
+The main repo root is derived from ``git rev-parse --git-common-dir``
+(the shared ``.git``) so all worktrees of the same clone resolve to
+the SAME SQLite file — that's what makes the substrate's
+cross-session continuity actually work when sessions run in fresh
+worktrees. Subprocess env scrubbed per ADR 0045. The pre-S-0193
+``--show-toplevel`` resolver produced a per-worktree file, defeating
+the design; corrected during the S-0193 cutover.
 
 Every ``get_conn`` call:
 
@@ -49,7 +54,20 @@ def _scrubbed_env() -> dict[str, str]:
 
 
 def _resolve_repo_root() -> Path:
-    """Resolve the worktree root via ``git rev-parse --show-toplevel``.
+    """Resolve the shared main repo root (works from worktrees too).
+
+    Uses ``git rev-parse --git-common-dir`` to get the path to the
+    shared ``.git`` directory, then walks one level up to the main
+    repo's working tree. This intentionally differs from
+    ``--show-toplevel`` (which returns the *current worktree's* path,
+    not the shared main repo): engine_memory must resolve to the
+    SAME SQLite file from every worktree on the same clone so a
+    session in worktree A sees the decision drawers written by an
+    earlier session in worktree B. The pre-S-0193 ``--show-toplevel``
+    resolver produced a per-worktree SQLite file, defeating the
+    substrate's cross-session continuity guarantee — discovered when
+    the S-0193 cutover migrated into the main-repo file and the
+    worktree session could not read it back.
 
     The result is cached per-process. ``GIT_*`` env vars are scrubbed
     per ADR 0045 to prevent inherited git context from pointing at the
@@ -59,13 +77,19 @@ def _resolve_repo_root() -> Path:
     if _REPO_ROOT_CACHE is not None:
         return _REPO_ROOT_CACHE
     result = subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"],
+        ["git", "rev-parse", "--git-common-dir"],
         env=_scrubbed_env(),
         capture_output=True,
         text=True,
         check=True,
     )
-    _REPO_ROOT_CACHE = Path(result.stdout.strip())
+    # ``--git-common-dir`` returns the shared ``.git`` path: absolute
+    # when invoked from a linked worktree, relative ``.git`` when
+    # invoked from the main repo's working tree. ``.resolve()`` turns
+    # both into the same absolute path; ``.parent`` then yields the
+    # main repo's working-tree root regardless of caller's CWD.
+    common_dir = Path(result.stdout.strip()).resolve()
+    _REPO_ROOT_CACHE = common_dir.parent
     return _REPO_ROOT_CACHE
 
 
