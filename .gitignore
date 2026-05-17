@@ -66,3 +66,10 @@ engine/tools/validate-history.jsonl
 # connect at a new clone.
 engine/.memory/*
 !engine/.memory/.gitkeep
+
+# Per-session engine_memory telemetry (PostToolUse hook appends; scan tool
+# rolls up at shutdown step 2 and truncates per ADR 0091). Ephemeral
+# per-session work file; never tracked. Unmasked at S-0194 by an
+# MCP-call-during-plan-mode pattern that pre-S-0194 sessions hadn't
+# exercised.
+engine/session/current_engine_memory.jsonl
