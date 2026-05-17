@@ -56,3 +56,4 @@ The **validator-pipeline classification map** at [`engine/operations/tools-valid
 - [`engine/operations/session-shutdown-sequence.md`](../operations/session-shutdown-sequence.md) — closing discipline integration.
 - [`engine/operations/tools-validate-interpretation.md`](../operations/tools-validate-interpretation.md) — soft-warn category meanings; persistent-warn annotation home.
 - [`.claude/commands/start-engine.md`](../../.claude/commands/start-engine.md) — boot-time surface step.
+- [ADR 0092](0092-per-session-changelog-directory.md) — S-0198 layer-2 surface shift. The 3-of-5 trend canon stays in committed archives (per Decision 1); ENGINE_LOG → engine/changelog/ does not affect this ADR's mechanics.

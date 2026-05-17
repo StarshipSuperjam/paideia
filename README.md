@@ -2,7 +2,7 @@
 
 A knowledge mastery app built on a pedagogical dependency graph. Generates personalized learning paths, provides AI-driven Socratic teaching, and tracks mastery across texts and sessions. Philosophy is the first domain; the architecture is domain-agnostic.
 
-**Project setup and current build state.** `engine/STATE.md` carries the canonical current state (current phase, last build session, next session's work item). `engine/ENGINE_LOG.md` carries the full chronological history of engine changes. Backup tags annotate phase boundaries (`pre-phase-3-v0.0.1` cut before Phase 3 SQL build).
+**Project setup and current build state.** `engine/STATE.md` carries the canonical current state (current phase, last build session, next session's work item). `engine/changelog/` (per [ADR 0092](engine/adr/0092-per-session-changelog-directory.md)) carries the chronological history of engine changes as per-session entries; aggregate Keep-a-Changelog views via `python3 engine/tools/changelog_aggregate.py`. Backup tags annotate phase boundaries (`pre-phase-3-v0.0.1` cut before Phase 3 SQL build; `engine-v0.1.0` cuts the foundation close at S-0198).
 
 **Repository:** https://github.com/StarshipSuperjam/paideia
 
@@ -36,7 +36,10 @@ paideia/
 │
 ├── engine/                         # the AI build apparatus
 │   ├── STATE.md                    # current phase + next session's work item
-│   ├── ENGINE_LOG.md               # engine state-of-record audit log (Keep-a-Changelog format); was CHANGELOG.md before ADR 0037
+│   ├── changelog/                  # per-session changelog directory per ADR 0092 (replaces monolithic ENGINE_LOG.md)
+│   │   ├── README.md               # governance + layout (50/70-line cap)
+│   │   ├── <YYYY>/<S-NNNN>-*.md    # per-session entries; schema-validated frontmatter
+│   │   └── _history/               # rollover destination + ENGINE_LOG-pre-0.1.0.md (pre-cut archive)
 │   ├── adr/                        # engine ADRs (graph validation, health checks, expression contracts, the partition itself)
 │   │   ├── README.md               # engine-side index
 │   │   └── NNNN-<title>.md         # one per decision (0016, 0022, 0036, 0037)
@@ -115,9 +118,9 @@ The engine-memory substrate (per ADR 0091) captures exploration conversations vi
 
 ### Build mode — `Start Engine` or `/start-engine`
 
-Type `Start Engine` (or invoke the slash command `/start-engine`) to convert to a build session. The slash command claims the next slot via the eager-claim ritual: bumps `engine/session/register_state.json`, writes `engine/session/current.json`, commits + pushes the claim immediately so concurrent sessions cannot collide. Then does the planned work, runs the shutdown sequence (audit + spot-check + `engine/STATE.md` / `engine/ENGINE_LOG.md` updates + archive + commit + push) at close.
+Type `Start Engine` (or invoke the slash command `/start-engine`) to convert to a build session. The slash command claims the next slot via the eager-claim ritual: bumps `engine/session/register_state.json`, writes `engine/session/current.json`, commits + pushes the claim immediately so concurrent sessions cannot collide. Then does the planned work, runs the shutdown sequence (audit + spot-check + `engine/STATE.md` update + per-session changelog entry at `engine/changelog/<YYYY>/S-NNNN-*.md` + archive + commit + push) at close.
 
-Build sessions write to engine_memory under the `decisions` / `pushback` / `lessons` rooms; build sessions update `engine/ENGINE_LOG.md`, ADR statuses, `engine/STATE.md`.
+Build sessions write to engine_memory under the `decisions` / `pushback` / `lessons` rooms; build sessions write per-session changelog entries (per ADR 0092), update ADR statuses, and update `engine/STATE.md`.
 
 For procedural depth, see `CLAUDE.md` and `engine/operations/`.
 

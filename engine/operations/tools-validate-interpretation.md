@@ -16,7 +16,7 @@ Hard-fails are structural mistakes that, if committed, would degrade the project
 
 Categories:
 
-- **Missing required top-level file** — README, LICENSE, ENGINE_LOG, SECURITY, STATE, ROADMAP, HANDOFF must all exist. If you're intentionally retiring one, that's an architectural decision; ADR it first. (`ENGINE_LOG.md` was named `CHANGELOG.md` before [ADR 0037](../adr/0037-engine-product-wall-and-changelog-rename.md); the `CHANGELOG.md` filename is now reserved for the future learner-visible product release log.)
+- **Missing required top-level file** — README, LICENSE, SECURITY, ROADMAP, HANDOFF (top-level) plus engine/STATE.md and engine/changelog/README.md (engine-required per [ADR 0092](../adr/0092-per-session-changelog-directory.md)) must all exist. If you're intentionally retiring one, that's an architectural decision; ADR it first. (`engine/changelog/` replaces the pre-S-0198 monolithic `engine/ENGINE_LOG.md`, which itself was named `CHANGELOG.md` before [ADR 0037](../adr/0037-engine-product-wall-and-changelog-rename.md). The `CHANGELOG.md` filename is reserved for the future learner-visible product release log.)
 - **`session/register_state.json` missing or malformed** — required keys: `next_id`, `last_claimed`, `current_status`. Format must parse as JSON.
 - **`session/current.json` missing keys** — when present (during an in-progress session), must have `id`, `started_at`, `status`, `working_on`. `id` must match `^S-\d{4}$`.
 - **Graph-audit hard-fails** — duplicate node IDs, dangling edge references, prerequisite cycles in the `pedagogical_prerequisite` subgraph (detected via Kosaraju SCC). Active when `SUPABASE_DB_URL` is set in the environment; absent env var records `graph_audit_skipped` and runs no DB query (non-seed-authoring sessions are not gated on DB connectivity). See [ADR 0016](../adr/0016-graph-construction-needs-live-validation.md) for the full contract.
@@ -38,9 +38,21 @@ Example: during S-0001 the warns for `CLAUDE.md`, `docs/MISSION.md`, `docs/CROSS
 
 If still warning after the session that was supposed to author the file: investigate. Either the file got missed or the file's authored but at a different path than expected.
 
+### `changelog_entry_soft_cap` / `changelog_entry_hard_cap`
+
+A per-session changelog entry at `engine/changelog/<YYYY>/S-*.md` exceeds the body line cap (50 soft / 70 hard, including frontmatter). Per [ADR 0092](../adr/0092-per-session-changelog-directory.md). Recoverable — compress toward summary+pointers shape (the structured archive at `engine/session/archive/S-NNNN.json` carries the canonical narrative; the changelog entry is the categorical view). Release synthesis entries are the named exception that uses the soft-cap slack.
+
+### `changelog_entry_schema_violation` / `changelog_entry_no_frontmatter` / `changelog_entry_filename_mismatch`
+
+Hard-fail. A per-session changelog entry violates [`engine/schemas/changelog-entry.schema.json`](../schemas/changelog-entry.schema.json), lacks YAML frontmatter delimiters, or its filename's `S-NNNN` token does not match the `session_id` frontmatter field. Per [ADR 0092](../adr/0092-per-session-changelog-directory.md). Recoverable — fix the offending field/delimiter/filename; re-run.
+
+### `changelog_readme_governance`
+
+Line-cap soft-warn (>50) / hard-fail (>70) on `engine/changelog/README.md` (declared `governed: true / line_cap_soft: 50 / line_cap_hard: 70` in HTML frontmatter). Per [ADR 0092](../adr/0092-per-session-changelog-directory.md). Recoverable — compress the README; the changelog directory's reading surface is intentionally narrow.
+
 ### `engine_log_format`
 
-`ENGINE_LOG.md` missing the `[Unreleased]` section header. Always recoverable — add the header. (Named `changelog_format` before [ADR 0037](../adr/0037-engine-product-wall-and-changelog-rename.md) renamed `CHANGELOG.md` → `ENGINE_LOG.md`.)
+Retired at S-0198 per [ADR 0092](../adr/0092-per-session-changelog-directory.md). The monolithic `engine/ENGINE_LOG.md` retired in favor of the per-session changelog directory; the `[Unreleased]` synthesis is produced on demand via `engine/tools/changelog_aggregate.py`.
 
 ### `state_format`
 
@@ -62,7 +74,7 @@ Recoverable — either add the missing index row (most common case: a new ADR wa
 
 ### `superseded_adr_currency`
 
-A doc cites an ADR whose `Status:` is now `Superseded by ADR NNNN`, and the citation does not mark itself as historical. Active from S-0029 onward per [ADR 0041](../adr/0041-cascade-analysis-discipline.md). Recoverable — re-point the citation to the new ADR, or add a `(superseded by ADR NNNN)` qualifier if the reference is intentionally historical, or rewrite the surrounding paragraph if the supersession changes substance. The check excludes `*/adr/*.md` and `engine/ENGINE_LOG.md`.
+A doc cites an ADR whose `Status:` is now `Superseded by ADR NNNN`, and the citation does not mark itself as historical. Active from S-0029 onward per [ADR 0041](../adr/0041-cascade-analysis-discipline.md). Recoverable — re-point the citation to the new ADR, or add a `(superseded by ADR NNNN)` qualifier if the reference is intentionally historical, or rewrite the surrounding paragraph if the supersession changes substance. The check excludes `*/adr/*.md`, the legacy `engine/ENGINE_LOG.md` filename, and the `engine/changelog/` directory per [ADR 0092](../adr/0092-per-session-changelog-directory.md).
 
 False positives: a superseded-ADR mention that legitimately reads as historical context but the surrounding 50 chars do not include "superseded" or the new ADR id. Suppress by adding the qualifier or by widening the surrounding context to include the marker.
 
@@ -226,21 +238,21 @@ Recoverable — change the value to one of the three valid forms (`"#<num>"`, `"
 
 ### `state_md_row_count`
 
-Per [ADR 0062](../adr/0062-retire-adr-inline-amendments-and-governed-doc-soft-warns.md) (S-0126; Issue #87). Fires when `engine/STATE.md` exceeds `STATE_MD_ROW_COUNT_THRESHOLD` (default 180; baseline at S-0126 was 118 rows). STATE.md committed at S-0121 to a scope-discipline preamble (present-state only); per-session prose belongs in `engine/session/archive/S-NNNN.json` + `engine/ENGINE_LOG.md`.
+Per [ADR 0062](../adr/0062-retire-adr-inline-amendments-and-governed-doc-soft-warns.md) (S-0126; Issue #87). Fires when `engine/STATE.md` exceeds `STATE_MD_ROW_COUNT_THRESHOLD` (default 180; baseline at S-0126 was 118 rows). STATE.md committed at S-0121 to a scope-discipline preamble (present-state only); per-session prose belongs in `engine/session/archive/S-NNNN.json` + `engine/changelog/<YYYY>/S-NNNN-*.md`.
 
 Recoverable: trim the file per the preamble's guidance. If the row count exceeds the threshold for legitimate reasons (additions to the SWE-hardening rollout section, new audit-tracking subsections, etc.), bump `STATE_MD_ROW_COUNT_THRESHOLD` in `validate.py` with evidence in the commit.
 
 ### `adr_consequences_amendment_header`
 
-Per [ADR 0036](../adr/0036-expression-contract-for-inward-documents.md) + [ADR 0062](../adr/0062-retire-adr-inline-amendments-and-governed-doc-soft-warns.md) (S-0126; Issue #87). Zero-tolerance pattern catch — fires on any `### Amendment` header in any `engine/adr/*.md` or `product/adr/*.md` file. ADR body content is present-truth declarative; authorship history belongs in `engine/ENGINE_LOG.md` / engine_memory `decisions`-room drawers / git, not in ADR body.
+Per [ADR 0036](../adr/0036-expression-contract-for-inward-documents.md) + [ADR 0062](../adr/0062-retire-adr-inline-amendments-and-governed-doc-soft-warns.md) (S-0126; Issue #87). Zero-tolerance pattern catch — fires on any `### Amendment` header in any `engine/adr/*.md` or `product/adr/*.md` file. ADR body content is present-truth declarative; authorship history belongs in `engine/changelog/<YYYY>/S-NNNN-*.md` entries / engine_memory `decisions`-room drawers / git, not in ADR body.
 
-Recoverable: fold the amendment substance into the body as present-truth (refining contract clauses, deleting blocks whose substance lives in tool docstrings / ENGINE_LOG / git), then delete the `### Amendment` header.
+Recoverable: fold the amendment substance into the body as present-truth (refining contract clauses, deleting blocks whose substance lives in tool docstrings / engine/changelog/ entries / git), then delete the `### Amendment` header.
 
 ### `handoff_long_resolved_sections`
 
 Per [ADR 0062](../adr/0062-retire-adr-inline-amendments-and-governed-doc-soft-warns.md) (S-0126; Issue #87). Fires under two conditions: (1) total `**Resolved:**` section count exceeds `HANDOFF_RESOLVED_COUNT_THRESHOLD` (default 5); (2) any single resolved section's `S-NNNN` is more than `HANDOFF_RESOLVED_AGE_THRESHOLD_SESSIONS` (default 10) older than the current session. HANDOFF.md's preamble commits to prune-on-resolve at the next interactive session that touches HANDOFF; this soft-warn is the gate-time backstop.
 
-Recoverable: prune resolved sections per the preamble's discipline (content preserved in git history; each section's `**Resolved:**` line names the downstream artifact). If a resolved section is intentionally retained as a load-bearing reference, move its content elsewhere (ENGINE_LOG, an ops doc, the relevant ADR) and prune the HANDOFF entry.
+Recoverable: prune resolved sections per the preamble's discipline (content preserved in git history; each section's `**Resolved:**` line names the downstream artifact). If a resolved section is intentionally retained as a load-bearing reference, move its content elsewhere (a per-session changelog entry, an ops doc, the relevant ADR) and prune the HANDOFF entry.
 
 ### `validator_runtime_phase_regression`
 
@@ -276,7 +288,7 @@ Recoverable: reconcile the drifting pair — bring the Skill and its Layer-1 doc
 
 The ten categories the validator extends from ADR 0016's contract (seven from S-0037; three added at S-0146 from the S-0122 audit's gate-feasible recommendations per [Issue #62](https://github.com/StarshipSuperjam/paideia/issues/62) + [`engine/build_readiness/phase_5_audit_system_input.md`](../build_readiness/phase_5_audit_system_input.md)). All ten register in `checks_run` even when zero findings fire, so cross-session telemetry distinguishes "category clean" from "category did not run" (the schema convention at [`session-shutdown-sequence.md`](session-shutdown-sequence.md)).
 
-- `undeclared_predicate` — edge.type not in `product/seed-graph/migrations/PREDICATE_MANIFEST.md`. Recoverable: add the row to the registry in the same session that uses the predicate, paired with an ENGINE_LOG entry under `Added`. Per [`seed-chunked-authoring.md`](seed-chunked-authoring.md) step 5.
+- `undeclared_predicate` — edge.type not in `product/seed-graph/migrations/PREDICATE_MANIFEST.md`. Recoverable: add the row to the registry in the same session that uses the predicate, paired with a per-session changelog entry naming the schema-class addition. Per [`seed-chunked-authoring.md`](seed-chunked-authoring.md) step 5.
 - `attribute_shape_inconsistency` — same-domain nodes with materially different attribute coverage. v1 metric: `teaching_notes` populated-vs-NULL split with the minority class above 30% within a domain tag. Phase 5 calibration is a [`engine/build_readiness/phase_4_graph_validation.md`](../build_readiness/phase_4_graph_validation.md) T3-C deferral.
 - `missing_rigor_score` — node carries inbound `pedagogical_prerequisite` edges and `rigor_score_computed` is at the schema default `0.5` (per [`product/seed-graph/migrations/0002_nodes.sql`](../../product/seed-graph/migrations/0002_nodes.sql)). The architecture.md formula expects topology data; the warn fires on "could be computed but wasn't."
 - `render_readiness_violation` — node label contains a scaffolding token (`service_node`, `synthetic`, `stub`). Per [ADR 0027](../../product/adr/0027-rendering-policy-prompt-layer-contract.md) applied to label authoring; recoverable by renaming the node before commit.
@@ -358,7 +370,7 @@ The since-date matches the calendar span of the cadence-20 window. The `git log 
 | `attribute_shape_inconsistency` | Actively-tracked | 0 | 0 | 1 | Phase 4+ graph audit per ADR 0016 |
 | `chromadb_palace_health` | Actively-tracked (dynamic) | 0 | 0 | 0 | Palace-probe failure path per ADR 0045; emitted via probe loop at `validate.py:687` |
 | `cross_reference_broken` | Actively-tracked | 0 | 0 | 6 | Cross-reference integrity in `docs/CROSS_REFERENCES.md` |
-| `engine_log_format` | Actively-tracked | 0 | 0 | 1 | `[Unreleased]` block presence in ENGINE_LOG.md |
+| `engine_log_format` | Retired (S-0198 per ADR 0092) | — | — | — | Retired with the monolithic ENGINE_LOG.md; per-session entries validated by `changelog_entry_*` checks |
 | `expected_future_file_missing` | Actively-tracked | 0 | 0 | 0 | Phase-staged file expectations per `EXPECTED_FROM_S0002` |
 | `engine_memory_diary_write_skipped_routine` | Actively-tracked | 0 | 0 | 3 | Routine-mode no-token-no-diary soft-warn per S-0091 routine-protection |
 | `mempalace_diary_write_skipped_substrate_intermittent` | Actively-tracked | 0 | 0 | 1 | Substrate-down contradiction case per ADR 0056 amendment (S-0089) |

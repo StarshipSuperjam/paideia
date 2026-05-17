@@ -30,7 +30,7 @@ The mechanical alternative — having the validator detect "old-path mentioned b
 
 1. The new ADR carries `Status: Accepted` and a `Supersedes: ADR NNNN` line.
 2. The old ADR's `Status:` flips to `Superseded by ADR NNNN`.
-3. `git grep -l '<old-adr-id>'` outside `*/adr/*` and `engine/ENGINE_LOG.md` — list every doc citing the old ADR.
+3. `git grep -l '<old-adr-id>'` outside `*/adr/*` and `engine/changelog/` (per ADR 0092; pre-S-0198 was `engine/ENGINE_LOG.md`) — list every doc citing the old ADR.
 4. For each match: re-point to the new ADR, OR add a `(superseded by ADR NNNN)` qualifier if the citation is intentionally historical, OR rewrite the surrounding paragraph if the supersession changes the substance of what the doc says.
 5. Update [`product/docs/CROSS_REFERENCES.md`](../../product/docs/CROSS_REFERENCES.md) if the superseded ADR appeared there.
 6. Same commit. Splitting leaves the `superseded_adr_currency` check firing on the next commit.
@@ -66,7 +66,7 @@ No validator soft-warn mechanizes this cascade — the surface is rare and the m
 When a session lands a deliverable that an ADR's Consequences section anticipated:
 
 1. The closing commit message names the ADR by id (e.g., `feat(tools): land health_check.py per ADR 0022 Consequences`).
-2. The session's ENGINE_LOG entry names the ADR-id-and-deliverable handshake explicitly (e.g., `Added: engine/tools/health_check.py — closes the deliverable promised in ADR 0022 Consequences ("tools/health_check.py around S-0025")`).
+2. The session's per-session changelog entry (`engine/changelog/<YYYY>/<S-NNNN>-<slug>.md` per ADR 0092) names the ADR-id-and-deliverable handshake explicitly (e.g., `Added: engine/tools/health_check.py — closes the deliverable promised in ADR 0022 Consequences ("tools/health_check.py around S-0025")`).
 3. The `adr_consequences_deliverable_audit` check passes for that ADR on the next commit because the deliverable file now exists on disk.
 
 The handshake is the cascade-discipline answer to "an ADR promised X; how does the project know X happened?" Without the handshake, the deliverable can land without anything updating the ADR's Consequences expectation, and a future health check has to reconstruct the relationship from inference.

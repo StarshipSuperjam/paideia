@@ -83,21 +83,21 @@ Don't ADR for:
 
 - Editorial choices (wording, formatting, file ordering).
 - Reversible local decisions with no downstream propagation.
-- Decisions already covered by a settled ADR — those go in ENGINE_LOG entries and design-doc updates, not new ADRs.
+- Decisions already covered by a settled ADR — those go in per-session changelog entries and design-doc updates, not new ADRs.
 
-## ADR vs ENGINE_LOG vs MemPalace
+## ADR vs changelog entry vs engine_memory
 
 | Surface | What | Format | Reader |
 |---|---|---|---|
 | ADR | Settled architectural decision | Structured (Status / Context / Decision / Consequences) | Future sessions, expected to act on the contract |
-| ENGINE_LOG | Material engine change | Categorized (Added / Changed / Removed / etc.) | Anyone scanning project history |
+| Changelog entry (`engine/changelog/<YYYY>/S-NNNN-*.md`) | Material engine change, one entry per material-change session | YAML frontmatter + body bounded to 50/70 lines; classified by `material_change_class` enum | Anyone scanning project history |
 | engine_memory `decisions`-room drawer | The conversation that produced the decision | Verbatim | Anyone running a similarity search; recovers the *story* |
 
-A new ADR typically generates one ENGINE_LOG entry (under Added) and one or more MemPalace drawers (the verbatim conversation that produced it). The renamed `ENGINE_LOG.md` (was `CHANGELOG.md` before [ADR 0037](../adr/0037-engine-product-wall-and-changelog-rename.md)) carries the dated narrative for material engine changes; the `CHANGELOG.md` filename is reserved for the future learner-visible product release log (first entry at Phase 9).
+A new ADR typically generates one per-session changelog entry (`material_change_class: adr`) plus one or more engine_memory `decisions`-room drawers (the verbatim conversation that produced it). The per-session changelog directory at `engine/changelog/<YYYY>/<S-NNNN>-<slug>.md` replaces the pre-S-0198 monolithic `engine/ENGINE_LOG.md` (which itself was named `CHANGELOG.md` before [ADR 0037](../adr/0037-engine-product-wall-and-changelog-rename.md)) per [ADR 0092](../adr/0092-per-session-changelog-directory.md). The `CHANGELOG.md` filename is reserved for the future learner-visible product release log (first entry at Phase 9).
 
 ## See also
 
-- [`engine-memory-conventions.md`](mempalace-tagging-conventions.md) — `decision` drawer conventions.
-- [`session-shutdown-sequence.md`](session-shutdown-sequence.md) — when ADR creation triggers ENGINE_LOG entries.
+- [`engine-memory-conventions.md`](engine-memory-conventions.md) — `decision` drawer conventions.
+- [`session-shutdown-sequence.md`](session-shutdown-sequence.md) — when ADR creation triggers per-session changelog entries (step 7).
 - `STATE.md` — current ADR scope (S-0003 lands ADRs 0001-0022).
 - `ROADMAP.md` — phases that produce subsequent ADRs.

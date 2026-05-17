@@ -83,9 +83,9 @@ A critical production bug that cannot wait for the session-ritual ceremony (eage
 4. Merge after CI green. **Do not skip CI** — the hotfix branch runs the same gates as any other branch. Skipping introduces the failure mode the gates exist to catch.
 5. Post-hotfix:
    - If the hotfix changed a contract surface (ADR-citable behavior, public API shape, schema), author an ADR documenting the change.
-   - Otherwise, close the loop with an `engine/ENGINE_LOG.md` `[Unreleased]` entry under `Changed` or `Fixed`.
+   - Otherwise, close the loop with a per-session changelog entry at `engine/changelog/<YYYY>/<S-NNNN>-<slug>.md` (per ADR 0092) classifying the revert under `material_change_class: mixed` or `infrastructure` as appropriate.
 
-Hotfix flow bypasses the session-slot mechanism (no eager-claim, no `current.json`, no archive entry). It does not bypass the discipline that follows the fix — ADR/ENGINE_LOG accountability is preserved.
+Hotfix flow bypasses the session-slot mechanism (no eager-claim, no `current.json`, no archive entry). It does not bypass the discipline that follows the fix — ADR / per-session changelog entry accountability is preserved.
 
 ## What does NOT change for reverts
 

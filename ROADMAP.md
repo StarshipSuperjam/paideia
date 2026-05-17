@@ -16,7 +16,7 @@ Phase headings carry **[ENGINE]** or **[PRODUCT]** markers per [ADR 0037](engine
 
 **Three foundation sessions:**
 
-- **S-0001** — structural foundation + retirement of obsolete pre-foundation source files. Top-level industry-standard files (this file, README.md, LICENSE, ENGINE_LOG.md (was CHANGELOG.md before [ADR 0037](engine/adr/0037-engine-product-wall-and-changelog-rename.md)), SECURITY.md, STATE.md, HANDOFF.md), session/ + tools/ + pre-commit hook + slash command, supabase/migrations/ placeholders, repo reorganization into `docs/`.
+- **S-0001** — structural foundation + retirement of obsolete pre-foundation source files. Top-level industry-standard files (this file, README.md, LICENSE, the engine state-of-record log layer (then `CHANGELOG.md`; renamed to `ENGINE_LOG.md` at S-0022 per [ADR 0037](engine/adr/0037-engine-product-wall-and-changelog-rename.md); replaced by the per-session `engine/changelog/` directory at S-0198 per [ADR 0092](engine/adr/0092-per-session-changelog-directory.md)), SECURITY.md, STATE.md, HANDOFF.md), session/ + tools/ + pre-commit hook + slash command, supabase/migrations/ placeholders, repo reorganization into `docs/`.
 - **S-0002** — procedural layer + memory-substrate indexing + CONTEXT.md split. CLAUDE.md + 11-file `docs/operations/` library + `docs/MISSION.md` + `docs/CROSS_REFERENCES.md`. (Original memory substrate replaced by engine_memory per ADR 0091 at S-0188 → S-0193.)
 - **S-0003** — ADR collection (22 ADRs absorbing the 12 working commitments + the 8 entries from the transitional `design-reasoning.md` + 2 architectural decisions that emerged in the S-0001 plan conversation, ADRs 0016 and 0022). `adr/README.md` indexes the collection; full Nygard guidance and status conventions live in `docs/operations/adr-authoring.md`. `design-reasoning.md` retired at S-0003 close.
 
@@ -97,15 +97,15 @@ Add `confidence_level` (`EXTRACTED | INTERPRETED | SYNTHETIC`) to the node schem
 
 ### 1.5.5 Inward-document expression contract
 
-- ADR 0036 contracts the project's second expression contract — kindred tool to AGENT_INSTRUCTIONS.md (the rendering policy in ADR 0027), separately scoped to inward-facing documentation. The contract's posture: governed documents describe present truth in present-tense declarative prose; cross-references to ADRs are bibliographic (end-of-section "See also" pointers); authorship history, supersession narration, and per-session revision markers belong in the four-layer trace system (ADRs, ENGINE_LOG, engine_memory, git).
-- Operational surface lives at [`docs/operations/document-voice.md`](engine/operations/document-voice.md). Scope: the `docs/` tree, root-level project files, ADRs in non-Superseded status, AGENT_INSTRUCTIONS.md. Exempt: STATE.md, ENGINE_LOG.md, `session/archive/*`, ADRs in Superseded status, resolved `docs/tensions.md` entries. ROADMAP.md is governed with three-speech-acts handling: phase scope and commitments are governed; date-stamp markers and supersession narration migrate to ENGINE_LOG and git.
+- ADR 0036 contracts the project's second expression contract — kindred tool to AGENT_INSTRUCTIONS.md (the rendering policy in ADR 0027), separately scoped to inward-facing documentation. The contract's posture: governed documents describe present truth in present-tense declarative prose; cross-references to ADRs are bibliographic (end-of-section "See also" pointers); authorship history, supersession narration, and per-session revision markers belong in the four-layer trace system (ADRs, engine/changelog/ entries per ADR 0092, engine_memory, git).
+- Operational surface lives at [`docs/operations/document-voice.md`](engine/operations/document-voice.md). Scope: the `docs/` tree, root-level project files, ADRs in non-Superseded status, AGENT_INSTRUCTIONS.md. Exempt: STATE.md, `engine/changelog/` entries, `session/archive/*`, ADRs in Superseded status, resolved `docs/tensions.md` entries. ROADMAP.md is governed with three-speech-acts handling: phase scope and commitments are governed; date-stamp markers and supersession narration migrate to the per-session changelog entry and git.
 - `docs/business.md`, `docs/architecture.md`, `docs/MISSION.md`, `docs/content-strategy.md`, `AGENT_INSTRUCTIONS.md`, `docs/tensions.md` open entries, and `adr/README.md` orientation prose carry the contract's voice. ROADMAP.md (this file) carries the contract's voice with three-speech-acts handling; the four-layer trace carries the production trace.
 
 ### Phase 1.5 success criteria
 
 - ADRs 0033, 0034, 0035, 0036 land at Status: Accepted; ADR 0032 Status reads `Superseded by ADR 0035`.
 - `docs/ui-architecture.md` and `docs/session-lifecycle.md` carry no residual globe/glow/tendril references; `docs/MISSION.md` "What this is" is framed around structured guidance for self-learners.
-- `git grep -i "globe\|mastery glow\|tendril\|trophy\|colored trail\|knowledge as a world\|Globe Navigation Model"` returns matches only where the term names what is foreclosed (ADR 0033, ADR 0027, ADR 0018), in superseded artifacts (ADR 0032), or in dated journal layers (ENGINE_LOG.md, `session/archive/*`).
+- `git grep -i "globe\|mastery glow\|tendril\|trophy\|colored trail\|knowledge as a world\|Globe Navigation Model"` returns matches only where the term names what is foreclosed (ADR 0033, ADR 0027, ADR 0018), in superseded artifacts (ADR 0032), or in dated journal layers (`engine/changelog/`, `session/archive/*`).
 - Phase 9 success criteria below carry the triad + multi-platform plan; Android / web references absent.
 - Inward-facing project documents carry the document-voice contract; the four-layer trace carries date-stamps and supersession narration.
 - Phase 2 (Build Plan Scaffolding) opens with the realigned, voice-clean contract as input.
@@ -192,7 +192,7 @@ Numeric prefix scheme: `00NN` schema, `001N` epistemology, `002N` ethics, `003N`
 
 ### 4.3 Flesh out `supabase/migrations/PREDICATE_MANIFEST.md`
 
-Canonical edge-type registry: `prerequisite`, `enables`, `informed_by`, `cross_domain_dependency`, etc. Adding a new predicate is an ENGINE_LOG-tracked material change requiring a new manifest entry in the same session.
+Canonical edge-type registry: `prerequisite`, `enables`, `informed_by`, `cross_domain_dependency`, etc. Adding a new predicate is a material change recorded via a per-session changelog entry (`material_change_class: schema`), requiring a new manifest entry in the same session.
 
 ### 4.4 Flesh out `docs/operations/seed-chunked-authoring.md`
 
@@ -280,7 +280,7 @@ The subdomain decomposition is settled by [ADR 0052](product/adr/0052-phase-5-ph
 
 - **Service nodes** (P5-10) — formal-logic primitives, mathematical prerequisites, history terminators
 - **Cross-bridges** (P5-11) — cross-domain edges pass; depends on all 9 subject subdomain tasks plus service nodes; runs after subdomain interiors stabilize
-- **Closeout** (P5-12) — Phase 5 close: ENGINE_LOG entry + STATE.md update + `engine/build_readiness/phase_5_closeout.md` + optional close ADR
+- **Closeout** (P5-12) — Phase 5 close: per-session changelog entry + STATE.md update + `engine/build_readiness/phase_5_closeout.md` + optional close ADR
 
 **Out of scope, deferred** (per [ADR 0052](product/adr/0052-phase-5-philosophy-subdomain-decomposition.md)):
 
@@ -305,7 +305,7 @@ Per `docs/operations/seed-chunked-authoring.md`:
 3. Session runs `supabase db push`
 4. Session runs `tools/validate.py --validate-only` against post-push DB
 5. Hard-fails fix in-session; soft-warns recorded in session outcome_summary per category
-6. Session closes, commits the migration file (ENGINE_LOG entry tracked)
+6. Session closes, commits the migration file (per-session changelog entry written under `material_change_class: schema`)
 
 ### 5.4 Routine-mode dispatch
 
@@ -315,7 +315,7 @@ Phase 5 sub-sessions run unattended via routine-mode per [ADR 0051](engine/adr/0
 
 - Each subdomain task closes with zero hard-fails from `engine/tools/validate.py`
 - Soft-warn counts recorded per category in routine-session `outcome_summary`
-- Migration files atomically attributable to the routine session that wrote them via the session's ENGINE_LOG entry
+- Migration files atomically attributable to the routine session that wrote them via the session's per-session changelog entry
 - Cross-session schema drift detected by the predicate-manifest audit
 - All 16 tasks in [`engine/session/auto_target.json`](engine/session/auto_target.json) reach `complete` status (or HANDOFF entries adjudicate the remainder if `max_sessions: 18` is reached)
 - Phase 5 closeout task (P5-12) lands `engine/build_readiness/phase_5_closeout.md` summarizing per-subdomain coverage, soft-warn telemetry, and the predicate registry's final state
@@ -397,7 +397,7 @@ See also: [ADR 0026](product/adr/0026-persistent-learner-storage-structural-not-
 
 **Output:** the Discovery / Planning / Engagement triad surfaces, implemented as a **single SwiftUI codebase shipping to iPhone + iPad first-class plus Mac via Designed-for-iPad**, distributed through the Apple App Store. No Android, no web client, no native AppKit/Catalyst Mac app. The DeepTutor fork (per [`docs/infrastructure.md`](product/docs/infrastructure.md)) is consulted only for what serves the Apple-native target.
 
-Per [`docs/ui-architecture.md`](product/docs/ui-architecture.md). Application code; **ENGINE_LOG / ADR discipline does not apply** to application code (state-of-record-only). Normal git history.
+Per [`docs/ui-architecture.md`](product/docs/ui-architecture.md). Application code; **the per-session changelog + ADR discipline does not apply** to application code (state-of-record-only). Normal git history.
 
 ### Phase 9 success criteria
 
@@ -428,7 +428,7 @@ Telemetry hooks built in S-0001:
 - `tools/validate-history.jsonl` (append-only, soft-warn category trends)
 - `session/archive/S-NNNN.json` per session (started_at, closed_at, status, working_on, outcome_summary)
 - ADR status field (counts of Accepted / Deprecated / Superseded over time)
-- ENGINE_LOG.md entries (categorized engine changes by date)
+- `engine/changelog/<YYYY>/S-NNNN-*.md` entries (per-session categorized engine changes per ADR 0092)
 - engine_memory `exploration` and `decisions` rooms (per ADR 0091 — FTS5 + BM25 + recency rank over curated drawers + transcript auto-capture)
 
 ---

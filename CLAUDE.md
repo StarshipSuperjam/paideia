@@ -40,7 +40,7 @@ Other operations docs are defer-on-demand: read when the session's work item ref
 
   **Routine-mode posture (load-bearing):**
   - **`scope_lock` is invariant on task-deliverable paths.** The active task's `scope_lock.allowed_paths` is the cap. Pre-commit hook hard-fails any commit touching paths outside this set ∪ the operational allowlist.
-  - **Operational allowlist always permitted.** Files the session apparatus runs on (`engine/session/current.json`, `current_plan.md`, `auto_target.json` (status fields only), `engine/session/archive/S-*.json`, `register_state.json`, `ENGINE_LOG.md`, `HANDOFF.md`) commit freely regardless of active task.
+  - **Operational allowlist always permitted.** Files the session apparatus runs on (`engine/session/current.json`, `current_plan.md`, `auto_target.json` (status fields only), `engine/session/archive/S-*.json`, `register_state.json`, `engine/changelog/<YYYY>/S-*.md` (per ADR 0092), `HANDOFF.md`) commit freely regardless of active task.
   - **`gh issue create` is explicitly authorized** for in-band discoveries (bugs, tech-debt, cleanup, enhancements) outside the current task's scope. No tracked files touched, scope_lock irrelevant. Continue with assigned task.
   - **HANDOFF additions are explicitly authorized** for genuine blockers, scope-expansion-needed, and decision-required signals. Existing `audit_handoff_dispositions.py` audit (per ADR 0048) catches malformed entries.
   - **Master plan revisions ONLY via HANDOFF — never unilateral edits.** Pre-commit hook hard-fails any routine commit to `auto_target.json` that diffs keys other than `tasks[*].status` and `tasks[*].blocked_reason`. The user adjudicates revisions in interactive sessions.
@@ -157,7 +157,7 @@ Soft enforcement preserves AI judgment. A reminder can be acknowledged and overr
 Procedural depth lives in `engine/operations/` — one file per topic. Browse with `ls engine/operations/`. Index at `engine/operations/README.md`. High-frequency entries:
 
 - `session-build-lifecycle.md` — boot, eager-claim, in-session work, push cadence; routine-mode boot branch (per ADR 0051).
-- `session-shutdown-sequence.md` — audit, spot-check, `engine/STATE.md`, `engine/ENGINE_LOG.md`, archive.
+- `session-shutdown-sequence.md` — audit, spot-check, `engine/STATE.md`, per-session changelog entry (step 7 per [ADR 0092](engine/adr/0092-per-session-changelog-directory.md)), archive.
 - `routine-mode-operations.md` — target file schema, master plan procedure, routine boot procedure, criterion catalog, mixing interactive and routine sessions.
 - `engine-memory-operations.md` — substrate location, schema, 6-tool MCP surface, hook wiring, query patterns, backup discipline (per ADR 0091).
 - `engine-memory-conventions.md` — rooms (decisions / pushback / lessons / exploration / operations / work / general) + `source_kind` + tag-class boost discipline (per ADR 0091).

@@ -100,7 +100,7 @@ A fourth mechanical layer added at S-0060: routine-mode pushes to `origin/main` 
 
 - **`eager-claim`** (Skill step 8) — verifies HEAD is exactly 1 commit ahead, subject matches `^chore\(session\): eager-claim S-\d{4}\b`, working tree clean, diff bounded to `register_state.json` + `current.json` + `auto_target.json` + `current_plan.md`, register flips `closed → in_progress`, current.json newly-created.
 - **`deliverable`** (in-session commits before close) — verifies subject matches a conventional-commits prefix but NOT `chore(session):` (reserved for lifecycle), working tree clean, every changed path falls within the active task's `scope_lock.allowed_paths` ∪ the operational allowlist (re-uses `check_routine_scope.py`).
-- **`close`** (Skill step 11) — verifies subject matches `^chore\(session\): close S-\d{4}\b`, an `archive/S-NNNN.json` was created, `current.json` was deleted, register flips `in_progress → closed`, and any additional touched paths fall in the operational allowlist (`STATE.md`, `ENGINE_LOG.md`, `HANDOFF.md`, `auto_target.json` status fields).
+- **`close`** (Skill step 11) — verifies subject matches `^chore\(session\): close S-\d{4}\b`, an `archive/S-NNNN.json` was created, `current.json` was deleted, register flips `in_progress → closed`, and any additional touched paths fall in the operational allowlist (`STATE.md`, `engine/changelog/<YYYY>/S-*.md` per ADR 0092, `HANDOFF.md`, `auto_target.json` status fields).
 
 **Failure-mode discrimination** — exit codes distinguish causes so the caller can act differently:
 
@@ -141,7 +141,7 @@ Two classes of paths matter at commit time:
 - `engine/session/auto_target.json` (status field updates only — master-plan-integrity check enforces)
 - `engine/session/archive/S-*.json`
 - `engine/session/register_state.json`
-- `engine/ENGINE_LOG.md`
+- `engine/changelog/<YYYY>/S-NNNN-*.md` (per ADR 0092)
 - `HANDOFF.md`
 
 A staged file is permitted iff it matches **either** the active task's `scope_lock.allowed_paths` **or** the operational allowlist. Pattern matching is segment-aware: `*` matches any non-`/` characters within a segment; `**` matches zero or more whole segments.

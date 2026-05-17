@@ -1,6 +1,6 @@
 # ADR 0037 — Engine / product wall; CHANGELOG.md renames to ENGINE_LOG.md
 
-- **Status:** Accepted
+- **Status:** Superseded in part by [ADR 0092](0092-per-session-changelog-directory.md) (ENGINE_LOG-naming/structure clauses only; the engine/product wall partition remains Accepted)
 - **Date:** 2026-05-01
 - **Deciders:** S-0022 (Phase 1.5 → Phase 2 bridge — engine/product wall commitment)
 
@@ -72,6 +72,12 @@ The naming choice — `ENGINE_LOG.md` over `MACHINERY_LOG.md` — matches the pr
 
 - **The folder migration's reversal cost is bounded.** If Phase 5 content reveals partition criteria the pre-content design missed, the supersession path is a new ADR plus a second `git mv` pass. The cost is one extra migration, paid against real content rather than guesses; this is preferable to designing the partition without content and discovering the same criterion-failure later under more expensive conditions.
 
+## Supersession Amendment (S-0198 per ADR 0092)
+
+The ENGINE_LOG-naming/structure clauses of this ADR (Decision's "Rename, now" paragraph + the `engine/ENGINE_LOG.md` row of the proposed shape + the Consequences paragraphs about `tools/validate.py`'s `engine_log_format` check + ENGINE_LOG-references-in-procedural-docs) are superseded by [ADR 0092](0092-per-session-changelog-directory.md). The single monolithic `engine/ENGINE_LOG.md` file replaces with a per-session changelog directory at `engine/changelog/<YYYY>/<S-NNNN>-<slug>.md` (schema-validated frontmatter + 50/70-line cap + aggregator-driven `[Unreleased]` synthesis). The historical 2,799-line file moves verbatim to `engine/changelog/_history/ENGINE_LOG-pre-0.1.0.md`. The first engine-side release tag `engine-v0.1.0` cuts at S-0198.
+
+The **engine/product wall partition** (Decision part 2 — the `engine/` / `product/` subtree shape + edge-case resolutions) **remains Accepted**. ADR 0091's wall-violation rejection of the A4 Postgres-in-Paideia-DB alternative was an independent empirical test of the wall principle that stands unmodified. The CHANGELOG.md filename reservation for Phase 9 learner-visible product release log is also unchanged — the new engine-side directory pattern does not occupy that filename.
+
 ## See also
 
 - [ADR 0036](0036-expression-contract-for-inward-documents.md) — Expression contract for inward-facing documentation. Light-revised in this commit to update the four-layer-system reference.
@@ -81,3 +87,4 @@ The naming choice — `ENGINE_LOG.md` over `MACHINERY_LOG.md` — matches the pr
 - [`docs/operations/document-voice.md`](../operations/document-voice.md) — The operational surface for [ADR 0036](0036-expression-contract-for-inward-documents.md); its four-layer-system reference in the where-the-trace-lives section is among those updated.
 - [`docs/tensions.md`](../../product/docs/tensions.md) — Carries OQ-OUTWARD-VOICE (the third expression-contract gap), which governs learner-visible CHANGELOG entries when the reserved `CHANGELOG.md` filename gets its first content at Phase 9.
 - [ADR 0091](0091-engine-memory-substrate-sqlite-fts5.md) — S-0188 substrate replacement empirically tests the wall principle. The MemPalace substrate replacement was scoped to live entirely under `engine/.memory/` + `engine/memory/` (gitignored SQLite file; stdlib `sqlite3`; no coupling to `paideia-dev` Supabase project) precisely because allowing engine state into the product database would have violated the wall. ADR 0091 explicitly rejected a Postgres-in-Paideia-DB alternative (A4) on wall-violation grounds.
+- [ADR 0092](0092-per-session-changelog-directory.md) — S-0198. Supersedes the ENGINE_LOG-naming/structure clauses of this ADR (Supersession Amendment subsection above). Replaces the monolithic `engine/ENGINE_LOG.md` with a per-session changelog directory at `engine/changelog/<YYYY>/<S-NNNN>-<slug>.md`. The engine/product wall partition (Decision part 2) and the CHANGELOG.md filename reservation for Phase 9 remain Accepted.

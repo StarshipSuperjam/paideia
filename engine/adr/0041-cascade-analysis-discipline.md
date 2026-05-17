@@ -51,3 +51,4 @@ The discipline is not retroactive on past sessions' authoring choices. ADRs and 
 - [`engine/operations/cascade-discipline.md`](../operations/cascade-discipline.md) — the operationalized procedures.
 - [`engine/operations/tools-validate-interpretation.md`](../operations/tools-validate-interpretation.md) — soft-warn category interpretation, extended with the three new checks.
 - [`product/docs/CROSS_REFERENCES.md`](../../product/docs/CROSS_REFERENCES.md) — the existing forward-mapping the supersession procedure updates by hand.
+- [ADR 0092](0092-per-session-changelog-directory.md) — S-0198. The cascade-audit `validate_adr_back_reference_orphan` exclusion list extends from the legacy `ENGINE_LOG.md` filename match to a directory-prefix exclusion for `engine/changelog/` (per-session entries reference ADRs as commit-pointer prose, not load-bearing back-refs).

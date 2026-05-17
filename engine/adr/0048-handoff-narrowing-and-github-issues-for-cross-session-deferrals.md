@@ -92,3 +92,4 @@ The intervention does **not** fix the underlying LLM-trained tendency toward des
 - [ADR 0043](0043-hook-architecture.md) — the `SessionStart` hook this ADR extends; the FYI line and LOUD block sit alongside the cadence and persistent-warn surfaces.
 - [ADR 0045](0045-shared-state-integrity-discipline.md) — surface treatment for the urgent-issue LOUD block borrowed from this ADR's hard-broken probe surface pattern.
 - [ADR 0049](0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md) — sibling intervention authored in the same session; provides the `declared_scope` field this ADR's collision detection consumes.
+- [ADR 0092](0092-per-session-changelog-directory.md) — S-0198. The HANDOFF-vs-Issue partition in this ADR is unaffected by the per-session changelog directory adoption; ENGINE_LOG's role (material-change narrative) shifts surface form, not function.

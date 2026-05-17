@@ -57,7 +57,7 @@ The `drawers.tags` column is a JSON array of lowercase snake_case strings. The s
 
 A drawer is a recall surface for content downstream sessions will benefit from finding. If the content fails any of these tests, don't write it:
 
-- **`git log` already captures it.** Commit messages, ADR bodies, ENGINE_LOG entries, ROADMAP edits — these are durable, searchable, and indexed by tools sessions already use. Drawers about "I committed X" or "I added Y to STATE.md" are noise.
+- **`git log` already captures it.** Commit messages, ADR bodies, per-session changelog entries at `engine/changelog/<YYYY>/`, ROADMAP edits — these are durable, searchable, and indexed by tools sessions already use. Drawers about "I committed X" or "I added Y to STATE.md" are noise.
 - **Transient state.** Tool output, error messages, "I tried Z and it didn't work, then I tried Z' and it did" — the artifact downstream sessions need is in the commit that landed the fix.
 - **The fix is the artifact.** A lesson is "WHY the fix was needed and what would catch it next time," not "the fix exists at SHA `abc1234`."
 - **Single-session detail.** "I'm using approach W for this session's work" — the plan file (`engine/session/current_plan.md`) is the right surface.
