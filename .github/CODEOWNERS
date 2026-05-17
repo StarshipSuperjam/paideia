@@ -1,0 +1,41 @@
+# CODEOWNERS — engine vs product partition per ADR 0037 + Issue #80.
+#
+# Solo-dev today; this file's load-bearing value lands when a second
+# contributor joins. GitHub uses CODEOWNERS to auto-request review on
+# PRs that touch matching paths. The partition documented in CLAUDE.md
+# (engine = build apparatus; product = curriculum / pedagogy / schema)
+# becomes mechanically enforced at that boundary.
+#
+# When a second contributor joins:
+#   - Replace the per-partition single-owner lines with the appropriate
+#     reviewers for each tree.
+#   - Promote this file's authoring to an ADR (engine-side; the rationale
+#     for the partition-enforcement is engine-apparatus concern).
+#   - Keep the critical-infrastructure block requiring multi-owner review.
+
+# Default ownership — falls through to the solo-dev when no specific
+# rule matches.
+* @StarshipSuperjam
+
+# Engine partition — requires build-apparatus familiarity (validate.py,
+# the hook architecture, the session lifecycle, ADR/ENGINE_LOG/STATE
+# discipline, the engine_memory substrate).
+/engine/                @StarshipSuperjam
+/.claude/               @StarshipSuperjam
+/CLAUDE.md              @StarshipSuperjam
+
+# Product partition — requires curriculum / pedagogy / seed-graph
+# context. Distinct from engine concerns per ADR 0037's wall.
+/product/               @StarshipSuperjam
+
+# Critical infrastructure — extra-careful review when collaborators
+# exist. CI pipelines, the central validator, hook scripts, and the
+# lifecycle-push wrappers carry blast radius beyond any single PR's
+# scope; multi-owner review is the right posture once a second
+# contributor lands.
+/.github/workflows/                          @StarshipSuperjam
+/engine/tools/validate.py                    @StarshipSuperjam
+/engine/tools/hooks/                         @StarshipSuperjam
+/engine/tools/build_lifecycle_push.py        @StarshipSuperjam
+/engine/tools/routine_lifecycle_push.py      @StarshipSuperjam
+/engine/tools/apply_migration.py             @StarshipSuperjam
