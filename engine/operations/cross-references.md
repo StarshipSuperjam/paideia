@@ -43,8 +43,8 @@ Each operations doc's downstream readers (other ops docs, tools, the harness, AD
 - **[`tools-validate-interpretation.md`](tools-validate-interpretation.md)** → CLAUDE.md auto-load; session-shutdown-sequence.md; health-check.md; cascade-discipline.md; soft-warn-lifecycle.md.
 - **[`adr-authoring.md`](adr-authoring.md)** → CLAUDE.md auto-load; every ADR's "See also" sections; session-shutdown-sequence.md (when to author an ADR vs. ENGINE_LOG entry).
 - **[`escalation-criteria.md`](escalation-criteria.md)** → CLAUDE.md auto-load; ADR 0040 (gate sessions invert the default); session-build-lifecycle.md; auto-mode interrupt criteria.
-- **[`mempalace-operations.md`](mempalace-operations.md)** → CLAUDE.md auto-load; .claude/settings.json (hook wiring); session-build-lifecycle.md (Step 3 query).
-- **[`mempalace-tagging-conventions.md`](mempalace-tagging-conventions.md)** → mempalace-operations.md; CLAUDE.md two-layer-decision-recording rule; session-shutdown-sequence.md.
+- **[`engine-memory-operations.md`](mempalace-operations.md)** → CLAUDE.md auto-load; .claude/settings.json (hook wiring); session-build-lifecycle.md (Step 3 query).
+- **[`engine-memory-conventions.md`](mempalace-tagging-conventions.md)** → mempalace-operations.md; CLAUDE.md two-layer-decision-recording rule; session-shutdown-sequence.md.
 - **[`document-voice.md`](document-voice.md)** → ADR 0036; expression-contract-instantiation.md (Prose/inward row); every operations doc inherits the contract.
 - **[`README.md`](README.md)** → none mechanical; the index is browsed by humans.
 

@@ -20,7 +20,7 @@ Categories:
 - **`session/register_state.json` missing or malformed** — required keys: `next_id`, `last_claimed`, `current_status`. Format must parse as JSON.
 - **`session/current.json` missing keys** — when present (during an in-progress session), must have `id`, `started_at`, `status`, `working_on`. `id` must match `^S-\d{4}$`.
 - **Graph-audit hard-fails** — duplicate node IDs, dangling edge references, prerequisite cycles in the `pedagogical_prerequisite` subgraph (detected via Kosaraju SCC). Active when `SUPABASE_DB_URL` is set in the environment; absent env var records `graph_audit_skipped` and runs no DB query (non-seed-authoring sessions are not gated on DB connectivity). See [ADR 0016](../adr/0016-graph-construction-needs-live-validation.md) for the full contract.
-- **`mempalace_diary_write_skipped`** — diary-write hard-fail per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md) (S-0078); **engine mode only** per S-0091. Fires when `mempalace_activity.diary_write_calls == 0` AND `outcome_summary` lacks the `mempalace_unavailable_acknowledged: <reason>` token AND `current.json` `mode` is not `routine`. Gated by `--final-check`. Engine asymmetry justified: interactive fix path is immediate (write the diary or write the token + reason); the hard-fail catches AI laziness in skipping the only first-person reflection layer. Recoverable by invoking `mempalace_diary_write` and re-running `validate.py --final-check`, OR by adding `mempalace_unavailable_acknowledged: <one-line reason>` to `outcome_summary` and re-running. Routine sessions hit the soft-warn `mempalace_diary_write_skipped_routine` instead — see below.
+- **`engine_memory_diary_write_skipped`** — diary-write hard-fail per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md) (S-0078); **engine mode only** per S-0091. Fires when `engine_memory_activity.diary_write_calls == 0` AND `outcome_summary` lacks the `engine_memory_unavailable_acknowledged: <reason>` token AND `current.json` `mode` is not `routine`. Gated by `--final-check`. Engine asymmetry justified: interactive fix path is immediate (write the diary or write the token + reason); the hard-fail catches AI laziness in skipping the only first-person reflection layer. Recoverable by invoking `engine_memory_diary_write` and re-running `validate.py --final-check`, OR by adding `engine_memory_unavailable_acknowledged: <one-line reason>` to `outcome_summary` and re-running. Routine sessions hit the soft-warn `engine_memory_diary_write_skipped_routine` instead — see below.
 
 If a hard-fail blocks a commit and the fix is non-obvious, escalate per [`escalation-criteria.md`](escalation-criteria.md). Don't bypass the hook (`--no-verify`) — investigate the root cause.
 
@@ -90,137 +90,53 @@ An ADR number (4-digit prefix) appears in both `engine/adr/NNNN-*.md` and `produ
 
 Recoverable — pick one of the two ADRs to renumber (typically the one with the smaller forward-cascade), run the `git grep -l '<old-path>'` rename procedure per [`cascade-discipline.md`](cascade-discipline.md), and land the rename + all present-truth reference updates in a single atomic commit.
 
-### `chromadb_palace_health`
+### `engine_memory_boot_query_skipped`
 
-The shared-state probe at [`engine/tools/probe_palace.py`](../tools/probe_palace.py) reported a level-1 (suspect) condition — palace path missing, no collections, or another anomaly that doesn't constitute outright corruption. Active from S-0035 onward per [ADR 0045](../adr/0045-shared-state-integrity-discipline.md). Probe runs at every `validate.py` invocation in the default check set and in the `--health-probe-only` mode used by the SessionStart hook.
+No `engine_memory_search` call was recorded during the session. Active from S-0078 onward per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md). Sourced from `engine_memory_activity.search_calls == 0` on `current.json`. Gated by `--final-check` (the shutdown step's audit invocation, not pre-commit hook fires).
 
-The probe escalates to a **hard-fail** (not a soft-warn) when the palace is definitely broken — chromadb refuses to import, `PersistentClient` raises on open, `get_collection() / count()` raises, or the probe segfaults at SIGSEGV (the S-0034 chromadb_rust_bindings signature on a corrupt HNSW segment). Definite corruption blocks the commit so the build session must address it before proceeding; the soft-warn level is reserved for ambiguous states that don't yet warrant blocking.
+Recoverable mid-session by invoking `engine_memory_search` once with the next-session work item terms; the post-tool-use hook captures the call into the session's JSONL, the rollup picks it up at shutdown, and the warn clears.
 
-Per the S-0084 amendment to ADR 0045, the probe also promotes its overall exit code from 0 (healthy) to 1 (suspect) when HNSW divergence ≥ 10% is detected via `mempalace repair-status` — that condition surfaces here as well, with the divergence line as the soft-warn body, AND in the dedicated `mempalace_hnsw_divergence` category below.
+### `engine_memory_diary_read_skipped`
 
-Recoverable — `mempalace mine <dir>` to re-populate from source jsonl files; or move the suspect segment dir aside (`palace/<segment-uuid>.broken/`) and re-run the probe so chromadb rebuilds from SQLite-stored embeddings (the S-0034 recovery procedure). For the divergence-promoted case, see `mempalace_hnsw_divergence` below.
+No `engine_memory_diary_read` call was recorded. Active from S-0078 onward per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md). Same telemetry path as the boot-query skip; same recovery (invoke once via the MCP tool with `agent_name="claude" last_n=3`).
 
-### `mempalace_boot_query_skipped`
+### `engine_memory_boot_query_late`
 
-No `mempalace_search` call was recorded during the session. Active from S-0078 onward per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md). Sourced from `mempalace_activity.search_calls == 0` on `current.json`. Gated by `--final-check` (the shutdown step's audit invocation, not pre-commit hook fires).
+The `engine_memory_search` boot query ran, but its first call landed *after* `current.json`'s `started_at` — i.e. after the eager-claim ritual, not at boot. Active from S-0160 onward per [Issue #124](https://github.com/StarshipSuperjam/paideia/issues/124). Sourced from `engine_memory_activity.search_first_ts` (per-tool first-call timestamp written by `scan_engine_memory_activity.py`) vs `current.json.started_at`. Gated by `--final-check`.
 
-Recoverable mid-session by invoking `mempalace_search` once with the next-session work item terms; the post-tool-use hook captures the call into the session's JSONL, the rollup picks it up at shutdown, and the warn clears.
+This is the timing counterpart to `engine_memory_boot_query_skipped`: skipped fires when the call never happened; late fires when it happened but too late to matter. The boot query exists to surface prior lessons and decisions *before* the session plans and executes; run after the deliverable is authored, it produces clean telemetry without the benefit — the recalled context can no longer change the work. Backward-compatible: skips silently when `search_first_ts` is absent (pre-S-0160 archives, JSONL-absent path) or when `started_at` is unparseable — fires only on a positive, unambiguous late signal. Not recoverable in-session (the work is already done); the fix is procedural — run the boot query at boot, before plan authoring.
 
-### `mempalace_diary_read_skipped`
+### `engine_memory_diary_read_late`
 
-No `mempalace_diary_read` call was recorded. Active from S-0078 onward per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md). Same telemetry path as the boot-query skip; same recovery (invoke once via the MCP tool with `agent_name="claude" last_n=3`).
+The `engine_memory_diary_read` boot step ran, but its first call landed *after* `current.json`'s `started_at`. Active from S-0160 onward per [Issue #124](https://github.com/StarshipSuperjam/paideia/issues/124). Sourced from `engine_memory_activity.diary_read_first_ts` vs `current.json.started_at`. Gated by `--final-check`. Same shape, rationale, backward-compat, and non-recoverability as `engine_memory_boot_query_late` — the diary read exists to surface prior sessions' first-person reflections before planning; run late, they are recalled into a context where they can no longer inform the work.
 
-### `mempalace_boot_query_late`
+### `engine_memory_diary_write_skipped_routine`
 
-The `mempalace_search` boot query ran, but its first call landed *after* `current.json`'s `started_at` — i.e. after the eager-claim ritual, not at boot. Active from S-0160 onward per [Issue #124](https://github.com/StarshipSuperjam/paideia/issues/124). Sourced from `mempalace_activity.search_first_ts` (per-tool first-call timestamp written by `scan_mempalace_activity.py`) vs `current.json.started_at`. Gated by `--final-check`.
-
-This is the timing counterpart to `mempalace_boot_query_skipped`: skipped fires when the call never happened; late fires when it happened but too late to matter. The boot query exists to surface prior lessons and decisions *before* the session plans and executes; run after the deliverable is authored, it produces clean telemetry without the benefit — the recalled context can no longer change the work. Backward-compatible: skips silently when `search_first_ts` is absent (pre-S-0160 archives, JSONL-absent path) or when `started_at` is unparseable — fires only on a positive, unambiguous late signal. Not recoverable in-session (the work is already done); the fix is procedural — run the boot query at boot, before plan authoring.
-
-### `mempalace_diary_read_late`
-
-The `mempalace_diary_read` boot step ran, but its first call landed *after* `current.json`'s `started_at`. Active from S-0160 onward per [Issue #124](https://github.com/StarshipSuperjam/paideia/issues/124). Sourced from `mempalace_activity.diary_read_first_ts` vs `current.json.started_at`. Gated by `--final-check`. Same shape, rationale, backward-compat, and non-recoverability as `mempalace_boot_query_late` — the diary read exists to surface prior sessions' first-person reflections before planning; run late, they are recalled into a context where they can no longer inform the work.
-
-### `mempalace_diary_write_skipped_routine`
-
-**Routine mode only**, per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md) S-0091 routine-protection refinement. Fires when `mempalace_activity.diary_write_calls == 0` AND `outcome_summary` lacks the `mempalace_unavailable_acknowledged:` token AND `current.json` `mode == "routine"`. Engine sessions hit `mempalace_diary_write_skipped` (hard-fail) instead — the asymmetry is justified by the unattended-vs-interactive difference.
+**Routine mode only**, per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md) S-0091 routine-protection refinement. Fires when `engine_memory_activity.diary_write_calls == 0` AND `outcome_summary` lacks the `engine_memory_unavailable_acknowledged:` token AND `current.json` `mode == "routine"`. Engine sessions hit `engine_memory_diary_write_skipped` (hard-fail) instead — the asymmetry is justified by the unattended-vs-interactive difference.
 
 Body is uniformly LOUD: `⚠️ ROUTINE DIARY DEFERRED — DO NOT BURY THIS`. Side effect: the validator appends an entry to [`engine/session/diary_pending_index.json`](../session/diary_pending_index.json) so the next session boot's SessionStart hook surfaces the count + IDs at every subsequent boot.
 
-Recovery is *not* in-session — routines cannot recover their own dropped MCP. Recovery procedure: reconnect MCP (typically Claude Desktop reboot), open an interactive session, follow the "Deferred diary recovery" procedure at [`engine/operations/routine-mode-operations.md`](routine-mode-operations.md). The recovery session reads each pending archive, authors a diary entry from the structured fields, calls `mempalace_diary_write`, and removes the entry from the index.
+Recovery is *not* in-session — routines cannot recover their own dropped MCP. Recovery procedure: reconnect MCP (typically Claude Desktop reboot), open an interactive session, follow the "Deferred diary recovery" procedure at [`engine/operations/routine-mode-operations.md`](routine-mode-operations.md). The recovery session reads each pending archive, authors a diary entry from the structured fields, calls `engine_memory_diary_write`, and removes the entry from the index.
 
 Persistent firing across 3-of-5 sessions deserves investigation — the routine-mode-lifecycle skill body's token-write branch may be buggy, OR the MCP substrate is failing more often than expected.
 
-### `mempalace_diary_write_skipped_substrate_intermittent`
+### `engine_memory_diary_write_acknowledged_skip`
 
-No `mempalace_diary_write` call was recorded; `outcome_summary` carries the `mempalace_unavailable_acknowledged:` token claiming substrate unavailable; BUT `mempalace status` succeeds at close-time. The substrate is reachable now even though the AI claimed unavailable earlier — typically intermittent MCP resolved by rebooting Claude Desktop (the user's known cause per the S-0090 clarification). Active from S-0090 onward per the [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md) Consequences amendment; was a hard-fail at S-0089 (`mempalace_diary_write_skipped_invalid_token`); converted to soft-warn at S-0090 per the user's routine-protection directive (*"I just need to know when it happens. I don't want that to kill routine sessions running overnight or while I'm AFK"*).
-
-Body is uniformly LOUD per S-0091: `⚠️ MCP INTERMITTENT — DO NOT BURY THIS` prefix in both engine and routine modes. The S-0090 engine/routine differentiation is dropped — archive review is the routine-side visibility surface, and the LOUD prefix costs nothing extra in routine archives while serving the user's "clearly in session text" requirement directly.
-
-Recoverable by invoking `mempalace_diary_write` and re-running `validate.py --final-check` (substrate is live, so the call should succeed). Single-session use is investigation-worthy on its own under the S-0090 contract; persistent firing across 3-of-5 sessions deserves the same escalation as other adoption checks.
-
-### `mempalace_diary_write_acknowledged_skip`
-
-No `mempalace_diary_write` call was recorded BUT `outcome_summary` carries the `mempalace_unavailable_acknowledged: <reason>` token, AND `mempalace status` confirms the substrate IS unreachable at close-time (the S-0089 contract tightening). Active from S-0078 onward per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md); contract tightened at S-0089 per the Consequences amendment.
+No `engine_memory_diary_write` call was recorded BUT `outcome_summary` carries the `engine_memory_unavailable_acknowledged: <reason>` token, AND `mempalace status` confirms the substrate IS unreachable at close-time (the S-0089 contract tightening). Active from S-0078 onward per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md); contract tightened at S-0089 per the Consequences amendment.
 
 Body is uniformly LOUD per S-0091: `⚠️ DIARY WRITE SKIPPED — DO NOT BURY THIS` prefix in both engine and routine modes. The S-0089 engine/routine differentiation is dropped (see `mempalace_diary_write_skipped_substrate_intermittent` above for the rationale).
 
-The token always downgrades the diary-write hard-fail to a soft-warn (so the session closes); the soft-warn category depends on the substrate state at close-time. Substrate unreachable → this category (`mempalace_diary_write_acknowledged_skip`); substrate reachable → `mempalace_diary_write_skipped_substrate_intermittent` (per S-0090). The S-0087/S-0088 burial pattern stays hard to repeat because both paths now have uniformly LOUD bodies surfacing the AI's claim alongside the substrate state.
+The token always downgrades the diary-write hard-fail to a soft-warn (so the session closes); the soft-warn category depends on the substrate state at close-time. Substrate unreachable → this category (`engine_memory_diary_write_acknowledged_skip`); substrate reachable → `mempalace_diary_write_skipped_substrate_intermittent` (per S-0090). The S-0087/S-0088 burial pattern stays hard to repeat because both paths now have uniformly LOUD bodies surfacing the AI's claim alongside the substrate state.
 
 Persistent firing across 3-of-5 sessions deserves investigation; single-session firing is itself investigation-worthy under the S-0089 contract.
 
-### `mempalace_substrate_at_close`
+### `engine_memory_zero_citations_after_search`
 
-The `mempalace status` substrate probe failed at session close (CLI not on PATH, palace dir missing, sqlite corrupt, chromadb open failure, or timeout). Active from S-0089 onward per the [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md) Consequences amendment.
+The session invoked engine-memory boot search (`search_calls > 0`) but the citation scan at shutdown found zero drawer references in `outcome_summary` + today's diary entry + commit messages. Active from S-0093 onward per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md) S-0093 amendment + [Issue #39](https://github.com/StarshipSuperjam/paideia/issues/39). Sourced from `engine_memory_activity.search_calls > 0 AND mempalace_activity.engine_memory_citations.total == 0` on `current.json`. The citations block is written by [`engine/tools/scan_engine_memory_citations.py`](../tools/scan_engine_memory_citations.py) at shutdown step 12. The check is gated on session id ≥ S-0093 (pre-S-0093 archives lack the block by design).
 
-Independent of the diary-write check — this category surfaces broken substrate as its own signal so the user sees it at every close, not only when the acknowledgement token is used. The substrate could have been alive earlier in the session and broken by close (palace mid-prune, mid-rebuild, etc.).
-
-Body is uniformly LOUD per S-0091: `⚠️ MEMPALACE SUBSTRATE DOWN — DO NOT BURY THIS` prefix in both engine and routine modes. Same single-session-signal treatment as the diary-write LOUD paths — not "wait for 3-of-5".
-
-Recoverable — diagnose via `mempalace status 2>&1`, `ls ~/.mempalace/palace`, `mempalace repair-status`. Recovery: [`engine/tools/mempalace_rebuild_hnsw.py`](../tools/mempalace_rebuild_hnsw.py) per its documented procedure (S-0084 precedent). If the substrate is genuinely unreachable AND no recovery is possible mid-session, the acknowledgement-token path is the honest closure (per the [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md) escape hatch + S-0089 tightening).
-
-### `mempalace_retired_surface_used`
-
-The session invoked one or more MemPalace tools that the project retired from use at S-0087 — KG family (`mempalace_kg_query` / `kg_add` / `kg_invalidate` / `kg_stats` / `kg_timeline`) or tunnel family (`mempalace_find_tunnels` / `list_tunnels` / `create_tunnel` / `delete_tunnel` / `traverse`). Active from S-0087 onward per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md) Consequences amendment. Sourced from `mempalace_activity.kg_calls > 0` OR `mempalace_activity.tunnel_calls > 0` on `current.json`. Body names the specific call counts (e.g., `kg_calls=3, tunnel_calls=2`).
-
-This is a defense-in-depth surface — MCP-server-side per-tool filtering is not yet feasible at the harness layer (the MCP server registers the full tool surface), so discipline + soft-warn detection is the load-bearing surface against scope regression. The contract is at [`engine/operations/mempalace-operations.md`](mempalace-operations.md) "Project usage scope" + [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md) Consequences amendment.
-
-Expected zero post-retirement; persistent firing across 3-of-5 sessions indicates undocumented project usage and the contract should be revisited (file Issue, amend ADR 0056). Single-session firing on a one-off retired-surface invocation: identify the call site and either remove it or amend the contract — both routes go through ADR adjudication, not silent acceptance.
-
-### `mempalace_zero_citations_after_search`
-
-The session invoked MemPalace boot search (`search_calls > 0`) but the citation scan at shutdown found zero drawer references in `outcome_summary` + today's diary entry + commit messages. Active from S-0093 onward per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md) S-0093 amendment + [Issue #39](https://github.com/StarshipSuperjam/paideia/issues/39). Sourced from `mempalace_activity.search_calls > 0 AND mempalace_activity.mempalace_citations.total == 0` on `current.json`. The citations block is written by [`engine/tools/scan_mempalace_citations.py`](../tools/scan_mempalace_citations.py) at shutdown step 12. The check is gated on session id ≥ S-0093 (pre-S-0093 archives lack the block by design).
-
-This is the closed-loop counterpart to `mempalace_boot_query_skipped`. Boot-query-skipped fires when the call did not happen; zero-citations-after-search fires when the call happened but produced no observable behavior change. Either side firing is signal that the boot-search apparatus is not delivering value.
+This is the closed-loop counterpart to `engine_memory_boot_query_skipped`. Boot-query-skipped fires when the call did not happen; zero-citations-after-search fires when the call happened but produced no observable behavior change. Either side firing is signal that the boot-search apparatus is not delivering value.
 
 Expected zero in well-functioning sessions — the boot-search orchestrator surfaces drawers that bear on the work, the AI cites them in plan rationale or commit messages, and the citation scan picks them up. Persistent firing across 3-of-5 sessions per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md) signals one of two regressions: (a) the boot-search formulations aren't surfacing drawers the session would cite — tune the formulation set in [`engine/tools/mempalace_boot_search.py`](../tools/mempalace_boot_search.py) (synonyms, similarity threshold, keyword-extraction heuristic); (b) retrieved drawers ARE being surfaced but the AI isn't weaving them into authored artifacts — discipline issue, surface in the next pushback drawer.
-
-### `mempalace_hnsw_divergence`
-
-The HNSW vector-index has diverged from the SQLite ground truth by ≥ 10%. The divergent drawers are invisible to `mempalace_search`'s semantic-similarity path; for queries that hit those drawers, search degrades to BM25 lexical matching. **This is a transient failure mode that requires action, not a working state to live with.** Active from S-0084 onward per the [ADR 0045](../adr/0045-shared-state-integrity-discipline.md) amendment for [Issue #31](https://github.com/StarshipSuperjam/paideia/issues/31). The signal is sourced from `probe_palace.py`'s extension, which shells out to upstream's read-only `mempalace repair-status` subcommand (contracted to never open a chromadb client) and parses the SQLite vs HNSW counts.
-
-The check is recorded in `checks_run` unconditionally whenever the palace probe runs (boot-probe-only mode AND full in-session validate), so per-session archive telemetry per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md) reflects "check ran, found N divergence" rather than the pre-S-0143 conditional shape where checks_run only carried the entry when divergence happened to be non-zero at run time. The soft-warn body still fires only at ≥10% — the unconditional add_check closes a structural gap surfaced by the S-0141 audit ([Issue #109](https://github.com/StarshipSuperjam/paideia/issues/109)).
-
-Threshold tiers:
-
-- **≥ 10%** (soft-warn): body names the percentage and points at the supported restoration path.
-- **≥ 30%** (LOUD-attention soft-warn): body adds the destructive-repair carve-out warning verbatim, naming the S-0078 forensic (99.7% loss observed when `mempalace repair --mode legacy` was run).
-
-**Do not auto-remediate via `mempalace repair --mode legacy`** under any divergence percentage. The supported restoration path is the project-internal direct-chromadb-rebuild tool — reads `(id, document, metadata)` tuples directly from `chroma.sqlite3`, deletes the collection preserving metadata, recreates, re-adds via `collection.add(documents=...)` to force fresh HNSW writes via the registered embedding function. Always run against a scratch palace copy first; atomic-rename swap to live gated on `mempalace repair-status` reporting status OK (within upstream's flush-lag tolerance). See [`engine/operations/mempalace-operations.md`](mempalace-operations.md) "Known issues" for forensic detail and the S-0084 first execution.
-
-Recoverable — run [`engine/tools/mempalace_rebuild_hnsw.py`](../tools/mempalace_rebuild_hnsw.py) per the procedure documented there; soft-warn clears once divergence drops below 10%. If the rebuild itself surfaces an unexpected failure mode, file under the upstream tracker rather than reverting to a "live with BM25 fallback" posture.
-
-### `mempalace_hnsw_status_suspect`
-
-The HNSW vector-index reports `status: UNKNOWN` — `mempalace repair-status` shows the index metadata has not been flushed, so HNSW capacity is unknowable and `mempalace_search` is degraded to BM25 lexical fallback for any not-yet-indexed drawers. Active from S-0163 onward per [ADR 0089's sibling fix to](../adr/0089-skill-layer1-parity-validator-check.md) [Issue #127](https://github.com/StarshipSuperjam/paideia/issues/127). A *sibling* category to `mempalace_hnsw_divergence`, not an extension of it: the divergence check fires at ≥ 10% *measured* divergence, but the UNKNOWN / unflushed state produces no percentage to compare — the index has no flushed counts at all. The S-0162 health-check audit found the recurrence living exactly in this blind spot. The signal is sourced from `probe_palace.py`'s `[probe-palace] hnsw-status: <STATUS>` line, emitted when `mempalace repair-status` reports a non-OK status AND the divergence counts are unparseable.
-
-The check is recorded in `checks_run` unconditionally whenever the palace probe runs (same pattern as `mempalace_hnsw_divergence` per [Issue #109](https://github.com/StarshipSuperjam/paideia/issues/109)); the soft-warn body fires only when the `hnsw-status:` line is present.
-
-Recoverable — run [`engine/tools/mempalace_rebuild_hnsw.py`](../tools/mempalace_rebuild_hnsw.py) against a scratch palace copy, then atomic-rename swap to live once `mempalace repair-status` reports a flushed index (status OK with parseable counts). The substrate-level decision of whether MemPalace gets a durable HNSW fix or git-grep-against-tracked-files becomes the accepted Phase-6 recall substrate is a user judgment call surfaced in `engine/STATE.md` (per the S-0162 audit), not resolvable inside this soft-warn.
-
-### `mempalace_wing_count_growth`
-
-Total MemPalace wing count has crossed an accumulation threshold. Active from S-0088 onward per [Issue #46](https://github.com/StarshipSuperjam/paideia/issues/46). The signal is sourced from `probe_palace.py`'s `[probe-palace] wings: N (total)` line, which counts distinct `wing` metadata values in the chromadb sqlite store directly (~2 s on a 47 K-drawer palace; the upstream `mempalace status` enumeration is too slow at boot scale). MemPalace stores all drawers in two chromadb collections with `wing` as a metadata field, so `len(client.list_collections())` is structurally always 2 — distinct-wing query is the only accurate accumulation surface.
-
-Threshold tiers (configurable via `engine/session/register_state.json`'s `wing_count_growth_thresholds` block; bootstrap defaults `informational: 60`, `loud: 100`):
-
-- **≥ informational** (soft-warn): body names the count and points at the cleanup tools (`engine/tools/prune_mempalace.py` for orphan-wings + ops-doc-drawer modes per Issue #40; the dedicated heavy historical-paths session per Issue #41).
-- **≥ loud** (LOUD-attention soft-warn): body adds severity prose noting recall degradation and the discipline-rule that thresholds may only be adjusted *after* a cleanup batch lands — never raised to silence the surface.
-
-The accumulation cause is the upstream wing-naming bug ([Issue #1](https://github.com/StarshipSuperjam/paideia/issues/1) / [Issue #2](https://github.com/StarshipSuperjam/paideia/issues/2)): each new worktree's auto-capture creates a new `wing_<hash>` per session, indefinitely. The Issue-#46 surface is the rate guardrail — symptoms accumulate between Issue-#40 / Issue-#41 cleanup batches; this soft-warn says "schedule the next batch."
-
-Threshold reader silently falls back to the bootstrap defaults (60 / 100) when the register block is absent, malformed, or violates the `loud > informational > 0` contract — so a typo in operator-edited register_state.json can't poison the soft-warn.
-
-Recoverable — run [`engine/tools/prune_mempalace.py`](../tools/prune_mempalace.py) per the procedure in [`engine/operations/mempalace-operations.md`](mempalace-operations.md) "Prune procedure"; the LOUD-tier finding clears once the count drops below the informational threshold.
-
-### `mempalace_quarantine_accumulation`
-
-Quarantine-directory accumulation under the MemPalace palace root. Active from S-0153 onward, corroborating Sarah Novotny's [MemPalace/mempalace#1489](https://github.com/MemPalace/mempalace/issues/1489) comment (2026-05-13). The signal is sourced from `probe_palace.py`'s `[probe-palace] quarantine: drift=N corrupt=N` line, which counts immediate-child directories under the palace root matching `.drift-*` and `.corrupt-*` (placed by upstream `quarantine_stale_hnsw` per MemPalace/mempalace#1322 + #1342 when a backend client open sees a segment dir with absent `index_metadata.pickle`).
-
-Threshold is hardcoded at `total >= 1` for first-cut — any quarantine event is signal worth seeing. The dir count itself is bounded operationally; the cross-session rate is the lifecycle measure governed by the persistent-warn 3-of-5 surface and ≥10-session escalation per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md). Migrating to a register-state thresholds block (per the wing-count pattern at Issue #46 / S-0088) is a future tuning concern.
-
-The accumulation mechanism (per Sarah's comment thread): each backend client open sees the missing pickle and quarantines the bad segment via rename-aside, leaving a fresh-empty placeholder that the next open also quarantines. One `mempalace status` invocation can trigger a 3-segment cycle in a single command; 9 directories accumulated in one day on a 28K-drawer palace post-rebuild. Project-side relevance reduced by [ADR 0079](../adr/0079-hnsw-sync-threshold-tuning.md)'s hybrid posture (threshold=100 on live palace), but the underlying quarantine mechanism runs on every backend client open regardless.
-
-Recoverable — inspect the `.drift-*` / `.corrupt-*` directories under `~/.mempalace/palace/`. Empty placeholders (zero-byte `link_lists.bin`, absent `index_metadata.pickle`) are safe to remove; segments carrying real `data_level0.bin` data should be preserved pending recovery decision. Pruning is intentionally not auto-executed — the directories may carry recoverable state.
 
 ### `health_check_overdue`
 
@@ -316,7 +232,7 @@ Recoverable: trim the file per the preamble's guidance. If the row count exceeds
 
 ### `adr_consequences_amendment_header`
 
-Per [ADR 0036](../adr/0036-expression-contract-for-inward-documents.md) + [ADR 0062](../adr/0062-retire-adr-inline-amendments-and-governed-doc-soft-warns.md) (S-0126; Issue #87). Zero-tolerance pattern catch — fires on any `### Amendment` header in any `engine/adr/*.md` or `product/adr/*.md` file. ADR body content is present-truth declarative; authorship history belongs in `engine/ENGINE_LOG.md` / MemPalace `decision` drawers / git, not in ADR body.
+Per [ADR 0036](../adr/0036-expression-contract-for-inward-documents.md) + [ADR 0062](../adr/0062-retire-adr-inline-amendments-and-governed-doc-soft-warns.md) (S-0126; Issue #87). Zero-tolerance pattern catch — fires on any `### Amendment` header in any `engine/adr/*.md` or `product/adr/*.md` file. ADR body content is present-truth declarative; authorship history belongs in `engine/ENGINE_LOG.md` / engine_memory `decisions`-room drawers / git, not in ADR body.
 
 Recoverable: fold the amendment substance into the body as present-truth (refining contract clauses, deleting blocks whose substance lives in tool docstrings / ENGINE_LOG / git), then delete the `### Amendment` header.
 
@@ -346,7 +262,7 @@ The soft-warn is intentionally per-session-resolvable — every fire indicates a
 
 A `Call` node in `engine/tools/**/*.py` (excluding `test_*.py` and the four allowlisted files) invokes `.isoformat(...)`, `.strftime(...)`, or `.fromisoformat(...)` directly. Per [ADR 0058](../adr/0058-canonical-timestamp-format-and-helper.md) + [`timestamp-discipline.md`](timestamp-discipline.md), all timestamp emission and parsing in the engine subtree routes through `engine/tools/timestamps.py` (`emit` / `emit_micros` / `parse` / `today`) so format knowledge concentrates in one place.
 
-Recoverable: replace the bare call with the appropriate helper function, or — if the site has a legitimate non-canonical contract — add the file to `_TIMESTAMP_HELPER_BYPASS_ALLOWLIST` in `validate.py` with an inline comment naming what the helper would break if applied. The four current allowlist entries (`apply_migration.py`, `probe_push_gate.py`, `audit_mempalace_attribution.py`, `scan_mempalace_citations.py`) document the contract pattern.
+Recoverable: replace the bare call with the appropriate helper function, or — if the site has a legitimate non-canonical contract — add the file to `_TIMESTAMP_HELPER_BYPASS_ALLOWLIST` in `validate.py` with an inline comment naming what the helper would break if applied. The four current allowlist entries (`apply_migration.py`, `probe_push_gate.py`, `audit_mempalace_attribution.py`, `scan_engine_memory_citations.py`) document the contract pattern.
 
 Persistent firing across multiple sessions per [`soft-warn-lifecycle.md`](soft-warn-lifecycle.md)'s 3-of-5-archives surface signals new ad-hoc emission slipping in — investigate the offending file and either route through the helper or extend the allowlist with rationale.
 
@@ -430,10 +346,10 @@ The since-date matches the calendar span of the cadence-20 window. The `git log 
 | `missing_rigor_score` | Persistent-warn annotation (S-0077) | 20 | 51 | 31 | Phase 5 partial-seed pattern; Phase 6 rigor-calibration resolves |
 | `issue_collision` | Persistent-warn annotation (S-0077) | 17 | 51 | 33 | Open-Issue keyword overlap defense; ADR 0048 broad-keyword design |
 | `health_check_overdue` | Persistent-warn annotation (S-0077) | 10 | 17 | 22 | Cadence-trigger defense-in-depth; clears at audit close |
-| `mempalace_diary_read_skipped` | Informational-only-accepted (S-0098) | 5 | 5 | 2 | MemPalace adoption observability per ADR 0056 |
-| `mempalace_boot_query_skipped` | Informational-only-accepted (S-0098) | 4 | 4 | 3 | MemPalace adoption observability per ADR 0056 |
+| `engine_memory_diary_read_skipped` | Informational-only-accepted (S-0098) | 5 | 5 | 2 | engine-memory adoption observability per ADR 0091 |
+| `engine_memory_boot_query_skipped` | Informational-only-accepted (S-0098) | 4 | 4 | 3 | engine-memory adoption observability per ADR 0091 |
 | `adr_consequences_deliverable_audit` | Actively-tracked | 15 | 16 | 14 | Surfaces stale ADR Consequences-section deliverable promises per [ADR 0041](../adr/0041-cascade-analysis-discipline.md) cascade discipline; high acted-on rate |
-| `mempalace_diary_write_acknowledged_skip` | Actively-tracked | 2 | 2 | 2 | Substrate-unavailable acknowledged sessions per ADR 0056 escape hatch |
+| `engine_memory_diary_write_acknowledged_skip` | Actively-tracked | 2 | 2 | 2 | Substrate-unavailable acknowledged sessions per ADR 0056 escape hatch |
 | `empty_declared_scope` | Actively-tracked | 1 | 1 | 6 | ADR 0049 Decision 6 — eager-claim ritual must write `declared_scope` as 1-3 sentence string |
 | `adr_back_reference_orphan` | Actively-tracked | 0 | 1 | 4 | Cascade discipline — ADR back-reference orphans per ADR 0041 |
 | `routine_issue_spam` | Actively-tracked | 0 | 1 | 1 | Routine-mode anti-pattern per ADR 0051 |
@@ -444,14 +360,14 @@ The since-date matches the calendar span of the cadence-20 window. The `git log 
 | `cross_reference_broken` | Actively-tracked | 0 | 0 | 6 | Cross-reference integrity in `docs/CROSS_REFERENCES.md` |
 | `engine_log_format` | Actively-tracked | 0 | 0 | 1 | `[Unreleased]` block presence in ENGINE_LOG.md |
 | `expected_future_file_missing` | Actively-tracked | 0 | 0 | 0 | Phase-staged file expectations per `EXPECTED_FROM_S0002` |
-| `mempalace_diary_write_skipped_routine` | Actively-tracked | 0 | 0 | 3 | Routine-mode no-token-no-diary soft-warn per S-0091 routine-protection |
+| `engine_memory_diary_write_skipped_routine` | Actively-tracked | 0 | 0 | 3 | Routine-mode no-token-no-diary soft-warn per S-0091 routine-protection |
 | `mempalace_diary_write_skipped_substrate_intermittent` | Actively-tracked | 0 | 0 | 1 | Substrate-down contradiction case per ADR 0056 amendment (S-0089) |
 | `mempalace_hnsw_divergence` | Actively-tracked | 0 | 0 | 2 | Palace HNSW vs SQLite divergence per ADR 0045 amendment (S-0084) |
 | `mempalace_quarantine_accumulation` | Actively-tracked | 0 | 0 | 0 | `.drift-*` / `.corrupt-*` accumulation under palace root (S-0153, corroborating MemPalace/mempalace#1489) |
 | `mempalace_retired_surface_used` | Actively-tracked | 0 | 0 | 3 | KG / tunnels usage defense per S-0087 retirement |
 | `mempalace_substrate_at_close` | Actively-tracked | 0 | 0 | 2 | Substrate-down at close defense per ADR 0056 amendment (S-0089) |
 | `mempalace_wing_count_growth` | Actively-tracked | 0 | 0 | 4 | Wing accumulation per Issue #46 (S-0088) |
-| `mempalace_zero_citations_after_search` | Actively-tracked | 0 | 0 | 3 | Closed-loop boot-search effectiveness per ADR 0056 amendment (S-0093) |
+| `engine_memory_zero_citations_after_search` | Actively-tracked | 0 | 0 | 3 | Closed-loop boot-search effectiveness per ADR 0056 amendment (S-0093) |
 | `orphan_leaf` | Actively-tracked | 0 | 0 | 1 | Phase 4+ graph audit — zero-degree pedagogical_prerequisite nodes (the lone fire, `phenomenology`, resolved at S-0155 via migration 0065) |
 | `phase_mismatch_declared_scope` | Actively-tracked | 0 | 0 | 1 | declared_scope phase-token vs `build_plan/MANIFEST.md` per ADR 0049 |
 | `render_readiness_violation` | Actively-tracked | 0 | 0 | 1 | Phase 4+ graph audit — scaffolding tokens in node labels |
@@ -471,14 +387,14 @@ The since-date matches the calendar span of the cadence-20 window. The `git log 
 | `validator_runtime_phase_regression` | Actively-tracked, deferred (S-0126) | 0 | 0 | 1 | Per-phase runtime regression per ADR 0063 four-phase model (S-0127 fold) |
 | `uv_lock_out_of_date` | Actively-tracked, deferred (S-0127) | 0 | 0 | 0 | uv.lock vs pyproject.toml staleness per ADR 0064 |
 | `dependabot_pr_stale` | Actively-tracked, deferred (S-0147) | 0 | 0 | 0 | Open Dependabot PR aged ≥ 7 days per ADR 0080 (engine); one fire per stale PR |
-| `mempalace_boot_query_late` | Actively-tracked, deferred (S-0160) | 0 | 0 | 0 | Boot `mempalace_search` ran after `started_at` per Issue #124 — timing counterpart to `mempalace_boot_query_skipped` |
-| `mempalace_diary_read_late` | Actively-tracked, deferred (S-0160) | 0 | 0 | 0 | Boot `mempalace_diary_read` ran after `started_at` per Issue #124 — timing counterpart to `mempalace_diary_read_skipped` |
+| `engine_memory_boot_query_late` | Actively-tracked, deferred (S-0160) | 0 | 0 | 0 | Boot `engine_memory_search` ran after `started_at` per Issue #124 — timing counterpart to `engine_memory_boot_query_skipped` |
+| `engine_memory_diary_read_late` | Actively-tracked, deferred (S-0160) | 0 | 0 | 0 | Boot `engine_memory_diary_read` ran after `started_at` per Issue #124 — timing counterpart to `engine_memory_diary_read_skipped` |
 
-**Coverage check:** 44 rows above; 42 static-emission category strings (per `grep -oE 'r\.soft_warn\(\s*"[a-z_]+"' engine/tools/validate.py | sort -u`) plus 2 dynamic-emission categories (`chromadb_palace_health`, `repo_config_health`) emitted from the probe loop at `validate.py:687`. Two ghost keys appear in some historical archives (`graph_audit_skipped` is an `add_check` not a `soft_warn`; `mempalace_diary_write_skipped` is a hard-fail not a soft-warn) — both excluded from this map by design.
+**Coverage check:** 44 rows above; 42 static-emission category strings (per `grep -oE 'r\.soft_warn\(\s*"[a-z_]+"' engine/tools/validate.py | sort -u`) plus 2 dynamic-emission categories (`chromadb_palace_health`, `repo_config_health`) emitted from the probe loop at `validate.py:687`. Two ghost keys appear in some historical archives (`graph_audit_skipped` is an `add_check` not a `soft_warn`; `engine_memory_diary_write_skipped` is a hard-fail not a soft-warn) — both excluded from this map by design.
 
 **Concordance check (per S-0101 plan verification step 2):** the 3 S-0077 persistent-warn annotations and 2 S-0098 informational-only classifications survive the new threshold matrix unchanged. No category flipped relative to its prior assignment.
 
-**Retire-candidate finding:** zero categories meet the retire-candidate predicate. Every silent category guards an identifiable structural invariant in the current pipeline (cascade discipline, graph audit, MemPalace adoption, ADR-routing, cross-reference integrity, format checks, routine-mode protocol). The "Retire candidates flagged for next health-check audit" section below is therefore intentionally empty at this sweep.
+**Retire-candidate finding:** zero categories meet the retire-candidate predicate. Every silent category guards an identifiable structural invariant in the current pipeline (cascade discipline, graph audit, engine-memory adoption, ADR-routing, cross-reference integrity, format checks, routine-mode protocol). The "Retire candidates flagged for next health-check audit" section below is therefore intentionally empty at this sweep.
 
 ## Informational-only-accepted classifications
 
@@ -488,19 +404,19 @@ The classification is documented per category in this section so the validator's
 
 The first two classifications land at the S-0098 adjudication of S-0097's audit (per [ADR 0057](../adr/0057-adversarial-stance-for-health-check-audits.md) Retire candidate B). At audit-window-acted-on rates of 1 commit and 2 commits respectively across S-0078 → S-0096 (despite firing in 5 and 4 archives), the two MemPalace-skip categories below were near-zero-acted-on; the user adjudicated re-classify-not-retire to preserve the passive-observability signal that some sessions don't query MemPalace at boot or read the diary, while clarifying that no per-fire action is required.
 
-The S-0101 systematic sweep (per the classification map above) added no further categories to this bucket. The remaining audit-window-firing categories (`adr_consequences_deliverable_audit`, `mempalace_diary_write_acknowledged_skip`, `empty_declared_scope`) carry acted-on rates that confirm them as actively-tracked rather than informational-only.
+The S-0101 systematic sweep (per the classification map above) added no further categories to this bucket. The remaining audit-window-firing categories (`adr_consequences_deliverable_audit`, `engine_memory_diary_write_acknowledged_skip`, `empty_declared_scope`) carry acted-on rates that confirm them as actively-tracked rather than informational-only.
 
-### `mempalace_boot_query_skipped` (informational-only-accepted, S-0098)
+### `engine_memory_boot_query_skipped` (informational-only-accepted, S-0098)
 
-**Why classified informational-only:** the category surfaces a MemPalace-adoption gap (no `mempalace_search` call in the session) for cross-session trend visibility. Per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md) the warn ships to make adoption observable; the warn's value is in audit-time aggregation across N sessions rather than mid-session correction. Individual sessions that legitimately do no MemPalace boot search (rare maintenance work, short hot-fix sessions) leave the warn intact without triggering remediation.
+**Why classified informational-only:** the category surfaces a engine-memory adoption gap (no `engine_memory_search` call in the session) for cross-session trend visibility. Per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md) the warn ships to make adoption observable; the warn's value is in audit-time aggregation across N sessions rather than mid-session correction. Individual sessions that legitimately do no engine-memory boot search (rare maintenance work, short hot-fix sessions) leave the warn intact without triggering remediation.
 
-**What still warrants action:** persistent firing across 3-of-5 sessions per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md) is the audit-time surface that asks whether the boot-search apparatus is delivering enough value to be exercised. Cross-reference with `mempalace_zero_citations_after_search` to distinguish "boot search not happening" from "boot search happening but not informing the work."
+**What still warrants action:** persistent firing across 3-of-5 sessions per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md) is the audit-time surface that asks whether the boot-search apparatus is delivering enough value to be exercised. Cross-reference with `engine_memory_zero_citations_after_search` to distinguish "boot search not happening" from "boot search happening but not informing the work."
 
-### `mempalace_diary_read_skipped` (informational-only-accepted, S-0098)
+### `engine_memory_diary_read_skipped` (informational-only-accepted, S-0098)
 
-**Why classified informational-only:** sibling to `mempalace_boot_query_skipped`. The category surfaces a MemPalace-adoption gap (no `mempalace_diary_read` call) for cross-session trend visibility. Same passive-observability rationale per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md). The diary-read skip is correctable in-session by invoking `mempalace_diary_read` once via the MCP tool with `agent_name="claude" last_n=3`, but the absence of the call within a single session is not a per-session-action signal.
+**Why classified informational-only:** sibling to `engine_memory_boot_query_skipped`. The category surfaces a engine-memory adoption gap (no `engine_memory_diary_read` call) for cross-session trend visibility. Same passive-observability rationale per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md). The diary-read skip is correctable in-session by invoking `engine_memory_diary_read` once via the MCP tool with `agent_name="claude" last_n=3`, but the absence of the call within a single session is not a per-session-action signal.
 
-**What still warrants action:** persistent firing across 3-of-5 sessions per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md) is the audit-time surface. Combined persistent firing with `mempalace_boot_query_skipped` is signal that the project's MemPalace consumption discipline (boot-search + diary-read at session start) is structurally lapsing rather than per-session lapsing.
+**What still warrants action:** persistent firing across 3-of-5 sessions per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md) is the audit-time surface. Combined persistent firing with `engine_memory_boot_query_skipped` is signal that the project's engine-memory consumption discipline (boot-search + diary-read at session start) is structurally lapsing rather than per-session lapsing.
 
 ## Persistent-warn annotation
 
@@ -582,9 +498,9 @@ Until re-audit, the categories carry their as-shipped semantics from their intro
 
 **Why deferred:** introduced at S-0146 per [Issue #62](https://github.com/StarshipSuperjam/paideia/issues/62) Proposal 3+5 merged. Predicate runs only when `SUPABASE_DB_URL` is set; phrase-pattern list anchored on the audit's 5 documented cross-bridge reversals. Re-audit at the next cadence audit to assess false-positive rate against post-S-0146 authoring; if the rate is non-trivial, evaluate either tightening the phrase list, narrowing the regex bounds, or promoting to LLM-flagged per the audit input doc's deferred enhancement path.
 
-### `mempalace_boot_query_late` / `mempalace_diary_read_late` (deferred re-audit; introduced S-0160)
+### `engine_memory_boot_query_late` / `engine_memory_diary_read_late` (deferred re-audit; introduced S-0160)
 
-**Why deferred:** introduced at S-0160 per [Issue #124](https://github.com/StarshipSuperjam/paideia/issues/124). Both fire from `--final-check` when a MemPalace boot step's per-tool first-call timestamp (`mempalace_activity.search_first_ts` / `diary_read_first_ts`) is later than `current.json.started_at`. Zero post-introduction telemetry at landing; the per-tool `*_first_ts` rollup fields are also new (pre-S-0160 archives lack them, so the check skips silently for the historical corpus — no backfill). Re-audit at the next cadence audit once ≥10 archives carry the new fields: a low-fire steady state confirms boot-step timing discipline holds; persistent firing signals the boot procedure is being consulted late despite the #123 thin-pointer fix, and the per-fire procedural guidance ("run the boot step at boot, before plan authoring") should escalate.
+**Why deferred:** introduced at S-0160 per [Issue #124](https://github.com/StarshipSuperjam/paideia/issues/124). Both fire from `--final-check` when a MemPalace boot step's per-tool first-call timestamp (`engine_memory_activity.search_first_ts` / `diary_read_first_ts`) is later than `current.json.started_at`. Zero post-introduction telemetry at landing; the per-tool `*_first_ts` rollup fields are also new (pre-S-0160 archives lack them, so the check skips silently for the historical corpus — no backfill). Re-audit at the next cadence audit once ≥10 archives carry the new fields: a low-fire steady state confirms boot-step timing discipline holds; persistent firing signals the boot procedure is being consulted late despite the #123 thin-pointer fix, and the per-fire procedural guidance ("run the boot step at boot, before plan authoring") should escalate.
 
 ### `mempalace_hnsw_status_suspect` (deferred re-audit; introduced S-0163)
 
@@ -598,7 +514,7 @@ Until re-audit, the categories carry their as-shipped semantics from their intro
 
 Categories meeting the retire-candidate predicate (fired 0/20 in cadence window AND ≤1/100 in full corpus AND no documented structural-invariant role) land here. Per [ADR 0057](../adr/0057-adversarial-stance-for-health-check-audits.md) user-buffered execution, retirement is recommended to the next cadence-fired audit's "Affirmative retire candidates" section, not executed inline; the audit author surfaces the recommendation, the user adjudicates, and the disposition routes through GitHub Issues per [ADR 0048](../adr/0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md).
 
-**S-0101 sweep finding:** zero retire-candidates. Every silent category in the classification map above guards an identifiable structural invariant in the current pipeline. The 23 silent-in-cadence-window categories cluster into seven invariant families: cascade discipline (`adr_back_reference_orphan`, `adr_index_inconsistent`, `adr_missing_status`, `superseded_adr_currency`); graph audit per ADR 0016 (`attribute_shape_inconsistency`, `orphan_leaf`, `render_readiness_violation`, `suspicious_cross_domain_ratio`, `synthetic_review_queue`, `undeclared_predicate`); MemPalace shared-state per ADR 0045 / ADR 0056 (`chromadb_palace_health`, `mempalace_diary_write_skipped_routine`, `mempalace_diary_write_skipped_substrate_intermittent`, `mempalace_hnsw_divergence`, `mempalace_retired_surface_used`, `mempalace_substrate_at_close`, `mempalace_wing_count_growth`, `mempalace_zero_citations_after_search`); cross-reference integrity (`cross_reference_broken`); format checks (`engine_log_format`, `state_format`); phase-staged file expectations (`expected_future_file_missing`); routine-mode protocol per ADR 0051 (`routine_issue_spam`, `routine_no_target_reference`); ADR 0049 scope discipline (`empty_declared_scope`, `phase_mismatch_declared_scope`, `scope_delivery_non_yes`); and dynamic-emission probe failures (`repo_config_health`).
+**S-0101 sweep finding:** zero retire-candidates. Every silent category in the classification map above guards an identifiable structural invariant in the current pipeline. The 23 silent-in-cadence-window categories cluster into seven invariant families: cascade discipline (`adr_back_reference_orphan`, `adr_index_inconsistent`, `adr_missing_status`, `superseded_adr_currency`); graph audit per ADR 0016 (`attribute_shape_inconsistency`, `orphan_leaf`, `render_readiness_violation`, `suspicious_cross_domain_ratio`, `synthetic_review_queue`, `undeclared_predicate`); engine_memory shared-state per ADR 0045 / ADR 0056 (`chromadb_palace_health`, `engine_memory_diary_write_skipped_routine`, `mempalace_diary_write_skipped_substrate_intermittent`, `mempalace_hnsw_divergence`, `mempalace_retired_surface_used`, `mempalace_substrate_at_close`, `mempalace_wing_count_growth`, `engine_memory_zero_citations_after_search`); cross-reference integrity (`cross_reference_broken`); format checks (`engine_log_format`, `state_format`); phase-staged file expectations (`expected_future_file_missing`); routine-mode protocol per ADR 0051 (`routine_issue_spam`, `routine_no_target_reference`); ADR 0049 scope discipline (`empty_declared_scope`, `phase_mismatch_declared_scope`, `scope_delivery_non_yes`); and dynamic-emission probe failures (`repo_config_health`).
 
 **Re-audit at S-0117** with the same predicate; if any silent category is then found to lack invariant cover (e.g., its referenced ADR has been superseded without amending the validator, or its consumer was retired), surface as retire-candidate at that audit.
 

@@ -30,7 +30,7 @@ If the decision is irreversible but the path is clear from existing material —
 ### Worked examples — don't escalate
 
 - "Should this commit message say 'add' or 'introduce'?" — reversible and minor; pick one.
-- "Two ways to phrase a paragraph in `mempalace-operations.md`" — purely editorial; no downstream propagation.
+- "Two ways to phrase a paragraph in `engine-memory-operations.md`" — purely editorial; no downstream propagation.
 - "Validator emits a soft-warn — fix now or note in outcome_summary?" — explicit guidance in `tools-validate-interpretation.md` — note it, don't ask.
 
 ## What counts as "unsolvable"

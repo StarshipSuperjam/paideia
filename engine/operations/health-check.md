@@ -56,7 +56,7 @@ The four posture sections below default to *confirming* that things still work, 
 
 The lazy-analysis pattern: an audit cites a count, a status field, or an existence check and treats it as evidence the system is doing its job. The diagnostic question is whether it is *doing the work*, which counts and existence don't answer. Every system reference in the audit must specify what *content probe* runs against it.
 
-The S-0065 audit looked at MemPalace and wrote *"Wing `paideia` carries 485 drawers across 5 rooms as of S-0032 close (from STATE.md infrastructure row); this audit did not run a fresh `mempalace_status`. Treat as a known number. **No action.**"* — citing a cached count from a prior audit and treating its existence as a healthy signal. Meanwhile, the routine-mode-skips-diary-write gap ([Issue #27](https://github.com/StarshipSuperjam/paideia/issues/27)) was actively dropping `pushback`/`lesson` capture across every Phase 5 routine session — invisible to drawer-count-as-stat but obvious to anyone who tried to *use* MemPalace recall during routine work.
+The S-0065 audit looked at MemPalace and wrote *"Wing `paideia` carries 485 drawers across 5 rooms as of S-0032 close (from STATE.md infrastructure row); this audit did not run a fresh `engine_memory.healthcheck()` (per ADR 0091). Treat as a known number. **No action.**"* — citing a cached count from a prior audit and treating its existence as a healthy signal. Meanwhile, the routine-mode-skips-diary-write gap ([Issue #27](https://github.com/StarshipSuperjam/paideia/issues/27)) was actively dropping `pushback`/`lesson` capture across every Phase 5 routine session — invisible to drawer-count-as-stat but obvious to anyone who tried to *use* MemPalace recall during routine work.
 
 The class is broader than MemPalace. Validator soft-warn count → "working," even when soft-warns aren't producing acted-on signal. Supabase migrations table populated → "DB is fine," without checking whether the migration's empirical postconditions hold against live data. Hook scripts exist on disk → "hooks are running," even if a PATH problem makes them silently no-op (the S-0032 audit caught exactly this for the mempalace capture hook *only because* a probe-style fresh check ran). The Mechanical inputs section below names a per-system freshness-probe inventory; the audit's prose claim about a system's health must rest on a probe run *during this audit*, not on a cited number from a prior audit or a cached entry in [`engine/STATE.md`](../STATE.md).
 
@@ -140,7 +140,7 @@ The `validator_runtime_phase_regression` soft-warn fires when any phase exceeds 
 
 ### Project state
 
-ADR collection (counts by status across time), ENGINE_LOG entries (categorized engine changes by date), MemPalace stats (`mempalace_status`, `mempalace_kg_stats` — drawer growth, room balance, last-write activity). **These are stats; they feed the audit but do not answer the operative diagnostic question.** The freshness probes below are required content probes, not substitutes for the stats.
+ADR collection (counts by status across time), ENGINE_LOG entries (categorized engine changes by date), MemPalace stats (`engine_memory.healthcheck()` (per ADR 0091), `mempalace_kg_stats` — drawer growth, room balance, last-write activity). **These are stats; they feed the audit but do not answer the operative diagnostic question.** The freshness probes below are required content probes, not substitutes for the stats.
 
 ### Freshness probes (per [ADR 0057](../adr/0057-adversarial-stance-for-health-check-audits.md))
 
@@ -148,7 +148,7 @@ Each external system the audit references gets a fresh content probe at audit-ti
 
 #### MemPalace freshness probe
 
-Run `mempalace search` against ≥3 representative recent terms — derived from the last 1-3 sessions' `working_on` subjects in `engine/session/archive/*.json`, plus named `pushback`/`lesson` keywords. The probe is *"does recall return relevant content?"* not *"does the wing have drawers?"*. [`engine/tools/health_check.py`](../tools/health_check.py)'s `audit_mempalace()` function already runs `pushback`/`lesson` adoption-count probes via a direct wing-agnostic read of the chromadb sqlite store (converted from the wing-scoped `mempalace search --wing paideia` CLI at S-0163 per [Issue #128](https://github.com/StarshipSuperjam/paideia/issues/128) — the prior wing-scoped query returned empty once drawers scattered across ~77 wings) — the audit cannot skip them. Beyond the script's mechanical surface, the audit AI runs additional `mempalace_search` MCP calls during prose authoring against current-session-relevant terms; results are read for *content quality* (do the drawers carry usable context, or are they thin?), not just count.
+Run `mempalace search` against ≥3 representative recent terms — derived from the last 1-3 sessions' `working_on` subjects in `engine/session/archive/*.json`, plus named `pushback`/`lesson` keywords. The probe is *"does recall return relevant content?"* not *"does the wing have drawers?"*. [`engine/tools/health_check.py`](../tools/health_check.py)'s `audit_mempalace()` function already runs `pushback`/`lesson` adoption-count probes via a direct wing-agnostic read of the chromadb sqlite store (converted from the wing-scoped `mempalace search --wing paideia` CLI at S-0163 per [Issue #128](https://github.com/StarshipSuperjam/paideia/issues/128) — the prior wing-scoped query returned empty once drawers scattered across ~77 wings) — the audit cannot skip them. Beyond the script's mechanical surface, the audit AI runs additional `engine_memory_search` MCP calls during prose authoring against current-session-relevant terms; results are read for *content quality* (do the drawers carry usable context, or are they thin?), not just count.
 
 #### Validator freshness probe
 
@@ -172,13 +172,13 @@ Automated probes surface in the audit's "Maintenance findings" subsection of the
 
 ### MemPalace HNSW divergence (added S-0084 per Issue #31)
 
-[`engine/tools/probe_palace.py`](../tools/probe_palace.py) shells out to upstream's `mempalace repair-status` (read-only; never opens chromadb) on every session boot and parses the divergence percentage between the SQLite ground truth and the HNSW vector index. Soft-warn `mempalace_hnsw_divergence` fires at ≥10% divergence; LOUD-attention surface at ≥30%. The probe also promotes its overall exit code from 0 (healthy) to 1 (suspect) at ≥10%, which surfaces in `chromadb_palace_health` as a separate signal.
+[`(retired with mempalace per ADR 0091)`](../tools/probe_palace.py) shells out to upstream's `mempalace repair-status` (read-only; never opens chromadb) on every session boot and parses the divergence percentage between the SQLite ground truth and the HNSW vector index. Soft-warn `mempalace_hnsw_divergence` fires at ≥10% divergence; LOUD-attention surface at ≥30%. The probe also promotes its overall exit code from 0 (healthy) to 1 (suspect) at ≥10%, which surfaces in `chromadb_palace_health` as a separate signal.
 
 When the audit fires, it should:
 
 1. Read the `mempalace_hnsw_divergence` count from the relevant archive(s)' `outcome_summary_soft_warns`.
 2. If non-zero across recent archives, name the divergence percentage in the audit's "Maintenance findings" subsection.
-3. **Do NOT recommend `mempalace repair --mode legacy`.** S-0078 confirmed that command destroys SQLite embedding rows (99.7% loss observed at the time; see [`mempalace-operations.md`](mempalace-operations.md) "Known issues" for forensic detail and the upstream tracker).
+3. **Do NOT recommend `mempalace repair --mode legacy`.** S-0078 confirmed that command destroys SQLite embedding rows (99.7% loss observed at the time; see [`engine-memory-operations.md`](mempalace-operations.md) "Known issues" for forensic detail and the upstream tracker).
 4. Recommend [`engine/tools/mempalace_rebuild_hnsw.py`](../tools/mempalace_rebuild_hnsw.py) — non-destructive direct chromadb rebuild, run against a scratch palace copy first, swap to live only after 0% divergence verified.
 
 ## Audit posture (not categories — postures)
@@ -257,7 +257,7 @@ The thought experiment surfaces what's load-bearing vs accumulated:
 
 ## Accumulated pushbacks and lessons (per [Issue #36](https://github.com/StarshipSuperjam/paideia/issues/36) and [ADR 0057](../adr/0057-adversarial-stance-for-health-check-audits.md))
 
-The `pushback` and `lesson` MemPalace tags (per [`mempalace-tagging-conventions.md`](mempalace-tagging-conventions.md)) exist precisely to be retrieved later. The `pushback` tag captures verbatim moments where a real risk was named and a course correction happened; the `lesson` tag captures procedural failure modes the project should not re-attempt. They are the project's accumulated complaints and learnings. **The audit is the natural consumer.**
+The `pushback` and `lesson` engine_memory tags (per [`engine-memory-conventions.md`](mempalace-tagging-conventions.md)) exist precisely to be retrieved later. The `pushback` tag captures verbatim moments where a real risk was named and a course correction happened; the `lesson` tag captures procedural failure modes the project should not re-attempt. They are the project's accumulated complaints and learnings. **The audit is the natural consumer.**
 
 Per CLAUDE.md "Posture vs machinery": the pushback rule has no log and no audit; a session that fails to surface a real risk leaves no trace. The `pushback` tag is the *partial* mechanization. Without the audit consuming it, the partial mechanization is itself plumbing waiting for a function that never arrived — exactly what the audit's operative diagnostic question is built to surface. Same logic for `lesson`: capturing a procedural failure mode only pays off if some downstream pass actually reads the captures. The health-check is that pass.
 
@@ -277,7 +277,7 @@ Topic terms derive from recent archives' `working_on` and `outcome_summary` fiel
 
 - **Cluster of pushbacks against the same risk-class** → posture rule that hasn't been mechanized → recommendation for new ADR, validator soft-warn, or hook gate.
 - **Cluster of lessons against the same workflow** → ops-doc gap or missing validator check → recommendation for ops-doc update or validator addition.
-- **Zero captures across the window** → meaningful signal too: either the posture wasn't exercised (audit-window had no pushback-worthy moments) OR the capture surface is failing silently again (the S-0078 vector with Issue #27). The audit distinguishes the two by sampling working-on subjects against `mempalace_diary_read` content; if diary entries describe pushback-shaped moments that no `pushback` drawer captures, the surface is failing.
+- **Zero captures across the window** → meaningful signal too: either the posture wasn't exercised (audit-window had no pushback-worthy moments) OR the capture surface is failing silently again (the S-0078 vector with Issue #27). The audit distinguishes the two by sampling working-on subjects against `engine_memory_diary_read` content; if diary entries describe pushback-shaped moments that no `pushback` drawer captures, the surface is failing.
 
 The audit produces *concrete recommendations* in this section — new ADR / ops-doc update / validator check / posture-rule mechanization — not just a finding list. Per the user-buffered execution principle, recommendations route through the User adjudication subsection; the user adjudicates; downstream sessions execute approved recommendations via Issues per [ADR 0048](../adr/0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md) (label `health-check-finding` for cross-session deferrals).
 
@@ -291,7 +291,7 @@ The template carries (top-to-bottom):
 - **Operative diagnostic applied** — restatement of how "is this thing doing the work it was created to do?" applied to surfaced candidates. The dead-weight scanner output is evidence; the audit's judgment is what makes this section non-trivial.
 - **Non-obvious finding(s)** — ≥1, not on any mechanical scanner's output.
 - **Fit / Gaps / Infrastructure-without-function / Bloat** — each posture's adversarial prompt-question; observations + recommendations. The Infrastructure-without-function dispositions are recommendation-shape: `recommend retire / recommend convert / recommend preserve-with-affirmative-case`.
-- **Accumulated pushbacks and lessons** — populated with `mempalace_search` results, drawer reading, and any cluster-driven recommendations.
+- **Accumulated pushbacks and lessons** — populated with `engine_memory_search` results, drawer reading, and any cluster-driven recommendations.
 - **Affirmative retire candidates** — ≥1 retire-candidate-with-reasoning OR an explicit "no retire candidates this audit" subsection adversarially scrutinizing its own claim.
 - **Cold-context probe** — what artifact was randomly selected, what a context-cold consumer would see, what gaps surfaced.
 - **User adjudication** — populated inline when the audit is interactive (audit AI surfaces each finding via AskUserQuestion + records the disposition + files approved Issues in the same session per the "User-adjudicated execution" section above); left **blank on arrival** when the audit is routine-fired (unattended) — a subsequent interactive session populates the table and routes approved findings to Issues at that time.
@@ -333,7 +333,7 @@ Defaults work for most phases. Re-evaluate the cadence:
 - [ADR 0048](../adr/0048-handoff-narrowing-and-github-issues-for-cross-session-deferrals.md) — health-check findings route to GitHub Issues with `health-check-finding` label.
 - [ADR 0049](../adr/0049-scope-lock-at-boot-and-descope-reorder-audit-at-shutdown.md) — `scope_delivery` field the audit consumes (decision 2 of the ADR; decision 3's context-telemetry was retired at S-0083 per the ADR's amendment).
 - [ADR 0053](../adr/0053-mechanism-first-exercise-gate.md) — first-exercise readiness gate; the cadence audit at S-0087 is the first exercise of ADR 0057.
-- [`mempalace-tagging-conventions.md`](mempalace-tagging-conventions.md) — `pushback` and `lesson` tag specifics the Accumulated-pushbacks-and-lessons section consumes.
+- [`engine-memory-conventions.md`](mempalace-tagging-conventions.md) — `pushback` and `lesson` tag specifics the Accumulated-pushbacks-and-lessons section consumes.
 - [`docs/health-checks/TEMPLATE.md`](../../docs/health-checks/TEMPLATE.md) — canonical report template sessions populate.
 - [`engine/tools/health_check.py`](../tools/health_check.py) — script-generated mechanical input; `audit_mempalace()` runs wing-agnostic `pushback`/`lesson` adoption-count probes (direct chromadb-sqlite read per Issue #128, S-0163).
 - [`engine/tools/scan_orphans.py`](../tools/scan_orphans.py) — multi-axis dead-weight scanner.

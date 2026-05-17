@@ -1,6 +1,6 @@
 # ADR authoring
 
-> Architecture Decision Records: durable, structured, citable. The contract layer in two-layer decision recording (per CLAUDE.md). The story layer is MemPalace `decision`-tagged drawers.
+> Architecture Decision Records: durable, structured, citable. The contract layer in two-layer decision recording (per CLAUDE.md). The story layer is engine_memory `decisions`-room drawers.
 
 ADRs live in `adr/`. The initial 22-ADR collection landed in S-0003: ADRs 0001–0012 absorb the 12 strong working commitments (`docs/MISSION.md` / `ROADMAP.md`); ADRs 0013–0022 absorb the architectural decisions held in the (now retired) `design-reasoning.md` plus two decisions that emerged in the S-0001 plan conversation (ADR 0016 graph construction needs live validation; ADR 0022 periodic project health checks). New decisions from S-0004 onward land directly as ADRs.
 
@@ -91,13 +91,13 @@ Don't ADR for:
 |---|---|---|---|
 | ADR | Settled architectural decision | Structured (Status / Context / Decision / Consequences) | Future sessions, expected to act on the contract |
 | ENGINE_LOG | Material engine change | Categorized (Added / Changed / Removed / etc.) | Anyone scanning project history |
-| MemPalace `decision` drawer | The conversation that produced the decision | Verbatim | Anyone running a similarity search; recovers the *story* |
+| engine_memory `decisions`-room drawer | The conversation that produced the decision | Verbatim | Anyone running a similarity search; recovers the *story* |
 
 A new ADR typically generates one ENGINE_LOG entry (under Added) and one or more MemPalace drawers (the verbatim conversation that produced it). The renamed `ENGINE_LOG.md` (was `CHANGELOG.md` before [ADR 0037](../adr/0037-engine-product-wall-and-changelog-rename.md)) carries the dated narrative for material engine changes; the `CHANGELOG.md` filename is reserved for the future learner-visible product release log (first entry at Phase 9).
 
 ## See also
 
-- [`mempalace-tagging-conventions.md`](mempalace-tagging-conventions.md) — `decision` drawer conventions.
+- [`engine-memory-conventions.md`](mempalace-tagging-conventions.md) — `decision` drawer conventions.
 - [`session-shutdown-sequence.md`](session-shutdown-sequence.md) — when ADR creation triggers ENGINE_LOG entries.
 - `STATE.md` — current ADR scope (S-0003 lands ADRs 0001-0022).
 - `ROADMAP.md` — phases that produce subsequent ADRs.

@@ -24,7 +24,7 @@ Traceability is a four-layer system, redundantly covering different facets of th
 
 - **ADRs** — the contract layer. Settled architectural decisions, Nygard format, Status / Context / Decision / Consequences. Citable and durable. Per [`adr-authoring.md`](adr-authoring.md).
 - **ENGINE_LOG.md** — the dated narrative. Material engine changes by category (Added / Changed / Removed / Deprecated). Anyone scanning project history reads this. (Was named `CHANGELOG.md` before [ADR 0037](../adr/0037-engine-product-wall-and-changelog-rename.md); the `CHANGELOG.md` filename is now reserved for the future learner-visible product release log.)
-- **MemPalace `decision`-tagged drawers** — the conversational story. Verbatim form, recoverable by similarity search. Per [`mempalace-tagging-conventions.md`](mempalace-tagging-conventions.md).
+- **engine_memory `decisions`-room drawers** — the conversational story. Verbatim form, recoverable by similarity search. Per [`engine-memory-conventions.md`](mempalace-tagging-conventions.md).
 - **Git history** — the granular blame. Every line's authorship and editing history, recoverable by `git log` and `git blame`.
 
 The four layers compose. ADRs answer *what's settled*; ENGINE_LOG answers *when did it change*; MemPalace answers *have we considered X before*; git answers *who wrote this line, and when*. A reader who wants the path to a present-state assertion has four ways to find it. Governed documents trust this redundancy and describe present truth without inlining the trace.
@@ -101,5 +101,5 @@ This amendment asymmetry is appropriate to what this contract protects. Differen
 - [ADR 0027](../../product/adr/0027-rendering-policy-prompt-layer-contract.md) — the rendering policy contract `AGENT_INSTRUCTIONS.md` operationalizes.
 - [ADR 0036](../adr/0036-expression-contract-for-inward-documents.md) — the decision record establishing this contract.
 - [`adr-authoring.md`](adr-authoring.md) — the contract layer of the four-layer trace system; ADR vs ENGINE_LOG vs MemPalace boundary.
-- [`mempalace-tagging-conventions.md`](mempalace-tagging-conventions.md) — the `decision` tag on the conversational-story layer.
+- [`engine-memory-conventions.md`](mempalace-tagging-conventions.md) — the `decision` tag on the conversational-story layer.
 - [`session-shutdown-sequence.md`](session-shutdown-sequence.md) — per-session protocol for landing changes in governed docs, ENGINE_LOG, and STATE.md.

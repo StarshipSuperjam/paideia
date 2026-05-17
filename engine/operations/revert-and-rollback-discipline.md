@@ -65,9 +65,9 @@ Deleting a file from history (the destructive shortcut) is foreclosed. The decis
 
 If the revert intent is *also* to undo the ADR file itself (rare — usually only when an ADR landed within seconds of an immediate-rejection signal), use a `git revert` of the commit that introduced the ADR file, and still author a brief replacement ADR (or a `Status: Deprecated` marker per `adr-authoring.md`) explaining what happened. Pure deletion-via-revert leaves the decision record incoherent.
 
-### MemPalace decision drawers
+### engine_memory decisions-room drawers
 
-MemPalace `decision`-tagged drawers (per [`mempalace-tagging-conventions.md`](mempalace-tagging-conventions.md)) are immutable. They capture the conversation that produced a decision; rewriting them would falsify the historical record.
+engine_memory `decisions`-room drawers (per [`engine-memory-conventions.md`](mempalace-tagging-conventions.md)) are immutable. They capture the conversation that produced a decision; rewriting them would falsify the historical record.
 
 When a decision is reverted, author a NEW `decision` drawer capturing the revert rationale. The original drawer remains. The recall-by-similarity surface naturally returns both — a future similarity search for "have we considered X?" surfaces the original decision AND the revert, giving the future session the full arc.
 
@@ -107,5 +107,5 @@ These are recorded here so a future session does not re-propose the changes. ADR
 - [`escalation-criteria.md`](escalation-criteria.md) — destructive-action rule (the rule the constructive procedure here exists to satisfy).
 - [`session-build-lifecycle.md`](session-build-lifecycle.md) — push policy; lifecycle commits route through the wrappers.
 - [`issue-discipline.md`](issue-discipline.md) — HANDOFF.md vs GitHub Issues split for revert follow-ups.
-- [`mempalace-tagging-conventions.md`](mempalace-tagging-conventions.md) — `decision` drawer immutability.
+- [`engine-memory-conventions.md`](mempalace-tagging-conventions.md) — `decision` drawer immutability.
 - [`cascade-discipline.md`](cascade-discipline.md) — `superseded_adr_currency` soft-warn catches lingering citations.

@@ -18,7 +18,7 @@ Per [`engine-memory-operations.md`](engine-memory-operations.md). The engine_mem
 
 Build sessions only. Default-mode (exploration) sessions skip — no slot, no formal close.
 
-Call `engine_memory_diary_write` (per [ADR 0091](../adr/0091-engine-memory-substrate-sqlite-fts5.md), supersedes mempalace_diary_write at S-0192) with `agent_name: "claude"` (project convention). Content shape: 150-400 words, first person. Recommended structure (not required):
+Call `engine_memory_diary_write` (per [ADR 0091](../adr/0091-engine-memory-substrate-sqlite-fts5.md)) with `agent_name: "claude"` (project convention). Content shape: 150-400 words, first person. Recommended structure (not required):
 
 - **What I worked on this session** — one paragraph; high-level enough to be findable by `engine_memory_diary_read` at the next session's boot.
 - **What surprised me** — premises that didn't hold, side-discoveries, anything that updated my model of how this project works.
@@ -32,7 +32,7 @@ After the diary write, run the **`pushback` / `lesson` capture check** (added at
 
 Both capture decisions are explicit yes/no asks at every shutdown — not a heuristic for the AI to apply by judgment alone (the S-0041 audit measured: judgment-alone produced zero captures across S-0033 → S-0040). When the answer is no, no drawer is written and the session proceeds. When the answer is yes, the drawer is written here so the capture is durable before the archive moves at step 13.
 
-**Diary write is mechanically enforced as of S-0078** (per [ADR 0056](../adr/0056-mempalace-mechanical-adoption-checks.md)). The previous posture (a `diary_skipped: 1` self-recorded soft-warn) was load-bearing in name only — Issue #27 confirmed that 12 of 16 Phase 5 routine sessions silently skipped the diary write AND skipped the self-record, leaving the persistent-warn surface inert. Now `validate.py --final-check` (step 3) reads `engine_memory_activity.diary_write_calls` from `current.json` and hard-fails (`engine_memory_diary_write_skipped`) if zero. The previous `diary_skipped` field was renamed to `engine_memory_diary_write_skipped` across existing archives via `engine/tools/migrate_diary_skipped_archive_field.py`.
+**Diary write is mechanically enforced** per ADR 0091. `validate.py --final-check` (step 3) reads `engine_memory_activity.diary_write_calls` from `current.json` and hard-fails (`engine_memory_diary_write_skipped`) if zero. The mechanism inherits from the S-0078 adoption-check pattern (originally per ADR 0056, superseded by ADR 0091) where Issue #27 surfaced that 12 of 16 Phase 5 routine sessions silently skipped both the diary write AND the self-record — judgment-alone discipline is insufficient.
 
 **Acknowledgement-token escape hatch.** Legitimate edge cases exist (MCP server unreachable; routine session that early-exits with nothing meaningful to reflect on; fresh repo). The AI bypasses the hard-fail by writing a one-line acknowledgement into `outcome_summary` of `current.json` BEFORE the step-3 validate call: `engine_memory_unavailable_acknowledged: <one-line reason>`. The validator scans for the token; if present, the hard-fail downgrades to a soft-warn (`engine_memory_diary_write_acknowledged_skip`) — which still participates in the 3-of-5 escalation per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md). For routine sessions the validator emits `engine_memory_diary_write_skipped_routine` instead of hard-failing and appends an entry to `engine/session/diary_pending_index.json`; the recovery procedure is documented at [`routine-mode-operations.md`](routine-mode-operations.md) "Deferred diary recovery".
 
@@ -44,7 +44,7 @@ Idempotent — re-running overwrites the rollup. Absence of the JSONL file (no e
 
 ### 3. Audit pass
 
-Run `python3 engine/tools/validate.py --final-check` from the repo root. The `--final-check` flag includes the engine_memory adoption checks per [ADR 0091](../adr/0091-engine-memory-substrate-sqlite-fts5.md) (S-0192) — the two soft-warns (`engine_memory_boot_query_skipped`, `engine_memory_diary_read_skipped`) and the hard-fail (`engine_memory_diary_write_skipped`, with the acknowledgement-token escape hatch). During the cutover window (S-0192 → S-0193) the legacy `mempalace_*` adoption checks per superseded ADR 0056 also fire from `validate_mempalace_adoption()` as defense-in-depth; they retire at S-0193. Because step 1 wrote the diary and step 2 rolled the activity field, this pass sees the diary write truthfully and does not false-fire.
+Run `python3 engine/tools/validate.py --final-check` from the repo root. The `--final-check` flag includes the engine_memory adoption checks per [ADR 0091](../adr/0091-engine-memory-substrate-sqlite-fts5.md) (S-0192) — the two soft-warns (`engine_memory_boot_query_skipped`, `engine_memory_diary_read_skipped`) and the hard-fail (`engine_memory_diary_write_skipped`, with the acknowledgement-token escape hatch). Because step 1 wrote the diary and step 2 rolled the activity field, this pass sees the diary write truthfully and does not false-fire.
 
 Resolve any hard-fails — these are blocking by default in the pre-commit hook anyway, so reaching shutdown means the working tree should already be clean of hard-fails. If somehow a hard-fail surfaces (e.g., a file referenced in CROSS_REFERENCES.md that you intended to create but didn't), fix it before continuing.
 
@@ -220,7 +220,7 @@ The prompt is asked at every shutdown — same discipline as step 9; explicit pr
 `outcome_summary` is ~50 words of prose. What got done, anything noteworthy for the next session, what tradeoffs surfaced. Example shape:
 
 ```
-"outcome_summary": "Procedural layer landed: CLAUDE.md + 11 operations docs + MISSION.md + CROSS_REFERENCES.md. Hooks wired for MemPalace capture. CONTEXT.md retired. validate.py: 0 hard-fails, 2 soft-warns (expected_future_file_missing for adr/, will resolve in S-0003). Next: S-0003 ADR collection."
+"outcome_summary": "Procedural layer landed: CLAUDE.md + 11 operations docs + MISSION.md + CROSS_REFERENCES.md. Hooks wired for engine-memory capture. CONTEXT.md retired. validate.py: 0 hard-fails, 2 soft-warns (expected_future_file_missing for adr/, will resolve in S-0003). Next: S-0003 ADR collection."
 ```
 
 Honest summaries beat flattering ones — health-check trend analysis and the next session's boot procedure both depend on them.
@@ -242,10 +242,8 @@ Shape:
   "superseded_adr_currency": 0,
   "adr_back_reference_orphan": 2,
   "adr_consequences_deliverable_audit": 0,
-  "chromadb_palace_health": 0,
   "repo_config_health": 0,
   "skill_layer1_parity_drift": 0,
-  "mempalace_hnsw_status_suspect": 0,
   "engine_memory_zero_citations_after_search": 0,
   "engine_memory_diary_write_acknowledged_skip": 0,
   "engine_memory_diary_write_skipped_routine": 0,
@@ -259,11 +257,6 @@ Shape:
   "engine_memory_boot_query_skipped": 0,
   "engine_memory_diary_read_skipped": 0,
   "engine_memory_diary_write_skipped": 0,
-  "engine_memory_diary_write_skipped_routine": 0,
-  "engine_memory_diary_write_skipped_substrate_intermittent": 0,
-  "engine_memory_diary_write_acknowledged_skip": 0,
-  "mempalace_substrate_at_close": 0,
-  "mempalace_retired_surface_used": 0,
   "outcome_summary_unhandled_defer": 0,
   "next_session_handle_unknown_issue": 0,
   "next_session_handle_unknown_session": 0,
@@ -271,21 +264,21 @@ Shape:
 }
 ```
 
-All known soft-warn categories appear in the block, even with zero counts; absent keys signal "this category did not exist at this session's close" rather than "this category fired zero times." The boot-time persistent-warn surface (per [`soft-warn-lifecycle.md`](soft-warn-lifecycle.md)) reads this field across the last 5 archives and surfaces categories appearing in 3-or-more. `skill_layer1_parity_drift` is the Skill ↔ Layer-1 procedure-parity category per [ADR 0089](../adr/0089-skill-layer1-parity-validator-check.md). The `engine_memory_*` categories are emitted by `validate.py --final-check` per ADR 0091 (S-0192) reading `engine_memory_activity` written by `scan_engine_memory_activity.py` at step 2. The legacy `mempalace_*_skipped`, `mempalace_substrate_at_close`, `mempalace_retired_surface_used`, and `mempalace_hnsw_status_suspect` categories fire alongside during the cutover window (S-0192 → S-0193) and retire at S-0193 alongside the MemPalace package itself. `engine_memory_diary_write_skipped_routine` plays the same routine-protection role for the new substrate as `mempalace_diary_write_skipped_routine` did for the old: when fired, the validator appends an entry to `engine/session/diary_pending_index.json` so the next boot's SessionStart hook surfaces the deferred-diary count and the user can run the recovery procedure documented at [`routine-mode-operations.md`](routine-mode-operations.md) "Deferred diary recovery". `chromadb_palace_health` and `repo_config_health` are the shared-state probe categories per ADR 0045 — they fire on either suspicion or hard-broken state at any validator invocation during the session. The seven graph-audit categories (`undeclared_predicate` through `suspicious_cross_domain_ratio`) added at S-0037 per [ADR 0016](../adr/0016-graph-construction-needs-live-validation.md) and the [Phase 4 build-readiness gate](../build_readiness/phase_4_graph_validation.md) — they fire when `SUPABASE_DB_URL` is set and the audit runs against the live DB; sessions without DB connectivity record zeros (the audit skips entirely, recording `graph_audit_skipped` in `checks_run` rather than firing any category).
+All known soft-warn categories appear in the block, even with zero counts; absent keys signal "this category did not exist at this session's close" rather than "this category fired zero times." The boot-time persistent-warn surface (per [`soft-warn-lifecycle.md`](soft-warn-lifecycle.md)) reads this field across the last 5 archives and surfaces categories appearing in 3-or-more. `skill_layer1_parity_drift` is the Skill ↔ Layer-1 procedure-parity category per [ADR 0089](../adr/0089-skill-layer1-parity-validator-check.md). The `engine_memory_*` categories are emitted by `validate.py --final-check` per ADR 0091 reading `engine_memory_activity` written by `scan_engine_memory_activity.py` at step 2. `engine_memory_diary_write_skipped_routine` plays the routine-protection role: when fired, the validator appends an entry to `engine/session/diary_pending_index.json` so the next boot's SessionStart hook surfaces the deferred-diary count and the user can run the recovery procedure documented at [`routine-mode-operations.md`](routine-mode-operations.md) "Deferred diary recovery". `repo_config_health` is the shared-state probe category per ADR 0045 — fires on either suspicion or hard-broken state at any validator invocation during the session. The seven graph-audit categories (`undeclared_predicate` through `suspicious_cross_domain_ratio`) added at S-0037 per [ADR 0016](../adr/0016-graph-construction-needs-live-validation.md) and the [Phase 4 build-readiness gate](../build_readiness/phase_4_graph_validation.md) fire when `SUPABASE_DB_URL` is set and the audit runs against the live DB; sessions without DB connectivity record zeros (the audit skips entirely, recording `graph_audit_skipped` in `checks_run` rather than firing any category).
 
 **Aggregation procedure (per ADR 0045):**
 
 1. Determine session-base SHA: `git merge-base origin/main HEAD` (the commit immediately before the eager-claim).
 2. Read `engine/tools/validate-history.jsonl`. Filter entries whose `session_id` matches this session's S-NNNN (or whose timestamp falls between session-base time and now if `session_id` is "outside-session").
 3. For each soft-warn category appearing in any filtered entry's `soft_warns` dict, take the max count across all entries.
-4. Per ADR 0091 (S-0192), the three `engine_memory_*_skipped` categories — and the legacy `mempalace_*_skipped` categories that fire alongside during the cutover window — come from `validate.py --final-check`. They are part of the validate-history.jsonl entries from step 1, not separate session-state. The aggregation procedure picks them up automatically along with all other validator categories.
+4. Per ADR 0091, the three `engine_memory_*_skipped` categories come from `validate.py --final-check`. They are part of the validate-history.jsonl entries from step 1, not separate session-state. The aggregation procedure picks them up automatically along with all other validator categories.
 5. Ensure every known category from the catalog appears with at least 0; absent keys carry the documented "category didn't exist" semantic.
 
-### 12. Scan drawer citations (per ADR 0056 S-0093 amendment, Issue #39)
+### 12. Scan drawer citations (per ADR 0091)
 
-After `outcome_summary` is filled at step 11 AND the diary write completed at step 1, run [`engine/tools/scan_mempalace_citations.py`](../tools/scan_mempalace_citations.py) from the repo root. The tool scans `outcome_summary`, today's diary entry (via `mempalace.mcp_server.tool_diary_read`), and commit messages from `git log <eager-claim-sha>..HEAD --format=%B` for three citation patterns (drawer IDs, S-NNNN archive references, tag-named references). Writes the nested `mempalace_citations` block under the existing `mempalace_activity` field in `engine/session/current.json`. Idempotent.
+After `outcome_summary` is filled at step 11 AND the diary write completed at step 1, run [`engine/tools/scan_engine_memory_citations.py`](../tools/scan_engine_memory_citations.py) from the repo root. The tool scans `outcome_summary`, today's diary entry (via `engine.memory.diary.read_entries`), and commit messages from `git log <eager-claim-sha>..HEAD --format=%B` for three citation patterns (drawer IDs — both 32-char hex uuid4 and legacy `drawer_*_<hex>` forms — plus S-NNNN archive references and tag-named references). Writes the nested `engine_memory_citations` block under the existing `engine_memory_activity` field in `engine/session/current.json`. Idempotent.
 
-**S-0192 cutover window.** The citations scan currently writes to the `mempalace_activity.mempalace_citations` sub-block; the `mempalace_zero_citations_after_search` soft-warn continues firing. The sibling scan tool `scan_engine_memory_citations.py` lands at S-0193 (T1-E) and writes `engine_memory_activity.engine_memory_citations`. Until then, the `engine_memory_zero_citations_after_search` soft-warn fires whenever `engine_memory_activity.search_calls > 0` because no scan populates the citations block — that's the expected cutover-transient behavior. After S-0193 both layers consolidate on the engine_memory path.
+The block feeds `validate.py --final-check`'s `engine_memory_zero_citations_after_search` soft-warn — fires when `search_calls > 0` but `engine_memory_citations.total == 0` (boot search ran but no observable behavior change).
 
 ### 13. Archive the claim
 

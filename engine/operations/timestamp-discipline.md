@@ -23,7 +23,7 @@ def today() -> str: ...             # date-only %Y-%m-%d, distinct intent (day-o
 
 `parse()` accepts the canonical Z-suffix form, the legacy Python `+00:00` form (still present in pre-S-0095 archives per the back-compat clause below), the with-or-without microseconds form, and the compact-time `%Y%m%dT%H%M%SZ` form (legacy `probe_push_gate.py` shape). Raises bare `ValueError` on unrecognized shapes.
 
-`today()` is distinct from `emit()[:10]` because the type-of-time intent is day-of-event, not event-time. Two callers — `health_check.py:1248` (audit-report header) and `scan_mempalace_citations.py:178` (citation buckets keyed by day) — display dates that should be diff-stable across same-day re-runs.
+`today()` is distinct from `emit()[:10]` because the type-of-time intent is day-of-event, not event-time. Two callers — `health_check.py:1248` (audit-report header) and `scan_engine_memory_citations.py:178` (citation buckets keyed by day) — display dates that should be diff-stable across same-day re-runs.
 
 ## Emit-vs-parse boundary
 
@@ -49,7 +49,7 @@ The validator's `timestamp_helper_bypass` soft-warn excludes four file paths in 
 - **`apply_migration.py`** — migration-version emission `strftime("%Y%m%d%H%M%S")`. The format Supabase's `schema_migrations.version` column expects; touching it would require a coordinated migration of historical version values.
 - **`probe_push_gate.py`** — branch-name timestamp `strftime("%Y%m%dT%H%M%SZ")`. Git's check-ref-format rejects colons in branch names; the canonical Z-suffix form `2026-05-08T12:34:56Z` would fail at branch creation. The compact-time form is the correct legacy shape for filename-safe contexts. The `parse()` helper accepts this form on read-back via the compact-time regex branch.
 - **`audit_mempalace_attribution.py`** — `_parse_palace_dt(filed_at)` parses naive local-time strings written by MemPalace's storage layer (no timezone marker). Different concern from canonical UTC-emitted strings; `parse()` returns tz-aware UTC, which would silently misattribute palace-storage timestamps. The same file's `_parse_archive_dt` IS routed through `parse()` for cleanliness; allowlisting silences both, and the inline comments document the intent.
-- **`scan_mempalace_citations.py`** — `fetch_today_diary` matches palace diary `date` fields keyed by naive local date. Matching against UTC date would silently miss entries written near the UTC date boundary. Same semantic as `_parse_palace_dt` above, applied at the date level.
+- **`scan_engine_memory_citations.py`** — `fetch_today_diary` matches palace diary `date` fields keyed by naive local date. Matching against UTC date would silently miss entries written near the UTC date boundary. Same semantic as `_parse_palace_dt` above, applied at the date level.
 
 A future legacy contract (a new external system's stored timestamp shape, a new filename-safe constraint) adds a fifth entry to the allowlist with an inline comment naming what the helper would break if applied. The pattern is: allowlist with rationale, never silence by suppression.
 
