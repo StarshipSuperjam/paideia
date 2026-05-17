@@ -1,0 +1,39 @@
+{
+  "id": "S-0198",
+  "started_at": "2026-05-17T17:12:34Z",
+  "status": "closed",
+  "mode": "interactive",
+  "working_on": "Issue #132 \u2014 replace monolithic engine/ENGINE_LOG.md with per-session changelog directory pattern adopted from the Engine reference template.",
+  "declared_scope": "Issue #132 closeout via adoption of the Engine reference's per-session changelog pattern: author ADR 0092 (supersedes the ENGINE_LOG-naming clauses of ADR 0037) with the ADR 0084 extraction step; create engine/changelog/<YYYY>/<S-NNNN>-<slug>.md directory + engine/schemas/changelog-entry.schema.json + full aggregator (changelog_aggregate.py) with 15 pytests; rewire validate.py (remove engine_log_format; add check_changelog_entries + check_changelog_readme_governance + 10 pytests); perform Issue #132 Part 1 retroactive duplication audit (10-session sample) + author 0.1.0 release synthesis at engine/changelog/2026/0.1.0-foundation-close-S-0198.md + move historical engine/ENGINE_LOG.md to engine/changelog/_history/ENGINE_LOG-pre-0.1.0.md + transitional stub; rewire shutdown-sequence step 7 in Layer-1 doc + SKILL.md lockstep; cascade-update 22 inbound prose references across CLAUDE.md, STATE.md, ROADMAP.md, README.md, HANDOFF.md, 6 ops docs, 5 ADRs; create engine-v0.1.0 git tag. phase: NA-engine-apparatus",
+  "outcome_summary": "Issue #132 closed via adoption of the Engine reference template's per-session changelog directory pattern (not Issue #132's literal three-part prescription \u2014 user directed at /Users/shanekidd/Documents/Claude_Files/Engine as 'I've already solved this'). Seven parts in 8 commits + 1 tag: (A) engine ADR 0092 [Supersedes the ENGINE_LOG-naming/structure clauses of ADR 0037] with ADR 0084 extraction step + first-exercise readiness note + duplication-audit sample (5 sessions: S-0030/S-0070/S-0110/S-0150/S-0190; observed overlap 75-90% mean ~83% vs plan-time estimate ~70%); (B) engine/changelog/ directory + engine/schemas/changelog-entry.schema.json + README with `governed: true / line_cap_soft: 50 / line_cap_hard: 70`; (C) full Engine-ref Session-4-scope aggregator engine/tools/changelog_aggregate.py (--since git-tag + --module + --format markdown|json + --validate-only) + 21 pytests all green; (D) validate.py rewiring (removed engine_log_format check; added check_changelog_entries + check_changelog_readme_governance; updated validate_adr_back_reference_orphan exclusion + STATE.md size-guard pointer; jsonschema>=4.25.0 dep added; uv.lock regenerated; synthetic_repo fixture swapped ENGINE_LOG.md required-file for engine/changelog/README.md) + 14 new pytests all green; (E) 0.1.0 release synthesis at engine/changelog/2026/S-0198-0.1.0-foundation-close.md (56 lines; release synthesis uses soft-cap slack) + git-mv engine/ENGINE_LOG.md -> engine/changelog/_history/ENGINE_LOG-pre-0.1.0.md byte-for-byte (sha256 b5671df38561dc383b06545af30432995fcf964cb32f76ad8859fcdbd801d014) + transitional stub authored then deleted at Part G; (F) shutdown step 7 rewired in lockstep across engine/operations/session-shutdown-sequence.md + .claude/skills/session-shutdown-sequence/SKILL.md (step number preserved per ADR 0089 parity); (G) cascade across 22 inbound references in single commit (5 root: CLAUDE.md + engine/STATE.md + ROADMAP.md + README.md + HANDOFF.md; 8 ops docs: adr-authoring + document-voice + engine-memory-conventions + cross-references + tools-validate-interpretation + cascade-discipline + routine-mode-operations + revert-and-rollback-discipline; 5 ADRs: 0036/0037/0041/0042/0048 + ADR 0037 Supersession Amendment subsection + Status flip in engine/adr/README.md index) + follow-up sweep for 5 active surfaces missed in the first pass (.claude/commands/start-engine.md + .claude/skills/routine-mode-lifecycle/SKILL.md + .claude/skills/ship/SKILL.md + CONTRIBUTING.md + engine/adr/0041 cascade-discipline description). engine-v0.1.0 annotated tag created at the cutover state (commit 117aa83) + pushed to origin. Verification (10 checks): schema valid; aggregator runs in 4 modes cleanly; validate.py exits 0 hard-fails (only changelog_entry_soft_cap on the release synthesis as designed + issue_collision noise); 35 pytests green (21 aggregator + 14 changelog validator); engine-v0.1.0 listed; engine/ENGINE_LOG.md absent from active surfaces (historical refs in pre-S-0198 ADRs + build_readiness + docs/health-checks + build_plan preserved per ADR 0036 cleanup-exemption). Closes T1-A of the first-exercise readiness note at engine/build_readiness/per_session_changelog_first_exercise.md (this session's 0.1.0 entry IS the first per-session entry); T1-B closes at next session's first material-change close; T1-C closes when aggregator runs against >=2 entries. ADR collection: 92 (85 Accepted + 7 Superseded; 51 engine + 41 product). Approved plan: ~/.claude/plans/foamy-plotting-hummingbird.md.",
+  "outcome_summary_soft_warns": {
+    "issue_collision": 7,
+    "changelog_entry_soft_cap": 1
+  },
+  "scope_delivery": "yes",
+  "next_session_handle": null,
+  "approved_plan": "~/.claude/plans/foamy-plotting-hummingbird.md",
+  "branch": "claude/wonderful-shamir-2ae671",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/wonderful-shamir-2ae671",
+  "engine_memory_activity": {
+    "search_calls": 3,
+    "add_drawer_calls": 0,
+    "get_drawer_calls": 0,
+    "list_drawers_calls": 0,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "other_calls": 0,
+    "total_calls": 5,
+    "first_call_ts": "2026-05-17T17:01:22Z",
+    "last_call_ts": "2026-05-17T18:19:44Z",
+    "search_first_ts": "2026-05-17T17:01:22Z",
+    "diary_read_first_ts": "2026-05-17T17:01:23Z",
+    "engine_memory_citations": {
+      "drawer_id_refs": 0,
+      "session_archive_refs": 2,
+      "tag_named_refs": 0,
+      "total": 2
+    }
+  },
+  "closed_at": "2026-05-17T18:21:23Z"
+}
