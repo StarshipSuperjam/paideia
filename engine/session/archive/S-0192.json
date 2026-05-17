@@ -1,7 +1,7 @@
 {
   "id": "S-0192",
   "started_at": "2026-05-17T00:17:39Z",
-  "status": "in_progress",
+  "status": "closed",
   "mode": "interactive",
   "working_on": "Engine-memory cutover: migrate curated MemPalace drawers + diary into the new SQLite/FTS5 substrate, swap MCP entries, atomically rewire CLAUDE.md + 3 SKILLs + 3 Layer-1 ops docs, add engine_memory PostToolUse hook + activity rollup, remove mempalace Stop/PreCompact hook entries, author 2 new ops docs, amend ADR 0091 + parent plan for S-0191 boot_search_results correction. Closes T1-D per engine_memory_substrate_first_exercise.md.",
   "declared_scope": "Land the ADR 0091 cutover end-to-end: migration replay (script + tests + live execution) + activity rollup (scan + hook + validator soft-warns/hard-fail with escape-hatch token) + verify_recall --real-data mode + cite-worthy gate + atomic rewire (CLAUDE.md + 3 SKILLs + 3 Layer-1 ops docs + settings.json + 2 new ops docs + audit reports) + ADR 0091/parent-plan amendments. Closes T1-D + the S-0191 cite-worthy gate slide. phase: NA-engine",
@@ -88,5 +88,6 @@
       "disposition_ref": "S-0193",
       "reasoning": "STATE.md + ENGINE_LOG forward-references to S-0193's demolition pass \u2014 these are not deferrals but explicit forward-pointers to the next scheduled session in the ADR 0091 roadmap (Issue #138 5-session plan)."
     }
-  ]
+  ],
+  "closed_at": "2026-05-17T00:56:45Z"
 }
