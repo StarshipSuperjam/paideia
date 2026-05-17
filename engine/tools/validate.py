@@ -190,10 +190,12 @@ REQUIRED_TOP_LEVEL = [
     "CLAUDE.md",
 ]
 
-# Engine-side required files (post-S-0024 migration per ADR 0037).
+# Engine-side required files (post-S-0024 migration per ADR 0037; ENGINE_LOG.md
+# retired at S-0198 per ADR 0092 — replaced with the engine/changelog/ directory
+# pattern whose README is the new foundation surface).
 REQUIRED_ENGINE_FILES = [
     "engine/STATE.md",
-    "engine/ENGINE_LOG.md",
+    "engine/changelog/README.md",
 ]
 
 # Files whose existence is expected from S-0002 onward — we soft-skip if
@@ -328,15 +330,16 @@ def validate_repo_structure() -> ValidationResult:
     - top_level_required, engine_required: existence checks for the project's
       load-bearing root files (README.md, LICENSE, SECURITY.md, ROADMAP.md,
       HANDOFF.md, CLAUDE.md) and engine-required files (engine/STATE.md,
-      engine/ENGINE_LOG.md). Hard-fail on missing.
+      engine/changelog/README.md). Hard-fail on missing.
     - session_register, session_current: JSON schema checks on
       engine/session/register_state.json (always present) and
       engine/session/current.json (only between eager-claim and archive).
       Hard-fail on missing required keys, malformed JSON, or non-S-NNNN id.
-    - engine_log_format, state_current_phase: lightweight format checks on
-      ENGINE_LOG.md (has [Unreleased] section) and STATE.md (has
-      "Current phase" field). Soft-warn on absence — these files may be
-      mid-edit during a session.
+    - state_current_phase: lightweight format check on STATE.md (has
+      "Current phase" field). Soft-warn on absence — file may be mid-edit.
+    - changelog_entries, changelog_readme_governance: per-session changelog
+      entry schema + line-cap validation; governance README line-cap. Per
+      ADR 0092.
     - adr_status: every ADR file under engine/adr/ and product/adr/ carries
       a Status field (Nygard template). Soft-warn on missing.
     - adr_index_consistency: each subtree's README.md indexes its ADRs and
@@ -411,20 +414,11 @@ def validate_repo_structure() -> ValidationResult:
         except json.JSONDecodeError as e:
             r.hard_fail(f"engine/session/current.json is not valid JSON: {e}")
 
-    # engine/ENGINE_LOG.md parseable as Keep-a-Changelog (lightweight check:
-    # has [Unreleased] section). The file is the renamed CHANGELOG.md per ADR
-    # 0037 (engine / product wall); it carries the dated narrative for
-    # material engine changes. The CHANGELOG.md filename is reserved for
-    # future learner-visible product release content (first entry at Phase 9).
-    r.add_check("engine_log_format")
-    engine_log_path = REPO_ROOT / "engine" / "ENGINE_LOG.md"
-    if engine_log_path.is_file():
-        text = engine_log_path.read_text()
-        if "[Unreleased]" not in text and "## [Unreleased]" not in text:
-            r.soft_warn(
-                "engine_log_format",
-                "engine/ENGINE_LOG.md missing [Unreleased] section header",
-            )
+    # engine/ENGINE_LOG.md format check retired at S-0198 per ADR 0092 — the
+    # monolithic file moved to engine/changelog/_history/ENGINE_LOG-pre-0.1.0.md;
+    # new content lands as per-session entries at engine/changelog/<YYYY>/.
+    # The changelog_entries + changelog_readme_governance checks (below) are
+    # the replacement enforcement surface.
 
     # engine/STATE.md current-phase pointer
     r.add_check("state_current_phase")
@@ -1065,8 +1059,9 @@ def validate_superseded_adr_currency() -> ValidationResult:
     """Soft-warn on docs that cite a Superseded ADR without historical marker.
 
     For each ADR with Status `Superseded by ADR NNNN`, finds the new ADR's
-    id and greps tracked .md files (excluding ADR files themselves and
-    ENGINE_LOG.md / product/CHANGELOG.md). Soft-warns on any citation of
+    id and greps tracked .md files (excluding ADR files themselves, the
+    legacy ENGINE_LOG.md / product/CHANGELOG.md filenames, and the
+    engine/changelog/ directory per ADR 0092). Soft-warns on any citation of
     the superseded ADR's id whose surrounding 50 chars do not include
     "superseded" (case-insensitive) or the new ADR's id.
 
@@ -1112,8 +1107,15 @@ def validate_superseded_adr_currency() -> ValidationResult:
         parts = rel.parts
         if "adr" in parts:
             continue
-        # Skip the changelog files (their job is historical narration).
+        # Skip the changelog surfaces (their job is historical narration).
+        # Pre-ADR 0092: ENGINE_LOG.md was a single file; the legacy match
+        # stays as defense-in-depth in case the file resurfaces (e.g., during
+        # the cutover-window). Post-ADR 0092: per-session entries live at
+        # engine/changelog/<YYYY>/, and the historical archive at
+        # engine/changelog/_history/ — directory-prefix exclusion covers both.
         if rel.name in {"ENGINE_LOG.md", "CHANGELOG.md"}:
+            continue
+        if rel.parts[:2] == ("engine", "changelog"):
             continue
         try:
             text = md_path.read_text()
@@ -3536,6 +3538,185 @@ _HANDOFF_RESOLVED_LINE_RE = re.compile(
 # + ADR 0062. Zero-tolerance — any `### Amendment` header in any ADR file fires.
 _ADR_AMENDMENT_HEADER_RE = re.compile(r"^### Amendment", re.MULTILINE)
 
+# Per ADR 0092 (S-0198): per-session changelog entry caps + governance README cap.
+CHANGELOG_ENTRY_LINE_CAP_SOFT = 50
+CHANGELOG_ENTRY_LINE_CAP_HARD = 70
+CHANGELOG_README_LINE_CAP_SOFT = 50
+CHANGELOG_README_LINE_CAP_HARD = 70
+_CHANGELOG_ENTRY_FILENAME_RE = re.compile(r"^(S-\d{4})-(.+)\.md$")
+
+
+def validate_changelog_entries(repo_root: Path | None = None) -> ValidationResult:
+    """Validate per-session changelog entries under engine/changelog/<YYYY>/.
+
+    Per ADR 0092 (S-0198). For each entry file:
+
+    - Soft-warn ``changelog_entry_soft_cap`` if total line count exceeds
+      ``CHANGELOG_ENTRY_LINE_CAP_SOFT`` (50).
+    - Hard-fail ``changelog_entry_hard_cap`` if total line count exceeds
+      ``CHANGELOG_ENTRY_LINE_CAP_HARD`` (70).
+    - Hard-fail ``changelog_entry_no_frontmatter`` if the file lacks YAML
+      frontmatter delimiters.
+    - Hard-fail ``changelog_entry_schema_violation`` for each
+      jsonschema.Draft202012Validator error against
+      ``engine/schemas/changelog-entry.schema.json``.
+    - Hard-fail ``changelog_entry_filename_mismatch`` if the filename's
+      leading ``S-NNNN`` token does not match the frontmatter ``session_id``.
+
+    Skips the ``_history/`` rollover directory; only walks active-year
+    ``<YYYY>/`` subdirectories.
+
+    Inputs:
+        repo_root: Override the module-level REPO_ROOT. Test injection point.
+
+    Returns:
+        ValidationResult with ``changelog_entries`` registered as a check.
+    """
+    r = ValidationResult()
+    r.add_check("changelog_entries")
+    root = repo_root if repo_root is not None else REPO_ROOT
+    changelog_root = root / "engine" / "changelog"
+    schema_path = root / "engine" / "schemas" / "changelog-entry.schema.json"
+    if not changelog_root.is_dir() or not schema_path.is_file():
+        return r
+    try:
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        r.hard_fail(f"engine/schemas/changelog-entry.schema.json unreadable: {exc}")
+        return r
+    try:
+        import jsonschema as _js  # type: ignore[import-untyped]
+
+        validator = _js.Draft202012Validator(schema)
+    except Exception as exc:  # noqa: BLE001 — best-effort import; degrade gracefully
+        r.soft_warn(
+            "changelog_entries",
+            f"jsonschema unavailable for changelog validation: {exc}",
+        )
+        return r
+    for year_dir in sorted(changelog_root.iterdir()):
+        if not year_dir.is_dir() or year_dir.name.startswith("_"):
+            continue
+        for entry_path in sorted(year_dir.glob("S-*.md")):
+            if not entry_path.is_file():
+                continue
+            try:
+                text = entry_path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            rel = entry_path.relative_to(root)
+            lines = text.splitlines()
+            line_count = len(lines)
+            if line_count > CHANGELOG_ENTRY_LINE_CAP_HARD:
+                r.hard_fail(
+                    f"{rel} is {line_count} lines (hard cap "
+                    f"{CHANGELOG_ENTRY_LINE_CAP_HARD}); changelog entries "
+                    f"must summarize via pointers, not narrate. Per ADR 0092."
+                )
+            elif line_count > CHANGELOG_ENTRY_LINE_CAP_SOFT:
+                r.soft_warn(
+                    "changelog_entry_soft_cap",
+                    f"{rel} is {line_count} lines (soft cap "
+                    f"{CHANGELOG_ENTRY_LINE_CAP_SOFT}); compress toward "
+                    f"summary+pointers shape. Per ADR 0092.",
+                )
+            # Parse frontmatter inline (avoid cross-tool import for an
+            # ~8-line parse). Matches changelog_aggregate.parse_frontmatter
+            # contract: key: value, optional quoted values, no nesting.
+            if not lines or lines[0].strip() != "---":
+                r.hard_fail(
+                    f"{rel}: missing opening --- frontmatter delimiter "
+                    f"(changelog_entry_no_frontmatter). Per ADR 0092."
+                )
+                continue
+            end = None
+            for i in range(1, len(lines)):
+                if lines[i].strip() == "---":
+                    end = i
+                    break
+            if end is None:
+                r.hard_fail(
+                    f"{rel}: missing closing --- frontmatter delimiter "
+                    f"(changelog_entry_no_frontmatter). Per ADR 0092."
+                )
+                continue
+            fm: dict[str, str] = {}
+            for raw in lines[1:end]:
+                line = raw.rstrip()
+                if not line.strip() or line.lstrip().startswith("#"):
+                    continue
+                if ":" not in line:
+                    continue
+                key, _, value = line.partition(":")
+                key = key.strip()
+                value = value.strip()
+                if value.startswith('"') and value.endswith('"'):
+                    value = value[1:-1]
+                elif value.startswith("'") and value.endswith("'"):
+                    value = value[1:-1]
+                fm[key] = value
+            for err in validator.iter_errors(fm):
+                r.hard_fail(
+                    f"{rel}: schema violation "
+                    f"(changelog_entry_schema_violation): {err.message}"
+                )
+            m = _CHANGELOG_ENTRY_FILENAME_RE.match(entry_path.name)
+            if m:
+                fname_sid = m.group(1)
+                fm_sid = fm.get("session_id")
+                if fm_sid is not None and fm_sid != fname_sid:
+                    r.hard_fail(
+                        f"{rel}: filename session_id {fname_sid} does not "
+                        f"match frontmatter session_id {fm_sid} "
+                        f"(changelog_entry_filename_mismatch). Per ADR 0092."
+                    )
+    return r
+
+
+def validate_changelog_readme_governance(
+    repo_root: Path | None = None,
+) -> ValidationResult:
+    """Soft-warn / hard-fail on engine/changelog/README.md line-cap breach.
+
+    Per ADR 0092 (S-0198). The README declares ``governed: true`` in its HTML
+    frontmatter with ``line_cap_soft: 50 / line_cap_hard: 70``. Standalone
+    check (no governed_files.yaml apparatus; Paideia uses inline enforcement).
+
+    Inputs:
+        repo_root: Override the module-level REPO_ROOT.
+
+    Returns:
+        ValidationResult with ``changelog_readme_governance`` registered.
+    """
+    r = ValidationResult()
+    r.add_check("changelog_readme_governance")
+    root = repo_root if repo_root is not None else REPO_ROOT
+    readme = root / "engine" / "changelog" / "README.md"
+    if not readme.is_file():
+        return r
+    try:
+        text = readme.read_text(encoding="utf-8")
+    except OSError as exc:
+        r.hard_fail(f"engine/changelog/README.md unreadable: {exc}")
+        return r
+    line_count = sum(1 for _ in text.splitlines())
+    if line_count > CHANGELOG_README_LINE_CAP_HARD:
+        r.hard_fail(
+            f"engine/changelog/README.md is {line_count} lines (hard cap "
+            f"{CHANGELOG_README_LINE_CAP_HARD}); declared `governed: true` "
+            f"with `line_cap_hard: {CHANGELOG_README_LINE_CAP_HARD}` in its "
+            f"HTML frontmatter. Per ADR 0092."
+        )
+    elif line_count > CHANGELOG_README_LINE_CAP_SOFT:
+        r.soft_warn(
+            "changelog_readme_governance",
+            f"engine/changelog/README.md is {line_count} lines (soft cap "
+            f"{CHANGELOG_README_LINE_CAP_SOFT}); declared "
+            f"`line_cap_soft: {CHANGELOG_README_LINE_CAP_SOFT}` in its "
+            f"HTML frontmatter. Per ADR 0092.",
+        )
+    return r
+
 
 def validate_state_md_row_count(repo_root: Path | None = None) -> ValidationResult:
     """Soft-warn when engine/STATE.md exceeds STATE_MD_ROW_COUNT_THRESHOLD.
@@ -3566,7 +3747,7 @@ def validate_state_md_row_count(repo_root: Path | None = None) -> ValidationResu
             f"engine/STATE.md is {row_count} rows (threshold "
             f"{STATE_MD_ROW_COUNT_THRESHOLD}); per the file's preamble, "
             f"session-by-session prose belongs in engine/session/archive + "
-            f"engine/ENGINE_LOG.md, not in STATE.md.",
+            f"engine/changelog/<YYYY>/, not in STATE.md.",
         )
     return r
 
@@ -3576,12 +3757,13 @@ def validate_adr_consequences_amendment_headers(
 ) -> ValidationResult:
     """Soft-warn on any `### Amendment` header in ADR files.
 
-    Per ADR 0036 + ADR 0062 (S-0126; Issue #87). ADR body content is
-    present-truth declarative; authorship history, supersession narration, and
-    per-session revision markers belong in ENGINE_LOG.md / engine_memory
-    `decisions` room drawers / git blame. The 14 inline-amendment
-    blocks retired at S-0126 motivate this gate-time backstop against
-    re-introduction.
+    Per ADR 0036 + ADR 0062 (S-0126; Issue #87) + ADR 0092 (S-0198, layer-2
+    surface mutation from monolithic ENGINE_LOG.md to engine/changelog/
+    directory). ADR body content is present-truth declarative; authorship
+    history, supersession narration, and per-session revision markers belong
+    in engine/changelog/<YYYY>/ entries / engine_memory `decisions` room
+    drawers / git blame. The 14 inline-amendment blocks retired at S-0126
+    motivate this gate-time backstop against re-introduction.
 
     Inputs:
         repo_root: Override the module-level REPO_ROOT.
@@ -3607,10 +3789,10 @@ def validate_adr_consequences_amendment_headers(
                 r.soft_warn(
                     "adr_consequences_amendment_header",
                     f"ADR {rel_path} carries `### Amendment` header at "
-                    f"line {line_no}; per ADR 0036 + ADR 0062, authorship "
-                    f"history belongs in engine/ENGINE_LOG.md / "
-                    f"engine_memory `decisions` room drawers / git, not "
-                    f"in ADR body.",
+                    f"line {line_no}; per ADR 0036 + ADR 0062 + ADR 0092, "
+                    f"authorship history belongs in engine/changelog/<YYYY>/ "
+                    f"entries / engine_memory `decisions` room drawers / "
+                    f"git, not in ADR body.",
                 )
     return r
 
@@ -4373,6 +4555,10 @@ def main(argv: list[str] | None = None) -> int:
         # Skill↔Layer-1 procedure parity per ADR 0089 (Issue #129). File-only /
         # in-process; belongs in the structural phase.
         overall.merge(validate_skill_layer1_parity())
+        # Per-session changelog entry validation per ADR 0092 (S-0198; Issue #132).
+        # File-only / in-process; bounded by directory walk + jsonschema validation.
+        overall.merge(validate_changelog_entries())
+        overall.merge(validate_changelog_readme_governance())
         t_structural_end = time.monotonic()
         duration_structural_ms = (t_structural_end - start) * 1000
 

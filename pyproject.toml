@@ -54,6 +54,12 @@ dependencies = [
     # PEP 735 dependency-groups is a deferred refinement when the test
     # surface justifies the indirection.
     "reportlab>=4.5.1",
+
+    # Per ADR 0092 (S-0198): per-session changelog entry frontmatter
+    # validation against engine/schemas/changelog-entry.schema.json.
+    # Consumers: engine/tools/changelog_aggregate.py, engine/tools/validate.py
+    # (check_changelog_entries). Draft 2020-12 dialect.
+    "jsonschema>=4.25.0",
 ]
 
 [tool.pytest.ini_options]

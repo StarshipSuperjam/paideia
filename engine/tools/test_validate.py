@@ -78,9 +78,10 @@ def synthetic_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
     Returns the synthetic repo's root path. Has the bare structure needed
     for validate_repo_structure to run with no hard-fails: top-level files,
-    engine/ subtree with STATE.md, ENGINE_LOG.md, session/register_state.json,
-    plus engine/adr/, engine/operations/, product/docs/, product/adr/. Tests
-    can override individual files to exercise specific failure paths.
+    engine/ subtree with STATE.md, changelog/README.md (per ADR 0092),
+    session/register_state.json, plus engine/adr/, engine/operations/,
+    product/docs/, product/adr/. Tests can override individual files to
+    exercise specific failure paths.
 
     The fixture patches validate.REPO_ROOT and the four derived path
     constants (HISTORY_FILE, ENGINE_ADR_DIR, PRODUCT_ADR_DIR) to point at
@@ -93,8 +94,9 @@ def synthetic_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     (tmp_path / "engine" / "STATE.md").write_text(
         "# Project State\n\n## Current\n\n| Current phase | Phase 0 |\n"
     )
-    (tmp_path / "engine" / "ENGINE_LOG.md").write_text(
-        "# ENGINE_LOG\n\n## [Unreleased]\n"
+    (tmp_path / "engine" / "changelog").mkdir()
+    (tmp_path / "engine" / "changelog" / "README.md").write_text(
+        "# Changelog\n\nPer-session entries land here per ADR 0092.\n"
     )
 
     (tmp_path / "engine" / "session").mkdir()
@@ -273,15 +275,9 @@ class TestValidateRepoStructure:
         r = validate_repo_structure()
         assert any("missing key" in m for m in r.hard_fails)
 
-    def test_engine_log_missing_unreleased_soft_warns(
-        self, synthetic_repo: Path
-    ) -> None:
-        """ENGINE_LOG without an [Unreleased] section header soft-warns."""
-        (synthetic_repo / "engine" / "ENGINE_LOG.md").write_text(
-            "# ENGINE_LOG\n\nno header here\n"
-        )
-        r = validate_repo_structure()
-        assert "engine_log_format" in r.soft_warns
+    # `test_engine_log_missing_unreleased_soft_warns` retired at S-0198 per
+    # ADR 0092 — the `engine_log_format` check is removed; per-session
+    # changelog entry validation lives in TestValidateChangelogEntries below.
 
     def test_state_missing_current_phase_soft_warns(self, synthetic_repo: Path) -> None:
         """STATE.md without 'Current phase' soft-warns."""
@@ -2887,3 +2883,165 @@ class TestValidateDependabotPrStale:
         assert "dependabot_pr_stale" in r.soft_warns
         assert len(r.soft_warns["dependabot_pr_stale"]) == 1
         assert "#1" in r.soft_warns["dependabot_pr_stale"][0]
+
+
+# ---------- ADR 0092: validate_changelog_entries + validate_changelog_readme_governance ----------
+
+
+class TestValidateChangelogEntries:
+    """Per-session changelog entry validation per ADR 0092 (S-0198)."""
+
+    @staticmethod
+    def _setup(tmp_path: Path) -> Path:
+        """Create a synthetic repo root with engine/{changelog/2026,schemas/}."""
+        (tmp_path / "engine" / "changelog" / "2026").mkdir(parents=True)
+        (tmp_path / "engine" / "changelog" / "_history").mkdir()
+        (tmp_path / "engine" / "schemas").mkdir(parents=True)
+        # Copy the real schema for fidelity.
+        real_schema = (
+            Path(__file__).resolve().parents[2]
+            / "engine"
+            / "schemas"
+            / "changelog-entry.schema.json"
+        )
+        (tmp_path / "engine" / "schemas" / "changelog-entry.schema.json").write_text(
+            real_schema.read_text()
+        )
+        return tmp_path
+
+    @staticmethod
+    def _valid_frontmatter(sid: str = "S-0198") -> str:
+        return f"""---
+session_id: {sid}
+session_type: build
+closed_at: "2026-05-17T17:00:00Z"
+material_change_class: mixed
+module: changelog
+summary: well-formed entry
+---
+"""
+
+    def test_no_changelog_root_returns_clean(self, tmp_path: Path) -> None:
+        r = validate.validate_changelog_entries(repo_root=tmp_path)
+        assert "changelog_entries" in r.checks_run
+        assert r.hard_fails == []
+        assert r.soft_warns == {}
+
+    def test_well_formed_entry_passes(self, tmp_path: Path) -> None:
+        root = self._setup(tmp_path)
+        entry = root / "engine" / "changelog" / "2026" / "S-0198-foo.md"
+        entry.write_text(self._valid_frontmatter() + "\n# Body\n- bullet\n")
+        r = validate.validate_changelog_entries(repo_root=root)
+        assert r.hard_fails == []
+        assert r.soft_warns == {}
+
+    def test_skips_history_directory(self, tmp_path: Path) -> None:
+        root = self._setup(tmp_path)
+        # Entry under _history/ with wildly-violated cap is preserved (no warn).
+        bad_entry = (
+            root / "engine" / "changelog" / "_history" / "ENGINE_LOG-pre-0.1.0.md"
+        )
+        bad_entry.write_text("# legacy\n" + "\n".join("x" * 80 for _ in range(200)))
+        r = validate.validate_changelog_entries(repo_root=root)
+        assert r.hard_fails == []
+        assert r.soft_warns == {}
+
+    def test_soft_warn_above_50_lines(self, tmp_path: Path) -> None:
+        root = self._setup(tmp_path)
+        entry = root / "engine" / "changelog" / "2026" / "S-0198-foo.md"
+        # 8-line frontmatter + 55 body bullets = 63 lines (in 51..70 → soft warn).
+        body = "\n".join(f"- bullet {i}" for i in range(55))
+        entry.write_text(self._valid_frontmatter() + body)
+        r = validate.validate_changelog_entries(repo_root=root)
+        assert r.hard_fails == []
+        assert "changelog_entry_soft_cap" in r.soft_warns
+
+    def test_hard_fail_above_70_lines(self, tmp_path: Path) -> None:
+        root = self._setup(tmp_path)
+        entry = root / "engine" / "changelog" / "2026" / "S-0198-foo.md"
+        body = "\n".join(f"- bullet {i}" for i in range(80))  # well over 70
+        entry.write_text(self._valid_frontmatter() + body)
+        r = validate.validate_changelog_entries(repo_root=root)
+        assert r.hard_fails, "expected hard-fail above hard cap"
+        assert any("hard cap" in msg for msg in r.hard_fails)
+
+    def test_hard_fail_missing_opening_delimiter(self, tmp_path: Path) -> None:
+        root = self._setup(tmp_path)
+        entry = root / "engine" / "changelog" / "2026" / "S-0198-foo.md"
+        entry.write_text("session_id: S-0198\n\n# Body\n")
+        r = validate.validate_changelog_entries(repo_root=root)
+        assert any("opening ---" in msg for msg in r.hard_fails)
+
+    def test_hard_fail_missing_closing_delimiter(self, tmp_path: Path) -> None:
+        root = self._setup(tmp_path)
+        entry = root / "engine" / "changelog" / "2026" / "S-0198-foo.md"
+        entry.write_text("---\nsession_id: S-0198\nsession_type: build\n")
+        r = validate.validate_changelog_entries(repo_root=root)
+        assert any("closing ---" in msg for msg in r.hard_fails)
+
+    def test_hard_fail_missing_required_field(self, tmp_path: Path) -> None:
+        root = self._setup(tmp_path)
+        entry = root / "engine" / "changelog" / "2026" / "S-0198-foo.md"
+        # Missing material_change_class + module + closed_at.
+        entry.write_text(
+            "---\nsession_id: S-0198\nsession_type: build\n---\n\n# Body\n"
+        )
+        r = validate.validate_changelog_entries(repo_root=root)
+        assert any("schema violation" in msg for msg in r.hard_fails)
+
+    def test_hard_fail_invalid_enum(self, tmp_path: Path) -> None:
+        root = self._setup(tmp_path)
+        entry = root / "engine" / "changelog" / "2026" / "S-0198-foo.md"
+        entry.write_text(
+            "---\n"
+            "session_id: S-0198\n"
+            "session_type: nonsense\n"
+            'closed_at: "2026-05-17T17:00:00Z"\n'
+            "material_change_class: mixed\n"
+            "module: changelog\n"
+            "---\n"
+        )
+        r = validate.validate_changelog_entries(repo_root=root)
+        assert any("schema violation" in msg for msg in r.hard_fails)
+
+    def test_hard_fail_filename_session_id_mismatch(self, tmp_path: Path) -> None:
+        root = self._setup(tmp_path)
+        entry = root / "engine" / "changelog" / "2026" / "S-0199-foo.md"
+        entry.write_text(self._valid_frontmatter("S-0198") + "\n# Body\n")
+        r = validate.validate_changelog_entries(repo_root=root)
+        assert any("filename session_id" in msg for msg in r.hard_fails)
+
+
+class TestValidateChangelogReadmeGovernance:
+    """README line-cap governance per ADR 0092 (S-0198)."""
+
+    def test_no_readme_returns_clean(self, tmp_path: Path) -> None:
+        r = validate.validate_changelog_readme_governance(repo_root=tmp_path)
+        assert "changelog_readme_governance" in r.checks_run
+        assert r.hard_fails == []
+        assert r.soft_warns == {}
+
+    def test_short_readme_passes(self, tmp_path: Path) -> None:
+        (tmp_path / "engine" / "changelog").mkdir(parents=True)
+        (tmp_path / "engine" / "changelog" / "README.md").write_text(
+            "# Tiny\n\nshort doc\n"
+        )
+        r = validate.validate_changelog_readme_governance(repo_root=tmp_path)
+        assert r.hard_fails == []
+        assert r.soft_warns == {}
+
+    def test_soft_warn_above_50_lines(self, tmp_path: Path) -> None:
+        (tmp_path / "engine" / "changelog").mkdir(parents=True)
+        body = "\n".join(f"line {i}" for i in range(55))
+        (tmp_path / "engine" / "changelog" / "README.md").write_text(body)
+        r = validate.validate_changelog_readme_governance(repo_root=tmp_path)
+        assert r.hard_fails == []
+        assert "changelog_readme_governance" in r.soft_warns
+
+    def test_hard_fail_above_70_lines(self, tmp_path: Path) -> None:
+        (tmp_path / "engine" / "changelog").mkdir(parents=True)
+        body = "\n".join(f"line {i}" for i in range(80))
+        (tmp_path / "engine" / "changelog" / "README.md").write_text(body)
+        r = validate.validate_changelog_readme_governance(repo_root=tmp_path)
+        assert r.hard_fails, "expected hard-fail above hard cap"
+        assert any("hard cap" in msg for msg in r.hard_fails)
