@@ -23,7 +23,7 @@ dependencies = [
     # floor = baseline - 2pp. Trend-watching, not aspirational gate.
     # Config in [tool.coverage] below; CI invocation in
     # .github/workflows/validate.yml.
-    "pytest-cov>=4.0.0",
+    "pytest-cov>=7.1.0",
 
     # SAST gate per ADR 0068 (S-0132, Issue #70). Bandit catches semantic
     # vulnerabilities (eval, subprocess shell=True, weak random for tokens,
