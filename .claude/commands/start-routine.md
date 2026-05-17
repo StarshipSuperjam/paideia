@@ -14,13 +14,13 @@ The user-created Claude Code Routine's "Instructions" field invokes this command
 
 ## How to run it
 
-**Invoke the `routine-mode-lifecycle` Skill now, via the Skill tool.** That Skill carries the canonical, executable boot procedure; this command body deliberately carries **no step list of its own** so it cannot drift out of sync with the canonical procedure (the drift that produced [Issue #122](https://github.com/StarshipSuperjam/paideia/issues/122), [#123](https://github.com/StarshipSuperjam/paideia/issues/123), and [#124](https://github.com/StarshipSuperjam/paideia/issues/124) — a stale subset enumeration that silently dropped boot gates and MemPalace boot steps). The Skill is `disable-model-invocation: true`, so it does not auto-fire on description match — you must invoke it deliberately at this point.
+**Invoke the `routine-mode-lifecycle` Skill now, via the Skill tool.** That Skill carries the canonical, executable boot procedure; this command body deliberately carries **no step list of its own** so it cannot drift out of sync with the canonical procedure (the drift that produced [Issue #122](https://github.com/StarshipSuperjam/paideia/issues/122), [#123](https://github.com/StarshipSuperjam/paideia/issues/123), and [#124](https://github.com/StarshipSuperjam/paideia/issues/124) — a stale subset enumeration that silently dropped boot gates and engine_memory boot steps). The Skill is `disable-model-invocation: true`, so it does not auto-fire on description match — you must invoke it deliberately at this point.
 
 The Skill's procedure covers, in order:
 
 - **Boot gates** — boot-freshness (0a), concurrency-lock acquire (0b), wedge detection (0c).
 - **Eligibility** — routine-mode precondition / pause / target-met / max-sessions checks, then eligible-task selection.
-- **MemPalace boot** — boot query (5.5) and diary read (5.6), run *before* plan authoring so prior context informs the work.
+- **engine_memory boot** — boot query (5.5) and diary read (5.6), run *before* plan authoring so prior context informs the work.
 - **Plan-then-scope-check** — write `engine/session/current_plan.md`, run `check_routine_scope.py --plan`.
 - **Eager-claim** — claim the slot and push via the lifecycle wrapper.
 - **Execute** — do the task's work within `scope_lock`.

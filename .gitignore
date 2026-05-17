@@ -7,7 +7,7 @@
 # Top-level .claude/ contents are local-only EXCEPT .claude/commands/ (slash
 # commands, e.g., /start-engine), .claude/skills/ (user-defined Skills
 # per ADR 0044), and .claude/settings.json (project-scoped hooks per
-# ADR 0043 + mempalace-operations.md).
+# ADR 0043).
 # settings.local.json remains gitignored — it carries per-developer permissions.
 .claude/*
 !.claude/commands/
@@ -59,16 +59,10 @@ npm-debug.log*
 # Per-clone validate.py telemetry (consumed by health checks; per-AI-local).
 engine/tools/validate-history.jsonl
 
-# Per-session MemPalace MCP-call telemetry (per ADR 00NN; this session).
-# Written by engine/tools/hooks/post-mempalace-tool-use.sh on every
-# mcp__mempalace__* call; rolled up into archive `mempalace_activity` field
-# at session close; deleted after rollup. Per-clone, never committed.
-# Retires at S-0193 with the MemPalace substrate per ADR 0091.
-engine/session/current_mempalace.jsonl
-
-# Engine-memory substrate (SQLite + FTS5) per ADR 0091.
-# Single per-clone file; gitignored so the substrate data stays local-only.
-# Cross-device continuity is user-managed (matches MemPalace's chromadb
-# behavior). File regenerates empty on first connect at a new clone.
+# Engine-memory substrate (SQLite + FTS5) per ADR 0091. Single per-clone
+# file at the main repo root (resolved via git rev-parse --git-common-dir
+# so all worktrees share it); gitignored so substrate data stays local-only.
+# Cross-device continuity is user-managed. File regenerates empty on first
+# connect at a new clone.
 engine/.memory/*
 !engine/.memory/.gitkeep

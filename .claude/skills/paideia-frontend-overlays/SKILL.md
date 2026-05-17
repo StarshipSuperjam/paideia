@@ -1,6 +1,6 @@
 ---
 name: paideia-frontend-overlays
-description: Run the Paideia-specific overlays on top of `/frontend-discipline` — triad-only primary surfaces (ADR 0034), rendering-policy compliance (ADR 0027), no engagement-loop dark patterns, quiet mastery rendering (ADR 0013), visual-identity working direction (gold-on-dark classical-scholarly per the working prototype), iconography discipline, pedagogical-graph rendering norms, and inherited project-discipline overlays (scope_lock awareness, ADR-citation requirement, MemPalace decision-drawer check). Composes with `/frontend-discipline`. Invoke deliberately on any Paideia frontend change.
+description: Run the Paideia-specific overlays on top of `/frontend-discipline` — triad-only primary surfaces (ADR 0034), rendering-policy compliance (ADR 0027), no engagement-loop dark patterns, quiet mastery rendering (ADR 0013), visual-identity working direction (gold-on-dark classical-scholarly per the working prototype), iconography discipline, pedagogical-graph rendering norms, and inherited project-discipline overlays (scope_lock awareness, ADR-citation requirement, engine_memory decisions-room drawer check). Composes with `/frontend-discipline`. Invoke deliberately on any Paideia frontend change.
 disable-model-invocation: true
 ---
 
@@ -156,9 +156,9 @@ A change touching a contract surface (any ADR file, or modifying a component/mig
 
 **Findings:** Any of the above contract surfaces touched without ADR amendment + ENGINE_LOG update is `Required`.
 
-### Overlay 10: MemPalace decision-drawer check (inherited)
+### Overlay 10: engine_memory decisions-room drawer check (inherited)
 
-If a new ADR is authored in this session: confirm a matching `decision`-tagged drawer in MemPalace via `mempalace_search`. The post-adr-write hook reminds; this skill verifies.
+If a new ADR is authored in this session: confirm a matching `decision`-tagged drawer in engine_memory via `engine_memory_search`. The post-adr-write hook reminds; this skill verifies.
 
 ## Process sequence
 
@@ -191,7 +191,7 @@ A structured Markdown report. Sample:
 
 - **Scope_lock:** PASS (or: `<finding>` — Issue filed/needed)
 - **ADR-citation:** PASS (or: `<finding>` — ADR NNNN needs amendment)
-- **MemPalace decision drawer:** PASS (or: `<finding>` — drawer missing for ADR NNNN)
+- **engine_memory decisions-room drawer:** PASS (or: `<finding>` — drawer missing for ADR NNNN)
 
 ### Anti-rationalization self-check
 

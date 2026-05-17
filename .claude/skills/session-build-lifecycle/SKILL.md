@@ -46,9 +46,9 @@ The calibration window per `soft-warn-lifecycle.md` is in effect until 5 structu
 
 ### 3. Query engine_memory
 
-Use the `engine_memory_search` MCP tool with terms derived from `engine/STATE.md`'s next-session work item. Surface anything previously recorded that's relevant. (Pre-S-0192 sessions used `mempalace_search` per ADR 0056; ADR 0091 supersedes that contract.)
+Use the `engine_memory_search` MCP tool with terms derived from `engine/STATE.md`'s next-session work item. Surface anything previously recorded that's relevant (per ADR 0091).
 
-**Mechanically backstopped by `engine_memory_boot_query_skipped` soft-warn (per ADR 0091, S-0192).** The PostToolUse hook at `engine/tools/hooks/post-engine-memory-tool-use.sh` records the call to `engine/session/current_engine_memory.jsonl`; `validate.py --final-check` at shutdown emits the soft-warn if no `engine_memory_search` call landed during the session.
+**Mechanically backstopped by `engine_memory_boot_query_skipped` soft-warn (per ADR 0091).** The PostToolUse hook at `engine/tools/hooks/post-engine-memory-tool-use.sh` records the call to `engine/session/current_engine_memory.jsonl`; `validate.py --final-check` at shutdown emits the soft-warn if no `engine_memory_search` call landed during the session.
 
 **Boot-search orchestrator (per ADR 0091, S-0192).** Run `python3 -m engine.memory.boot_surface` at this step. The orchestrator runs three formulations of the work-item phrase (literal / conceptual / adjacent) through FTS5 + BM25 + recency + tag-class-boost retrieval, deduplicates and ranks, and writes an idempotent `## Prior context (engine memory)` section into `engine/session/current_plan.md`. One `query_log` row is written per formulation. Read the output section before authoring the session plan; cite drawers that bear on the work in plan rationale or commit messages so the closed-loop `engine_memory_zero_citations_after_search` audit at shutdown stays clean.
 

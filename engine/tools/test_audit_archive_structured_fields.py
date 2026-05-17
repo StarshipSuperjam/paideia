@@ -37,12 +37,12 @@ def make_full_payload(
         "id": session_id,
         "outcome_summary_soft_warns": {},
         "mode": "interactive",
-        "mempalace_activity": {
+        "engine_memory_activity": {
             "search_calls": 0,
             "diary_read_calls": 0,
             "diary_write_calls": 0,
             "add_drawer_calls": 0,
-            "status_calls": 0,
+            "get_drawer_calls": 0,
             "list_drawers_calls": 0,
             "other_calls": 0,
             "total_calls": 0,
@@ -120,24 +120,20 @@ def test_applicable_fields_filters_by_session_vintage() -> None:
     fields = {r["field"] for r in rows}
     assert "mode" in fields
     assert "outcome_summary_soft_warns" not in fields
-    assert "mempalace_activity" not in fields
     assert "next_session_handle" not in fields
 
-    # S-0078 — first three fields required; next_session_handle (since S-0100) is not
-    rows = applicable_fields(78)
-    fields = {r["field"] for r in rows}
-    assert "mode" in fields
-    assert "outcome_summary_soft_warns" in fields
-    assert "mempalace_activity" in fields
-    assert "next_session_handle" not in fields
-
-    # S-0100 onward — every current field is required including next_session_handle
+    # S-0100 onward — every current field is required including
+    # next_session_handle. engine_memory_activity arrives at S-0192.
     rows = applicable_fields(100)
     fields = {r["field"] for r in rows}
     assert "mode" in fields
     assert "outcome_summary_soft_warns" in fields
-    assert "mempalace_activity" in fields
     assert "next_session_handle" in fields
+
+    # S-0192 onward — engine_memory_activity also required.
+    rows = applicable_fields(192)
+    fields = {r["field"] for r in rows}
+    assert "engine_memory_activity" in fields
 
 
 def test_applicable_fields_unknown_session_returns_all() -> None:
@@ -243,18 +239,19 @@ def test_mode_field_absent_hard_fails(
     assert "missing" in err.lower()
 
 
-def test_mempalace_activity_field_absent_hard_fails(
+def test_engine_memory_activity_field_absent_hard_fails(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Missing `mempalace_activity` — the new S-0078-forward field."""
-    payload = make_full_payload()
-    del payload["mempalace_activity"]
+    """Missing `engine_memory_activity` — the S-0192-forward field per ADR 0091."""
+    payload = make_full_payload(session_id="S-0192")
+    if "engine_memory_activity" in payload:
+        del payload["engine_memory_activity"]
     p = write_current(tmp_path, payload)
     rc = main(["--current-path", str(p), "--repo-root", str(tmp_path)])
     assert rc == 2
     err = capsys.readouterr().err
     assert "HARD-FAIL" in err
-    assert "mempalace_activity" in err
+    assert "engine_memory_activity" in err
 
 
 def test_field_null_hard_fails(
@@ -483,15 +480,15 @@ def test_archive_history_reports_missing_field(
     """Archive missing a required field shows up in the report."""
     archive_dir = tmp_path / "engine" / "session" / "archive"
     archive_dir.mkdir(parents=True)
-    payload = make_full_payload(session_id="S-0078")
-    del payload["mempalace_activity"]
-    archive_dir.joinpath("S-0078.json").write_text(json.dumps(payload))
+    payload = make_full_payload(session_id="S-0192")
+    del payload["engine_memory_activity"]
+    archive_dir.joinpath("S-0192.json").write_text(json.dumps(payload))
 
     rc = main(["--archive-history", "--repo-root", str(tmp_path)])
     assert rc == 0
     out = capsys.readouterr().out
-    assert "S-0078.json" in out
-    assert "mempalace_activity" in out
+    assert "S-0192.json" in out
+    assert "engine_memory_activity" in out
     assert "missing" in out.lower()
 
 

@@ -16,7 +16,7 @@ Added by        Field                                  Field-absence emerged at 
 ==============  =====================================  =============================  ============
 ADR 0042        ``outcome_summary_soft_warns``         S-0057 archive                 S-0065
 ADR 0051        ``mode``                               S-0065 + S-0069 archives       S-0077
-ADR 0056        ``mempalace_activity`` (this session)  (none yet — S-0078 forward)    n/a
+ADR 0091        ``engine_memory_activity``             (none — declared at S-0192)    n/a
 ==============  =====================================  =============================  ============
 
 The S-0078 closure parameterizes the audit to a declarative
@@ -132,12 +132,6 @@ REQUIRED_ARCHIVE_FIELDS: list[dict[str, Any]] = [
         # archives carried drift (build / engine / interactive_build) —
         # backfilled to "interactive" at S-0157.
         "allowed_values": ["interactive", "routine"],
-    },
-    {
-        "field": "mempalace_activity",
-        "since_session": "S-0078",
-        "shape": "dict",
-        "adr": "ADR 0056 (S-0078)",
     },
     {
         "field": "engine_memory_activity",

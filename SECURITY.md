@@ -26,7 +26,7 @@ The maintainer-side back-end (Supabase + engine tooling) handles graph construct
 - **Graph data (Supabase)** — the project ref is named in committed config; service-role tokens live in gitignored `.mcp.json` / `.env`. The dev tier has no production user data; Phase 6+ will introduce per-user RLS-gated tables.
 - **Engine-side build tooling** — Python tools in `engine/tools/`. Dependencies are pinned in `pyproject.toml` / `uv.lock`; supply-chain integrity rides on `uv sync` reproducibility.
 - **iOS app surface (Phase 6+)** — once the app surface lands, the BYOK key-handling and direct-Anthropic-call posture above is the primary attack surface. The maintainer's own deployment process (Apple build, IPA signing, App Store submission) is in scope.
-- **MemPalace** — local-first, no cloud calls at the core layer. The palace at `~/.mempalace/palace` is locally sensitive; it can contain verbatim conversation history.
+- **Engine-memory substrate** (per ADR 0091) — local-first, no cloud calls. The single SQLite file at `engine/.memory/engine_memory.sqlite3` is gitignored; it can contain verbatim conversation history captured by Stop/PreCompact hooks.
 
 ## Out of scope
 

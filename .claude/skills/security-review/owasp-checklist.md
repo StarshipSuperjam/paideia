@@ -119,7 +119,7 @@
 
 **Paideia surfaces:**
 
-- Build apparatus has ENGINE_LOG + session archives + MemPalace diaries — strong audit trail for engine changes.
+- Build apparatus has ENGINE_LOG + session archives + engine_memory diaries — strong audit trail for engine changes.
 - Phase 6+ runtime needs separate logging for security events (auth failures, IDOR attempts, RLS denials).
 
 **Pass conditions:** Engine changes are logged (ENGINE_LOG entries authored per shutdown protocol); future Phase 6+ paths log auth events.

@@ -22,7 +22,7 @@ Per [`engine-memory-operations.md`](../../../engine/operations/engine-memory-ope
 
 Build sessions only. Default-mode (exploration) sessions skip — no slot, no formal close.
 
-Call `engine_memory_diary_write` (per [ADR 0091](../../../engine/adr/0091-engine-memory-substrate-sqlite-fts5.md), supersedes mempalace_diary_write at S-0192) with `agent_name: "claude"` (project convention). Content shape: 150-400 words, first person. Recommended structure:
+Call `engine_memory_diary_write` (per [ADR 0091](../../../engine/adr/0091-engine-memory-substrate-sqlite-fts5.md)) with `agent_name: "claude"` (project convention). Content shape: 150-400 words, first person. Recommended structure:
 
 - **What I worked on this session** — high-level enough to be findable by `engine_memory_diary_read` at the next session's boot.
 - **What surprised me** — premises that didn't hold, side-discoveries.
@@ -48,7 +48,7 @@ Idempotent — re-running overwrites the rollup. Absence of the JSONL file (no e
 
 ### 3. Audit pass
 
-Run `python3 engine/tools/validate.py --final-check` from the repo root. The `--final-check` flag includes the engine_memory adoption checks per ADR 0091 (S-0192) — the two soft-warns (`engine_memory_boot_query_skipped`, `engine_memory_diary_read_skipped`) and the hard-fail (`engine_memory_diary_write_skipped` — with acknowledgement-token escape hatch). During the cutover window (S-0192 → S-0193) the legacy `mempalace_*` adoption checks also fire from `validate_mempalace_adoption()` as defense-in-depth; they retire at S-0193. Because step 1 wrote the diary and step 2 rolled the activity field, this pass sees the diary write truthfully and does not false-fire.
+Run `python3 engine/tools/validate.py --final-check` from the repo root. The `--final-check` flag includes the engine_memory adoption checks per ADR 0091 — the two soft-warns (`engine_memory_boot_query_skipped`, `engine_memory_diary_read_skipped`) and the hard-fail (`engine_memory_diary_write_skipped` — with acknowledgement-token escape hatch). Because step 1 wrote the diary and step 2 rolled the activity field, this pass sees the diary write truthfully and does not false-fire.
 
 Resolve any hard-fails — these are blocking by default in the pre-commit hook anyway, so reaching shutdown means the working tree should already be clean of hard-fails. The `engine_memory_diary_write_skipped` hard-fail can be downgraded by adding `engine_memory_unavailable_acknowledged: <reason>` to `outcome_summary` (see step 1's escape-hatch guidance) and re-running validate. If somehow a hard-fail surfaces (e.g., a file referenced in CROSS_REFERENCES.md that was intended but not authored), fix it before continuing.
 
@@ -224,13 +224,8 @@ The prompt is asked at every shutdown — same discipline as step 9. Judgment-al
   "superseded_adr_currency": 0,
   "adr_back_reference_orphan": 2,
   "adr_consequences_deliverable_audit": 0,
-  "chromadb_palace_health": 0,
   "repo_config_health": 0,
   "skill_layer1_parity_drift": 0,
-  "mempalace_hnsw_status_suspect": 0,
-  "mempalace_boot_query_skipped": 0,
-  "mempalace_diary_read_skipped": 0,
-  "mempalace_diary_write_skipped": 0,
   "engine_memory_boot_query_skipped": 0,
   "engine_memory_diary_read_skipped": 0,
   "engine_memory_diary_write_skipped": 0,
@@ -242,15 +237,15 @@ The prompt is asked at every shutdown — same discipline as step 9. Judgment-al
 }
 ```
 
-All known soft-warn categories appear in the block, even with zero counts; absent keys signal "this category did not exist at this session's close" rather than "this category fired zero times." The boot-time persistent-warn surface (per `soft-warn-lifecycle.md`) reads this field across the last 5 archives. `chromadb_palace_health` and `repo_config_health` are the shared-state probe categories per ADR 0045. `skill_layer1_parity_drift` is the Skill ↔ Layer-1 procedure-parity category per ADR 0089. The `engine_memory_*` categories are emitted by `validate.py --final-check` per ADR 0091 (S-0192) reading `engine_memory_activity` written by `scan_engine_memory_activity.py` at step 2. The legacy `mempalace_*_skipped` and `mempalace_hnsw_status_suspect` categories fire alongside during the cutover window (S-0192 → S-0193) and retire at S-0193 alongside the MemPalace package itself.
+All known soft-warn categories appear in the block, even with zero counts; absent keys signal "this category did not exist at this session's close" rather than "this category fired zero times." The boot-time persistent-warn surface (per `soft-warn-lifecycle.md`) reads this field across the last 5 archives. `repo_config_health` is a shared-state probe category per ADR 0045. `skill_layer1_parity_drift` is the Skill ↔ Layer-1 procedure-parity category per ADR 0089. The `engine_memory_*` categories are emitted by `validate.py --final-check` per ADR 0091 reading `engine_memory_activity` written by `scan_engine_memory_activity.py` at step 2.
 
 **Aggregation procedure:** filter `validate-history.jsonl` to entries with this session's `session_id` (or by timestamp window if any are tagged "outside-session"); for each category appearing in any entry, take the max count.
 
-### 12. Scan drawer citations (per ADR 0091 cutover window — sibling lands at S-0193)
+### 12. Scan drawer citations (per ADR 0091)
 
-After step 11 fills `outcome_summary` AND step 1 wrote the diary entry, run `python3 engine/tools/scan_mempalace_citations.py`. The tool scans `outcome_summary`, today's diary entry (via `mempalace.mcp_server.tool_diary_read`), and commit messages from `git log <eager-claim-sha>..HEAD --format=%B` for three citation patterns (drawer IDs, S-NNNN archive references, tag-named references). Writes the nested `mempalace_citations` block under the existing `mempalace_activity` field in `engine/session/current.json`. Idempotent.
+After step 11 fills `outcome_summary` AND step 1 wrote the diary entry, run `python3 engine/tools/scan_engine_memory_citations.py`. The tool scans `outcome_summary`, today's diary entry (via `engine.memory.diary.read_entries`), and commit messages from `git log <eager-claim-sha>..HEAD --format=%B` for three citation patterns (drawer IDs — both 32-char hex uuid4 and legacy `drawer_*_<hex>` forms — plus S-NNNN archive references and tag-named references). Writes the nested `engine_memory_citations` block under the existing `engine_memory_activity` field in `engine/session/current.json`. Idempotent.
 
-**S-0192 cutover window.** This citations scan currently writes to the `mempalace_activity.mempalace_citations` sub-block; the `mempalace_zero_citations_after_search` soft-warn continues firing. The sibling scan tool `scan_engine_memory_citations.py` lands at S-0193 (T1-E) and writes `engine_memory_activity.engine_memory_citations`. Until then, the `engine_memory_zero_citations_after_search` soft-warn fires whenever `engine_memory_activity.search_calls > 0` because no scan populates the citations block — that's the expected cutover-transient behavior.
+The block feeds `validate.py --final-check`'s `engine_memory_zero_citations_after_search` soft-warn — fires when `search_calls > 0` but `engine_memory_citations.total == 0` (boot search ran but no observable behavior change).
 
 ### 13. Archive the claim
 

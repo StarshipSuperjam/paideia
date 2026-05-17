@@ -14,7 +14,7 @@ Convert the current Claude Code conversation from default exploration mode (no c
 
 2b. **Surface persistent soft-warns from recent archives.** Per [ADR 0042](../../engine/adr/0042-soft-warn-lifecycle-archive-canon.md). Read the last 5 `engine/session/archive/S-NNNN.json` files (or all that exist if fewer). For each soft-warn category appearing in `outcome_summary_soft_warns` with a non-zero count in 3-or-more of those archives, surface: *"Soft-warn `<category>` has fired in N of the last K sessions; consider addressing or escalating per `engine/operations/soft-warn-lifecycle.md`."* Suppress categories carrying an annotation in `engine/operations/tools-validate-interpretation.md`'s "Persistent-warn annotation" section that matches the current session's condition. Surfacing is informational; the session decides whether to address inline, queue follow-up, or escalate per the 10-session-persistence criterion.
 
-3. **Query MemPalace for context relevant to the next work item.** Use the MemPalace MCP tool `mempalace_search` with a query derived from `engine/STATE.md`'s `next_session_work`. Surface anything the user named in MemPalace that's relevant. (Skip if MemPalace MCP server is not yet loaded — early sessions before S-0002.)
+3. **Query engine_memory for context relevant to the next work item.** Use the `engine_memory_search` MCP tool with a query derived from `engine/STATE.md`'s `next_session_work`. Surface anything previously recorded that's relevant. Per ADR 0091.
 
 4. **Read referenced ADRs and docs.** `engine/STATE.md` and `ROADMAP.md` will name specific files relevant to the work item. Read them.
 
@@ -75,7 +75,7 @@ Convert the current Claude Code conversation from default exploration mode (no c
 
 The conversation is exploration. **No project file edits to tracked files. No commits. No slot claim. No ENGINE_LOG/ADR/STATE updates.** Sketch in conversation. If the discussion converges on something worth committing, offer the conversion: *"This feels worth making formal — want to /start-engine?"*
 
-MemPalace captures the exploration conversation under the `exploration` tag (once Claude Code stop/precompact hooks are wired in S-0002) so future sessions can recall "we considered X, rejected for reason Y" without re-litigation.
+engine_memory captures the exploration conversation under `room='work'` via the Stop/PreCompact hooks per ADR 0091, so future sessions can recall "we considered X, rejected for reason Y" without re-litigation.
 
 ## Auto-mode interrupt criteria
 

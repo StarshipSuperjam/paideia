@@ -40,7 +40,13 @@ paideia/
 │   ├── adr/                        # engine ADRs (graph validation, health checks, expression contracts, the partition itself)
 │   │   ├── README.md               # engine-side index
 │   │   └── NNNN-<title>.md         # one per decision (0016, 0022, 0036, 0037)
-│   ├── operations/                 # procedural docs — one file per topic; the lifecycle, validators, hook wiring, MemPalace conventions
+│   ├── memory/                     # engine-memory substrate (SQLite + FTS5) per ADR 0091
+│   │   ├── connection.py           # get_conn() resolves to shared <main-repo>/engine/.memory/engine_memory.sqlite3
+│   │   ├── schema.py               # tables, FTS5 virtual table, triggers — applied idempotently on first connect
+│   │   ├── mcp_server.py           # six-tool MCP surface (search/add_drawer/get_drawer/list_drawers/diary_read/diary_write)
+│   │   ├── capture.py              # Stop/PreCompact hook entrypoint
+│   │   └── transcript_capture.py   # ~200 LOC — chunking, noise-stripping, watermark idempotency
+│   ├── operations/                 # procedural docs — one file per topic; the lifecycle, validators, hook wiring, engine-memory conventions
 │   ├── session/                    # session-protocol layer
 │   │   ├── register_state.json     # counter (next_id, last_claimed, current_status)
 │   │   ├── current.json            # claim file — only present during in-progress sessions
@@ -52,7 +58,7 @@ paideia/
 │       ├── setup.sh                # symlinks pre-commit hook into .git/hooks/
 │       └── hooks/
 │           ├── pre-commit          # validates and enforces bimodal session protocol (build / closing / exploration)
-│           └── mempalace-hook-wrapper.sh  # captures stop/precompact events to MemPalace
+│           └── engine-memory-capture.sh  # captures stop/precompact events into the engine-memory substrate
 │
 ├── product/                        # Paideia itself
 │   ├── AGENT_INSTRUCTIONS.md       # rendering policy (product-facing; consumer-of-record is learner-facing prose per ADR 0027)
@@ -76,19 +82,17 @@ paideia/
 │       ├── expansion.md            # future scope
 │       ├── business.md             # commercial model
 │       ├── tensions.md             # open questions (active); pre-commit-hook-allowed in exploration mode
-│       ├── prep-paideia-prompt-pack.md  # 14-session deliberation prompts (sessions 1–8 closed pre-foundation)
-│       ├── mempalace.yaml          # MemPalace wing/room config
-│       └── entities.json           # MemPalace entity classification (projects-only)
+│       └── prep-paideia-prompt-pack.md  # 14-session deliberation prompts (sessions 1–8 closed pre-foundation)
 │
 ├── build_plan/                     # per-phase build chunks bridging engine and product (orientation + per-phase contracts + migration bridge)
 │
 ├── .claude/                        # Claude Code harness configuration (stays at root per ADR 0037)
 │   ├── commands/
 │   │   └── start-engine.md         # slash command — claims next session slot
-│   ├── settings.json               # Stop and PreCompact hooks wiring MemPalace capture
+│   ├── settings.json               # Stop and PreCompact hooks wiring engine-memory capture
 │   └── settings.local.json         # gitignored; per-developer overrides
 │
-├── .mcp.json                       # gitignored; MCP server registrations (Supabase + MemPalace)
+├── .mcp.json                       # gitignored; MCP server registrations (Supabase + engine_memory)
 ├── .env                            # gitignored; secrets
 └── .env.example                    # template
 ```
@@ -107,13 +111,13 @@ Just open Claude Code in this repo and start chatting. Default posture is **desi
 
 The pre-commit hook restricts exploration-mode commits to: `.claude/plans/`, `HANDOFF.md`, `product/docs/tensions.md`. Anything else is refused with a pointer to `/start-engine`.
 
-MemPalace captures exploration conversations under the `exploration` tag — knowing "we considered X, rejected for reason Y" prevents re-litigation.
+The engine-memory substrate (per ADR 0091) captures exploration conversations via Stop/PreCompact hooks (`room='work'`, `tags=['transcript']`) — knowing "we considered X, rejected for reason Y" prevents re-litigation. Curated decisions get explicit `engine_memory_add_drawer` calls into the `decisions`/`pushback`/`lessons` rooms.
 
 ### Build mode — `Start Engine` or `/start-engine`
 
 Type `Start Engine` (or invoke the slash command `/start-engine`) to convert to a build session. The slash command claims the next slot via the eager-claim ritual: bumps `engine/session/register_state.json`, writes `engine/session/current.json`, commits + pushes the claim immediately so concurrent sessions cannot collide. Then does the planned work, runs the shutdown sequence (audit + spot-check + `engine/STATE.md` / `engine/ENGINE_LOG.md` updates + archive + commit + push) at close.
 
-Build sessions write to MemPalace under `decision` / `work` tags; build sessions update `engine/ENGINE_LOG.md`, ADR statuses, `engine/STATE.md`.
+Build sessions write to engine_memory under the `decisions` / `pushback` / `lessons` rooms; build sessions update `engine/ENGINE_LOG.md`, ADR statuses, `engine/STATE.md`.
 
 For procedural depth, see `CLAUDE.md` and `engine/operations/`.
 
@@ -136,9 +140,11 @@ cp .env.example .env
 # psycopg.connect() before writing. Idempotent — re-runnable.
 python3 engine/tools/setup_env.py
 
-# Create local .mcp.json (the committed copy is gitignored as it carries PATs)
-# Configure Supabase MCP (project ref ozooosgnuzxqqypotlke) and MemPalace MCP
-# See engine/operations/mempalace-operations.md for MemPalace install + init
+# Create local .mcp.json (gitignored as it carries PATs)
+# Configure Supabase MCP (project ref ozooosgnuzxqqypotlke) and
+# engine_memory MCP (command: `python -m engine.memory.mcp_server`
+# via the project venv). See engine/operations/engine-memory-operations.md
+# for engine-memory substrate setup.
 ```
 
 After setup, restart Claude Code so the new MCP servers load.

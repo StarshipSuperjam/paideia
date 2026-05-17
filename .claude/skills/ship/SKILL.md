@@ -32,7 +32,7 @@ Substantive changes that DO warrant `/ship` (same set as `/review`):
 
 **Inclusion-list precedence rule.** If a diff matches both an exclusion and an inclusion (e.g., a Skill+ADR landing where a new Skill ships alongside its citable ADR — the S-0148 shape), the inclusion list wins. The exclusion list covers diffs that are *purely* trivial; a substantive Skill/validator/migration change that happens to also touch an ADR is substantive overall.
 
-The skill is **not** a merge gate. CI per [ADR 0066](../../../engine/adr/0066-pr-template-and-branch-protection.md) (branch protection on `main`) + [ADR 0065](../../../engine/adr/0065-engine-ci-mirror-validate-py.md) (validate.py mirror) is the hard merge gate. `/ship` adds the judgment-level layer that CI doesn't — anti-rationalization, per-axis triage, scope/ADR/MemPalace integrity. A `/ship` `NO-GO` produces friction (anti-rationalization rebuttal on override attempts) but does not block merge mechanically.
+The skill is **not** a merge gate. CI per [ADR 0066](../../../engine/adr/0066-pr-template-and-branch-protection.md) (branch protection on `main`) + [ADR 0065](../../../engine/adr/0065-engine-ci-mirror-validate-py.md) (validate.py mirror) is the hard merge gate. `/ship` adds the judgment-level layer that CI doesn't — anti-rationalization, per-axis triage, scope/ADR/engine_memory integrity. A `/ship` `NO-GO` produces friction (anti-rationalization rebuttal on override attempts) but does not block merge mechanically.
 
 ## Procedure
 
@@ -76,7 +76,7 @@ Each sub-agent gets the branch + change context from step 1 plus a self-containe
 
 ### 3. Apply Paideia overlays (synthesis-side)
 
-These run in the parent `/ship` invocation, NOT delegated to sub-agents — the parent owns project-awareness context (scope_lock, ADR corpus, MemPalace, build_readiness/) that sub-agents would otherwise re-derive.
+These run in the parent `/ship` invocation, NOT delegated to sub-agents — the parent owns project-awareness context (scope_lock, ADR corpus, engine_memory, build_readiness/) that sub-agents would otherwise re-derive.
 
 #### Scope_lock verification
 
@@ -96,12 +96,12 @@ If the diff touches any file under `engine/adr/` or `product/adr/`, OR touches a
 - Verify the `engine/ENGINE_LOG.md` `[Unreleased]` section reflects the change.
 - If either is missing, flag `ADR-citation gap` and set verdict to NO-GO.
 
-#### MemPalace decision-drawer check
+#### engine_memory decisions-room drawer check
 
 If a new ADR was authored this session:
 
-- Run `mempalace_search` with the ADR's title or decision keywords.
-- If no `decision`-tagged drawer matches, flag `MemPalace drawer gap`. Severity: `Required` (NOT NO-GO — the post-ADR-write hook reminds, but the drawer is sometimes deferred to session shutdown).
+- Run `engine_memory_search` with the ADR's title or decision keywords.
+- If no `decision`-tagged drawer matches, flag `engine_memory drawer gap`. Severity: `Required` (NOT NO-GO — the post-ADR-write hook reminds, but the drawer is sometimes deferred to session shutdown).
 
 #### First-exercise readiness note check (ADR 0053)
 
@@ -126,7 +126,7 @@ Apply the verdict matrix:
 | 1-2 `Required` findings + clean overlays + coverage ≥ floor | **GO-WITH-CAVEATS** (list required actions) |
 | Zero `Critical`/`Required` + clean overlays + coverage ≥ floor | **GO** |
 
-The MemPalace drawer gap is `Required`-tier but does NOT escalate to NO-GO; it appears in the required-actions list.
+The engine_memory drawer gap is `Required`-tier but does NOT escalate to NO-GO; it appears in the required-actions list.
 
 ### 5. Emit the structured report
 
@@ -155,7 +155,7 @@ The matrix row(s) that fired. One sentence each.
 | Coverage | <PASS / FAIL> | <P% vs. 78% floor> |
 | Scope-lock | <PASS / N-A> | <one-line> |
 | ADR-citation | <PASS / FAIL / N-A> | <one-line> |
-| MemPalace decision drawer | <PASS / Required / N-A> | <one-line> |
+| engine_memory decisions-room drawer | <PASS / Required / N-A> | <one-line> |
 | First-exercise readiness | <PASS / FAIL / N-A> | <one-line> |
 
 ### Required actions (NO-GO and GO-WITH-CAVEATS only)

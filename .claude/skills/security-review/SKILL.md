@@ -1,6 +1,6 @@
 ---
 name: security-review
-description: Run a Paideia security review against the OWASP Top 10 with measurable thresholds (bcrypt rounds, JWT verification order, CSP shape, parameterized queries) plus Paideia-specific overlays (Supabase RLS, apply_migration postcondition assertions per ADR 0055, MemPalace + KG PII discipline). Defense-in-depth orthogonal to gitleaks (ADR 0067) + bandit (ADR 0068) + Dependabot (ADR 0069). Adapted from `addyosmani/agent-skills/skills/security-and-hardening` per ADR 0071.
+description: Run a Paideia security review against the OWASP Top 10 with measurable thresholds (bcrypt rounds, JWT verification order, CSP shape, parameterized queries) plus Paideia-specific overlays (Supabase RLS, apply_migration postcondition assertions per ADR 0055, engine_memory PII discipline). Defense-in-depth orthogonal to gitleaks (ADR 0067) + bandit (ADR 0068) + Dependabot (ADR 0069). Adapted from `addyosmani/agent-skills/skills/security-and-hardening` per ADR 0071.
 disable-model-invocation: true
 ---
 
@@ -10,7 +10,7 @@ disable-model-invocation: true
 
 ## When to invoke
 
-A `/security-review` pass is warranted whenever a change touches a security-relevant surface — and crucially, *before* the change exists too: design-time review when a new auth surface, data-handling boundary, or user-input pipeline is being added. Phase 6+ will surface this routinely; pre-Phase-6 the relevant surfaces are migrations (per [ADR 0055](../../../engine/adr/0055-apply-migration-wrapping-against-production-reads-gate.md) postcondition assertions), tool code touching `psycopg`/external APIs, and the MemPalace/KG write surface.
+A `/security-review` pass is warranted whenever a change touches a security-relevant surface — and crucially, *before* the change exists too: design-time review when a new auth surface, data-handling boundary, or user-input pipeline is being added. Phase 6+ will surface this routinely; pre-Phase-6 the relevant surfaces are migrations (per [ADR 0055](../../../engine/adr/0055-apply-migration-wrapping-against-production-reads-gate.md) postcondition assertions), tool code touching `psycopg`/external APIs, and the engine_memory write surface (KG retired alongside the chromadb substrate).
 
 The skill is the depth pass for security. It is orthogonal to:
 
@@ -99,13 +99,13 @@ For each new migration in the change:
 - Do the assertions sensibly verify the body's effect? (E.g., a migration adding N rows should have an assertion verifying the row count rose by exactly N.)
 - Are the assertions overspecified? (Asserting every row's exact data is fragile.)
 
-### MemPalace + KG PII discipline
+### engine_memory PII discipline
 
-The MemPalace substrate and the KG storage layer are project-internal but should not carry credentials. For every change that writes to MemPalace (via `mempalace_add_drawer`, `mempalace_diary_write`, etc.) or the KG (`mempalace_kg_add`):
+The engine_memory substrate and the KG storage layer are project-internal but should not carry credentials. For every change that writes to engine_memory (via `engine_memory_add_drawer`, `engine_memory_diary_write`, etc.) or the project archives:
 
 - Does the content include any password, token, API key, or other credential? `Critical`.
 - Does the content include any PII (real names other than maintainer self-reference, email addresses, etc.)? `Required` to redact.
-- Does the diary content (per [ADR 0056](../../../engine/adr/0056-mempalace-mechanical-adoption-checks.md)) follow the AAAK compression discipline so it's not human-readable narrative that could leak PII?
+- Does the diary content (per ADR 0091) follow the AAAK compression discipline so it's not human-readable narrative that could leak PII?
 
 ## Severity tiers
 
@@ -120,7 +120,7 @@ A structured Markdown report. Per-OWASP-item Pass / Fail / N-A grid plus severit
 ```markdown
 ## `/security-review` — <branch-name> @ <SHA-short>
 
-**Surfaces touched:** <auth / authz / input / headers / session / data / deps / migrations / MemPalace / KG>.
+**Surfaces touched:** <auth / authz / input / headers / session / data / deps / migrations / engine_memory / KG (KG retired)>.
 
 ### OWASP Top 10 grid
 
@@ -143,7 +143,7 @@ A structured Markdown report. Per-OWASP-item Pass / Fail / N-A grid plus severit
 |---|---|---|
 | Supabase RLS verification | PASS / FAIL / N-A | <one-line> |
 | Postcondition-assertion block (ADR 0055) | PASS / FAIL / N-A | <one-line> |
-| MemPalace / KG PII discipline | PASS / FAIL / N-A | <one-line> |
+| engine_memory / KG (KG retired) PII discipline | PASS / FAIL / N-A | <one-line> |
 
 ### Findings
 
@@ -172,7 +172,7 @@ N-A is a real verdict — most OWASP items will be N-A on most pre-Phase-6 chang
 - **JWT-verification-order bugs.** The signature → expiration → issuer → audience order is non-obvious; the skill names it explicitly.
 - **RLS-as-presence-not-policy.** `validate.py` checks RLS is enabled; this skill checks the *policy* is semantically right.
 - **Postcondition-assertion-block omission.** Per ADR 0055 Layer 2.5; the skill verifies the block, not just the migration file.
-- **MemPalace credential leaks.** The KG substrate is project-internal but not authorized to carry credentials; the overlay catches this.
+- **engine_memory credential leaks.** The KG substrate is project-internal but not authorized to carry credentials; the overlay catches this.
 
 ## Failure modes this skill does NOT prevent
 

@@ -12,15 +12,15 @@ Phase headings carry **[ENGINE]** or **[PRODUCT]** markers per [ADR 0037](engine
 
 ## Phase 0 — Foundation **[ENGINE]**
 
-**Setup, not build.** The session-protocol layer, industry-standard repo skeleton, decision-record discipline, and project memory get established. After Phase 0, every future session boots cold from `STATE.md` + MemPalace + the conventions in `CLAUDE.md` and `docs/operations/`.
+**Setup, not build.** The session-protocol layer, industry-standard repo skeleton, decision-record discipline, and project memory get established. After Phase 0, every future session boots cold from `STATE.md` + the engine-memory substrate + the conventions in `CLAUDE.md` and `engine/operations/`.
 
 **Three foundation sessions:**
 
 - **S-0001** — structural foundation + retirement of obsolete pre-foundation source files. Top-level industry-standard files (this file, README.md, LICENSE, ENGINE_LOG.md (was CHANGELOG.md before [ADR 0037](engine/adr/0037-engine-product-wall-and-changelog-rename.md)), SECURITY.md, STATE.md, HANDOFF.md), session/ + tools/ + pre-commit hook + slash command, supabase/migrations/ placeholders, repo reorganization into `docs/`.
-- **S-0002** — procedural layer + MemPalace indexing + CONTEXT.md split. CLAUDE.md + 11-file `docs/operations/` library + `docs/MISSION.md` + `docs/CROSS_REFERENCES.md` + MemPalace wing/rooms/drawers indexed against the relocated docs.
+- **S-0002** — procedural layer + memory-substrate indexing + CONTEXT.md split. CLAUDE.md + 11-file `docs/operations/` library + `docs/MISSION.md` + `docs/CROSS_REFERENCES.md`. (Original memory substrate replaced by engine_memory per ADR 0091 at S-0188 → S-0193.)
 - **S-0003** — ADR collection (22 ADRs absorbing the 12 working commitments + the 8 entries from the transitional `design-reasoning.md` + 2 architectural decisions that emerged in the S-0001 plan conversation, ADRs 0016 and 0022). `adr/README.md` indexes the collection; full Nygard guidance and status conventions live in `docs/operations/adr-authoring.md`. `design-reasoning.md` retired at S-0003 close.
 
-**Phase 0 closes when:** a fresh Claude Code session can type `Start Engine` (or `/start-engine`), boot cold from `STATE.md` + MemPalace, claim the next slot via the eager-claim ritual, do its work, and close cleanly with audit + commit + push — without human briefing.
+**Phase 0 closes when:** a fresh Claude Code session can type `Start Engine` (or `/start-engine`), boot cold from `STATE.md` + engine_memory, claim the next slot via the eager-claim ritual, do its work, and close cleanly with audit + commit + push — without human briefing.
 
 ---
 
@@ -97,7 +97,7 @@ Add `confidence_level` (`EXTRACTED | INTERPRETED | SYNTHETIC`) to the node schem
 
 ### 1.5.5 Inward-document expression contract
 
-- ADR 0036 contracts the project's second expression contract — kindred tool to AGENT_INSTRUCTIONS.md (the rendering policy in ADR 0027), separately scoped to inward-facing documentation. The contract's posture: governed documents describe present truth in present-tense declarative prose; cross-references to ADRs are bibliographic (end-of-section "See also" pointers); authorship history, supersession narration, and per-session revision markers belong in the four-layer trace system (ADRs, ENGINE_LOG, MemPalace, git).
+- ADR 0036 contracts the project's second expression contract — kindred tool to AGENT_INSTRUCTIONS.md (the rendering policy in ADR 0027), separately scoped to inward-facing documentation. The contract's posture: governed documents describe present truth in present-tense declarative prose; cross-references to ADRs are bibliographic (end-of-section "See also" pointers); authorship history, supersession narration, and per-session revision markers belong in the four-layer trace system (ADRs, ENGINE_LOG, engine_memory, git).
 - Operational surface lives at [`docs/operations/document-voice.md`](engine/operations/document-voice.md). Scope: the `docs/` tree, root-level project files, ADRs in non-Superseded status, AGENT_INSTRUCTIONS.md. Exempt: STATE.md, ENGINE_LOG.md, `session/archive/*`, ADRs in Superseded status, resolved `docs/tensions.md` entries. ROADMAP.md is governed with three-speech-acts handling: phase scope and commitments are governed; date-stamp markers and supersession narration migrate to ENGINE_LOG and git.
 - `docs/business.md`, `docs/architecture.md`, `docs/MISSION.md`, `docs/content-strategy.md`, `AGENT_INSTRUCTIONS.md`, `docs/tensions.md` open entries, and `adr/README.md` orientation prose carry the contract's voice. ROADMAP.md (this file) carries the contract's voice with three-speech-acts handling; the four-layer trace carries the production trace.
 
@@ -429,7 +429,7 @@ Telemetry hooks built in S-0001:
 - `session/archive/S-NNNN.json` per session (started_at, closed_at, status, working_on, outcome_summary)
 - ADR status field (counts of Accepted / Deprecated / Superseded over time)
 - ENGINE_LOG.md entries (categorized engine changes by date)
-- MemPalace `exploration` and `decision` tags (semantic memory of every conversation)
+- engine_memory `exploration` and `decisions` rooms (per ADR 0091 — FTS5 + BM25 + recency rank over curated drawers + transcript auto-capture)
 
 ---
 

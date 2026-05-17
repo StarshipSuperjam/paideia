@@ -29,7 +29,7 @@ For NO-GO, name every triggering row. For GO-WITH-CAVEATS, name the Required fin
 | Coverage | PASS / FAIL | P% vs. 78% floor (Δ ±X.Xpp vs. 80% baseline) |
 | Scope-lock | PASS / N-A | <one-line; N-A for build-mode> |
 | ADR-citation | PASS / FAIL / N-A | <one-line; N-A if no contract surface touched> |
-| MemPalace decision drawer | PASS / Required / N-A | <one-line; N-A if no new ADR> |
+| engine_memory decisions-room drawer | PASS / Required / N-A | <one-line; N-A if no new ADR> |
 | First-exercise readiness | PASS / FAIL / N-A | <one-line; N-A if no new cross-cutting mechanism> |
 
 ### Required actions

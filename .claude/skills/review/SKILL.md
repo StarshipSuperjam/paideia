@@ -1,6 +1,6 @@
 ---
 name: review
-description: Run a Paideia five-axis code review — Correctness, Readability & Simplicity, Architecture, Security, Performance — with severity tiers (Critical / Required / Nit / Optional / FYI), change-size triage, Paideia overlays (scope_lock awareness, ADR-citation requirement, MemPalace decision-drawer check), and a structured Markdown report. Adapted from `addyosmani/agent-skills/skills/code-review-and-quality` per ADR 0070. Invoke deliberately on a branch, commit range, or PR.
+description: Run a Paideia five-axis code review — Correctness, Readability & Simplicity, Architecture, Security, Performance — with severity tiers (Critical / Required / Nit / Optional / FYI), change-size triage, Paideia overlays (scope_lock awareness, ADR-citation requirement, engine_memory decisions-room drawer check), and a structured Markdown report. Adapted from `addyosmani/agent-skills/skills/code-review-and-quality` per ADR 0070. Invoke deliberately on a branch, commit range, or PR.
 disable-model-invocation: true
 ---
 
@@ -122,13 +122,13 @@ If the change touches a contract surface — any file under `engine/adr/` or `pr
 
 - The ADR was amended (or a new ADR authored) in the same commit or session.
 - The ENGINE_LOG.md `[Unreleased]` section reflects the change.
-- The MemPalace `decision`-tagged drawer was authored if the change is a settled decision (the `PostToolUse` hook on ADR writes per [ADR 0043](../../../engine/adr/0043-hook-architecture.md) reminds, but the reminder is non-blocking).
+- The engine_memory `decisions`-room drawer was authored if the change is a settled decision (the `PostToolUse` hook on ADR writes per [ADR 0043](../../../engine/adr/0043-hook-architecture.md) reminds, but the reminder is non-blocking).
 
 Missing any of these is a `Required` finding.
 
-### MemPalace decision-drawer check
+### engine_memory decisions-room drawer check
 
-If a new ADR was authored in this session: confirm a matching `decision`-tagged drawer in MemPalace via `mempalace_search`. The post-adr-write hook reminds, but the reminder is non-blocking; the review verifies.
+If a new ADR was authored in this session: confirm a matching `decision`-tagged drawer in engine_memory via `engine_memory_search`. The post-adr-write hook reminds, but the reminder is non-blocking; the review verifies.
 
 ### Multi-model writer/reviewer pattern (landed at S-0148 per ADR 0081)
 
@@ -141,7 +141,7 @@ Run in order. Each step's output is input to the next.
 1. **Load context.** Read the relevant plan file (if any), the session's eager-claim commit message, the load-bearing ADRs the change touches (per the change's commit message + STATE.md `next_session_work_item`), and `engine/session/current.json` (if mid-session) for `scope_lock` and `working_on`.
 2. **Examine tests first.** What does the test suite say about intent? Where are the gaps? Are the assertions meaningful or testing-the-mock?
 3. **Walk the implementation against the five axes** in the order above. Each axis surfaces zero or more findings.
-4. **Apply Paideia overlays.** Scope_lock awareness, ADR-citation check, MemPalace decision-drawer check.
+4. **Apply Paideia overlays.** Scope_lock awareness, ADR-citation check, engine_memory decisions-room drawer check.
 5. **Categorize every finding by severity tier.** Critical / Required / Nit / Optional / FYI. Calibrate the tier — neither inflate nor deflate.
 6. **Verify the verification story.** Did `validate.py` pass? Did pytest pass? Did manual testing happen for any UI surface? Are the verification claims in the PR description honest?
 7. **Emit the structured Markdown report** (next section). Self-check against the anti-rationalization table ([`anti-rationalization.md`](anti-rationalization.md)).
@@ -171,7 +171,7 @@ A structured Markdown report. Sample:
 
 - **Scope_lock:** PASS (or: `<finding>`)
 - **ADR-citation:** PASS (or: `<finding>` — Issue filed/needed)
-- **MemPalace decision drawer:** PASS (or: `<finding>` — drawer missing for ADR NNNN)
+- **engine_memory decisions-room drawer:** PASS (or: `<finding>` — drawer missing for ADR NNNN)
 
 ### Anti-rationalization self-check
 

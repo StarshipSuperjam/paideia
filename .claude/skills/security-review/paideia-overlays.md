@@ -68,24 +68,24 @@ For every new migration (`product/seed-graph/migrations/NNNN_*.sql`):
 - A migration with `-- Postcondition-Assertions:` followed by a SELECT that returns a non-integer (the wrapper rejects this; the review catches it pre-commit).
 - A "this migration is a no-op rollback marker" migration with NO assertion block — pre-S-0094 grandfather clause may apply; new migrations should at minimum assert "the body changed nothing" (row count delta = 0).
 
-## Overlay 3: MemPalace + KG PII discipline
+## Overlay 3: engine_memory PII discipline
 
-**Why it's an overlay:** The MemPalace substrate and the KG storage layer are project-internal but accessible to anyone who reads the repo or runs the MCP server. Pre-OSS-flip this was a closed loop; post-OSS-flip ([ADR 0065 (product)](../../../product/adr/0065-oss-pivot-and-byok-disposition.md) S-0130) the repo is public — MemPalace content under `engine/session/archive/*.json` and any diary/drawer content that ends up committed is world-readable.
+**Why it's an overlay:** The engine_memory substrate and the KG storage layer are project-internal but accessible to anyone who reads the repo or runs the MCP server. Pre-OSS-flip this was a closed loop; post-OSS-flip ([ADR 0065 (product)](../../../product/adr/0065-oss-pivot-and-byok-disposition.md) S-0130) the repo is public — engine_memory content under `engine/session/archive/*.json` and any diary/drawer content that ends up committed is world-readable.
 
 ### Procedure
 
-For every change that writes to MemPalace or the KG:
+For every change that writes to engine_memory or the KG:
 
-1. **Drawer writes** (`mempalace_add_drawer`):
+1. **Drawer writes** (`engine_memory_add_drawer`):
    - Does the content include any password, token, API key, or other credential? `Critical`.
    - Does the content include PII other than the maintainer's self-reference? `Required` to redact (per the S-0130 sweep — 141 files were redacted from `/Users/shanekidd/` to `~/`; the same posture applies here).
    - Does the content include the user's real name in a context where the maintainer-tag would suffice?
 
-2. **Diary writes** (`mempalace_diary_write`):
-   - AAAK-compressed form per [ADR 0056](../../../engine/adr/0056-mempalace-mechanical-adoption-checks.md) — does the entry follow the format?
+2. **Diary writes** (`engine_memory_diary_write`):
+   - engine_memory `diary` content per ADR 0091 — does the entry follow the format?
    - Free-text diary entries should follow the same redaction discipline as drawers.
 
-3. **KG writes** (`mempalace_kg_add`):
+3. **Project-archive writes** (`engine_memory_add_drawer` to non-curated rooms):
    - Does the entity / claim include PII? Same redaction discipline.
 
 4. **Session archive** (`engine/session/archive/S-NNNN.json`):
@@ -96,7 +96,7 @@ For every change that writes to MemPalace or the KG:
 
 - **PASS:** no credentials, no PII beyond maintainer self-reference, no real-name leaks.
 - **FAIL:** any credential in any drawer / diary / KG entity / archive field; any PII without redaction.
-- **N-A:** the change does not write to MemPalace, the KG, or the session archive.
+- **N-A:** the change does not write to engine_memory, the KG, or the session archive.
 
 ### Failure examples to catch
 
@@ -118,6 +118,6 @@ Run the overlays *in addition* to the OWASP walk in [`owasp-checklist.md`](owasp
 - [`owasp-checklist.md`](owasp-checklist.md) — OWASP Top 10 grid.
 - [`../review/anti-rationalization.md`](../review/anti-rationalization.md) — shared anti-rationalization table.
 - [ADR 0055](../../../engine/adr/0055-apply-migration-wrapping-against-production-reads-gate.md) — postcondition-assertion contract (Overlay 2).
-- [ADR 0056](../../../engine/adr/0056-mempalace-mechanical-adoption-checks.md) — MemPalace mechanical adoption (Overlay 3 context).
+- ADR 0091 — engine-memory substrate (Overlay 3 context).
 - [ADR 0065 (product)](../../../product/adr/0065-oss-pivot-and-byok-disposition.md) — OSS flip context (why Overlay 3 matters now).
 - [ADR 0071](../../../engine/adr/0071-project-wired-security-review-skill.md) — citable contract.

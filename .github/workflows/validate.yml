@@ -104,10 +104,10 @@ jobs:
 
       - name: Run validate.py (default — structural + health-probe + graph-audit)
         id: validate_default
-        # Soft-warns expected on CI (no chromadb palace at ~/.mempalace/palace;
-        # SUPABASE_DB_URL unset → graph_audit_skipped). Hard-fails fail the
-        # job. STATUS captured so we can surface soft-warn detail to the
-        # step summary even on exit-1.
+        # Soft-warns expected on CI (SUPABASE_DB_URL unset →
+        # graph_audit_skipped). Hard-fails fail the job. STATUS captured
+        # so we can surface soft-warn detail to the step summary even on
+        # exit-1.
         run: |
           set -uo pipefail
           STATUS=0

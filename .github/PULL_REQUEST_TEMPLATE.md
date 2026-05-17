@@ -25,7 +25,7 @@ an unchecked item reads as "skipped" in review, not "irrelevant."
 - [ ] Local `validate.py` passes (no hard-fails)
 - [ ] Soft-warns reviewed and either resolved or recorded in `outcome_summary`
 - [ ] ADR authored or amended if a settled decision landed (link below)
-- [ ] MemPalace `decision` drawer captured if an ADR was authored
+- [ ] engine_memory `decisions`-room drawer captured if an ADR was authored
 - [ ] First-exercise readiness note authored if a cross-cutting mechanism is introduced (per [ADR 0053](engine/adr/0053-mechanism-first-exercise-gate.md))
 - [ ] Routine-mode `scope_lock` honored (if applicable)
 - [ ] Secrets: no credentials, keys, or env values in diff
