@@ -204,6 +204,22 @@ A new ADR re-deliberates if by S-0193 + 30 sessions any of:
 
 If three consecutive health-check audits (S-0203, S-0223, S-0243 at cadence-20) report no substrate findings AND the `engine_memory_*` MCP surface stays at exactly six tools AND `engine/memory/` substantive code stays under 900 LOC, ADR 0091 transitions from active-rollout to steady-state observation. The audit-cadence health check at S-0243 considers retiring this ADR's named re-evaluation triggers at that point.
 
+### T1-E gate criterion — three accepted categories of residual mempalace references
+
+The S-0193 deliverable's T1-E gate criterion as originally authored was prose-strict (`git grep -i mempalace` returns zero matches outside `engine/ENGINE_LOG.md` history + 3 superseded ADRs). Structurally that criterion is met (no live mempalace tooling, no live mempalace hooks, no live mempalace tool references in active surfaces); prose-strict it never was — bibliographic ADR cross-reference links and historical audit-rubric table entries legitimately retain the literal string. The refined criterion below replaces the strict-purge wording with three accepted-residue categories, preserving the cascade-discipline pointer integrity and the audit-rubric historical record while still failing on actual stale-as-if-current prose.
+
+**Refined gate criterion:** the T1-E gate is met when `git grep -i mempalace` produces matches that fall entirely into one of three accepted categories:
+
+1. **Bibliographic ADR cross-reference links** — markdown links of the form `[ADR <NNNN>](path/to/<NNNN>-mempalace-<topic>.md)` where the file's persisted name on disk contains "mempalace". The link target IS the historical file; renaming it would break every inbound cross-reference and erase the cascade-discipline back-references per [ADR 0041](0041-cascade-discipline.md). The substrate is retired; the bibliographic pointer to its decision body is not.
+2. **Historical audit-rubric table entries** — rows in `engine/operations/tools-validate-interpretation.md` recording retired soft-warns' historical fire-rate classifications and adjudication outcomes (e.g., `mempalace_hnsw_divergence`, `mempalace_wing_count_growth`, etc.). These rows document what existed and what dispositioned the categories away; rewriting them would erase the audit's historical record of the substrate's lifecycle.
+3. **Retired-CLI / retired-tool prose explicitly marked retired** — references to retired surfaces (`mempalace status` CLI, `audit_mempalace_attribution.py` tool, `mempalace_boot_search.py` module) that have been explicitly annotated as `(retired at S-0193 per ADR 0091 cutover)` or equivalent, so a cold reader sees the retirement marker alongside the historical reference.
+
+Prose that describes mempalace as if it were still current (without a retirement marker, with stale tool/file paths presented as live) falls OUTSIDE the accepted categories and constitutes a gate violation. The five identified "as if current" sites in `engine/operations/tools-validate-interpretation.md` (the `mempalace status` CLI reference, the `mempalace_activity` rollup field path, the `engine/tools/mempalace_boot_search.py` module path, the `audit_mempalace_attribution.py` allowlist entry, the `mempalace_hnsw_status_suspect` deferred-re-audit entry) are pointed at engine_memory equivalents or carry explicit retirement markers.
+
+**Why refine rather than continue the strict purge:** the alternative (strict purge requiring substantive edits across the residual references) would either (a) rename superseded ADR files on disk (breaking all inbound bibliographic references) or (b) rewrite link text in ways that obscure which decision is being pointed at, neither of which serves a cold reader. The substrate-decoupling work is structurally complete; the prose-strict criterion was over-precise.
+
+**Cascade:** the S-0193 deliverable entry above retains its original wording (immutable historical-decision-context per the project's ADR amendment conventions); the gate criterion going forward is the refined one in this subsection.
+
 ## See also
 
 - [ADR 0090](0090-phase-6-recall-substrate-decision.md) — superseded; its commitments 1, 2a (partial), 4 were executed at S-0186/S-0187 and the empirical findings (Issue #134) inform this supersession.
