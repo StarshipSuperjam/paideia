@@ -4,92 +4,39 @@ description: Convert this conversation to a build session — claims the next sl
 
 # /start-engine
 
-Convert the current Claude Code conversation from default exploration mode (no commits, no project edits) into a build session (claims a slot, may commit, may modify project files).
+Convert the current Claude Code conversation from default exploration mode (no commits, no project edits) into a build session (claims a slot, may commit, may modify project files) per [ADR 0044](../../engine/adr/0044-skill-conversion-recipe-vs-reference.md). Build sessions are interactive Claude Code sessions where the user has explicitly authorized work that mutates tracked files.
 
-## Boot procedure (the AI runs these in order)
+## When to invoke
 
-1. **Read `engine/STATE.md`** — get current phase, last build session, next session work item, GitHub URL, Supabase project ref, infrastructure pointers.
+The user types `/start-engine` (or `Start Engine`) to convert exploration into build. Default-mode (exploration) conversations do NOT run this lifecycle — they make no commits and claim no slot. The conversion is a deliberate user act; never auto-fire.
 
-2. **Check the health-check cadence trigger.** Read `engine/session/register_state.json`. Parse `next_id` (the slot about to be claimed) and `last_audit_session` (the most recent completed audit). Compute `slots_since = next_id - last_audit_session`. The trigger fires when `slots_since >= health_check_cadence` (default cadence 10 as of S-0033, was 30 pre-S-0033 per ADR 0022 Consequences amendment — see `register_state.json` `health_check_cadence_history` for the change record). Two surfaces: at `slots_since == cadence` propose *"Next slot is S-NNNN. Cadence trigger fires for a project health check (see `engine/operations/health-check.md`). Run the audit now or defer?"*; at `slots_since > cadence` propose *"Cadence trigger fires; audit is OVERDUE by N session(s). Run the audit now or document explicit deferral."* User accepts (work becomes the audit; `engine/tools/health_check.py` bumps `last_audit_session` at report-emit time, clearing the trigger) or defers (proceed with planned work; trigger fires again next session). The overdue-catchup logic replaces the prior `next_id mod cadence == 0` strict-modulo at S-0041 (ADR 0022 + ADR 0043 Consequences amendments) — strict-modulo silently slid the trigger by a full cadence whenever the aligned slot was consumed by user-directed work (S-0040 missed → next fire S-0050, a 19-session gap). The same logic is mirrored in the SessionStart hook script `engine/tools/hooks/session-start.sh`. If `last_audit_session` is absent (legacy register_state.json), the hook falls back to strict-modulo with a stderr log line. Validator defense-in-depth: `engine/tools/validate.py` raises `health_check_overdue` soft-warn whenever `slots_since > cadence` so a silently-failing hook (the S-0033/S-0034 vector pattern) cannot mask the slide.
+## How to run it
 
-2b. **Surface persistent soft-warns from recent archives.** Per [ADR 0042](../../engine/adr/0042-soft-warn-lifecycle-archive-canon.md). Read the last 5 `engine/session/archive/S-NNNN.json` files (or all that exist if fewer). For each soft-warn category appearing in `outcome_summary_soft_warns` with a non-zero count in 3-or-more of those archives, surface: *"Soft-warn `<category>` has fired in N of the last K sessions; consider addressing or escalating per `engine/operations/soft-warn-lifecycle.md`."* Suppress categories carrying an annotation in `engine/operations/tools-validate-interpretation.md`'s "Persistent-warn annotation" section that matches the current session's condition. Surfacing is informational; the session decides whether to address inline, queue follow-up, or escalate per the 10-session-persistence criterion.
+**Invoke the `session-build-lifecycle` Skill now, via the Skill tool.** That Skill carries the canonical, executable boot procedure; this command body deliberately carries **no step list of its own** so it cannot drift out of sync with the canonical procedure (the drift that produced [Issue #122](https://github.com/StarshipSuperjam/paideia/issues/122), [#123](https://github.com/StarshipSuperjam/paideia/issues/123), [#124](https://github.com/StarshipSuperjam/paideia/issues/124), and [#125](https://github.com/StarshipSuperjam/paideia/issues/125) — stale subset enumerations that silently dropped boot gates and engine_memory boot steps). The Skill is `disable-model-invocation: true`, so it does not auto-fire on description match — you must invoke it deliberately at this point.
 
-3. **Query engine_memory for context relevant to the next work item.** Use the `engine_memory_search` MCP tool with a query derived from `engine/STATE.md`'s `next_session_work`. Surface anything previously recorded that's relevant. Per ADR 0091.
+The Skill's procedure covers, in order:
 
-4. **Read referenced ADRs and docs.** `engine/STATE.md` and `ROADMAP.md` will name specific files relevant to the work item. Read them.
+- **Boot reading** — `engine/STATE.md` (current phase, last build session, next-session work item).
+- **Cadence trigger check** — health-check overdue-catchup logic against `last_audit_session`.
+- **Persistent-warn surface** — soft-warn categories firing in 3-of-last-5 archives.
+- **engine_memory boot** — `engine_memory_search` against next-session-work terms, then `engine_memory_diary_read last_n=3`, run *before* slot claim so prior context informs the work.
+- **Build-readiness report check** — substantive build sessions only; halt on unresolved Tier 1.
+- **Concurrent-session collision check** — `check_session_conflict.py` (exit 0/1/2 dispositions).
+- **Eager-claim ritual** — bump `next_id`, write `current.json` with the canonical field set (`id`, `started_at`, `status`, `mode: "interactive"`, `working_on`, `declared_scope`, `outcome_summary: null`, `scope_delivery: null`, `next_session_handle: null`, `approved_plan`, `branch`, `worktree`), commit + FF parent + push via [`build_lifecycle_push.py eager-claim`](../../engine/tools/build_lifecycle_push.py) per [ADR 0076](../../engine/adr/0076-build-mode-lifecycle-push-wrapping.md).
+- **Begin substantive work** — file edits, tools, incremental commits gated by pre-commit hook.
 
-4b. **Concurrent-session collision check** (per Issue #3 / S-0048). Run `python3 engine/tools/check_session_conflict.py`. Three dispositions:
+The Layer 1 source-of-truth prose for every step lives at [`engine/operations/session-build-lifecycle.md`](../../engine/operations/session-build-lifecycle.md). The Skill mirrors it per [ADR 0044](../../engine/adr/0044-skill-conversion-recipe-vs-reference.md) (recipe-vs-reference); updates flow doc → skill, never the reverse.
 
-   - **Exit 0** (no conflict): `register_state.json` shows `current_status: closed` (or absent) — proceed to step 5.
-   - **Exit 1** (recent collision or ambiguous mid-window): another session is in flight with `started_at` < 24h. Do NOT claim. The tool's stderr names the rival session ID and the cooperation procedure (pause the routine via `auto_target.json` `paused: true` and wait, OR wait for the rival to close). Surface to the user, refuse the eager-claim, and exit the boot procedure cleanly.
-   - **Exit 2** (stale): an `in_progress` session has been open for >24h. Likely a dead session. Offer auto-recovery to the user: edit `register_state.json` to `current_status: 'closed'`, archive the stale `current.json` to `engine/session/archive/<rival_id>.json` with `status: closed_partial`, then re-run the boot procedure.
+## How to close the session
 
-5. **Claim the next slot via the eager-claim ritual:**
+**Invoke the `session-shutdown-sequence` Skill at end of work, via the Skill tool.** Same recipe-vs-reference pattern as the boot Skill: canonical executable procedure, `disable-model-invocation: true`, mirrors the Layer 1 doc [`engine/operations/session-shutdown-sequence.md`](../../engine/operations/session-shutdown-sequence.md). Covers validate.py audit, spot-check, `engine/STATE.md` update, `engine/ENGINE_LOG.md` `[Unreleased]` append, `outcome_summary` fill, archive of `engine/session/current.json` → `engine/session/archive/S-NNNN.json`, structured-field audits per [ADR 0042](../../engine/adr/0042-soft-warn-lifecycle-archive-canon.md), engine_memory diary write, final commit + FF + push via [`build_lifecycle_push.py close`](../../engine/tools/build_lifecycle_push.py).
 
-   a. Read `engine/session/register_state.json`. Note `next_id` (e.g., `0007`).
+## When NOT to use this command
 
-   b. Bump it: rewrite as `{"next_id": "<next+1>", "last_claimed": "S-<next>", "current_status": "in_progress", "description": ..., "format": ...}`.
+- **Exploration / sketching.** No commits, no project edits — that's the default mode. The Stop/PreCompact hooks capture the conversation to engine_memory `room='work'` per [ADR 0091](../../engine/adr/0091-engine-memory-substrate-sqlite-fts5.md) so future sessions can recall the discussion without re-litigation.
+- **A build session is already in progress.** The Skill's concurrent-session collision check catches this and refuses the eager-claim; see [`engine/operations/session-build-lifecycle.md`](../../engine/operations/session-build-lifecycle.md) "Concurrent-session collision check" and `engine/tools/check_session_conflict.py`.
+- **Routine-mode unattended work.** That's `/start-routine` (which the user's Claude Code Routine invokes on cadence). Routine and build sessions share only the eager-claim ritual; every other concern (boot procedure, scope rules, commit posture, permission model, shutdown logic) is mode-specific per [ADR 0051](../../engine/adr/0051-routine-mode-and-engine-loop.md).
 
-   c. Write `engine/session/current.json`:
-      ```json
-      {
-        "id": "S-<next>",
-        "started_at": "<ISO-8601 UTC>",
-        "status": "in_progress",
-        "mode": "interactive",
-        "working_on": "<one-sentence summary of the planned work>",
-        "outcome_summary": null,
-        "approved_plan": "<path or null>",
-        "branch": "<current git branch>",
-        "worktree": "<absolute path to current worktree>"
-      }
-      ```
+## Posture, permission mode, and interrupt criteria
 
-      The `mode` field is required from S-0048 onward per [ADR 0051](../../engine/adr/0051-routine-mode-and-engine-loop.md), hard-fail-enforced on the close commit. Build sessions set `"interactive"`; routine-mode sessions set `"routine"`. (The canonical `current.json` template — including `declared_scope` / `scope_delivery` / `next_session_handle` — lives in the `session-build-lifecycle` Skill per [ADR 0044](../../engine/adr/0044-skill-conversion-recipe-vs-reference.md); this command is a thin entry that routes through it.)
-
-   d. Stage `engine/session/register_state.json` and `engine/session/current.json`. Commit with message `chore(session): eager-claim S-<NNNN> — <topic>`.
-
-   e. Fast-forward main on the parent repo: `git -C <parent-repo-path> merge --ff-only <branch>`.
-
-   f. Push: `git -C <parent-repo-path> push origin main`. No per-push confirmation. Invoking `/start-engine` is the authorization for the lifecycle's pushes (eager-claim, in-session checkpoints, shutdown). Destructive operations (force-push, `git reset --hard`, branch deletion) still require explicit confirmation per the auto-mode interrupt criteria.
-
-6. **Begin substantive work.** The slot is held atomically; concurrent sessions cannot collide. Make file edits, run tools, commit incrementally as work progresses. Each commit must pass `engine/tools/validate.py` (enforced by pre-commit hook).
-
-## Session shutdown (at end of work)
-
-7. **Audit pass.** Run `engine/tools/validate.py`. Address any hard-fails. Soft-warns are recorded in `engine/session/current.json`'s `outcome_summary` field.
-
-8. **Spot-check.** For every artifact created or modified in this session: confidence labels honest? type framing correct? cross-references resolve? Audit catches structural mistakes; spot-check catches judgment mistakes.
-
-9. **Update `engine/STATE.md`** with the new last-session pointer and the next session's work item.
-
-10. **Update `engine/ENGINE_LOG.md`** under `[Unreleased]` with Added/Changed/Removed/Deprecated entries for material engine changes (per the material-change criteria in `engine/operations/session-shutdown-sequence.md`). The file was named `CHANGELOG.md` before [ADR 0037](../../engine/adr/0037-engine-product-wall-and-changelog-rename.md); the `CHANGELOG.md` filename is now reserved for the future learner-visible product release log (lives at `product/CHANGELOG.md` from S-0024 onward as a reserved stub).
-
-11. **Fill `outcome_summary`** in `engine/session/current.json` (~50 words, what got done — feeds health-check telemetry).
-
-12. **Archive the claim.** Move `engine/session/current.json` to `engine/session/archive/S-<NNNN>.json`. Update `engine/session/register_state.json` to `current_status: closed`.
-
-13. **Final commit + main FF + push.** Conventional commit message. No per-push confirmation — the `/start-engine` invocation already authorizes the shutdown push.
-
-## Default-mode posture (when this command is NOT invoked)
-
-The conversation is exploration. **No project file edits to tracked files. No commits. No slot claim. No ENGINE_LOG/ADR/STATE updates.** Sketch in conversation. If the discussion converges on something worth committing, offer the conversion: *"This feels worth making formal — want to /start-engine?"*
-
-engine_memory captures the exploration conversation under `room='work'` via the Stop/PreCompact hooks per ADR 0091, so future sessions can recall "we considered X, rejected for reason Y" without re-litigation.
-
-## Auto-mode interrupt criteria
-
-While running, the AI may NOT pause and escalate to the user EXCEPT for:
-- **Irreversible-with-unclear-path:** a decision propagates as irreversible structure across multiple downstream sessions AND the right direction is genuinely unclear
-- **Unsolvable:** multiple approaches tried, no viable path
-- **Destructive-action confirmation:** any `rm -rf`, `git reset --hard`, force-push, etc. — confirm before executing
-
-Routine judgment calls during the session are session-internal and recorded in `engine/session/current.json`'s outcome_summary, not escalated.
-
-## Budget guidance
-
-Substantive extraction work: target 60% context, hard cap 70%. Mechanical/procedural work: target 70%, hard cap 80%. If a session hits its cap mid-work, halt at the next sensible boundary, write `outcome_summary` with partial-completion notes, archive `engine/session/current.json` with `status: closed_partial`, and the next session picks up from where this one stopped.
-
-## Standing pushback rule
-
-The AI is pre-authorized to surface unnamed risks, hidden pitfalls, and unstated opportunities at the moment of noticing. Push back specifically — name the concern concretely. Apply equally to user proposals AND AI proposals (self-critique). The bar is "I see a specific thing you may not be seeing," not "I should challenge this on principle." Calibrate by mode: looser when user is venting/exploring, tighter when proposing a commitment.
+Build-mode posture (push authorization on `/start-engine`, auto-mode interrupt criteria, budget guidance percentages, standing pushback rule) lives in the [`session-build-lifecycle`](../skills/session-build-lifecycle/SKILL.md) Skill and the Layer 1 doc [`session-build-lifecycle.md`](../../engine/operations/session-build-lifecycle.md), with cross-cutting standing rules in [`CLAUDE.md`](../../CLAUDE.md) "Standing rules". They are not duplicated here — the Skill is the single source for the build-mode contract.
