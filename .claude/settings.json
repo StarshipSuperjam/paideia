@@ -26,7 +26,6 @@
       "Bash(python3 engine/tools/scan_issue_collisions.py:*)",
       "Bash(python3 engine/tools/scan_orphans.py:*)",
       "Bash(python3 engine/tools/health_check.py:*)",
-      "Bash(python3 engine/tools/probe_palace.py:*)",
       "Bash(python3 engine/tools/probe_repo.py:*)",
       "Bash(python3 engine/tools/parse_structural_reference.py:*)",
       "Bash(python3 engine/tools/check_settings_sync.py:*)",
@@ -56,9 +55,8 @@
       "Bash(bash engine/tools/hooks/session-start.sh:*)",
       "Bash(bash engine/tools/hooks/post-adr-write.sh:*)",
       "Bash(bash engine/tools/hooks/post-state-edit.sh:*)",
-      "Bash(bash engine/tools/hooks/post-mempalace-tool-use.sh:*)",
-      "Bash(bash engine/tools/hooks/mempalace-hook-wrapper.sh:*)",
       "Bash(bash engine/tools/hooks/engine-memory-capture.sh:*)",
+      "Bash(bash engine/tools/hooks/post-engine-memory-tool-use.sh:*)",
       "Bash(bash engine/tools/hooks/pre-commit:*)",
       "Bash(python3 -m engine.memory.capture:*)",
       "Bash(python3 -m engine.memory.mcp_server:*)",
@@ -73,14 +71,7 @@
       "Bash(wc:*)",
       "Bash(grep:*)",
       "Bash(rg:*)",
-      "Bash(find . -name *)",
-
-      "Bash(mempalace search:*)",
-      "Bash(mempalace status:*)",
-      "Bash(mempalace list-drawers:*)",
-      "Bash(mempalace add-drawer:*)",
-      "Bash(mempalace diary read:*)",
-      "Bash(mempalace diary write:*)"
+      "Bash(find . -name *)"
     ]
   },
   "hooks": {
@@ -128,15 +119,6 @@
           {
             "type": "command",
             "command": "engine/tools/hooks/post-state-edit.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "mcp__mempalace__.*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "engine/tools/hooks/post-mempalace-tool-use.sh"
           }
         ]
       },
