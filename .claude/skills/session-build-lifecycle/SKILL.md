@@ -36,11 +36,12 @@ The overdue-catchup logic replaces the prior `next_id % cadence == 0` strict-mod
 
 ### 2b. Persistent-warn surface
 
-Per [ADR 0042](../../../engine/adr/0042-soft-warn-lifecycle-archive-canon.md). Read the last 5 `engine/session/archive/S-NNNN.json` files (or all that exist if fewer). For each soft-warn category appearing in `outcome_summary_soft_warns` with a non-zero count in 3-or-more of those archives, surface:
+Per [ADR 0042](../../../engine/adr/0042-soft-warn-lifecycle-archive-canon.md). The `SessionStart` hook ([`engine/tools/hooks/session-start.sh`](../../../engine/tools/hooks/session-start.sh)) reads the last 5 `engine/session/archive/S-NNNN.json` files and emits the persistent-warn surface mechanically. Since S-0196 ([Issue #133](https://github.com/StarshipSuperjam/paideia/issues/133)), the surface splits into two lanes:
 
-> "Soft-warn `<category>` has fired in N of the last K sessions; consider addressing or escalating per `engine/operations/soft-warn-lifecycle.md`."
+- **Action-needed** — categories firing in ≥3 of the last 5 archives WITHOUT an annotation in `engine/operations/tools-validate-interpretation.md`'s "Persistent-warn annotation" section. Per-category fires listed individually with the escalation hint. Consult this lane for new alerts; this is where you decide to address inline, queue follow-up, or escalate per the 10-session-persistence criterion.
+- **Annotated baselines** — categories firing in ≥3 of the last 5 archives that DO carry a documented annotation. Surfaces as a single-line count + pointer; no per-category list. This lane is the periodic reminder that the bucket exists and does not require per-fire action; the cadence-fired audit consumes the same archive data with a longer window.
 
-Suppress categories carrying an annotation in `engine/operations/tools-validate-interpretation.md`'s "Persistent-warn annotation" section. Surfacing is informational; the session decides whether to address inline, queue follow-up, or escalate per the 10-session-persistence criterion.
+Membership computation is mechanical — [`engine/tools/scan_persistent_warn_annotations.py`](../../../engine/tools/scan_persistent_warn_annotations.py) parses the annotation section's H3 entries; the hook then partitions firings into the two lanes. The annotation-driven suppression is no longer AI posture — landing a category in the annotation section is the documented escalation path that mechanically moves it out of the action-needed lane.
 
 The calibration window per `soft-warn-lifecycle.md` is in effect until 5 structured-field archives accumulate (≈ S-0033). During the window, surface defers.
 

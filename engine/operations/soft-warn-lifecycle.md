@@ -50,6 +50,17 @@ The surface is informational; it does not block the session's planned work. The 
 
 The default `K=5` and threshold of `3/5` are calibration points. Tighten the threshold if surfaces are consistently no-action; loosen if real persistence goes unsurfaced. Calibration changes are recorded in this document with rationale; major calibration changes (e.g., changing the default K) are ADR-tracked under [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md)'s amendment discipline.
 
+### Annotated-baselines lane (S-0196 / Issue #133)
+
+The boot surface splits the ≥3/5 categories into two output lanes:
+
+- **Action-needed lane** — categories without a documented annotation in [`tools-validate-interpretation.md`](tools-validate-interpretation.md)'s "Persistent-warn annotation" section. Per-category fires listed individually with the escalation hint, as before.
+- **Annotated-baselines lane** — categories that DO carry an annotation in the same section. A single line names the count + pointer to the section; the per-category list is intentionally omitted to keep the lane a periodic-reminder rather than an alert.
+
+Membership is computed by [`engine/tools/scan_persistent_warn_annotations.py`](../tools/scan_persistent_warn_annotations.py) (parses the annotation section's H3 entries) and consumed by [`engine/tools/hooks/session-start.sh`](../tools/hooks/session-start.sh) at boot. Helper-failure modes (script absent, parse error) fall back to empty-annotated-list — all categories surface as action-needed, preserving visibility.
+
+The split is the structural completion of the **"Accept and annotate"** escalation resolution below: a category that lands in the annotation section now exits the boot alert lane mechanically rather than relying on AI discipline to suppress. The S-0184 health-check audit ([Issue #133](https://github.com/StarshipSuperjam/paideia/issues/133)) named the saturation pattern this addresses — at the audit moment, all 7 then-saturating categories were annotated baselines, the alert lane had become a recap, and new threshold-crossings would have been buried under the documented-expected baselines.
+
 The cadence-trigger health check at `S-mod-N` (where N is `health_check_cadence` in `engine/session/register_state.json`; default 10 as of S-0033, was 30 from S-0001 to S-0032 per ADR 0022 Consequences amendment; see [ADR 0022](../adr/0022-periodic-project-health-checks.md)) consumes the same archive data with a longer window — typically the full archive — and produces the structured Fit / Gaps / Dead-weight / Bloat report. The boot surface is the day-to-day analogue; the health check is the periodic deep audit.
 
 ## Closing discipline
