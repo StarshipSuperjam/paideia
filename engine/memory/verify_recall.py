@@ -1,22 +1,27 @@
-"""Mechanical verification harness for the engine-memory read surface.
+"""Mechanical + cite-worthy verification harness for the engine-memory read surface.
 
-T1-C closure per ``engine/build_readiness/engine_memory_substrate_first_exercise.md``
-— mechanical scope. The user-adjudicated cutover-gate reframing at the
-S-0191 boot moved the cite-worthy comparison to S-0192 close (after
-``migrate_from_mempalace.py`` populates real data). This harness checks
-the mechanics: FTS5 returns candidates, BM25 + recency + tag-class boost
-produce sensible rankings, three formulations generate distinct queries,
-and the section-write path is idempotent.
+Two modes:
 
-Seeded fixtures
----------------
-20 synthetic drawers spanning all 7 curated rooms (5 decisions, 3
-pushback, 4 lessons, 4 exploration, 2 operations, 2 general). Content
-is engineered so each of the 10 queries below has a known target drawer
-the BM25 + tag-class boost should rank top-1.
+- **Synthetic (default):** seeds a tempfile substrate with 20 synthetic
+  drawers and runs the 10-query catalog whose expected results are
+  hand-engineered. Closes T1-C of
+  ``engine/build_readiness/engine_memory_substrate_first_exercise.md``
+  (mechanical scope).
+- **Real-data (``--real-data``):** runs against the live engine_memory
+  substrate (post-migration replay) with no seeding. The plausible-
+  recall catalog targets vocabulary expected to be present in the
+  curated migrated corpus; verdict PASSes when all 10 fixed real-data
+  queries return ≥1 hit AND ≥4/5 plausible-recall queries do. Closes
+  T1-D of the same readiness note (S-0192 cite-worthy verification
+  gate).
 
-Query catalog (10 queries × 5 categories per the approved plan)
----------------------------------------------------------------
+Synthetic-mode seed corpus + query catalog
+-------------------------------------------
+20 synthetic drawers spanning the 7 curated rooms; each of the 10
+queries below has a known target drawer the BM25 + tag-class boost
+should rank top-1.
+
+Query catalog (10 queries × 7 categories per the approved plan):
 - ADR-pushback recall (2)
 - Lesson recall (2)
 - Decision-drawer recall (2)
@@ -25,13 +30,22 @@ Query catalog (10 queries × 5 categories per the approved plan)
 - Boundary case — empty result (1)
 - Formulation distinctness (1)
 
+Real-data catalogs
+------------------
+- Fixed catalog (10 queries): broadly-vocabularied probes expected to
+  hit any reasonably-populated curated palace (e.g., "ADR decision",
+  "lesson learned", "engine memory"). Each asserts ≥1 hit; no
+  top-1 expectations.
+- Plausible-recall catalog (5 queries): targeted vocabulary the
+  migrated corpus should specifically know about (e.g., "ADR 0091
+  substrate cutover", "routine wedge detect"). Each asserts ≥1 hit.
+
 CLI
 ---
-``python -m engine.memory.verify_recall [--output-md PATH]``
+``python -m engine.memory.verify_recall [--real-data] [--output-md PATH] [--db-path PATH]``
 
-Default output is ``engine/docs/audits/engine_memory_recall_S-0191.md``.
-The harness is re-runnable; each run reseeds a tempfile-based substrate
-so prior runs don't taint results.
+Default synthetic-mode output: ``engine/docs/audits/engine_memory_recall_S-0191.md``.
+Default real-data output: ``engine/docs/audits/engine_memory_recall_S-0192.md``.
 """
 
 from __future__ import annotations
@@ -389,6 +403,284 @@ def seed_substrate(conn: sqlite3.Connection) -> None:
             )
 
 
+# ---------------------------------------------------------------------------
+# Real-data query catalogs (--real-data mode)
+# ---------------------------------------------------------------------------
+
+
+# Broad-vocabulary probes — each should hit ≥1 drawer in any reasonably-
+# populated curated palace. Verdict-PASS bar: 10/10 return ≥1 candidate
+# on the literal formulation.
+REAL_DATA_FIXED_CATALOG: list[QuerySpec] = [
+    QuerySpec(
+        name="real_adr_decision",
+        category="Real-data fixed",
+        query="ADR decision",
+    ),
+    QuerySpec(
+        name="real_lesson_learned",
+        category="Real-data fixed",
+        query="lesson learned",
+    ),
+    QuerySpec(
+        name="real_pushback",
+        category="Real-data fixed",
+        query="pushback decision",
+    ),
+    QuerySpec(
+        name="real_session_shutdown",
+        category="Real-data fixed",
+        query="session shutdown sequence",
+    ),
+    QuerySpec(
+        name="real_validate_hard_fail",
+        category="Real-data fixed",
+        query="validate hard fail soft warn",
+    ),
+    QuerySpec(
+        name="real_engine_memory",
+        category="Real-data fixed",
+        query="engine memory substrate",
+    ),
+    QuerySpec(
+        name="real_scope_lock",
+        category="Real-data fixed",
+        query="scope lock routine commit",
+    ),
+    QuerySpec(
+        name="real_mempalace_retire",
+        category="Real-data fixed",
+        query="MemPalace HNSW chromadb",
+    ),
+    QuerySpec(
+        name="real_phase_5",
+        category="Real-data fixed",
+        query="Phase 5 closeout philosophy",
+    ),
+    QuerySpec(
+        name="real_adr_0091",
+        category="Real-data fixed",
+        query="ADR 0091 SQLite FTS5",
+    ),
+]
+
+
+# Plausible-recall probes — each targets specific recent decisions /
+# lessons / pushback the migrated corpus should know about.
+# Verdict-PASS bar: ≥4/5 return ≥1 candidate on the literal formulation.
+REAL_DATA_PLAUSIBLE_CATALOG: list[QuerySpec] = [
+    QuerySpec(
+        name="plausible_substrate_cutover",
+        category="Real-data plausible",
+        query="ADR 0091 substrate cutover SQLite",
+    ),
+    QuerySpec(
+        name="plausible_routine_wedge",
+        category="Real-data plausible",
+        query="routine wedge detect halted boot",
+    ),
+    QuerySpec(
+        name="plausible_s_0184_health_check",
+        category="Real-data plausible",
+        query="S-0184 health check audit overdue catchup",
+    ),
+    QuerySpec(
+        name="plausible_build_lifecycle_push",
+        category="Real-data plausible",
+        query="build_lifecycle_push wrapper interactive harness gate",
+    ),
+    QuerySpec(
+        name="plausible_first_pass_quality",
+        category="Real-data plausible",
+        query="first pass production quality drafts polish",
+    ),
+]
+
+
+def run_real_data_query(conn: sqlite3.Connection, spec: QuerySpec) -> QueryResult:
+    """Run one real-data query — minimal-recall check (≥1 hit on literal)."""
+    formulations = generate_formulations(spec.query)
+    formulation_hits: dict[str, int] = {}
+    formulation_matches: dict[str, str] = {}
+    all_candidates: list[dict[str, Any]] = []
+    for label, query in formulations:
+        operator = FORMULATION_OPERATOR.get(label, "OR")
+        formulation_matches[label] = to_fts5_match(query, operator=operator)
+        candidates = fetch_candidates(
+            conn,
+            query,
+            limit=10,
+            operator=operator,
+        )
+        formulation_hits[label] = len(candidates)
+        all_candidates.extend(candidates)
+
+    seen: set[str] = set()
+    deduped: list[dict[str, Any]] = []
+    for c in all_candidates:
+        if c["id"] not in seen:
+            seen.add(c["id"])
+            deduped.append(c)
+    deduped.sort(key=lambda c: c["rank_score"] or 0, reverse=True)
+    top = deduped[0] if deduped else None
+
+    literal_hits = formulation_hits.get("literal", 0)
+    if literal_hits >= 1:
+        verdict, reason = "PASS", "ok"
+    else:
+        verdict, reason = "FAIL", f"literal_hits={literal_hits} (need ≥1)"
+
+    return QueryResult(
+        spec=spec,
+        formulation_hits=formulation_hits,
+        top_drawer=top,
+        formulation_matches=formulation_matches,
+        verdict=verdict,
+        reason=reason,
+    )
+
+
+def run_real_data_harness(
+    db_path: Path | str,
+) -> tuple[str, list[QueryResult], list[QueryResult]]:
+    """Run real-data harness against an unseeded live substrate.
+
+    Returns ``(aggregate_verdict, fixed_results, plausible_results)``.
+
+    Aggregate:
+    - PASS: 10/10 fixed PASS AND ≥4/5 plausible PASS.
+    - PARTIAL: (8-9/10 fixed PASS) OR (2-3/5 plausible PASS).
+    - FAIL: <8/10 fixed PASS OR <2/5 plausible PASS.
+    """
+    conn = get_conn(db_path)
+    try:
+        fixed = [run_real_data_query(conn, spec) for spec in REAL_DATA_FIXED_CATALOG]
+        plausible = [
+            run_real_data_query(conn, spec) for spec in REAL_DATA_PLAUSIBLE_CATALOG
+        ]
+    finally:
+        conn.close()
+
+    fixed_pass = sum(1 for r in fixed if r.verdict == "PASS")
+    plausible_pass = sum(1 for r in plausible if r.verdict == "PASS")
+
+    if fixed_pass == len(fixed) and plausible_pass >= 4:
+        aggregate = "PASS"
+    elif fixed_pass < 8 or plausible_pass < 2:
+        aggregate = "FAIL"
+    else:
+        aggregate = "PARTIAL"
+
+    return aggregate, fixed, plausible
+
+
+def render_real_data_report(
+    aggregate: str,
+    fixed: list[QueryResult],
+    plausible: list[QueryResult],
+    ts: str,
+    drawer_count: int,
+    diary_count: int,
+) -> str:
+    """Render the real-data report."""
+    lines: list[str] = []
+    lines.append("# Engine-memory recall verification — S-0192 (real data)")
+    lines.append("")
+    lines.append(
+        f"_Generated by `engine/memory/verify_recall.py --real-data` at {ts}._"
+    )
+    lines.append("")
+    lines.append(f"**Verdict:** {aggregate}")
+    lines.append("")
+    lines.append("## Scope")
+    lines.append("")
+    lines.append(
+        "Real-data verification: harness runs against the live "
+        "engine_memory substrate post-`migrate_from_mempalace.py` replay. "
+        "Closes T1-D of `engine/build_readiness/"
+        "engine_memory_substrate_first_exercise.md` (ADR 0091)."
+    )
+    lines.append("")
+    lines.append(
+        f"Live substrate state: **{drawer_count} drawers**, **{diary_count} diary entries**."
+    )
+    lines.append("")
+    lines.append("## Verdict logic")
+    lines.append("")
+    lines.append(
+        "- **PASS** — 10/10 fixed-catalog queries return ≥1 hit AND ≥4/5 plausible-recall queries return ≥1 hit."
+    )
+    lines.append("- **PARTIAL** — 8-9/10 fixed OR 2-3/5 plausible.")
+    lines.append("- **FAIL** — <8/10 fixed OR <2/5 plausible.")
+    lines.append("")
+    lines.append("## Fixed-catalog results (broad vocabulary)")
+    lines.append("")
+    lines.append("| # | Query | Hits (lit / con / adj) | Top room/tags | Verdict |")
+    lines.append("|---|---|---|---|---|")
+    for i, r in enumerate(fixed, 1):
+        hits = (
+            f"{r.formulation_hits.get('literal', 0)} / "
+            f"{r.formulation_hits.get('conceptual', 0)} / "
+            f"{r.formulation_hits.get('adjacent', 0)}"
+        )
+        if r.top_drawer is not None:
+            top_str = (
+                f"{r.top_drawer.get('room')} / "
+                f"{','.join(r.top_drawer.get('tags') or []) or '—'}"
+            )
+        else:
+            top_str = "—"
+        lines.append(
+            f"| {i} | `{r.spec.query}` | {hits} | {top_str} | **{r.verdict}** |"
+        )
+    lines.append("")
+    lines.append("## Plausible-recall results (targeted vocabulary)")
+    lines.append("")
+    lines.append("| # | Query | Hits (lit / con / adj) | Top room/tags | Verdict |")
+    lines.append("|---|---|---|---|---|")
+    for i, r in enumerate(plausible, 1):
+        hits = (
+            f"{r.formulation_hits.get('literal', 0)} / "
+            f"{r.formulation_hits.get('conceptual', 0)} / "
+            f"{r.formulation_hits.get('adjacent', 0)}"
+        )
+        if r.top_drawer is not None:
+            top_str = (
+                f"{r.top_drawer.get('room')} / "
+                f"{','.join(r.top_drawer.get('tags') or []) or '—'}"
+            )
+        else:
+            top_str = "—"
+        lines.append(
+            f"| {i} | `{r.spec.query}` | {hits} | {top_str} | **{r.verdict}** |"
+        )
+    lines.append("")
+    lines.append("## Cutover-gate handoff")
+    lines.append("")
+    if aggregate == "PASS":
+        lines.append(
+            "PASS. ADR 0091 commitment 1 (engine-owned substrate) + commitment 3 "
+            "(retrieval contract) verified end-to-end against migrated real "
+            "data. `verification_passed: true` lands on "
+            "[Issue #138](https://github.com/StarshipSuperjam/paideia/issues/138)."
+        )
+    elif aggregate == "PARTIAL":
+        lines.append(
+            "PARTIAL. Cutover lands but a subset of plausible-recall queries "
+            "didn't hit expected content. Investigate which queries failed, "
+            "tune the formulation set in `engine/memory/boot_surface.py` if "
+            "warranted, and surface as a soft-warn for the next session."
+        )
+    else:
+        lines.append(
+            "FAIL — HALT. Substrate does not produce expected recall against "
+            "migrated corpus. Author HANDOFF entry; do NOT close S-0192 as "
+            "`closed`. Re-open ADR 0091 deliberation at next interactive session."
+        )
+    lines.append("")
+    return "\n".join(lines)
+
+
 def run_query(conn: sqlite3.Connection, spec: QuerySpec) -> QueryResult:
     """Run the three formulations for one query spec; return a verdict."""
     formulations = generate_formulations(spec.query)
@@ -641,27 +933,67 @@ def _default_output_path() -> Path:
     )
 
 
+def _default_real_data_output_path() -> Path:
+    """Default report path for --real-data: engine_memory_recall_S-0192.md."""
+    from engine.memory.connection import _resolve_repo_root
+
+    return (
+        _resolve_repo_root()
+        / "engine"
+        / "docs"
+        / "audits"
+        / "engine_memory_recall_S-0192.md"
+    )
+
+
+def _count_live_substrate(db_path: Path | str) -> tuple[int, int]:
+    """Return (drawer_count, diary_count) from the live substrate."""
+    conn = get_conn(db_path)
+    try:
+        drawer_count = conn.execute("SELECT count(*) FROM drawers").fetchone()[0]
+        diary_count = conn.execute("SELECT count(*) FROM diary").fetchone()[0]
+    finally:
+        conn.close()
+    return int(drawer_count), int(diary_count)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Mechanical verification harness for engine-memory read surface. "
-            "Seeds a tempfile substrate with synthetic drawers; runs 10 "
-            "queries spanning ADR-pushback / lesson / decision / diary / "
-            "issue-history / boundary / formulation-distinctness; emits a "
-            "Markdown report."
+            "Verification harness for the engine-memory read surface. "
+            "Synthetic mode (default): seeds a tempfile substrate and "
+            "runs the 10-query mechanical catalog. Real-data mode "
+            "(--real-data): runs against the live post-migration "
+            "substrate with broad-vocabulary + plausible-recall catalogs."
         )
+    )
+    parser.add_argument(
+        "--real-data",
+        action="store_true",
+        help=(
+            "Run against the live engine_memory substrate (no seeding); "
+            "verifies cite-worthy recall after migrate_from_mempalace.py "
+            "replay. Closes T1-D per ADR 0091."
+        ),
     )
     parser.add_argument(
         "--output-md",
         type=Path,
         default=None,
-        help="Path to write the audit report. Default: engine/docs/audits/engine_memory_recall_S-0191.md",
+        help=(
+            "Path to write the audit report. Default: "
+            "engine/docs/audits/engine_memory_recall_S-0191.md (synthetic) "
+            "or engine_memory_recall_S-0192.md (--real-data)."
+        ),
     )
     parser.add_argument(
         "--db-path",
         type=Path,
         default=None,
-        help="Override the seeded SQLite path (default: tempfile).",
+        help=(
+            "SQLite path. Synthetic mode: override the seeded tempfile. "
+            "Real-data mode: override the live substrate location."
+        ),
     )
     parser.add_argument(
         "--no-write",
@@ -670,6 +1002,47 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    ts = _iso_utc_now()
+
+    if args.real_data:
+        # Real-data: use the live substrate as-is, no seeding, no cleanup.
+        if args.db_path is not None:
+            db_path = args.db_path
+        else:
+            from engine.memory.connection import resolve_db_path
+
+            db_path = resolve_db_path()
+
+        if not Path(db_path).is_file():
+            print(
+                f"[engine-memory-verify-recall] real-data: live substrate not "
+                f"found at {db_path}; run migrate_from_mempalace.py first.",
+                file=sys.stderr,
+            )
+            return 2
+
+        drawer_count, diary_count = _count_live_substrate(db_path)
+        aggregate, fixed, plausible = run_real_data_harness(db_path)
+        report = render_real_data_report(
+            aggregate, fixed, plausible, ts, drawer_count, diary_count
+        )
+
+        if args.no_write:
+            print(report)
+        else:
+            output = args.output_md or _default_real_data_output_path()
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(report, encoding="utf-8")
+            print(
+                f"[engine-memory-verify-recall] mode=real-data "
+                f"verdict={aggregate} fixed={len(fixed)} "
+                f"plausible={len(plausible)} drawers={drawer_count} "
+                f"diary={diary_count} report={output}"
+            )
+
+        return 0 if aggregate in ("PASS", "PARTIAL") else 2
+
+    # Synthetic mode (default).
     if args.db_path is not None:
         db_path = args.db_path
         cleanup_db = False
@@ -684,13 +1057,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         aggregate, results = run_harness(db_path)
     finally:
-        if cleanup_db and db_path.is_file():
+        if cleanup_db and Path(db_path).is_file():
             try:
-                db_path.unlink()
+                Path(db_path).unlink()
             except OSError:
                 pass
 
-    ts = _iso_utc_now()
     report = render_report(aggregate, results, ts)
 
     if args.no_write:
@@ -700,8 +1072,8 @@ def main(argv: list[str] | None = None) -> int:
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(report, encoding="utf-8")
         print(
-            f"[engine-memory-verify-recall] verdict={aggregate} "
-            f"queries={len(results)} report={output}"
+            f"[engine-memory-verify-recall] mode=synthetic "
+            f"verdict={aggregate} queries={len(results)} report={output}"
         )
 
     return 0 if aggregate in ("PASS", "PARTIAL") else 2

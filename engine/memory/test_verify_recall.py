@@ -11,6 +11,7 @@ Coverage:
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -185,3 +186,173 @@ def test_main_with_no_db_path_uses_tempfile(
     rc = verify_recall.main(["--output-md", str(output)])
     assert rc == 0
     assert output.is_file()
+
+
+# ---------------------------------------------------------------------------
+# Real-data mode (--real-data) — S-0192 cite-worthy verification
+# ---------------------------------------------------------------------------
+
+
+def _seed_real_data_corpus(db_path: Path) -> None:
+    """Populate a substrate with enough realistic content that fixed +
+    plausible catalogs hit on the vocabulary they target.
+
+    Each seed drawer's content includes one or more keyword phrases the
+    fixed-catalog (broad-vocabulary) and plausible-recall (targeted)
+    queries assert against. The substrate IS NOT the synthetic harness
+    corpus — this is realistic-shape content authored to exercise the
+    real-data branch.
+    """
+    conn = get_conn(db_path)
+    try:
+        seeds = [
+            (
+                "decisions",
+                ["decision", "adr"],
+                "ADR decision summary about the engine memory substrate cutover",
+            ),
+            (
+                "decisions",
+                ["decision", "adr-0091"],
+                "ADR 0091 substrate cutover SQLite FTS5 commits the new layer",
+            ),
+            (
+                "decisions",
+                ["decision"],
+                "ADR 0091 SQLite FTS5 retrieval substrate decision",
+            ),
+            (
+                "decisions",
+                ["decision"],
+                "Phase 5 closeout philosophy seed graph 380 nodes",
+            ),
+            (
+                "lessons",
+                ["lesson"],
+                "Lesson learned about validate hard fail soft warn gate",
+            ),
+            (
+                "lessons",
+                ["lesson"],
+                "Routine wedge detect halted boot procedure recovery",
+            ),
+            ("lessons", ["lesson"], "scope lock routine commit allowlist enforcement"),
+            (
+                "lessons",
+                ["lesson"],
+                "MemPalace HNSW chromadb rebuild discipline at S-0186",
+            ),
+            ("pushback", ["pushback"], "Pushback decision against premature deferral"),
+            (
+                "operations",
+                ["operations"],
+                "Session shutdown sequence step 1 diary write",
+            ),
+            ("operations", ["operations"], "engine memory substrate boot orchestrator"),
+            (
+                "operations",
+                ["operations", "audit"],
+                "S-0184 health check audit overdue catchup pattern",
+            ),
+            (
+                "operations",
+                ["operations"],
+                "build_lifecycle_push wrapper interactive harness gate",
+            ),
+            (
+                "lessons",
+                ["lesson"],
+                "First pass production quality drafts polish - author once",
+            ),
+        ]
+        for room, tags, content in seeds:
+            conn.execute(
+                "INSERT INTO drawers (id, room, tags, source_kind, content) "
+                "VALUES (?, ?, ?, 'manual', ?)",
+                (
+                    f"seed-{abs(hash(content)) % 10**12}",
+                    room,
+                    json.dumps(tags),
+                    content,
+                ),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def test_real_data_harness_pass_on_well_populated_substrate(tmp_path: Path) -> None:
+    db = tmp_path / "real.sqlite3"
+    _seed_real_data_corpus(db)
+    aggregate, fixed, plausible = verify_recall.run_real_data_harness(db)
+    assert aggregate in ("PASS", "PARTIAL")
+    assert len(fixed) == 10
+    assert len(plausible) == 5
+
+
+def test_real_data_harness_fails_on_empty_substrate(tmp_path: Path) -> None:
+    db = tmp_path / "empty.sqlite3"
+    conn = get_conn(db)  # Initialize schema; no content.
+    conn.close()
+    aggregate, fixed, plausible = verify_recall.run_real_data_harness(db)
+    assert aggregate == "FAIL"
+    assert all(r.verdict == "FAIL" for r in fixed)
+    assert all(r.verdict == "FAIL" for r in plausible)
+
+
+def test_real_data_main_exit_2_when_substrate_missing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rc = verify_recall.main(
+        [
+            "--real-data",
+            "--db-path",
+            str(tmp_path / "absent.sqlite3"),
+            "--no-write",
+        ]
+    )
+    assert rc == 2
+    assert "live substrate not found" in capsys.readouterr().err
+
+
+def test_real_data_main_writes_S_0192_report(tmp_path: Path) -> None:
+    db = tmp_path / "real.sqlite3"
+    _seed_real_data_corpus(db)
+    output = tmp_path / "real_report.md"
+    rc = verify_recall.main(
+        ["--real-data", "--db-path", str(db), "--output-md", str(output)]
+    )
+    assert rc == 0
+    body = output.read_text()
+    assert "S-0192 (real data)" in body
+    assert "Fixed-catalog results" in body
+    assert "Plausible-recall results" in body
+
+
+def test_count_live_substrate_reports_drawer_and_diary_counts(tmp_path: Path) -> None:
+    db = tmp_path / "real.sqlite3"
+    conn = get_conn(db)
+    try:
+        conn.execute(
+            "INSERT INTO drawers (id, room, tags, source_kind, content) "
+            "VALUES ('a', 'decisions', '[]', 'manual', 'x')"
+        )
+        conn.execute("INSERT INTO diary (id, content) VALUES ('d1', 'reflection')")
+        conn.commit()
+    finally:
+        conn.close()
+    d_count, diary_count = verify_recall._count_live_substrate(db)
+    assert d_count == 1
+    assert diary_count == 1
+
+
+def test_render_real_data_report_emits_pass_handoff(tmp_path: Path) -> None:
+    db = tmp_path / "real.sqlite3"
+    _seed_real_data_corpus(db)
+    aggregate, fixed, plausible = verify_recall.run_real_data_harness(db)
+    body = verify_recall.render_real_data_report(
+        aggregate, fixed, plausible, "2026-05-17T00:00:00Z", 14, 0
+    )
+    assert "## Cutover-gate handoff" in body
+    # Body content varies by aggregate; just confirm the section exists.
+    assert "engine_memory_recall_S-0192.md" not in body  # Body never self-references
