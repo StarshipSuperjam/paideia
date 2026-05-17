@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/StarshipSuperjam/paideia/schemas/changelog-entry.schema.json",
+  "title": "Changelog entry frontmatter",
+  "description": "Schema for the frontmatter of a per-session changelog entry at engine/changelog/<YYYY>/<S-NNNN>-<slug>.md. The body content is bounded to 50 lines (soft) / 70 lines (hard) including frontmatter. Ported from the Engine reference template per ADR 0092.",
+  "type": "object",
+  "required": ["session_id", "session_type", "closed_at", "material_change_class", "module"],
+  "additionalProperties": false,
+  "properties": {
+    "session_id": { "type": "string", "pattern": "^S-[0-9]{4}$" },
+    "session_type": {
+      "type": "string",
+      "enum": ["build", "routine", "exploration"]
+    },
+    "closed_at": { "type": "string", "format": "date-time" },
+    "material_change_class": {
+      "type": "string",
+      "enum": ["adr", "policy", "check", "audit", "operation", "tool", "skill", "module", "schema", "infrastructure", "docs", "mixed"],
+      "description": "Primary classification of the material change recorded by this entry."
+    },
+    "module": {
+      "type": "string",
+      "description": "Module whose surface was most affected; 'multi' if cross-module."
+    },
+    "summary": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "Optional one-line summary; full narrative in body (max 50 lines total)."
+    }
+  }
+}
