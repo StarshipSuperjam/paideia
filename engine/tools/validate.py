@@ -31,10 +31,10 @@ so non-seed-authoring sessions are not gated on DB connectivity. See
 validate_graph().
 
 A fifth responsibility (shared-state health probes per ADR 0045) runs
-the chromadb palace and git repo probes — added at S-0035 to catch
-silent corruption of cross-session shared state at the moment a
-session boots or a commit is attempted, rather than letting it persist
-until the next session reads. See validate_shared_state_health().
+the git repo + session-dir probes — added at S-0035 to catch silent
+corruption of cross-session shared state at the moment a session
+boots or a commit is attempted, rather than letting it persist until
+the next session reads. See validate_shared_state_health().
 
 Invariants this module preserves:
 
@@ -109,9 +109,9 @@ CLI invocation:
         against the named SQL files. Mutually exclusive with --code-gates.
 
     python3 engine/tools/validate.py --health-probe-only
-        Run only the shared-state health probes (chromadb palace +
-        repo config) without the structure or graph checks. Used by
-        the SessionStart hook for sub-second boot-time verification.
+        Run only the shared-state health probes (git repo + session
+        dir) without the structure or graph checks. Used by the
+        SessionStart hook for sub-second boot-time verification.
         Mutually exclusive with the gate flags.
 
     python3 engine/tools/validate.py --export-snapshot path/to/file.json
@@ -128,10 +128,9 @@ Module contracts referenced:
 - ADR 0039 — universal expression contract; the SQL/migrations row's Layer 2
   is implemented by validate_sql_gates().
 - ADR 0045 — shared-state integrity discipline; subprocess env scrubbing
-  via :mod:`scrub_env`, chromadb palace and git repo probes are wired
-  through validate_shared_state_health(); pre-commit subprocesses (ruff,
-  mypy, pytest) pass scrubbed envs to prevent the S-0033 GIT_DIR-leak
-  vector.
+  via :mod:`scrub_env`, git repo + session-dir probes are wired through
+  validate_shared_state_health(); pre-commit subprocesses (ruff, mypy,
+  pytest) pass scrubbed envs to prevent the S-0033 GIT_DIR-leak vector.
 """
 
 from __future__ import annotations
@@ -153,7 +152,7 @@ from typing import Any, NamedTuple
 
 # Local helpers at engine/tools/{scrub_env,_venv_reexec}.py — ADR 0045 / Issue #14.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _venv_reexec import ensure_venv_python  # type: ignore[import-not-found]  # noqa: E402
+from _venv_reexec import ensure_venv_python  # noqa: E402
 
 # Re-exec under venv only when invoked as a script. Calling
 # ``ensure_venv_python()`` at module-import time meant pytest's collection
@@ -169,8 +168,8 @@ from _venv_reexec import ensure_venv_python  # type: ignore[import-not-found]  #
 if __name__ == "__main__":
     ensure_venv_python()
 
-from scrub_env import scrubbed_env  # type: ignore[import-not-found]  # noqa: E402
-from timestamps import emit, emit_micros, parse  # type: ignore[import-not-found]  # noqa: E402  # ADR 0058
+from scrub_env import scrubbed_env  # noqa: E402
+from timestamps import emit_micros  # noqa: E402  # ADR 0058
 
 
 # ---------------------------------------------------------------------------
@@ -211,11 +210,11 @@ ENGINE_ADR_DIR = REPO_ROOT / "engine" / "adr"
 PRODUCT_ADR_DIR = REPO_ROOT / "product" / "adr"
 
 # Shared-state probe scripts (per ADR 0045). Run as subprocesses so a
-# native segfault (e.g., chromadb_rust_bindings on a corrupt HNSW
-# segment — the S-0034 vector) terminates the probe process at exit
-# code 139 rather than crashing the validator. The wrapper treats 139
-# as hard-broken.
-PROBE_PALACE = REPO_ROOT / "engine" / "tools" / "probe_palace.py"
+# native segfault (the S-0034 vector pattern) terminates the probe
+# process at exit code 139 rather than crashing the validator. The
+# wrapper treats 139 as hard-broken. engine_memory uses
+# ``engine.memory.connection.healthcheck()`` invoked on first connect
+# (no boot-time subprocess) — its integrity check is in-process.
 PROBE_REPO = REPO_ROOT / "engine" / "tools" / "probe_repo.py"
 PROBE_SESSION_DIR = REPO_ROOT / "engine" / "tools" / "probe_session_dir.py"
 
@@ -225,11 +224,9 @@ PROBE_SESSION_DIR = REPO_ROOT / "engine" / "tools" / "probe_session_dir.py"
 # failure (no auth, no network, repo not on GitHub) is silently skipped.
 SCAN_ISSUE_COLLISIONS = REPO_ROOT / "engine" / "tools" / "scan_issue_collisions.py"
 
-# Session register (per ADR 0048 + the `mempalace_wing_count_growth`
-# threshold block per Issue #46 / S-0088). Some validator checks read
-# configuration from here at runtime — health-check cadence,
-# wing-count growth thresholds. Authoritative source for the
-# session-counter state.
+# Session register (per ADR 0048). Some validator checks read
+# configuration from here at runtime — primarily the health-check
+# cadence. Authoritative source for the session-counter state.
 REGISTER_STATE_PATH = REPO_ROOT / "engine" / "session" / "register_state.json"
 
 
@@ -616,27 +613,19 @@ def validate_repo_structure() -> ValidationResult:
 def validate_shared_state_health() -> ValidationResult:
     """Run the shared-state health probes; return the result.
 
-    Two probes wrap external scripts so a native segfault (from
-    ``chromadb_rust_bindings`` on a corrupt HNSW segment — the S-0034
-    vector) terminates the probe process at exit code 139 instead of
-    crashing the validator itself. Exit-code interpretation:
+    Each probe runs as a subprocess so a native segfault (the S-0034
+    vector pattern) terminates the probe process at exit code 139
+    instead of crashing the validator itself. Exit-code interpretation:
 
     - 0: probe healthy. No record beyond ``add_check``.
     - 1: probe suspect. Recorded as soft-warn under the probe's
-      category (``chromadb_palace_health`` or ``repo_config_health``).
-      The probe's stderr is the soft-warn body.
+      category (``repo_config_health`` etc.). The probe's stderr is
+      the soft-warn body.
     - 2: probe hard-broken. Recorded as hard-fail; validator exits 2.
-    - 139 (SIGSEGV): treated as hard-broken. The wrapper records the
-      segfault and triggers the same exit-2 path. For chromadb this is
-      the S-0034 vector — the rust binding faults on a corrupt segment
-      before any Python exception can be raised.
+    - 139 (SIGSEGV): treated as hard-broken.
 
     Probe scripts:
 
-    - ``engine/tools/probe_palace.py`` — opens chromadb
-      ``PersistentClient`` at ``~/.mempalace/palace``, lists
-      collections, calls ``get_collection() + count()`` on each.
-      Sub-second on a 130 MB palace per the S-0034 measurement.
     - ``engine/tools/probe_repo.py`` — checks effective ``core.bare``,
       parent-clone direct ``core.bare``, and HEAD resolution.
     - ``engine/tools/probe_session_dir.py`` — scans the parent repo's
@@ -664,7 +653,6 @@ def validate_shared_state_health() -> ValidationResult:
     r = ValidationResult()
 
     probes = (
-        (PROBE_PALACE, "chromadb_palace_health", "palace"),
         (PROBE_REPO, "repo_config_health", "repo"),
         (PROBE_SESSION_DIR, "session_dir_strays", "session_dir"),
     )
@@ -689,65 +677,10 @@ def validate_shared_state_health() -> ValidationResult:
         # path where the probe reported on stdout).
         body = (proc.stderr.strip() or proc.stdout.strip()) or "(no output)"
 
-        # Surface palace divergence as its own soft-warn category whenever
-        # the probe emits the divergence line, regardless of overall exit
-        # code (per ADR 0045 amendment, S-0084). This keeps the divergence
-        # signal addressable separately from the chromadb-openability
-        # health signal — they're independent failure modes.
-        #
-        # add_check() is unconditional (the check was attempted whenever the
-        # palace probe ran); soft_warn fires only when divergence is detected.
-        # Pre-S-0143 the add_check was inside the divergence-detected branch,
-        # which meant the in-session validate's checks_run array did not
-        # include `mempalace_hnsw_divergence` when divergence was zero — and
-        # ADR 0042's outcome_summary_soft_warns telemetry recorded no signal
-        # at all about MemPalace HNSW health unless divergence happened to be
-        # non-zero at the moment of the in-session run. The S-0141 audit
-        # surfaced this as Non-obvious finding A; the unconditional add_check
-        # closes the structural gap (Issue #109).
-        if probe_name == "palace":
-            r.add_check("mempalace_hnsw_divergence")
-            divergence_msg = _extract_palace_divergence(proc.stderr)
-            if divergence_msg is not None:
-                r.soft_warn("mempalace_hnsw_divergence", divergence_msg)
-
-            # HNSW UNKNOWN/unflushed-metadata surface (per Issue #127,
-            # S-0163). The >=10%-divergence path above is blind to the
-            # unflushed state — an UNKNOWN index produces no percentage to
-            # compare. probe_palace.py emits a distinct `hnsw-status:` line
-            # for that state; this is its own soft-warn category so archive
-            # telemetry distinguishes the recurrence from measured
-            # divergence. Same unconditional-add-check pattern as the
-            # divergence check above (per Issue #109).
-            r.add_check("mempalace_hnsw_status_suspect")
-            hnsw_status_msg = _extract_palace_hnsw_status(proc.stderr)
-            if hnsw_status_msg is not None:
-                r.soft_warn("mempalace_hnsw_status_suspect", hnsw_status_msg)
-
-            # Wing-count accumulation surface (per Issue #46, S-0088).
-            # Same unconditional-add-check pattern as divergence above:
-            # the probe always emits when measurable, so the check is
-            # recorded in checks_run whenever the palace probe ran. The
-            # soft_warn fires only when the count crosses the configured
-            # threshold tier (register_state.json's
-            # `wing_count_growth_thresholds`).
-            r.add_check("mempalace_wing_count_growth")
-            wing_count_msg = _extract_palace_wing_count(proc.stderr)
-            if wing_count_msg is not None:
-                r.soft_warn("mempalace_wing_count_growth", wing_count_msg)
-
-            # Quarantine-directory accumulation surface (corroborating
-            # upstream MemPalace/mempalace#1489 Sarah Novotny comment,
-            # 2026-05-13). Snapshot count of `.drift-*` / `.corrupt-*`
-            # siblings under the palace root left behind by upstream
-            # `quarantine_stale_hnsw` (MemPalace/mempalace#1322 + #1342).
-            # add_check is unconditional (same rationale as
-            # mempalace_hnsw_divergence above per Issue #109); soft_warn
-            # fires only when at least one dir is present.
-            r.add_check("mempalace_quarantine_accumulation")
-            quarantine_msg = _extract_palace_quarantine_count(proc.stderr)
-            if quarantine_msg is not None:
-                r.soft_warn("mempalace_quarantine_accumulation", quarantine_msg)
+        # engine_memory's SQLite + FTS5 substrate has its integrity
+        # check at connect time via ``healthcheck()`` (per ADR 0091) —
+        # no boot-time subprocess surface here. The probe loop covers
+        # repo + session-dir integrity only.
 
         if proc.returncode == 0:
             continue
@@ -758,8 +691,7 @@ def validate_shared_state_health() -> ValidationResult:
         elif proc.returncode == 139:
             r.hard_fail(
                 f"{probe_name} probe segfaulted (SIGSEGV); treating as "
-                f"hard-broken. For the palace probe this is the S-0034 "
-                f"corruption signature.\n{body}"
+                f"hard-broken.\n{body}"
             )
         else:
             r.hard_fail(
@@ -767,234 +699,6 @@ def validate_shared_state_health() -> ValidationResult:
             )
 
     return r
-
-
-# Regex matching the divergence line probe_palace.py emits per ADR 0045
-# amendment (S-0084). Form: "[probe-palace] divergence: HNSW=N1 SQLite=N2 (P%)".
-_PROBE_DIVERGENCE_RE = re.compile(
-    r"\[probe-palace\]\s+divergence:\s+HNSW=(\d+)\s+SQLite=(\d+)\s+\(([\d.]+)%\)"
-)
-# Threshold above which divergence soft-warns; mirrors probe_palace.py's
-# DIVERGENCE_PROMOTE_PCT and the health-check.md "Maintenance probes" doc.
-_DIVERGENCE_SOFT_WARN_PCT = 10.0
-# Threshold above which the soft-warn body emits LOUD-attention prefix.
-_DIVERGENCE_LOUD_PCT = 30.0
-
-
-def _extract_palace_divergence(stderr: str) -> str | None:
-    """Parse probe_palace.py's divergence line; return formatted soft-warn body.
-
-    Returns ``None`` if the divergence line is absent, malformed, or
-    below the soft-warn threshold. Otherwise returns the body text the
-    soft-warn carries — at LOUD threshold, the body includes the
-    destructive-repair carve-out warning so AI sessions reading the
-    persistent-warn surface see the safety guidance immediately.
-    """
-    match = _PROBE_DIVERGENCE_RE.search(stderr or "")
-    if match is None:
-        return None
-    try:
-        hnsw = int(match.group(1))
-        sqlite = int(match.group(2))
-        pct = float(match.group(3))
-    except ValueError:
-        return None
-    if pct < _DIVERGENCE_SOFT_WARN_PCT:
-        return None
-
-    base = (
-        f"HNSW vector index has diverged from SQLite ground truth by "
-        f"{pct:.1f}% (HNSW={hnsw}, SQLite={sqlite}). "
-        f"`mempalace_search` is degraded to BM25 lexical fallback for divergent "
-        f"drawers — this is a transient failure mode requiring action, not a "
-        f"working state. Run engine/tools/mempalace_rebuild_hnsw.py against a "
-        f"scratch palace copy and atomic-rename swap to live once 0% divergence "
-        f"is verified."
-    )
-    if pct >= _DIVERGENCE_LOUD_PCT:
-        return (
-            "⚠️  " + base + "\n"
-            "DO NOT auto-remediate via `mempalace repair --mode legacy` — S-0078 "
-            "confirmed this destroys SQLite embedding rows (99.7% loss observed). "
-            'See engine/operations/mempalace-operations.md "Known issues" for '
-            "forensic detail and the upstream tracker."
-        )
-    return base
-
-
-# Regex matching the HNSW-status line probe_palace.py emits per Issue #127
-# (S-0163). probe_palace.py emits this line only when `mempalace
-# repair-status` reports a non-OK status (UNKNOWN / unflushed metadata) AND
-# the divergence counts are unparseable. Form: "[probe-palace] hnsw-status:
-# UNKNOWN".
-_PROBE_HNSW_STATUS_RE = re.compile(r"\[probe-palace\]\s+hnsw-status:\s+(\S+)")
-
-
-def _extract_palace_hnsw_status(stderr: str) -> str | None:
-    """Parse probe_palace.py's hnsw-status line; return the soft-warn body.
-
-    Returns ``None`` when the line is absent. The line is present only for
-    the UNKNOWN / unflushed-metadata state (per Issue #127, S-0163) — the
-    blind spot the ``mempalace_hnsw_divergence`` check cannot see, since an
-    unflushed index produces no percentage to compare against the
-    ``>=10%`` threshold. A separate soft-warn category so archive telemetry
-    distinguishes this recurrence from measured divergence.
-    """
-    match = _PROBE_HNSW_STATUS_RE.search(stderr or "")
-    if match is None:
-        return None
-    status = match.group(1)
-    return (
-        f"MemPalace HNSW index reports `status: {status}` — `mempalace "
-        f"repair-status` shows the vector-index metadata has not been "
-        f"flushed, so HNSW capacity is unknowable and `mempalace_search` is "
-        f"degraded to BM25 lexical fallback for any not-yet-indexed drawers. "
-        f"This is a suspect state distinct from measured >=10% divergence: "
-        f"an unflushed index produces no percentage for "
-        f"`mempalace_hnsw_divergence` to fire on. Rebuild + flush via "
-        f"engine/tools/mempalace_rebuild_hnsw.py against a scratch palace "
-        f"copy, then atomic-rename swap to live once a flushed index is "
-        f"verified."
-    )
-
-
-# Regex matching the wing-count line probe_palace.py emits per Issue
-# #46 (S-0088). Form: "[probe-palace] wings: N (total)".
-_PROBE_WING_COUNT_RE = re.compile(r"\[probe-palace\]\s+wings:\s+(\d+)\s+\(total\)")
-# Bootstrap fallbacks if register_state.json is missing the threshold
-# block (e.g., a freshly-cloned repo before the S-0088 schema lands, or
-# a manually-stripped register). The values mirror the Issue #46
-# acceptance criteria — Tier 1 informational at 60, Tier 2 LOUD at 100.
-_WING_COUNT_INFORMATIONAL_DEFAULT = 60
-_WING_COUNT_LOUD_DEFAULT = 100
-
-
-def _read_wing_count_thresholds() -> tuple[int, int]:
-    """Read wing-count thresholds from register_state.json.
-
-    Returns ``(informational, loud)``. Falls back to the bootstrap
-    defaults (60 / 100) when:
-    - register_state.json is missing or unparseable;
-    - the ``wing_count_growth_thresholds`` block is absent;
-    - either threshold is missing or non-int.
-
-    Threshold contract: ``loud > informational > 0``. If the loaded
-    pair violates the contract, falls back to defaults — silent so a
-    typo in operator-edited register_state.json can't poison the
-    soft-warn but the project still gets the standing surface.
-    """
-    if not REGISTER_STATE_PATH.is_file():
-        return (_WING_COUNT_INFORMATIONAL_DEFAULT, _WING_COUNT_LOUD_DEFAULT)
-    try:
-        register = json.loads(REGISTER_STATE_PATH.read_text())
-    except (OSError, json.JSONDecodeError):
-        return (_WING_COUNT_INFORMATIONAL_DEFAULT, _WING_COUNT_LOUD_DEFAULT)
-    if not isinstance(register, dict):
-        return (_WING_COUNT_INFORMATIONAL_DEFAULT, _WING_COUNT_LOUD_DEFAULT)
-    block = register.get("wing_count_growth_thresholds")
-    if not isinstance(block, dict):
-        return (_WING_COUNT_INFORMATIONAL_DEFAULT, _WING_COUNT_LOUD_DEFAULT)
-    informational = block.get("informational")
-    loud = block.get("loud")
-    if not isinstance(informational, int) or not isinstance(loud, int):
-        return (_WING_COUNT_INFORMATIONAL_DEFAULT, _WING_COUNT_LOUD_DEFAULT)
-    if informational <= 0 or loud <= informational:
-        return (_WING_COUNT_INFORMATIONAL_DEFAULT, _WING_COUNT_LOUD_DEFAULT)
-    return (informational, loud)
-
-
-def _extract_palace_wing_count(stderr: str) -> str | None:
-    """Parse probe_palace.py's wing-count line; return formatted soft-warn body.
-
-    Returns ``None`` if the wing-count line is absent, malformed, or the
-    count is below the informational threshold. Otherwise returns the
-    body text the soft-warn carries. At LOUD threshold, the body
-    includes a more directive prompt to schedule a cleanup batch.
-
-    Thresholds come from ``register_state.json``'s
-    ``wing_count_growth_thresholds`` block (per Issue #46, S-0088), so
-    operators can tune as cleanup cadence shifts. Bootstrap defaults
-    are 60 / 100.
-    """
-    match = _PROBE_WING_COUNT_RE.search(stderr or "")
-    if match is None:
-        return None
-    try:
-        count = int(match.group(1))
-    except ValueError:
-        return None
-    informational, loud = _read_wing_count_thresholds()
-    if count < informational:
-        return None
-    base = (
-        f"MemPalace wing count is {count}, exceeding the informational "
-        f"threshold of {informational}. The upstream wing-naming bug "
-        f"(Issues #1 / #2) creates a new per-worktree wing on each "
-        f"auto-capture; accumulation degrades search recall over time. "
-        f"Schedule a cleanup batch via `engine/tools/prune_mempalace.py` "
-        f"(orphan-wings + ops-doc-drawer modes — Issue #40) and the "
-        f"dedicated heavy historical-paths session (Issue #41)."
-    )
-    if count >= loud:
-        return (
-            "⚠️  " + base + "\n"
-            f"At {count} wings, the noise floor is severely degrading "
-            f"`mempalace_search` recall — boot-search reformulations "
-            f"return ops-doc chunks ahead of conversational drawers. "
-            f"Cleanup is overdue, not optional. Adjust thresholds in "
-            f"`engine/session/register_state.json` only after a cleanup "
-            f"batch lands; do not raise the threshold to silence the "
-            f"surface."
-        )
-    return base
-
-
-# Regex matching the quarantine-accumulation line probe_palace.py emits
-# (corroborating upstream MemPalace/mempalace#1489 Sarah Novotny comment).
-# Form: "[probe-palace] quarantine: drift=N corrupt=M".
-_PROBE_QUARANTINE_RE = re.compile(
-    r"\[probe-palace\]\s+quarantine:\s+drift=(\d+)\s+corrupt=(\d+)"
-)
-
-
-def _extract_palace_quarantine_count(stderr: str) -> str | None:
-    """Parse probe_palace.py's quarantine line; return formatted soft-warn body.
-
-    Returns ``None`` when the line is absent, malformed, or both counts
-    are zero (the healthy steady state — no surface needed). Returns a
-    formatted body otherwise. Threshold is intentionally hardcoded at
-    ``>=1`` total for first-cut: a single quarantine event is signal
-    worth seeing, and the cross-session rate (not the per-session count)
-    is the lifecycle measure governed by the persistent-warn 3-of-5
-    surface + ≥10-session escalation per ADR 0042. Migrating to a
-    register-state thresholds block (per the Issue #46 / S-0088 wing-count
-    pattern) is a future tuning concern; not load-bearing here.
-    """
-    match = _PROBE_QUARANTINE_RE.search(stderr or "")
-    if match is None:
-        return None
-    try:
-        drift = int(match.group(1))
-        corrupt = int(match.group(2))
-    except ValueError:
-        return None
-    total = drift + corrupt
-    if total <= 0:
-        return None
-    return (
-        f"MemPalace palace root carries {total} quarantine "
-        f"director{'y' if total == 1 else 'ies'} "
-        f"(drift={drift}, corrupt={corrupt}). Upstream "
-        f"`quarantine_stale_hnsw` (MemPalace/mempalace#1322 + #1342) "
-        f"renames a segment dir aside when it sees a missing "
-        f"`index_metadata.pickle`; each open can leave a fresh-empty "
-        f"placeholder the next open also quarantines, so the dirs "
-        f"compound silently. Project-side workaround at ADR 0079 "
-        f"(threshold=100 on live palace) reduces the rate; upstream "
-        f"fix is tracked at MemPalace/mempalace#1489. Inspect the "
-        f"dirs under `~/.mempalace/palace/` and prune if no recovery "
-        f"is needed."
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -3191,585 +2895,14 @@ def validate_graph(
 # ---------------------------------------------------------------------------
 
 
-def _check_mempalace_substrate_alive(timeout_s: int = 8) -> bool:
-    """Verify the MemPalace substrate is reachable via the upstream CLI.
-
-    Runs ``mempalace status`` as a subprocess with a hard timeout. Returns
-    ``True`` if the CLI exits 0 (substrate live, palace responding),
-    ``False`` otherwise (CLI not on PATH, palace dir missing, sqlite
-    corrupt, chromadb open failure, command timeout). Read-only — the
-    upstream ``status`` subcommand is contracted to never mutate.
-
-    Used to validate ADR 0056's ``mempalace_unavailable_acknowledged``
-    escape-hatch token at session close: the token claims the substrate
-    is unreachable, so if the substrate is *actually* reachable, the
-    token is invalid. Tightening introduced at S-0089 after the S-0087
-    + S-0088 escape-hatch burial pattern (the AI's deferred-tool list at
-    boot didn't reflect MCP-server availability, the AI defaulted to
-    the token, and the substrate was actually live both sessions).
-
-    Failure modes are silent (returns ``False``) — the helper does not
-    distinguish "CLI missing" from "palace broken" because both are
-    legitimate substrate-unavailable cases. Diagnostic detail lands at
-    the SessionStart hook's MCP-availability probe, not here.
-    """
-    # Use ``python3 -m mempalace`` instead of bare ``mempalace`` so the
-    # venv's interpreter resolves the package via sys.path rather than
-    # relying on the parent process's PATH containing the venv's bin/
-    # directory (the ``ruff``/``mypy``/``pytest`` precedent at lines
-    # 1507/1518/1529/1566). The bash-side scrub_env.sh prepends venv/bin
-    # to PATH at source time for hook subprocesses, but Python-side
-    # subprocess.run inherits the parent's PATH untouched — bare-name
-    # lookups fail when validate.py is invoked from a shell whose PATH
-    # doesn't include venv/bin (the typical case for direct invocation).
-    try:
-        proc = subprocess.run(
-            [sys.executable, "-m", "mempalace", "status"],
-            capture_output=True,
-            text=True,
-            timeout=timeout_s,
-            env=scrubbed_env(),
-        )
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return False
-    except Exception:  # noqa: BLE001 — best-effort substrate check
-        return False
-    return proc.returncode == 0
-
-
-def _build_substrate_unavailable_body() -> str:
-    """Body for the ``mempalace_substrate_at_close`` soft-warn.
-
-    Per S-0091, the engine/routine LOUD-vs-standard differentiation that
-    S-0089/S-0090 maintained is dropped: archive review is the
-    routine-side visibility surface, and a buried one-line body is
-    exactly what the user's S-0088 "obvious, not buried" pushback was
-    against. The LOUD body costs nothing extra in routine archives and
-    serves the user's "clearly in session text" requirement.
-    """
-    return (
-        "⚠️  MEMPALACE SUBSTRATE DOWN — DO NOT BURY THIS\n"
-        "MemPalace substrate is unreachable at session close: "
-        "`mempalace status` failed. The MCP server (if loaded) cannot "
-        "serve diary reads/writes or searches. Diagnose: ls "
-        "~/.mempalace/palace; mempalace status 2>&1; mempalace "
-        "repair-status. Recovery: engine/tools/mempalace_rebuild_hnsw.py "
-        "per its documented procedure (S-0084 precedent).\n"
-        "This is investigation-worthy on its own (single-session "
-        "trigger), not 'wait for 3-of-5'. Either fix the substrate "
-        "now or open an Issue with the substrate diagnostic output "
-        "before closing. The acknowledgement token is honest only "
-        "while the substrate is genuinely unreachable; the "
-        "tightened contract at S-0089 invalidates the token if "
-        "`mempalace status` succeeds at close-time."
-    )
-
-
-def _append_to_diary_pending_index(
-    session_id: str,
-    reason: str,
-    outcome_summary: str,
-    archive_path: str,
-) -> None:
-    """Append a routine-session deferred-diary entry to the pending index.
-
-    Per ADR 0056 (S-0091 routine-protection refinement). When a routine
-    session closes without a diary write, validate.py records an entry
-    here instead of hard-failing. The boot-time SessionStart hook reads
-    the index and surfaces the count + session IDs at every subsequent
-    session boot until the user reconnects MCP and runs the recovery
-    procedure (engine/operations/routine-mode-operations.md
-    "Deferred diary recovery").
-
-    Idempotent against re-runs in a single session: if the same
-    ``session_id`` is already present, the existing entry is preserved
-    rather than duplicated.
-
-    Failure modes are non-fatal: if the index file is missing or
-    malformed, this helper logs to stderr and returns. The validator
-    must not crash on index file issues; the soft-warn it emits in
-    parallel is the contract's surface.
-    """
-    index_path = REPO_ROOT / "engine" / "session" / "diary_pending_index.json"
-    try:
-        if not index_path.is_file():
-            print(
-                f"[validate] diary_pending_index.json missing at {index_path}; "
-                "soft-warn fired but no index entry recorded. Restore the file "
-                "from main or git history before next routine session.",
-                file=sys.stderr,
-            )
-            return
-        index = json.loads(index_path.read_text(encoding="utf-8"))
-        if not isinstance(index, dict) or not isinstance(index.get("pending"), list):
-            print(
-                f"[validate] diary_pending_index.json malformed; "
-                f"expected dict with 'pending' list, got {type(index).__name__}. "
-                "Soft-warn fired but no index entry recorded.",
-                file=sys.stderr,
-            )
-            return
-        for existing in index["pending"]:
-            if isinstance(existing, dict) and existing.get("session_id") == session_id:
-                # Already tracked; idempotent re-run.
-                return
-        excerpt = (outcome_summary or "")[:200]
-        index["pending"].append(
-            {
-                "session_id": session_id,
-                "closed_ts": emit(),  # ADR 0058 canonical
-                "reason": reason,
-                "outcome_summary_excerpt": excerpt,
-                "archive_path": archive_path,
-            }
-        )
-        index_path.write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8")
-    except (OSError, json.JSONDecodeError) as e:
-        print(
-            f"[validate] diary_pending_index.json append failed: {e}. "
-            "Soft-warn still fired; recovery info missing from index.",
-            file=sys.stderr,
-        )
-
-
-def _mempalace_boot_step_ran_late(
-    activity: dict[str, Any],
-    started_at: datetime | None,
-    first_ts_key: str,
-) -> bool:
-    """True iff a MemPalace boot step's first call landed after ``started_at``.
-
-    Per Issue #124 (S-0160). The boot query (step 5.5 / build step 3) and
-    diary read (step 5.6 / build step 3b) run *before* the eager-claim
-    ritual writes ``current.json``'s ``started_at``. A per-tool first-call
-    timestamp *after* ``started_at`` therefore means the step ran late —
-    the telemetry is clean but the prior-context recall happened too late
-    to inform planning.
-
-    Backward-compatible: returns ``False`` (no late signal) when
-    ``started_at`` is ``None``, when the per-tool ``*_first_ts`` field is
-    absent (historical archives, JSONL-absent path) or non-string, or
-    when either timestamp is unparseable. The late check fires only on a
-    positive, unambiguous signal — never on missing data.
-    """
-    if started_at is None:
-        return False
-    raw = activity.get(first_ts_key)
-    if not isinstance(raw, str) or not raw.strip():
-        return False
-    try:
-        first_ts = parse(raw.strip())
-    except (ValueError, TypeError):
-        return False
-    return bool(first_ts > started_at)
-
-
-def validate_mempalace_adoption() -> ValidationResult:
-    """Soft-warn boot-query/diary-read; hard-fail diary-write per ADR 0056 (S-0078).
-
-    Reads engine/session/current.json's ``mempalace_activity`` field (written
-    by ``scan_mempalace_activity.py`` at shutdown step 7-pre from
-    ``engine/session/current_mempalace.jsonl`` — the per-session telemetry
-    appended by the PostToolUse hook on every ``mcp__mempalace__*`` call).
-
-    Categories:
-
-    - ``mempalace_boot_query_skipped`` (soft-warn) — no
-      ``mempalace_search`` call recorded.
-    - ``mempalace_diary_read_skipped`` (soft-warn) — no
-      ``mempalace_diary_read`` call recorded.
-    - ``mempalace_diary_write_skipped`` (HARD-FAIL, **engine mode only**
-      per S-0091) — no diary write AND no acknowledgement token in
-      ``outcome_summary``. Engine asymmetry justified: interactive fix
-      path is immediate (write the diary or write the token + reason);
-      hard-fail catches AI laziness in skipping the only first-person
-      reflection layer.
-    - ``mempalace_diary_write_skipped_routine`` (soft-warn, **routine
-      mode only** per S-0091) — same predicate as above but in routine
-      mode. Routine mode never hard-fails on mempalace MCP availability
-      (user directive: halting the routine line is worse than deferring
-      one diary entry). The session is appended to
-      ``engine/session/diary_pending_index.json`` so the next boot's
-      SessionStart hook surfaces the count + IDs and the user can
-      reconnect MCP and run the deferred-diary recovery procedure.
-    - ``mempalace_diary_write_skipped_substrate_intermittent`` (soft-warn)
-      — token present BUT ``mempalace status`` succeeds at close-time.
-      Substrate reachable now even though AI claimed unavailable —
-      intermittent MCP, typically Claude Desktop reboot resolves.
-      Soft-warn (close proceeds) per S-0090 routine protection. LOUD
-      body uniformly per S-0091.
-    - ``mempalace_diary_write_acknowledged_skip`` (soft-warn) — token
-      present AND ``mempalace status`` confirms substrate IS
-      unreachable. Token is honestly valid; soft-warn closure path.
-      LOUD body uniformly per S-0091.
-    - ``mempalace_substrate_at_close`` (soft-warn; added at S-0089) —
-      ``mempalace status`` failed at close-time, independent of
-      diary-write state. Surfaces broken substrate as its own signal.
-      LOUD body uniformly per S-0091.
-    - ``mempalace_retired_surface_used`` (soft-warn; added at S-0087 per
-      ADR 0056 Consequences amendment) — fires when ``kg_calls > 0`` OR
-      ``tunnel_calls > 0``. The KG family (``mempalace_kg_*``) and tunnel
-      family (``mempalace_*_tunnels``, ``mempalace_traverse``) were
-      retired from project use at S-0087; this soft-warn is defense-in-depth
-      against scope regression. MCP-side per-tool filtering is not yet
-      feasible at the harness layer, so discipline + soft-warn detection is
-      the load-bearing surface against scope drift.
-    - ``mempalace_zero_citations_after_search`` (soft-warn; added at S-0093
-      per ADR 0056 amendment, Issue #39) — closed-loop check on boot-search
-      effectiveness. Fires when ``search_calls > 0`` AND
-      ``mempalace_activity.mempalace_citations.total == 0``. The citations
-      block is written by ``scan_mempalace_citations.py`` at shutdown.
-      Persistent firing per ADR 0042's 3-of-5 surface signals the boot-
-      search formulations aren't surfacing drawers the session would cite,
-      OR retrieved drawers aren't being woven into authored artifacts.
-
-    Per S-0091 the engine-vs-routine LOUD-vs-standard body
-    differentiation is dropped for substrate-availability soft-warns
-    (substrate_at_close, acknowledged_skip, substrate_intermittent,
-    diary_write_skipped_routine). Archive review is the routine-side
-    visibility surface, and a buried one-line body is exactly what
-    the user's S-0088 "obvious, not buried" pushback was against.
-    Mode-awareness remains in the no-token-no-diary branch only, where
-    engine retains hard-fail and routine emits soft-warn + index append.
-
-    The S-0087/S-0088 burial pattern remains structurally hard to
-    repeat because the LOUD body uniformly surfaces the substrate
-    state on archive review.
-
-    Default-mode (exploration, non-build) sessions are exempt: when
-    ``current.json`` is absent there is no formal session to audit, and the
-    function returns a clean ValidationResult after recording one check.
-
-    Gated by the ``--final-check`` CLI flag — pre-commit hook invocations
-    (no flag) skip this validator so mid-session commits don't nag. The
-    shutdown SKILL invokes ``validate.py --final-check`` at step 7 after
-    ``scan_mempalace_activity.py`` has written the field.
-    """
-    r = ValidationResult()
-    r.add_check("validate_mempalace_adoption")
-
-    current_path = REPO_ROOT / "engine" / "session" / "current.json"
-    if not current_path.is_file():
-        # No formal session in flight — exploration mode. Adoption checks
-        # do not apply (no slot, no diary expectation).
-        return r
-
-    try:
-        current = json.loads(current_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        # Malformed current.json is caught by validate_repo_structure;
-        # don't double-fail here.
-        return r
-
-    activity = current.get("mempalace_activity")
-    if not isinstance(activity, dict):
-        # The field is the responsibility of scan_mempalace_activity.py;
-        # if it didn't run or wrote a bad shape, audit_archive_structured_fields
-        # catches that at closing-commit time. Skip the adoption check
-        # here rather than emitting confusing duplicate failures.
-        return r
-
-    search_calls = int(activity.get("search_calls", 0))
-    diary_read_calls = int(activity.get("diary_read_calls", 0))
-    diary_write_calls = int(activity.get("diary_write_calls", 0))
-    kg_calls = int(activity.get("kg_calls", 0))
-    tunnel_calls = int(activity.get("tunnel_calls", 0))
-
-    if search_calls == 0:
-        r.soft_warn(
-            "mempalace_boot_query_skipped",
-            "No mempalace_search call recorded during this session. The "
-            "boot-time MemPalace query (CLAUDE.md startup ceremony step 3 / "
-            "session-build-lifecycle step 3 / routine-mode-lifecycle step 5.5) "
-            "did not run, or its telemetry was not captured.",
-        )
-
-    if diary_read_calls == 0:
-        r.soft_warn(
-            "mempalace_diary_read_skipped",
-            "No mempalace_diary_read call recorded during this session. The "
-            "boot-time diary read (session-build-lifecycle step 3b / "
-            "routine-mode-lifecycle step 5.6) did not run.",
-        )
-
-    # Per Issue #124 (S-0160). The *_skipped checks above catch a boot
-    # step that never ran; these catch one that ran LATE — after the
-    # eager-claim ritual wrote started_at, so the prior-context recall
-    # could no longer inform planning. Backward-compatible: skips
-    # silently when the per-tool *_first_ts field or started_at is
-    # absent/unparseable (see _mempalace_boot_step_ran_late).
-    started_at_raw = current.get("started_at")
-    started_at_dt: datetime | None = None
-    if isinstance(started_at_raw, str) and started_at_raw.strip():
-        try:
-            started_at_dt = parse(started_at_raw.strip())
-        except (ValueError, TypeError):
-            started_at_dt = None
-
-    if search_calls > 0 and _mempalace_boot_step_ran_late(
-        activity, started_at_dt, "search_first_ts"
-    ):
-        r.soft_warn(
-            "mempalace_boot_query_late",
-            "The mempalace_search boot query ran, but its first call landed "
-            "AFTER this session's started_at — i.e. after the eager-claim "
-            "ritual, not at boot. The boot query (CLAUDE.md startup ceremony "
-            "step 3 / session-build-lifecycle step 3 / routine-mode-lifecycle "
-            "step 5.5) exists to surface prior lessons and decisions BEFORE "
-            "the session plans and executes. Run late, it produces the "
-            "telemetry without the benefit — the recalled context can no "
-            "longer change the work. Run mempalace_boot_search.py / "
-            "mempalace_search at boot, before plan authoring.",
-        )
-
-    if diary_read_calls > 0 and _mempalace_boot_step_ran_late(
-        activity, started_at_dt, "diary_read_first_ts"
-    ):
-        r.soft_warn(
-            "mempalace_diary_read_late",
-            "The mempalace_diary_read boot step ran, but its first call "
-            "landed AFTER this session's started_at — i.e. after the "
-            "eager-claim ritual, not at boot. The boot diary read "
-            "(session-build-lifecycle step 3b / routine-mode-lifecycle step "
-            "5.6) exists to surface the prior sessions' first-person "
-            "reflections BEFORE planning. Run late, the reflections are "
-            "recalled into a context where they can no longer inform the "
-            "work. Run mempalace_diary_read at boot, before plan authoring.",
-        )
-
-    # Per S-0091 routine-protection refinement. The S-0089/S-0090
-    # engine-vs-routine LOUD-vs-standard body differentiation is dropped
-    # for the substrate-availability soft-warns: archive review is the
-    # routine-side visibility surface, and a buried one-line body is
-    # exactly what the user's S-0088 "obvious, not buried" pushback was
-    # against. Mode is still read here because the no-token-no-diary
-    # branch below remains hard-fail for engine and soft-warn for
-    # routine — the asymmetry there is justified by the unattended-vs-
-    # interactive difference (engine has an immediate fix path; routine
-    # cannot be killed by intermittent MCP).
-    mode_raw = current.get("mode")
-    mode = mode_raw if isinstance(mode_raw, str) else "interactive"
-
-    # Substrate-availability probe at close-time (per S-0089). Single
-    # subprocess invocation; reused for the diary-write token-validation
-    # branch below so we don't probe twice. Cached for the duration of
-    # this validator call.
-    substrate_alive = _check_mempalace_substrate_alive()
-
-    # Independent substrate signal: surfaces broken substrate at every
-    # close, regardless of diary-write state. Per S-0089 the user's
-    # directive is "obvious, not buried" — this category is the standing
-    # surface even when the diary write went through (MCP could have been
-    # alive earlier in the session and broken by the close).
-    r.add_check("mempalace_substrate_at_close")
-    if not substrate_alive:
-        r.soft_warn(
-            "mempalace_substrate_at_close",
-            _build_substrate_unavailable_body(),
-        )
-
-    if diary_write_calls == 0:
-        outcome_summary = current.get("outcome_summary") or ""
-        if not isinstance(outcome_summary, str):
-            outcome_summary = ""
-        token_present = "mempalace_unavailable_acknowledged:" in outcome_summary
-
-        if token_present and substrate_alive:
-            # Token claims substrate unavailable, but `mempalace status`
-            # succeeds at close-time — intermittent MCP or AI-
-            # misperception. Soft-warn (close proceeds) per S-0090
-            # routine protection. LOUD body uniformly per S-0091 — the
-            # contradiction (substrate alive + token claims unavailable)
-            # is investigation-worthy in any mode and the routine
-            # archive review is exactly the surface that needs the
-            # ⚠️-prefixed body to not get buried.
-            r.soft_warn(
-                "mempalace_diary_write_skipped_substrate_intermittent",
-                "⚠️  MCP INTERMITTENT — DO NOT BURY THIS\n"
-                "No mempalace_diary_write call recorded; "
-                "'mempalace_unavailable_acknowledged:' token in "
-                "outcome_summary; BUT `mempalace status` succeeds at "
-                "close-time. The substrate is reachable now even though "
-                "the AI claimed unavailable earlier. This is intermittent "
-                "MCP — typically resolved by rebooting Claude Desktop "
-                "(per the user-known cause). The session closes cleanly; "
-                "investigation is the user's call.\n"
-                "For engine sessions: invoke mempalace_diary_write "
-                "now (substrate is live) so this session's reflection "
-                "is captured; or investigate why the AI's tool surface "
-                "lacked mcp__mempalace__* despite the substrate "
-                "working. For routine sessions: the diary entry is "
-                "deferrable — see engine/operations/routine-mode-"
-                'operations.md "Deferred diary recovery". The '
-                "token's claim is contradicted by the close-time "
-                "substrate probe.",
-            )
-        elif token_present:
-            # Token present and substrate IS unreachable — token is
-            # honest. Soft-warn closure path (engine and routine alike)
-            # per S-0089. LOUD body uniformly per S-0091.
-            r.soft_warn(
-                "mempalace_diary_write_acknowledged_skip",
-                "⚠️  DIARY WRITE SKIPPED — DO NOT BURY THIS\n"
-                "No mempalace_diary_write call recorded; "
-                "'mempalace_unavailable_acknowledged:' token in "
-                "outcome_summary; `mempalace status` confirms substrate "
-                "IS unreachable at close-time. Hard-fail downgraded to "
-                "soft-warn (token is honestly valid). Persistent "
-                "acknowledged-skips fire the 3-of-5 escalation, but "
-                "the single-session use is itself investigation-worthy "
-                "— fix the substrate before the next session boot.\n"
-                "This archive's outcome_summary acknowledges the skip "
-                "honestly (the substrate IS down), but the skip "
-                "itself is a real cost: this session's first-person "
-                "reflection is irretrievable. Address the substrate "
-                "before the next session boot.",
-            )
-        elif mode == "routine":
-            # Per S-0091: routine sessions never hard-fail on mempalace
-            # MCP availability. The user's directive ("I don't want any
-            # hard failures of mempalace MCP access because that holds
-            # up the whole line of routine sessions") is load-bearing.
-            # Record an entry in the pending-diary index so the next
-            # boot's SessionStart hook surfaces the count, and emit a
-            # soft-warn with a LOUD body so the archive review is
-            # unambiguous. Engine retains the hard-fail (interactive
-            # fix path is immediate; AI laziness is the failure mode
-            # that hard-fail catches).
-            session_id = str(current.get("id", "unknown"))
-            archive_path = f"engine/session/archive/{session_id}.json"
-            _append_to_diary_pending_index(
-                session_id=session_id,
-                reason=(
-                    "Routine session closed without mempalace_diary_write "
-                    "call and without 'mempalace_unavailable_acknowledged:' "
-                    "token. Likely cause: MCP substrate dropped during the "
-                    "routine; AI did not record the acknowledgement token. "
-                    "Routine mode does not hard-fail on this; the deferred "
-                    "diary write is the recovery path."
-                ),
-                outcome_summary=outcome_summary,
-                archive_path=archive_path,
-            )
-            r.soft_warn(
-                "mempalace_diary_write_skipped_routine",
-                "⚠️  ROUTINE DIARY DEFERRED — DO NOT BURY THIS\n"
-                "No mempalace_diary_write call recorded; no "
-                "'mempalace_unavailable_acknowledged:' token in "
-                "outcome_summary. Routine mode does not hard-fail on "
-                "mempalace MCP availability (per S-0091; halting the "
-                "routine line is worse than deferring one diary entry). "
-                "This session has been added to "
-                "engine/session/diary_pending_index.json. Reconnect MCP, "
-                "open an interactive session, and process the pending "
-                "index — the recovery procedure is at "
-                "engine/operations/routine-mode-operations.md "
-                '"Deferred diary recovery".',
-            )
-        else:
-            # Engine (interactive) sessions retain the S-0078 hard-fail
-            # for the no-token-no-diary path. Engine has an immediate
-            # fix path: write the diary now (MCP is reachable in this
-            # session if you can fix it; if it isn't, write the
-            # acknowledgement token with a one-line reason and re-run
-            # validate.py --final-check). Routine mode's exemption is
-            # the S-0091 routine-protection refinement; it does NOT
-            # generalize to engine because the engine asymmetry exists
-            # precisely to catch AI laziness in skipping diary writes.
-            r.hard_fail(
-                "mempalace_diary_write_skipped: no mempalace_diary_write "
-                "call recorded during this engine session, and no "
-                "'mempalace_unavailable_acknowledged: <reason>' token in "
-                "outcome_summary. Per ADR 0056 (S-0078) + S-0091 "
-                "routine-protection refinement: engine sessions retain "
-                "the hard-fail because the interactive fix path is "
-                "immediate. Either invoke mempalace_diary_write now, "
-                "or add the acknowledgement token to outcome_summary "
-                "with a one-line reason (MCP server unreachable, no "
-                "work to reflect on, etc.) and re-run validate.py "
-                "--final-check. S-0089 tightening: the token is only "
-                "valid if `mempalace status` actually fails at close-"
-                "time."
-            )
-
-    if kg_calls > 0 or tunnel_calls > 0:
-        # Single soft-warn naming both call types when both fire, per the
-        # rollup-shape addition at S-0087 (ADR 0056 Consequences amendment).
-        invocations: list[str] = []
-        if kg_calls > 0:
-            invocations.append(f"kg_calls={kg_calls}")
-        if tunnel_calls > 0:
-            invocations.append(f"tunnel_calls={tunnel_calls}")
-        invocation_summary = ", ".join(invocations)
-        r.soft_warn(
-            "mempalace_retired_surface_used",
-            f"Retired-surface invocation detected: {invocation_summary}. "
-            "The KG family (mempalace_kg_*) and tunnel family "
-            "(mempalace_*_tunnels, mempalace_traverse) were retired from "
-            "project use at S-0087 per ADR 0056 Consequences amendment + "
-            "engine/operations/mempalace-operations.md 'Project usage scope'. "
-            "If the invocation was intentional and scope should expand, file "
-            "an Issue and amend ADR 0056. Otherwise, the call site is the "
-            "regression to fix. Persistent firing across 3+ of last 5 sessions "
-            "indicates undocumented project usage — revisit the contract.",
-        )
-
-    # Per S-0093 (ADR 0056 amendment, Issue #39). Closed-loop check:
-    # search_calls captures call FREQUENCY but says nothing about whether
-    # the returned drawers actually informed authored artifacts. The
-    # nested mempalace_citations block (written by
-    # scan_mempalace_citations.py at shutdown) counts drawer_id /
-    # S-NNNN-archive / tag-named references in outcome_summary + diary +
-    # commit messages. Soft-warn fires when search ran but produced no
-    # observable behavior change. Persistent firing (3-of-5 per ADR 0042)
-    # signals retrieved drawers aren't being woven into authored work —
-    # revisit boot-search formulations or escalate per soft-warn-lifecycle.md.
-    #
-    # Gated on session id >= S-0093: pre-S-0093 archives lack the
-    # mempalace_citations block by design (the scan tool didn't exist yet).
-    # The audit only applies forward.
-    session_id_raw = current.get("id")
-    citations_required = False
-    if isinstance(session_id_raw, str):
-        m = re.match(r"^S-(\d{4})$", session_id_raw.strip())
-        if m is not None and int(m.group(1)) >= 93:
-            citations_required = True
-
-    if citations_required:
-        citations_raw = activity.get("mempalace_citations")
-        citations: dict[str, Any] = (
-            citations_raw if isinstance(citations_raw, dict) else {}
-        )
-        citations_total = int(citations.get("total", 0))
-        if search_calls > 0 and citations_total == 0:
-            r.soft_warn(
-                "mempalace_zero_citations_after_search",
-                f"search_calls={search_calls} but mempalace_citations.total=0. "
-                "The session ran MemPalace boot search but no drawer IDs, "
-                "S-NNNN archive references, or tag-named drawer references "
-                "(`per pushback drawer`, `per lesson drawer`, `per decision "
-                "drawer`) appear in outcome_summary, the session's diary entry, "
-                "or commit messages. Retrieval happened; observable behavior "
-                "change did not. Per ADR 0056 (S-0093 amendment, Issue #39): "
-                "verify the boot-search formulations are surfacing drawers "
-                "that bear on the work, and that retrieved drawers are being "
-                "cited in authored artifacts when they inform the session. "
-                "Persistent firing across 3+ of last 5 sessions per ADR 0042 "
-                "lifecycle indicates the boot-search effectiveness gap — tune "
-                "the formulation set in engine/tools/mempalace_boot_search.py "
-                "or escalate per engine/operations/soft-warn-lifecycle.md.",
-            )
-
-    return r
-
-
 def validate_engine_memory_adoption() -> ValidationResult:
     """Adoption checks for the engine-memory substrate per ADR 0091.
 
-    Sibling of :func:`validate_mempalace_adoption` covering the
-    six-tool engine_memory MCP surface (ADR 0091 Decision 5). Reads
-    ``current.json``'s ``engine_memory_activity`` field (populated by
-    ``scan_engine_memory_activity.py`` at shutdown step 2 per ADR 0091).
+    Covers the six-tool engine_memory MCP surface (ADR 0091 Decision
+    5). Reads ``current.json``'s ``engine_memory_activity`` field
+    (populated by ``scan_engine_memory_activity.py`` at shutdown step
+    2 per ADR 0091). The sole adoption-check entry point for the
+    engine-memory substrate.
 
     Categories:
 
@@ -3783,22 +2916,22 @@ def validate_engine_memory_adoption() -> ValidationResult:
       <reason>`` in ``outcome_summary``. Routine sessions emit
       ``engine_memory_diary_write_skipped_routine`` (soft-warn)
       instead — the user directive against routine-line halts on
-      memory-substrate availability (per the mempalace S-0091
-      precedent) carries to the new substrate.
+      memory-substrate availability (per the S-0091 precedent carried
+      forward) applies to the new substrate too.
     - ``engine_memory_diary_write_acknowledged_skip`` (soft-warn) —
       token present; hard-fail downgraded. Persistent skips fire the
       3-of-5 escalation per ADR 0042.
     - ``engine_memory_zero_citations_after_search`` (soft-warn) —
       ``search_calls > 0`` AND ``engine_memory_citations.total == 0``
-      (closed-loop boot-search-effectiveness check; mirrors the
-      mempalace predecessor introduced at S-0093 per Issue #39).
+      (closed-loop boot-search-effectiveness check; the citations
+      block is populated by ``scan_engine_memory_citations.py`` per
+      ADR 0091).
 
     No substrate-availability probe — engine_memory is a local SQLite
-    file with no MCP-server-side intermittency to detect (the
-    mempalace ``substrate_at_close`` / ``substrate_intermittent``
-    categories don't apply). The escape-hatch token surface still
-    exists for legitimate edge cases (early-exit sessions with
-    nothing meaningful to reflect on, filesystem-broken recovery).
+    file with no MCP-server-side intermittency to detect. The
+    escape-hatch token surface still exists for legitimate edge
+    cases (early-exit sessions with nothing meaningful to reflect on,
+    filesystem-broken recovery).
 
     **Graceful no-op when ``engine_memory_activity`` is absent.** The
     field is the responsibility of ``scan_engine_memory_activity.py``;
@@ -3886,8 +3019,8 @@ def validate_engine_memory_adoption() -> ValidationResult:
                 "No engine_memory_diary_write call recorded; no "
                 "'engine_memory_unavailable_acknowledged:' token in "
                 "outcome_summary. Routine mode does not hard-fail on "
-                "memory-substrate availability (per the S-0091 mempalace "
-                "precedent carried to engine_memory). Run "
+                "memory-substrate availability (per the S-0091 "
+                "precedent carried into engine_memory). Run "
                 "engine_memory_diary_write at the next interactive "
                 "session to capture the missing reflection.",
             )
@@ -3917,11 +3050,10 @@ def validate_engine_memory_adoption() -> ValidationResult:
             "references, or tag-named drawer references appear in "
             "outcome_summary, the session's diary entry, or commit "
             "messages. Retrieval happened; observable behavior change "
-            "did not. Mirrors the mempalace_zero_citations_after_search "
-            "predecessor (per ADR 0056 S-0093 amendment, Issue #39); "
-            "fires alongside it during the ADR 0091 cutover window "
-            "(S-0190 → S-0193). Persistent firing across 3+ of last 5 "
-            "sessions per ADR 0042 lifecycle indicates the boot-search "
+            "did not. Citations are populated by "
+            "scan_engine_memory_citations.py at shutdown step 12 per "
+            "ADR 0091. Persistent firing across 3+ of last 5 sessions "
+            "per ADR 0042 lifecycle indicates the boot-search "
             "effectiveness gap — tune the formulation set in "
             "engine/memory/boot_surface.py (FORMULATION_OPERATOR mapping "
             "or to_fts5_match logic) or escalate per "
@@ -3935,10 +3067,10 @@ def validate_engine_memory_adoption() -> ValidationResult:
 # Outcome-summary unhandled-defer detection (ADR 0049 Decision 6 / Issue #54)
 # ---------------------------------------------------------------------------
 
-# Hedge phrases drawn from the canonical S-0071 / S-0048 pushback instances
-# captured as `[pushback]`-prefixed drawers in `paideia/problems`. Conservative
-# starting set per Issue #54; expand if false negatives surface in the first
-# 5 sessions. Patterns are matched case-insensitive and whitespace-tolerant.
+# Hedge phrases drawn from the canonical S-0071 / S-0048 pushback
+# instances now living as engine_memory `pushback`-room drawers.
+# Conservative starting set per Issue #54; expand if false negatives
+# surface. Patterns are matched case-insensitive and whitespace-tolerant.
 _OUTCOME_SUMMARY_HEDGE_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
     re.compile(p, re.IGNORECASE)
     for p in (
@@ -4177,8 +3309,6 @@ _TIMESTAMP_HELPER_BYPASS_ALLOWLIST = frozenset(
         "timestamps.py",  # the helper module itself defines the canonical shapes
         "apply_migration.py",  # legacy supabase schema_migrations.version contract
         "probe_push_gate.py",  # branch-name-safe compact-time form (no colons)
-        "audit_mempalace_attribution.py",  # palace-storage naive local-time shape
-        "scan_mempalace_citations.py",  # palace-storage naive local-date shape
         "scan_dependabot_prs.py",  # gh wire-format timestamps (created_at parse + --simulate-age emit), not engine-canonical
     }
 )
@@ -4291,13 +3421,14 @@ def validate_timestamp_helper_bypass() -> ValidationResult:
 # Per-phase runtime targets per ADR 0063 (S-0126; four-phase model from S-0127
 # Issue #90 fold).
 # Structural phase: in-process file/regex checks only, no DB or subprocess.
-# Health-probe phase: external-subprocess probes (chromadb open via
-# probe_palace.py, repo state via probe_repo.py, GitHub Issues via
-# `gh issue list`). Bounded but slow and variable (network for gh).
-# Extracted from structural phase at S-0127 — pre-extraction the chromadb
-# open dominated structural timing and surfaced the regression soft-warn
-# that motivated the split; validate_issue_collisions was also moved here
-# in the same fold because it shares the external-subprocess shape.
+# Health-probe phase: external-subprocess probes (repo state via
+# probe_repo.py, session-dir via probe_session_dir.py, GitHub Issues
+# via `gh issue list`). Bounded but slow and variable (network for gh).
+# Extracted from structural phase at S-0127 — pre-extraction the
+# external-subprocess probes dominated structural timing and surfaced
+# the regression soft-warn that motivated the split;
+# validate_issue_collisions was also moved here in the same fold
+# because it shares the external-subprocess shape.
 # Graph audit phase: live-DB consultation per ADR 0016.
 # Total: sum of phases plus shutdown audits when --final-check is set; ~500ms
 # buffer above phase sum for finalchecks + bookkeeping.
@@ -4368,9 +3499,10 @@ def validate_adr_consequences_amendment_headers(
 
     Per ADR 0036 + ADR 0062 (S-0126; Issue #87). ADR body content is
     present-truth declarative; authorship history, supersession narration, and
-    per-session revision markers belong in ENGINE_LOG.md / MemPalace `decision`
-    drawers / git blame. The 14 inline-amendment blocks retired at S-0126
-    motivate this gate-time backstop against re-introduction.
+    per-session revision markers belong in ENGINE_LOG.md / engine_memory
+    `decisions` room drawers / git blame. The 14 inline-amendment
+    blocks retired at S-0126 motivate this gate-time backstop against
+    re-introduction.
 
     Inputs:
         repo_root: Override the module-level REPO_ROOT.
@@ -4397,8 +3529,9 @@ def validate_adr_consequences_amendment_headers(
                     "adr_consequences_amendment_header",
                     f"ADR {rel_path} carries `### Amendment` header at "
                     f"line {line_no}; per ADR 0036 + ADR 0062, authorship "
-                    f"history belongs in engine/ENGINE_LOG.md / MemPalace "
-                    f"`decision` drawers / git, not in ADR body.",
+                    f"history belongs in engine/ENGINE_LOG.md / "
+                    f"engine_memory `decisions` room drawers / git, not "
+                    f"in ADR body.",
                 )
     return r
 
@@ -5063,7 +4196,7 @@ def main(argv: list[str] | None = None) -> int:
     # visible without requiring the parent shell to source .env. Does
     # NOT override pre-set values, so explicit `KEY=value python3 ...`
     # invocations still win.
-    from load_env import load_dotenv_walk_up  # type: ignore[import-not-found]
+    from load_env import load_dotenv_walk_up
 
     load_dotenv_walk_up()
 
@@ -5086,8 +4219,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--health-probe-only",
         action="store_true",
-        help="Run only the shared-state health probes (chromadb palace + "
-        "repo config). Used by the SessionStart hook for sub-second "
+        help="Run only the shared-state health probes (git repo + "
+        "session-dir). Used by the SessionStart hook for sub-second "
         "boot-time verification. Mutually exclusive with gate flags.",
     )
     parser.add_argument(
@@ -5111,16 +4244,16 @@ def main(argv: list[str] | None = None) -> int:
         "--final-check",
         action="store_true",
         help="Include shutdown-time audits that read fields populated only "
-        "at shutdown. (1) MemPalace adoption checks (boot-query / "
+        "at shutdown. (1) Engine-memory adoption checks (boot-query / "
         "diary-read soft-warns; diary-write hard-fail with "
-        "acknowledgement-token escape hatch) per ADR 0056 (S-0078). "
+        "acknowledgement-token escape hatch) per ADR 0091. "
         "(2) Outcome-summary unhandled-defer detection per ADR 0049 "
         "Decision 6 (S-0100, Issue #54) — fires when outcome_summary "
         "contains hedge-pattern prose without a declared "
         "next_session_handle. Invoked by the shutdown SKILL at step 7 "
-        "after scan_mempalace_activity.py and the step 7b/8 prompts have "
-        "populated their fields. Pre-commit hook does NOT pass this flag "
-        "so mid-session commits are not nagged.",
+        "after scan_engine_memory_activity.py and the step 7b/8 prompts "
+        "have populated their fields. Pre-commit hook does NOT pass this "
+        "flag so mid-session commits are not nagged.",
     )
     args = parser.parse_args(argv)
 
@@ -5143,9 +4276,8 @@ def main(argv: list[str] | None = None) -> int:
         # no subprocess probes. validate_shared_state_health and
         # validate_issue_collisions were here pre-S-0127 but moved to the
         # health-probe phase (Issue #90 / ADR 0063 fold) because both spawn
-        # subprocesses to live external systems (chromadb open via
-        # probe_palace.py and `gh issue list` respectively) and dominated
-        # structural timing.
+        # subprocesses to live external systems and dominated structural
+        # timing.
         overall.merge(validate_repo_structure())
         overall.merge(validate_scope_discipline())
         overall.merge(validate_routine_mode())
@@ -5165,12 +4297,12 @@ def main(argv: list[str] | None = None) -> int:
         t_structural_end = time.monotonic()
         duration_structural_ms = (t_structural_end - start) * 1000
 
-        # Health-probe phase: external-subprocess probes (chromadb open via
-        # probe_palace.py, repo state via probe_repo.py, GitHub Issues via
-        # `gh issue list`, lockfile freshness via `uv lock --check`).
-        # Bounded but slow and variable (network involved for the gh call);
-        # budgeted separately so the in-memory structural target stays
-        # meaningful.
+        # Health-probe phase: external-subprocess probes (repo state
+        # via probe_repo.py, session-dir via probe_session_dir.py,
+        # GitHub Issues via `gh issue list`, lockfile freshness via
+        # `uv lock --check`). Bounded but slow and variable (network
+        # involved for the gh call); budgeted separately so the
+        # in-memory structural target stays meaningful.
         overall.merge(validate_shared_state_health())
         overall.merge(validate_issue_collisions())
         # Lockfile-staleness check per ADR 0064 (S-0127; Issue #65). Fits
@@ -5191,7 +4323,6 @@ def main(argv: list[str] | None = None) -> int:
         # not separately reported (per-phase target only covers the three
         # standing phases the audit at ADR 0063 names).
         if args.final_check:
-            overall.merge(validate_mempalace_adoption())
             overall.merge(validate_engine_memory_adoption())
             overall.merge(validate_outcome_summary_unhandled_defer())
 
