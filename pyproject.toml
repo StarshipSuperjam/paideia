@@ -59,7 +59,7 @@ dependencies = [
     # validation against engine/schemas/changelog-entry.schema.json.
     # Consumers: engine/tools/changelog_aggregate.py, engine/tools/validate.py
     # (check_changelog_entries). Draft 2020-12 dialect.
-    "jsonschema>=4.25.0",
+    "jsonschema>=4.26.0",
 ]
 
 [tool.pytest.ini_options]
