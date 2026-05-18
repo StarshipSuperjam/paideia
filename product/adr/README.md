@@ -25,7 +25,7 @@ The `Status:` field is required; `engine/tools/validate.py` soft-warns on ADR fi
 
 ## Index
 
-The product collection has **44 ADRs total — 40 Accepted plus 4 Superseded** ([ADR 0002](0002-commercial-sustainability-without-pedagogical-compromise.md) by [ADR 0032](0032-personal-project-disposition.md); [ADR 0029](0029-personal-financial-cost-ceiling.md) by [ADR 0065](0065-oss-pivot-and-byok-disposition.md); [ADR 0032](0032-personal-project-disposition.md) by [ADR 0035](0035-multi-platform-apple-expansion.md); [ADR 0035](0035-multi-platform-apple-expansion.md) by [ADR 0065](0065-oss-pivot-and-byok-disposition.md)). The canonical project-wide ADR count lives in [`engine/STATE.md`](../../engine/STATE.md); the engine subtree carries the engine-side ADRs in [`engine/adr/`](../../engine/adr/). ADR numbers are drawn from a single shared sequence and do not duplicate across the partition. ADRs are grouped below by the structural role they play in the project.
+The product collection has **45 ADRs total — 41 Accepted plus 4 Superseded** ([ADR 0002](0002-commercial-sustainability-without-pedagogical-compromise.md) by [ADR 0032](0032-personal-project-disposition.md); [ADR 0029](0029-personal-financial-cost-ceiling.md) by [ADR 0065](0065-oss-pivot-and-byok-disposition.md); [ADR 0032](0032-personal-project-disposition.md) by [ADR 0035](0035-multi-platform-apple-expansion.md); [ADR 0035](0035-multi-platform-apple-expansion.md) by [ADR 0065](0065-oss-pivot-and-byok-disposition.md)). The canonical project-wide ADR count lives in [`engine/STATE.md`](../../engine/STATE.md); the engine subtree carries the engine-side ADRs in [`engine/adr/`](../../engine/adr/). ADR numbers are drawn from a single shared sequence and do not duplicate across the partition. ADRs are grouped below by the structural role they play in the project.
 
 ### Strong working commitments (ADRs 0001–0012)
 
@@ -136,13 +136,14 @@ The product collection has **44 ADRs total — 40 Accepted plus 4 Superseded** (
 
 > Session δ₁ (S-0202) landed the first two of Session δ's four foundational ADRs. The remaining two (tool-stack + learning-outcome taxonomy) land in Session δ₂; the three Session-α coordination questions and the eight `kant_walkthrough.md` §6.7 D1-D8 schema items partially settle in Session δ₂ with the remainder deferring to cluster-implementation ADRs per the S-0202 user-approved plan split. The PDG papers extraction pre-phase corpus lives at [`engine/build_readiness/pdg_papers_extraction/`](../../engine/build_readiness/pdg_papers_extraction/). Engine ADRs 0089–0092 occupied the 0089–0092 range between the OQ-DEC1 settlements and these ADRs in the shared sequence per ADR 0037.
 
-### PDG papers extraction pre-phase — Session δ₂ foundational ADRs (ADR 0095, product-side)
+### PDG papers extraction pre-phase — Session δ₂ foundational ADRs (ADRs 0095–0096, product-side)
 
 | ADR | Title | Status |
 |---|---|---|
 | [0095](0095-phase-6-tool-stack-postgres-jsonb-confirmed-with-oss-revisit-bar.md) | Phase 6 tool-stack: Postgres + JSONB + recursive CTEs confirmed; OSS Apache 2.0 + cost-priced posture raises the revisit bar (amends [ADR 0017](0017-postgres-recursive-ctes-over-owl-rdf.md)) | Accepted |
+| [0096](0096-phase-6-learning-outcome-taxonomy.md) | Phase 6 learning-outcome taxonomy: 3-level depth (introductory / analytical / comparative-research) + Decoding-the-Disciplines bottleneck moves as (depth_level, bottleneck_move) tuple | Accepted |
 
-> Session δ₂ (S-0203) lands the third of Session δ's four foundational ADRs — the tool-stack settlement — alongside Q1/Q2/Q3/D6 coordination + schema-item adjudications captured in `HANDOFF.md`. The fourth foundational ADR (learning-outcome taxonomy) lands later in the same session (ADR 0096 below). ADR 0095 amends [ADR 0017](0017-postgres-recursive-ctes-over-owl-rdf.md) in-body (Status stays Accepted on 0017; substrate conclusion unchanged; revisit bar raised and OSS-license-compatibility constraint added).
+> Session δ₂ (S-0203) lands the third and fourth of Session δ's four foundational ADRs (tool-stack settlement + learning-outcome taxonomy) alongside Q1/Q2/Q3/D6 coordination + schema-item adjudications captured in `HANDOFF.md`. All four Session δ foundational ADRs (0093, 0094, 0095, 0096) are now landed. ADR 0095 amends [ADR 0017](0017-postgres-recursive-ctes-over-owl-rdf.md) in-body (Status stays Accepted on 0017; substrate conclusion unchanged; revisit bar raised and OSS-license-compatibility constraint added). ADR 0096 is open-for-revision via in-body amendment per its load-bearing premise 5 (additive revisions amend; structural revisions supersede).
 
 ## Adding a new product ADR
 
