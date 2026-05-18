@@ -1,0 +1,70 @@
+{
+  "id": "S-0207",
+  "started_at": "2026-05-18T20:55:00Z",
+  "closed_at": "2026-05-18T22:55:00Z",
+  "status": "closed",
+  "mode": "interactive",
+  "working_on": "Author product ADR 0097 + migration 0120 + rollback landing Tier-A Cluster 1 contestability substrate (per-edge confidence + provenance JSONB + counterexamples + version + review_status).",
+  "declared_scope": "Land product/adr/0097 (Tier-A Cluster 1 \u2014 contestability substrate) carrying an ADR 0084 Load-bearing premises subsection enumerating 6 premises with falsifiers; pair an engine_memory decisions drawer per two-layer recording. Author paired migration product/seed-graph/migrations/0120_edges_contestability_substrate.sql adding 7 new columns (trace_confidence, llm_confidence, disagreement_flag, counterexamples JSONB, version, review_status, last_reviewed) + ALTERing existing 2 columns (confidence \u2192 expert_confidence rename; provenance TEXT \u2192 JSONB with backfill of 533 existing rows) with full contract header + Postcondition-Assertions block per ADR 0055 Layer 2.5; author paired rollback migration; apply via mcp__supabase__apply_migration and verify end-to-end (assertions pass, rollback round-trip stable). Cascade ADR 0094 + ADR 0095 amending T1-A premises to verified status. Defer graph_versions table + DISAGREEMENT_THRESHOLD value + unguarded-claim validator soft-warn implementation. phase: NA-tier-a-cluster-1",
+  "outcome_summary": "Tier-A Cluster 1 contestability substrate landed end-to-end (drawer 14df75b5 for ADR 0097). Three commits: ADR 0097 + ADR 0094/0095 T1-A closure amendments + ROUTING.md S-0207 narrative + product/adr/README.md index entry (caddf21); migration 0120 + paired rollback (5735bbe); fixes (DROP DEFAULT pattern + Postcondition-Assertions corrected against verified production state + ADR 0097 Consequences amended for actual reviewer-token distribution; ce2be2e). Migration applied via mcp__supabase__apply_migration with end-to-end round-trip verification (apply \u2192 rollback \u2192 re-apply produced identical row-level state at each step). 533-row count invariant; 9 column-level changes (rename confidence \u2192 expert_confidence preserving 5-distinct REAL distribution from prior production-audit follow-ups; ALTER provenance TEXT \u2192 JSONB preserving 526 ai-seed + 7 qa_census_disposition_s_0183 reviewer tokens via USING jsonb_build_object; ADD COLUMN \u00d7 7 with appropriate defaults + CHECK constraints). Closes ADR 0094 T1-A (Tier-A implementability without re-decomposition \u2014 premise verified at this session via Cluster 1 landing in one migration with no scope re-shape) + ADR 0095 T1-A (Postgres+JSONB substrate-implementability \u2014 verified via plain typed columns + JSONB for two structured fields; no Apache AGE escalation). Both Consequences sections amended in-body with closure markers. 6 ADR 0084 load-bearing premises authored (T1-A contestability-as-atomic verified at synthesis convergence; T1-B disagreement_flag computation correctness + threshold value deferred to post-SQA calibration; T2-A/B/C adequacy premises deferred to first downstream consumer). engine_memory drawers paired (decisions 14df75b5; self-pushback drawer 1d47c76b \u2014 assertion-failure-vs-migration-correctness disambiguation when row count + schema shape correct but value distribution diverges from expected; lesson drawer fa216b3b \u2014 Postgres ALTER COLUMN TYPE with USING-clause backfill does NOT auto-cast DEFAULT expression, error 42804, requires DROP DEFAULT \u2192 ALTER TYPE \u2192 SET new DEFAULT pattern). Diary write 1489cc8c. Issues filed: #151 (priority:urgent \u2014 recurring Supabase pooler wedge during validate.py graph_audit, second occurrence within 24h post-S-0206, user-explicit 'won't work as a recurring issue') + #152 (deferred validate_edges_contestability_unguarded_high_confidence validator soft-warn implementation; gates on Cluster 2 retyping so the warn fires meaningfully on ~17 edges rather than all 533). Cold-review pass (SQL): 2 files (0120 + rollback), all match contract \u2014 Explore agent reported PASS on contract-vs-body match, discipline compliance, and round-trip safety. Next session work item: Cluster 2 (edge-type taxonomy expansion + three-relation layered separation) per ADR 0094 dependency order C1 \u2192 C2; claims migration slot 0130; retypes 516 pedagogical_prerequisite edges to soft_prerequisite default coordinating with this session's review_status: 'provisional' default. Carry-forward open questions Q1-F2 + Q1-F4 unchanged. Approved plan: ~/.claude/plans/clever-seeking-wigderson.md.",
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": true,
+    "explanation": "Declared scope was 'land ADR 0097 + migration 0120 + paired rollback; apply + verify; cascade ADR 0094 + ADR 0095 T1-A; defer graph_versions table + DISAGREEMENT_THRESHOLD + unguarded-claim soft-warn'. All delivered. User-confirmed adjudications via plan-mode AskUserQuestion: confidence symmetric REAL (recommended) + ALTER+backfill (recommended) + graph_versions deferred (recommended) + threshold value deferred (recommended). Migration applied + round-trip verified end-to-end despite Supabase pooler wedge blocking pre-commit hooks twice during the session (user manually committed migration + fixes with --no-verify after Supabase project restart, per S-0207 wedge recovery flow tracked at Issue #151). Two additional Issues filed during the session beyond the deferrals named in scope: #151 for the recurring wedge itself; #152 formalizing the deferred unguarded-claim soft-warn as a follow-up Issue (gates on Cluster 2). Validate --final-check at shutdown clean (0 hard fails; 413 soft warns \u2014 404 annotated baselines + 8 issue_collision + 1 engine_memory_zero_citations_after_search). ADR 0097 Consequences corrected mid-session when applied migration revealed actual production data was richer than the schema defaults the ADR initially described (526 ai-seed + 7 qa_census reviewer tokens, not 'human'; 5 distinct confidence values, not just 1.0) \u2014 Consequences amended in-body via fix-commit ce2be2e."
+  },
+  "next_session_handle": null,
+  "outcome_summary_soft_warns": {
+    "expected_future_file_missing": 0,
+    "adr_missing_status": 0,
+    "adr_index_inconsistent": 0,
+    "cross_reference_broken": 0,
+    "state_format": 0,
+    "superseded_adr_currency": 0,
+    "adr_back_reference_orphan": 0,
+    "adr_consequences_deliverable_audit": 0,
+    "repo_config_health": 0,
+    "skill_layer1_parity_drift": 0,
+    "engine_memory_boot_query_skipped": 0,
+    "engine_memory_diary_read_skipped": 0,
+    "engine_memory_diary_write_skipped": 0,
+    "engine_memory_zero_citations_after_search": 0,
+    "outcome_summary_unhandled_defer": 0,
+    "next_session_handle_unknown_issue": 0,
+    "next_session_handle_unknown_session": 0,
+    "next_session_handle_malformed": 0,
+    "issue_collision": 8,
+    "missing_rigor_score": 358,
+    "edge_evidence_empty": 46,
+    "validator_runtime_phase_regression": 0
+  },
+  "side_discoveries": [
+    "Existing 533 edges did NOT carry the schema defaults the ADR initially assumed. Production data was richer: confidence had 5 distinct values (499\u00d71.0 + 7\u00d70.95 + 15\u00d70.9 + 11\u00d70.85 + 1\u00d70.8 from prior production-audit follow-up sessions S-0123/S-0182/S-0183); provenance was 526 'ai-seed' (Phase 5 routine seed sessions supplied explicit reviewer rather than letting schema DEFAULT 'human' fire) + 7 'qa_census_disposition_s_0183' (S-0183 QA work). The migration's ALTER+backfill via USING preserved the actual data verbatim; the discrepancy was between ADR Consequences prose and reality, not between migration and data. Lesson: query distinct values BEFORE authoring Postcondition-Assertions for schema migrations against production data \u2014 schema DEFAULTs are a poor proxy.",
+    "Postgres ALTER COLUMN TYPE with USING-clause backfill does NOT auto-cast the DEFAULT expression \u2014 error 42804 'default for column X cannot be cast automatically to type Y' even when USING handles the data conversion. Required split into DROP DEFAULT \u2192 ALTER TYPE \u2192 SET new DEFAULT pattern for both forward (TEXT \u2192 JSONB) and rollback (JSONB \u2192 TEXT). Documented in lesson drawer fa216b3b; Cluster 2+ ADR authors should expect to hit the same pattern when doing column-type changes with DEFAULTs.",
+    "Issue #151 \u2014 Supabase pooler wedge recurred TWICE within 20 minutes of restart this session (vs. S-0206's single occurrence). The wedge structurally blocks the pre-commit hook's graph_audit phase via TCP poll on the AWS endpoint. User explicit on recurrence: 'this won't work as a recurring issue'. Mitigation candidates filed in Issue body (connection-cleanup hardening, connect/statement timeouts, monitoring instrumentation, pooler-mode investigation). Workaround for now: manual --no-verify commits after each Supabase restart, scoped to single commits \u2014 degrades build-session lifecycle materially.",
+    "Validate-history.jsonl now carries multiple ~1-hour entries from wedged validate runs that polluted the regression check (it fired false positives on duration_graph_audit_ms + duration_total_ms during this session). Worth a follow-up clean either via history pruning or via wedge-detection-and-exclusion in the regression check logic. Surface at next audit.",
+    "supabase_migrations.schema_migrations now carries three 0120 entries (forward + rollback + re-apply) \u2014 matches the S-0123 revert-as-separate-entry pattern, but means a future re-apply via apply_migration.py wrapper would hit exit 6 'already applied'. Not blocking for Cluster 2+ which uses higher prefixes."
+  ],
+  "engine_memory_activity": {
+    "search_calls": 2,
+    "add_drawer_calls": 3,
+    "get_drawer_calls": 0,
+    "list_drawers_calls": 0,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "other_calls": 0,
+    "total_calls": 7,
+    "first_call_ts": "2026-05-18T20:25:25Z",
+    "last_call_ts": "2026-05-18T22:48:02Z",
+    "search_first_ts": "2026-05-18T20:25:25Z",
+    "diary_read_first_ts": "2026-05-18T20:25:26Z",
+    "engine_memory_citations": {
+      "drawer_id_refs": 0,
+      "session_archive_refs": 1,
+      "tag_named_refs": 0,
+      "total": 1
+    }
+  },
+  "approved_plan": "/Users/shanekidd/.claude/plans/clever-seeking-wigderson.md",
+  "branch": "claude/interesting-hawking-46ff4e",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/interesting-hawking-46ff4e"
+}
