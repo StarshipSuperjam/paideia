@@ -35,22 +35,24 @@
 5. **Session ε — Adversarial residue adjudication.** User adjudicates 19 deferred findings (incorporate / escalate to own ADR / reject).
 6. **Session ζ — Synthesis revision + Issue-draft revision.** Issue drafts are ready to file only after this.
 
-**Decisions already settled in this session** (will be ADR'd in Session δ; MemPalace decision drawers written for each):
+**Decisions already settled in this session** (MemPalace decision drawers written for each; ADR'd progressively):
 
-1. **Paideia product trajectory** — learner-facing + open-source/forkable; **NO LMS-integrated tooling** on projects user is directly involved with (third-party LMS integrations of the OSS graph not foreclosed).
-2. **Two-bias-surface partition** — graph-topology bias (currently uncovered) distinct from LLM-mediated bias (existing anti-bias mechanism covers a subset of input-side). Both surfaces require parallel mechanisms.
-3. **Contestability is atomic** — confidence (3-source) + provenance (5-field) + counterexamples + version history land as a unit; adding any one without the others produces unmoored data.
-4. **Mass-retyping default reversed** — 516 existing `pedagogical_prerequisite` edges retype to `soft_prerequisite` (NOT `hard_prerequisite`) per `paper_1:L162` expert overconfidence finding. Upgrades only after SQA validation with learner-trace evidence.
-5. **Quality-first deliberation posture** — no Issues fire before Session ζ.
+1. **Paideia product trajectory** — learner-facing + open-source/forkable; **NO LMS-integrated tooling** on projects user is directly involved with (third-party LMS integrations of the OSS graph not foreclosed). **ADR'd at S-0202 as [`product/adr/0093`](product/adr/0093-phase-6-product-trajectory-formalization.md)** with four binding commitments specialized for Phase 6 substrate work.
+2. **Two-bias-surface partition** — graph-topology bias (currently uncovered) distinct from LLM-mediated bias (existing anti-bias mechanism covers a subset of input-side). Both surfaces require parallel mechanisms. (Pending ADR — likely Cluster 8 product ADR in Phase 7+ per ADR 0094 Tier-C deferral.)
+3. **Contestability is atomic** — confidence (3-source) + provenance (5-field) + counterexamples + version history land as a unit; adding any one without the others produces unmoored data. (Pending ADR — Cluster 1 product ADR in Session δ₂+ per ADR 0094 Tier-A dependency order 1→2→4→3→5.)
+4. **Mass-retyping default reversed** — 516 existing `pedagogical_prerequisite` edges retype to `soft_prerequisite` (NOT `hard_prerequisite`) per `paper_1:L162` expert overconfidence finding. Upgrades only after SQA validation with learner-trace evidence. (Pending ADR — Cluster 2 product ADR in Session δ₂+ per ADR 0094 dependency order.)
+5. **Quality-first deliberation posture** — no Issues fire before Session ζ. (Posture, not ADR — applies through the remainder of the pre-phase sessions per pushback drawer 1dc03200.)
 
 **Commit posture (post-S-0199 update).** All artifacts committed at HEAD; `engine/HANDOFF.md` duplicate previously deleted; engine_memory drawers (post-S-0193 migration per ADR 0091) carry the conversational substrate. The Session α deliverable lives at [`engine/build_readiness/pdg_papers_extraction/adr_cross_reference_map.md`](engine/build_readiness/pdg_papers_extraction/adr_cross_reference_map.md).
 
 **Pre-phase progress:**
 
 - ✅ Session α (S-0199) — cross-reference audit complete; `adr_cross_reference_map.md` authored.
-- ⏳ Session β — Kant/phenomenology walk-through against actual Paideia data → `kant_walkthrough.md`.
-- ⏳ Session γ — Foundational reading (Meyer & Land / Middendorf & Pace / Spiro / Falmagne et al.) → `foundations.md`.
-- ⏳ Session δ — Four foundational ADRs (Phase 6 scope; tool-stack; learning-outcome taxonomy; product trajectory confirmation). Per Session α adversarial findings, Session δ must adjudicate three coordination questions BEFORE drafting individual ADRs: `node_type` enum compatibility with ADR 0008 (spans C4/C5/C8); institutional-vs-individual scope under ADR 0065 OSS pivot (spans C15/C16/C17); BYOK execution-surface per cluster (spans C8/C10/C11/C14/C15).
+- ✅ Session β (S-0200) — Kant/phenomenology walkthrough complete; `kant_walkthrough.md` authored (601 lines; 8 D1-D8 adjudication items + 4 F1-F4 reading items).
+- ✅ Session γ (S-0201) — Foundational reading complete; `foundations.md` authored (473 lines; F1-F4 answered with explicit evidence-tier markers).
+- 🟡 **Session δ₁ (S-0202) PARTIAL** — Two of four foundational ADRs landed: [`product/adr/0093`](product/adr/0093-phase-6-product-trajectory-formalization.md) (Product Trajectory formalization) + [`product/adr/0094`](product/adr/0094-phase-6-scope.md) (Phase 6 Scope: expand to include Tier-A substrate Clusters 1-5 before SEP/embedding self-correction). The HANDOFF "four options" framing (A expand-all-17 / B narrow-to-Tier-A / C halt / D rescope) reduced after foreclosing C (per ADR 0093 commitment b) and dropping D (underspecified); synthesis.md §"Phase 6 master-plan-input subsection" supplied the empirically-grounded binary; Option α chosen.
+- ⏳ Session δ₂ — Remaining two foundational ADRs (tool-stack [Postgres+JSONB vs Neo4j vs RDF/Jena — adversarial E.10.3 MUST settle before any Tier-A migration]; learning-outcome taxonomy [Bloom vs SOLO vs Decoding-the-Disciplines vs Fink vs synthesis default]) + as many of (the 3 Session-α coordination questions + 8 `kant_walkthrough.md` §6.7 D1-D8 items) as fit within one session. Natural ordering: tool-stack first (gates Cluster 1+ migration schema shape per ADR 0094 premise P5); coordination question #1 second (gates Cluster 4 ADR shape); learning-outcome taxonomy third (gates Cluster 3 ADR shape).
+- ⏳ Session δ₃+ — Any remaining δ items that didn't fit in δ₂; first Tier-A cluster-implementation ADRs (likely Cluster 1 Contestability substrate first per dependency order 1→2→4→3→5).
 - ⏳ Session ε — Adversarial residue adjudication (19 deferred findings).
 - ⏳ Session ζ — Synthesis revision + Issue-draft revision. Issues fire only after Session ζ.
 
