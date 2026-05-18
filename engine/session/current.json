@@ -1,0 +1,14 @@
+{
+  "id": "S-0205",
+  "started_at": "2026-05-18T17:12:52Z",
+  "status": "in_progress",
+  "mode": "interactive",
+  "working_on": "Fix Issue #150 — validate-history.jsonl per-clone HISTORY_FILE resolution defeats ADR 0063 regression check; pin to canonical main-repo location.",
+  "declared_scope": "Land the fix for Issue #150 (S-0204 audit Finding B). Replace `HISTORY_FILE = REPO_ROOT / ...` in `engine/tools/validate.py` with a `_resolve_canonical_history_path()` helper that resolves to the main-repo's `engine/tools/validate-history.jsonl` via `git rev-parse --git-common-dir` (falls back to per-clone path on subprocess failure). Author `engine/tests/test_validate_history_resolution.py` (3 tests). Verify end-to-end (worktree run, boot-probe run, synthetic regression-fire, pytest, pre-commit hook integration). Author ADR 0063 Consequences amendment + `tools-validate-interpretation.md` annotation. Close Issue #150. Issue #115 deferred per user pick (trigger-gated; cluster ADR is the design surface). phase: NA-engine-apparatus",
+  "outcome_summary": null,
+  "scope_delivery": null,
+  "next_session_handle": null,
+  "approved_plan": "~/.claude/plans/need-to-fix-issue-inherited-treehouse.md",
+  "branch": "claude/kind-hertz-1ab935",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/kind-hertz-1ab935"
+}
