@@ -3524,6 +3524,19 @@ def validate_timestamp_helper_bypass() -> ValidationResult:
                 "AST walk skipped, possible bypass not detected.",
             )
             continue
+        # Path A pre-filter per S-0206 third-fire investigation (ADR 0063
+        # readiness-note T1-B closure). A file that contains none of the
+        # three keyword substrings cannot contain a matching Call node
+        # below — substring presence is a superset of attribute-access
+        # presence. Skipping the ast.parse + ast.walk on the ~93% of
+        # engine/tools/*.py files that don't contain any of the keywords
+        # cuts the dominant CPU cost (per-file AST construction) with no
+        # false negatives. Assumes Python source does not split these
+        # identifiers across `\` line-continuations — not present in current
+        # corpus and forbidden by ruff format; the regression check would
+        # surface the missed cost if this ever breaks.
+        if not any(kw in source for kw in ("isoformat", "strftime", "fromisoformat")):
+            continue
         try:
             tree = ast.parse(source, filename=str(py_path))
         except SyntaxError as e:

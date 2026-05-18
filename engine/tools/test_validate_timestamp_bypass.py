@@ -127,9 +127,17 @@ class TestValidateTimestampHelperBypass:
         result = validate_timestamp_helper_bypass()
         assert result.soft_warns.get("timestamp_helper_bypass", []) == []
 
-    def test_syntax_error_emits_skip_warn(self, stub_tools: Path) -> None:
-        """Unparseable file emits a single skip-warn rather than a crash."""
-        (stub_tools / "broken.py").write_text("def f(:\n  return 1\n")  # syntax error
+    def test_syntax_error_with_keyword_emits_skip_warn(self, stub_tools: Path) -> None:
+        """Unparseable file that contains one of the keywords emits a single
+        skip-warn rather than a crash. Per S-0206 the keyword pre-filter
+        skips files without any keyword before ast.parse runs (see
+        test_keyword_absent_skips_ast_parse below), so the parse-fail
+        handling only fires for files that fall through the pre-filter.
+        """
+        (stub_tools / "broken.py").write_text(
+            "# uses strftime in a comment so the pre-filter falls through\n"
+            "def f(:\n  return 1\n"
+        )
         result = validate_timestamp_helper_bypass()
         warns = result.soft_warns.get("timestamp_helper_bypass", [])
         assert len(warns) == 1
@@ -167,5 +175,35 @@ class TestValidateTimestampHelperBypass:
             'date -u +"%Y-%m-%dT%H:%M:%SZ"\n'
         )
         (stub_tools / "README.md").write_text("# Tools\n")
+        result = validate_timestamp_helper_bypass()
+        assert result.soft_warns.get("timestamp_helper_bypass", []) == []
+
+    def test_keyword_in_docstring_only_does_not_fire(self, stub_tools: Path) -> None:
+        """Per S-0206 Path A pre-filter — a file containing the keyword in a
+        docstring or string literal but no matching Call falls through the
+        pre-filter (substring present), gets AST-walked, and produces zero
+        warns. Verifies the pre-filter never narrows what the AST walk sees.
+        """
+        (stub_tools / "doc_only.py").write_text(
+            '"""Mentions strftime and isoformat in prose.\n\n'
+            "Helpers like strftime are routed through timestamps.py.\n"
+            "Never call .fromisoformat directly.\n"
+            '"""\n'
+            "def f() -> int:\n"
+            "    return 1\n"
+        )
+        result = validate_timestamp_helper_bypass()
+        assert result.soft_warns.get("timestamp_helper_bypass", []) == []
+
+    def test_keyword_absent_skips_ast_parse(self, stub_tools: Path) -> None:
+        """Per S-0206 Path A pre-filter — a file that does not contain any of
+        the three keywords is skipped entirely; even unparseable Python
+        without the keyword does NOT fire the parse-error soft-warn (the
+        pre-filter short-circuits before ast.parse). This is the perf-win
+        path that justifies the optimization.
+        """
+        # Syntax error AND no keyword → pre-filter skips before ast.parse;
+        # no parse-fail warn would surface.
+        (stub_tools / "broken_no_kw.py").write_text("def f(:\n  return 1\n")
         result = validate_timestamp_helper_bypass()
         assert result.soft_warns.get("timestamp_helper_bypass", []) == []
