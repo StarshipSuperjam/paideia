@@ -25,7 +25,7 @@ The `Status:` field is required; `engine/tools/validate.py` soft-warns on ADR fi
 
 ## Index
 
-The product collection has **41 ADRs total — 37 Accepted plus 4 Superseded** ([ADR 0002](0002-commercial-sustainability-without-pedagogical-compromise.md) by [ADR 0032](0032-personal-project-disposition.md); [ADR 0029](0029-personal-financial-cost-ceiling.md) by [ADR 0065](0065-oss-pivot-and-byok-disposition.md); [ADR 0032](0032-personal-project-disposition.md) by [ADR 0035](0035-multi-platform-apple-expansion.md); [ADR 0035](0035-multi-platform-apple-expansion.md) by [ADR 0065](0065-oss-pivot-and-byok-disposition.md)). The canonical project-wide ADR count lives in [`engine/STATE.md`](../../engine/STATE.md); the engine subtree carries the engine-side ADRs in [`engine/adr/`](../../engine/adr/). ADR numbers are drawn from a single shared sequence and do not duplicate across the partition. ADRs are grouped below by the structural role they play in the project.
+The product collection has **43 ADRs total — 39 Accepted plus 4 Superseded** ([ADR 0002](0002-commercial-sustainability-without-pedagogical-compromise.md) by [ADR 0032](0032-personal-project-disposition.md); [ADR 0029](0029-personal-financial-cost-ceiling.md) by [ADR 0065](0065-oss-pivot-and-byok-disposition.md); [ADR 0032](0032-personal-project-disposition.md) by [ADR 0035](0035-multi-platform-apple-expansion.md); [ADR 0035](0035-multi-platform-apple-expansion.md) by [ADR 0065](0065-oss-pivot-and-byok-disposition.md)). The canonical project-wide ADR count lives in [`engine/STATE.md`](../../engine/STATE.md); the engine subtree carries the engine-side ADRs in [`engine/adr/`](../../engine/adr/). ADR numbers are drawn from a single shared sequence and do not duplicate across the partition. ADRs are grouped below by the structural role they play in the project.
 
 ### Strong working commitments (ADRs 0001–0012)
 
@@ -126,6 +126,15 @@ The product collection has **41 ADRs total — 37 Accepted plus 4 Superseded** (
 | [0088](0088-sep-chunk-resolver-index.md) | SEP chunk-resolver index for node-level onward-reading pointers (`sep_chunks` junction table with graceful article-level degradation; settles OQ-DEC1-D) | Accepted |
 
 > The next available shared ADR number entering S-0152 was 0085 (engine ADRs 0066–0084 already occupied 0066–0084 in the shared sequence per ADR 0037). The four OQ-DEC1 settlements draw from the 0085–0088 range accordingly.
+
+### PDG papers extraction pre-phase — Session δ₁ foundational ADRs (ADRs 0093–0094, product-side)
+
+| ADR | Title | Status |
+|---|---|---|
+| [0093](0093-phase-6-product-trajectory-formalization.md) | Phase 6 product-trajectory formalization: learner-facing OSS+BYOK, no LMS bundling, web visualizer BYOK deferred | Accepted |
+| [0094](0094-phase-6-scope.md) | Phase 6 scope: expand to include Tier-A substrate redesign (Clusters 1-5) before SEP/embedding self-correction work | Accepted |
+
+> Session δ₁ (S-0202) landed the first two of Session δ's four foundational ADRs. The remaining two (tool-stack + learning-outcome taxonomy) plus the three Session-α coordination questions and the eight `kant_walkthrough.md` §6.7 D1-D8 schema items defer to Session δ₂+ per the S-0202 user-approved plan split. The PDG papers extraction pre-phase corpus lives at [`engine/build_readiness/pdg_papers_extraction/`](../../engine/build_readiness/pdg_papers_extraction/). Engine ADRs 0089–0092 occupied the 0089–0092 range between the OQ-DEC1 settlements and these ADRs in the shared sequence per ADR 0037.
 
 ## Adding a new product ADR
 
