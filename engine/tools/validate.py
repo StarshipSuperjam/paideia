@@ -177,9 +177,68 @@ from timestamps import emit_micros  # noqa: E402  # ADR 0058
 # ---------------------------------------------------------------------------
 
 # Validator lives at engine/tools/validate.py post-S-0024 migration; REPO_ROOT
-# walks three levels up (validate.py → tools/ → engine/ → repo root).
+# walks three levels up (validate.py → tools/ → engine/ → repo root). REPO_ROOT
+# resolves to the ACTIVE clone (worktree or main repo) and is used for
+# repo-internal path resolution (STATE.md, required files, etc.) where the
+# active-clone perspective is correct.
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-HISTORY_FILE = REPO_ROOT / "engine" / "tools" / "validate-history.jsonl"
+
+
+def _resolve_canonical_history_path(cwd: Path | None = None) -> Path:
+    """Resolve the validate-history.jsonl path to the canonical main-repo location.
+
+    Per ADR 0063 Consequences amendment (S-0205, Issue #150): the regression-check
+    input is a single time-series of runs across the project's actual validate
+    activity, not per-clone activity. Each worktree has its own checkout of
+    validate.py, so `Path(__file__).resolve().parent.parent.parent` resolves to
+    the worktree's root — per-clone HISTORY_FILE resolution fragments the time
+    series and structurally defeats `validate_runtime_phase_regression()`.
+
+    Resolution: ``git rev-parse --git-common-dir`` returns ``<main-repo>/.git``
+    from any worktree or from the main repo itself. The main-repo root is the
+    parent of that ``.git`` directory; the canonical history path is
+    ``<main-repo>/engine/tools/validate-history.jsonl``.
+
+    Concurrent-write safety: JSONL records are ~250-1000 bytes; POSIX guarantees
+    atomic append for writes ≤ PIPE_BUF (4KB) on local filesystems, so
+    concurrent sessions appending to the canonical file do not interleave at
+    the byte level.
+
+    Falls back to the per-clone path (``cwd`` or REPO_ROOT-relative) on any
+    subprocess failure — covers running outside a git repo (tarball extraction,
+    test harness with no git fixture, etc.).
+
+    Inputs:
+        cwd: optional working directory for the ``git rev-parse`` subprocess.
+            Defaults to ``REPO_ROOT`` (the active clone's root). Tests pass
+            tmp-fixture paths.
+    """
+    base = cwd if cwd is not None else REPO_ROOT
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            cwd=base,
+            env=scrubbed_env(),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+        if proc.returncode == 0 and proc.stdout.strip():
+            common_dir = Path(proc.stdout.strip())
+            # `git rev-parse --git-common-dir` returns <main-repo>/.git from any
+            # worktree (or from the main repo itself). The parent of the .git
+            # directory is the main-repo root.
+            main_repo = common_dir.parent if common_dir.name == ".git" else common_dir
+            return main_repo / "engine" / "tools" / "validate-history.jsonl"
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    # Fallback: per-clone path (pre-fix behavior). Defensive — never raises;
+    # telemetry is best-effort.
+    return base / "engine" / "tools" / "validate-history.jsonl"
+
+
+HISTORY_FILE = _resolve_canonical_history_path()
 
 REQUIRED_TOP_LEVEL = [
     "README.md",
