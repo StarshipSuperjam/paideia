@@ -256,7 +256,9 @@ Recoverable: prune resolved sections per the preamble's discipline (content pres
 
 ### `validator_runtime_phase_regression`
 
-Per [ADR 0063](../adr/0063-validator-tiered-runtime-targets-and-regression-soft-warn.md) (S-0126; four-phase model from S-0127 Issue #90). Fires when any one of the four validator phases (`duration_structural_ms`, `duration_health_probe_ms`, `duration_graph_audit_ms`, `duration_total_ms`) exceeds 1.5× its tiered target (500ms / 5000ms / 5000ms / 11000ms) across the last 3 consecutive runs in `engine/tools/validate-history.jsonl` (the current run participates in the rolling window). Pre-S-0126 entries that carry only `duration_ms` and pre-S-0127 entries that carry the three-field schema are skipped (insufficient per-phase fields).
+Per [ADR 0063](../adr/0063-validator-tiered-runtime-targets-and-regression-soft-warn.md) (S-0126; four-phase model from S-0127 Issue #90; HISTORY_FILE pinning from S-0205 Issue #150). Fires when any one of the four validator phases (`duration_structural_ms`, `duration_health_probe_ms`, `duration_graph_audit_ms`, `duration_total_ms`) exceeds 1.5× its tiered target (500ms / 5000ms / 5000ms / 11000ms) across the last 3 consecutive runs in `engine/tools/validate-history.jsonl` (the current run participates in the rolling window). Pre-S-0126 entries that carry only `duration_ms` and pre-S-0127 entries that carry the three-field schema are skipped (insufficient per-phase fields).
+
+**HISTORY_FILE resolution** — the JSONL log lives at the canonical main-repo path resolved via `_resolve_canonical_history_path()` in `validate.py`: `git rev-parse --git-common-dir` returns `<main-repo>/.git` from any worktree or the main repo itself, and the canonical history is `<main-repo>/engine/tools/validate-history.jsonl`. All worktrees + the main repo write to the same shared file, so the regression check sees a single time-series of runs across the project's actual validate activity. Falls back to per-clone path on subprocess failure (covers test harnesses, tarball extractions). Pre-S-0205 per-worktree files are abandoned in place (gitignored, harmless). Concurrent appends are atomic under POSIX (records ~500 bytes, well under PIPE_BUF 4KB).
 
 Recoverable: investigate the offending phase's hot path (which subcheck regressed?). If the phase boundary itself is wrong (a slow concern misclassified into the wrong phase), correct it — the S-0126 first-fire was resolved this way at S-0127 by extracting `validate_shared_state_health` from the structural phase into its own `health_probe` phase. If the steady-state has legitimately shifted (new infrastructure raised a baseline, or live-DB load varies), adjust `VALIDATOR_PHASE_TARGETS_MS` in `validate.py` with evidence in the commit.
 
@@ -552,7 +554,7 @@ Categories meeting the retire-candidate predicate (fired 0/20 in cadence window 
 
 Trend canon: committed `engine/session/archive/S-NNNN.json` field `outcome_summary_soft_warns` per [ADR 0042](../adr/0042-soft-warn-lifecycle-archive-canon.md). Read by `engine/tools/health_check.py` and the `/start-engine` boot procedure.
 
-Per-invocation forensics: `engine/tools/validate-history.jsonl` (gitignored, per-clone). Useful for "when did this warn first appear" / "which commit introduced it" / "validator runtime drift."
+Per-invocation forensics: `engine/tools/validate-history.jsonl` (gitignored; canonical main-repo location since S-0205 per ADR 0063 Consequences amendment — all worktrees + main repo write to the same shared file via `_resolve_canonical_history_path()`). Useful for "when did this warn first appear" / "which commit introduced it" / "validator runtime drift."
 
 ## Closing-commit audits (hard-fail outside validate.py)
 
