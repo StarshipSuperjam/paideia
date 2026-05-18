@@ -1,0 +1,14 @@
+{
+  "id": "S-0202",
+  "started_at": "2026-05-18T05:15:03Z",
+  "status": "in_progress",
+  "mode": "interactive",
+  "working_on": "PDG papers extraction Session δ₁ — draft two foundational ADRs (Product Trajectory + Phase 6 Scope) per approved plan.",
+  "declared_scope": "Draft two foundational ADRs (product 0093 Product Trajectory + product 0094 Phase 6 Scope) for the PDG papers extraction pre-phase Session δ₁. Tool-stack ADR, learning-outcome taxonomy ADR, 3 Session-α coordination questions, and 8 D1-D8 items defer to δ₂+. Each ADR pairs with an engine_memory decisions drawer per two-layer recording. ADR 0094 carries a Load-bearing premises subsection per ADR 0084 contract-shape-change discipline. Cascade STATE.md (ADR count 92→94, NSWI for S-0203) + HANDOFF.md PDG checklist + per-session changelog entry. phase: NA-pre-phase-deliberation",
+  "outcome_summary": null,
+  "scope_delivery": null,
+  "next_session_handle": null,
+  "approved_plan": "/Users/shanekidd/.claude/plans/breezy-percolating-wilkinson.md",
+  "branch": "claude/laughing-bouman-087cad",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/laughing-bouman-087cad"
+}
