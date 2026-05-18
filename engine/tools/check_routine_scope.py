@@ -112,6 +112,13 @@ OPERATIONAL_ALLOWLIST: tuple[str, ...] = (
     # any routine task regardless of the active scope_lock.
     "engine/session/diary_pending_index.json",
     "engine/ENGINE_LOG.md",
+    # Per ADR 0092 (S-0198 cutover; #147 closure at S-0200). Per-session
+    # changelog entries at engine/changelog/<YYYY>/S-NNNN-<slug>.md replaced
+    # the monolithic ENGINE_LOG.md. The close commit writes the entry
+    # alongside STATE.md and archive; both routine and interactive build
+    # sessions need this glob in the close-mode verifier (downstream
+    # CLOSE_ALLOWED_GLOBS spreads from this tuple in both lifecycle wrappers).
+    "engine/changelog/**/*.md",
     "HANDOFF.md",
 )
 

@@ -628,6 +628,41 @@ def test_close_accepts_build_readiness_md_edit(tmp_path: Path) -> None:
     assert ok, f"close-with-readiness-note rejected: {reason}"
 
 
+def test_close_accepts_changelog_md_edit(tmp_path: Path) -> None:
+    """Issue #147: A close commit that touches engine/changelog/<YYYY>/S-NNNN-*.md
+    must be accepted, not refused as out-of-allowlist. The S-0198 ADR 0092
+    cutover (monolithic ENGINE_LOG.md → per-session changelog directory) added
+    the new write surface but missed the canonical OPERATIONAL_ALLOWLIST entry.
+    S-0199 close empirically exercised the gap; this test locks the fix."""
+    _origin, clone = _make_origin_with_clone(tmp_path)
+    _make_eager_claim_commit(clone)
+    _git(["push"], clone)
+
+    sess_dir = clone / "engine" / "session"
+    state = json.loads((sess_dir / "register_state.json").read_text())
+    state["current_status"] = "closed"
+    (sess_dir / "register_state.json").write_text(json.dumps(state) + "\n")
+    archive_dir = sess_dir / "archive"
+    archive_dir.mkdir(exist_ok=True)
+    (archive_dir / "S-0060.json").write_text(json.dumps({"id": "S-0060"}) + "\n")
+    (sess_dir / "current.json").unlink()
+    (sess_dir / "current_plan.md").unlink()
+    # Touch a per-session changelog entry as part of close (the ADR 0092
+    # pattern — every close authors one entry under engine/changelog/<YYYY>/).
+    changelog_dir = clone / "engine" / "changelog" / "2026"
+    changelog_dir.mkdir(parents=True, exist_ok=True)
+    (changelog_dir / "S-0060-fake-entry.md").write_text(
+        "---\nsession_id: S-0060\n---\n\n# S-0060 — fake entry\n\n## Changed\n\n- nothing real\n"
+    )
+    _git(["add", "-A"], clone)
+    _git(
+        ["commit", "-m", "chore(session): close S-0060 — with changelog entry"],
+        clone,
+    )
+    ok, reason = verify_close_shape(clone, "origin", "main")
+    assert ok, f"close-with-changelog-entry rejected: {reason}"
+
+
 def test_close_detects_rename_as_add_plus_delete(tmp_path: Path) -> None:
     """Rename-detection fix: `git mv current.json archive/S-NNNN.json` must
     be reported by get_changed_paths_since as separate D + A statuses, not
