@@ -16,31 +16,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from probe_versions import (  # noqa: E402
     _resolve_main_repo,
-    _safe_import_version,
     classify_venv,
     format_line,
     gather,
     main,
 )
-
-
-# ---------------------------------------------------------------------------
-# _safe_import_version
-# ---------------------------------------------------------------------------
-
-
-def test_safe_import_version_returns_version_for_installed_module() -> None:
-    # `json` ships with stdlib, has __version__ (string).
-    result = _safe_import_version("json")
-    assert isinstance(result, str)
-    assert result != "not-installed"
-
-
-def test_safe_import_version_returns_not_installed_for_missing() -> None:
-    assert (
-        _safe_import_version("a_module_that_will_never_exist_xyz_123")
-        == "not-installed"
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -102,23 +82,17 @@ def test_classify_venv_main_repo_via_git_common_dir(
 def test_format_line_happy_path() -> None:
     facts = {
         "python": "3.12.13",
-        "chromadb": "1.5.9",
-        "mempalace": "3.3.5",
         "venv": "/repo/.venv",
         "label": "worktree-local",
     }
     line = format_line(facts)
     assert "python=3.12.13" in line
-    assert "chromadb=1.5.9" in line
-    assert "mempalace=3.3.5" in line
     assert "venv=/repo/.venv (worktree-local)" in line
 
 
 def test_format_line_misconfigured_emits_loud_marker() -> None:
     facts = {
         "python": "3.9.6",
-        "chromadb": "1.4.1",
-        "mempalace": "3.3.3",
         "venv": "/usr",
         "label": "MISCONFIGURED",
     }
@@ -126,19 +100,6 @@ def test_format_line_misconfigured_emits_loud_marker() -> None:
     assert "MISCONFIGURED" in line
     assert "scrub_env.sh did not source" in line
     assert "system Python won" in line
-
-
-def test_format_line_handles_not_installed() -> None:
-    facts = {
-        "python": "3.12.13",
-        "chromadb": "not-installed",
-        "mempalace": "not-installed",
-        "venv": "/some/path",
-        "label": "main-repo",
-    }
-    line = format_line(facts)
-    assert "chromadb=not-installed" in line
-    assert "mempalace=not-installed" in line
 
 
 # ---------------------------------------------------------------------------
@@ -160,11 +121,11 @@ def test_resolve_main_repo_returns_none_when_not_git(tmp_path: Path) -> None:
 
 
 def test_gather_returns_expected_keys(tmp_path: Path) -> None:
-    """gather always returns the five expected keys regardless of state."""
+    """gather always returns the three expected keys regardless of state."""
     repo = tmp_path / "repo"
     repo.mkdir()
     facts = gather(str(repo))
-    assert set(facts.keys()) == {"python", "chromadb", "mempalace", "venv", "label"}
+    assert set(facts.keys()) == {"python", "venv", "label"}
     # Python version should be the actually-running interpreter.
     assert facts["python"] == sys.version.split()[0]
 
@@ -182,8 +143,6 @@ def test_main_default_emits_stdout_line(
     out = capsys.readouterr().out
     assert out.startswith("[session-start] Versions:")
     assert "python=" in out
-    assert "chromadb=" in out
-    assert "mempalace=" in out
 
 
 def test_main_json_emits_facts_dict(
@@ -193,4 +152,4 @@ def test_main_json_emits_facts_dict(
     assert rc == 0
     out = capsys.readouterr().out
     facts = json.loads(out)
-    assert set(facts.keys()) == {"python", "chromadb", "mempalace", "venv", "label"}
+    assert set(facts.keys()) == {"python", "venv", "label"}

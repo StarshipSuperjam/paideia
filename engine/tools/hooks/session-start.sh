@@ -16,10 +16,9 @@
 #      (off-by-one against ROADMAP/ADR 0022 prose), corrected at S-0031 to
 #      `next_id mod cadence == 0`. Second, the corrected strict-modulo logic
 #      silently slid the trigger forward by a full cadence whenever the
-#      cadence-aligned slot was consumed by user-directed work — S-0040's
-#      slot was taken by the deferred MemPalace wing-filter fix, leaving
-#      the next firing at S-0050 (a 19-session gap, nearly 2x the configured
-#      cadence). At S-0041, the logic was replaced with overdue-catchup:
+#      cadence-aligned slot was consumed by user-directed work — the trigger
+#      sat dormant for nearly 2x the configured cadence in that case. At
+#      S-0041, the logic was replaced with overdue-catchup:
 #      `(next_id - last_audit_session) >= cadence`, where last_audit_session
 #      is tracked in register_state.json and bumped by health_check.py after
 #      writing the report. The hook surfaces "due" at the natural-cadence
@@ -43,14 +42,16 @@
 #      competing against documented-expected baselines.
 #
 #   3. Shared-state health probe — per ADR 0045. Runs
-#      `validate.py --health-probe-only` (sub-second on a 130 MB
-#      palace) which executes probe_palace.py and probe_repo.py to
-#      catch corruption (chromadb HNSW segment, parent .git/config
-#      misset to bare) before the AI tries to query mempalace or
-#      run parent-side git operations. Hard-broken findings emit a
-#      LOUD stderr surface so the AI sees them at boot and addresses
-#      them before substantive work; the hook still exits 0 so the
-#      session can start (otherwise the AI cannot even diagnose).
+#      `validate.py --health-probe-only` (sub-second) which executes
+#      probe_repo.py and probe_session_dir.py to catch parent .git/config
+#      misset to bare and macOS Finder / iCloud-sync duplicate files in
+#      engine/session/ before the AI tries to run parent-side git
+#      operations. Hard-broken findings emit a LOUD stderr surface so the
+#      AI sees them at boot and addresses them before substantive work;
+#      the hook still exits 0 so the session can start (otherwise the AI
+#      cannot even diagnose). engine_memory's SQLite + FTS5 substrate has
+#      its own connect-time healthcheck() per ADR 0091 — no boot-time
+#      subprocess surface needed here.
 #
 # Behavior: emits informational stdout/stderr; never blocks. Always exits 0.
 #
@@ -133,10 +134,11 @@ fi
 # Version telemetry (per ADR 0080 engine, S-0147)
 # ---------------------------------------------------------------------------
 #
-# Surfaces the active venv's Python + chromadb + mempalace versions plus
-# the resolved venv prefix so the AI sees at boot which versions it's
-# actually running. Closes the visibility gap that drove the
-# S-0144→S-0146 MemPalace cold-start confusion arc.
+# Surfaces the active venv's Python version + the resolved venv prefix
+# so the AI sees at boot which Python it's actually running. Closes the
+# visibility gap that drove the S-0144→S-0146 cold-start confusion arc.
+# Per ADR 0091 the chromadb + mempalace dependencies retired; the probe
+# now reports only python + venv label.
 #
 # Verifies scrub_env.sh's PATH-prepend (per ADR 0050) actually won: when
 # sys.prefix matches neither the worktree-local nor main-repo .venv/,
@@ -489,13 +491,13 @@ fi
 # Shared-state health probe (per ADR 0045)
 # ---------------------------------------------------------------------------
 #
-# Runs `validate.py --health-probe-only` which wraps probe_palace.py
-# and probe_repo.py. Sub-second on a healthy state. Output is captured
+# Runs `validate.py --health-probe-only` which wraps probe_repo.py and
+# probe_session_dir.py. Sub-second on a healthy state. Output is captured
 # and surfaced based on the validator's exit code:
 #
 #   0 — healthy, single OK line.
-#   1 — soft-warn (palace empty, etc.); pass-through stderr.
-#   2 — hard-broken (chromadb segfault, parent core.bare=true);
+#   1 — soft-warn (probe-reported issue, e.g. repo_config_health); pass-through stderr.
+#   2 — hard-broken (parent core.bare=true, session_dir duplicate-file corruption);
 #       emit a LOUD attention surface so the AI sees it at boot and
 #       fixes before substantive work. Hook still exits 0 so the
 #       session can start to receive the fix.
@@ -523,7 +525,7 @@ if [ -x "$(command -v python3)" ] && [ -f "$VALIDATE_PY" ]; then
                 echo "[session-start] Shared-state health: SOFT-WARN findings:"
                 cat "$PROBE_TMP_ERR" 2>/dev/null | sed 's/^/  /'
                 echo "  See engine/operations/tools-validate-interpretation.md"
-                echo "  for chromadb_palace_health / repo_config_health categories."
+                echo "  for repo_config_health / session_dir_strays categories."
             } >&2
             PROBE_STATUS="soft-warn"
             ;;
@@ -532,8 +534,8 @@ if [ -x "$(command -v python3)" ] && [ -f "$VALIDATE_PY" ]; then
                 echo ""
                 echo "============================================================"
                 echo "[session-start] Shared-state health: HARD-BROKEN — boot proceeds"
-                echo "  but mempalace queries and parent-side git operations may"
-                echo "  fail. Diagnose and fix BEFORE substantive work."
+                echo "  but parent-side git operations may fail. Diagnose and"
+                echo "  fix BEFORE substantive work."
                 echo "============================================================"
                 cat "$PROBE_TMP_ERR" 2>/dev/null | sed 's/^/  /'
                 echo "------------------------------------------------------------"
@@ -597,249 +599,6 @@ if command -v gh >/dev/null 2>&1; then
     fi
 fi
 
-# ---------------------------------------------------------------------------
-# MemPalace MCP availability probe (per S-0089 follow-up to S-0087/S-0088
-# escape-hatch burial pattern; tightens ADR 0056 token contract)
-# ---------------------------------------------------------------------------
-#
-# Verifies the MemPalace substrate is reachable BEFORE the AI starts
-# substantive work. Two failure modes the S-0087 + S-0088 archives surfaced:
-#
-#   1. The AI's deferred-tool list at boot doesn't always include
-#      `mcp__mempalace__*` even when the MCP server is registered in
-#      `.mcp.json` and loadable. The S-0088 conversation's resume hook
-#      surfaced 30 mempalace tools that the boot hook hadn't.
-#
-#   2. The AI defaults to ADR 0056's `mempalace_unavailable_acknowledged`
-#      escape-hatch token when its tool surface lacks `mcp__mempalace__*`,
-#      burying the failure in `outcome_summary` text. S-0087 + S-0088
-#      both did this; the 3-of-5 persistent-warn surface was one session
-#      away from firing.
-#
-# This probe runs `mempalace status` from the hook's PATH (which the
-# scrub_env.sh PATH-prepend at sourcing time wires to the project venv
-# per ADR 0050). If the CLI is reachable AND the palace responds, the
-# substrate is live — if the AI's tool surface later lacks
-# `mcp__mempalace__*`, the AI must investigate (likely a Claude Code
-# MCP-load timing issue), NOT default to the acknowledgement token.
-#
-# Failure modes the probe distinguishes:
-#   - CLI not on PATH         → substrate cannot be queried at all.
-#   - CLI on PATH, status fails → substrate present but broken
-#                                  (corrupt sqlite / missing palace dir /
-#                                   chromadb open failure).
-#   - All clean               → substrate confirmed live.
-#
-# Emission shape: LOUD attention block when substrate unavailable
-# (mirrors shared-state health probe LOUD pattern). Quiet OK line when
-# clean. Hook always exits 0 — informational, never blocking. Mode
-# differentiation (engine LOUD vs routine standard) lands at close time
-# in validate.py --final-check, where current.json's `mode` field is
-# known; at boot, mode is not yet declared, so the surface is uniform.
-
-MCP_PROBE_STATUS=""
-if command -v mempalace >/dev/null 2>&1; then
-    if mempalace status >/dev/null 2>&1; then
-        echo "[session-start] MemPalace MCP substrate: OK"
-        MCP_PROBE_STATUS="ok"
-    else
-        # CLI present but `status` fails — substrate is broken
-        # (palace dir missing, sqlite corrupt, chromadb won't open,
-        # post-prune flux, etc.). The AI's tool surface may still
-        # include `mcp__mempalace__*` but every call will fail.
-        {
-            echo ""
-            echo "============================================================"
-            echo "[session-start] MemPalace MCP substrate: HARD-WARN — broken"
-            echo "============================================================"
-            echo "  \`mempalace status\` failed despite CLI being on PATH."
-            echo "  The MCP server (if loaded) will fail every call."
-            echo ""
-            echo "  Investigate BEFORE substantive work:"
-            echo "    - ls ~/.mempalace/palace          (palace dir exists?)"
-            echo "    - mempalace status 2>&1           (full error output)"
-            echo "    - mempalace repair-status         (HNSW divergence?)"
-            echo ""
-            echo "  Recovery: engine/tools/mempalace_rebuild_hnsw.py per its"
-            echo "  documented procedure (S-0084 precedent). DO NOT use"
-            echo "  ADR 0056's mempalace_unavailable_acknowledged token to"
-            echo "  bypass the diary write — that's the burial pattern"
-            echo "  S-0089 hardens against. Fix the substrate or pause the"
-            echo "  session and address upstream."
-            echo "============================================================"
-            echo ""
-        } >&2
-        MCP_PROBE_STATUS="status-failed"
-        log_fail "mempalace-mcp=status-failed"
-    fi
-else
-    # CLI not on PATH — substrate is unreachable from hooks. The MCP
-    # server may still load via .mcp.json (Claude Code resolves its own
-    # binary path), but the hook-side check has no way to verify. Loud
-    # surface so the user can address the venv-PATH wiring (ADR 0050).
-    {
-        echo ""
-        echo "============================================================"
-        echo "[session-start] MemPalace MCP substrate: HARD-WARN — CLI missing"
-        echo "============================================================"
-        echo "  \`mempalace\` is not on the hook subshell PATH."
-        echo "  ADR 0050 wires the project venv's bin/ via scrub_env.sh"
-        echo "  at sourcing time; if that PATH-prepend isn't reaching the"
-        echo "  hook, the venv isn't installed at <main_repo>/.venv/ or"
-        echo "  the pyproject.toml's mempalace pin failed to install."
-        echo ""
-        echo "  Investigate BEFORE substantive work:"
-        echo "    - ls <main_repo>/.venv/bin/mempalace"
-        echo "    - command -v python3 && python3 -c 'import mempalace'"
-        echo "    - cat <main_repo>/.python-version"
-        echo "    - uv sync   # per ADR 0064 (S-0127), replaces uv pip install"
-        echo ""
-        echo "  If the AI's tool surface lacks \`mcp__mempalace__*\` AND"
-        echo "  this hook can't reach mempalace, the substrate is genuinely"
-        echo "  unavailable — ADR 0056's acknowledgement token applies"
-        echo "  honestly. If only one is true, the AI must investigate"
-        echo "  rather than default to the token (the S-0087/S-0088 burial"
-        echo "  pattern S-0089 hardens against)."
-        echo "============================================================"
-        echo ""
-    } >&2
-    MCP_PROBE_STATUS="cli-missing"
-    log_fail "mempalace-mcp=cli-missing"
-fi
-
-# ---------------------------------------------------------------------------
-# MemPalace HNSW sync_threshold consistency probe (per ADR 0079, S-0145)
-# ---------------------------------------------------------------------------
-#
-# Runs `mempalace_set_sync_threshold.py --verify-only` to detect drift
-# from the project-tuned 100 steady-state value. Three failure modes
-# the probe distinguishes:
-#
-#   1. Both collections at mempalace's _HNSW_BLOAT_GUARD 50_000 default
-#      — fresh rebuild OR rebuild ran without the post-swap threshold-
-#      set step. Surface a pointer to run the tool with --backup-dir.
-#   2. One collection at 100, the other at 50_000 — divergent state
-#      (one rebuild-related, one tuned). Surface the divergence; the
-#      user must adjudicate.
-#   3. Both at 100 — steady-state ok; one-line silent OK.
-#
-# Best-effort: the probe never auto-applies. Threshold modification
-# requires explicit `--backup-dir` invocation per the user-directed
-# safeguard. Hook always exits 0; surface findings are informational.
-
-THRESHOLD_TOOL="$REPO_ROOT/engine/tools/mempalace_set_sync_threshold.py"
-THRESHOLD_PROBE_STATUS="not-run"
-if [ "$MCP_PROBE_STATUS" = "ok" ] && [ -x "$(command -v python3)" ] && [ -f "$THRESHOLD_TOOL" ]; then
-    THRESHOLD_TMP="$(mktemp 2>/dev/null || echo "/tmp/session-start-threshold.$$")"
-    python3 "$THRESHOLD_TOOL" --verify-only \
-        >"$THRESHOLD_TMP" 2>&1
-    THRESHOLD_EXIT=$?
-    case "$THRESHOLD_EXIT" in
-        0)
-            # Consistent state. Surface only if not at project target (100);
-            # otherwise stay silent. The tool already emits one-line summary
-            # to stderr — capture and pass through only the summary line.
-            if grep -q "Consistent but not at target" "$THRESHOLD_TMP" 2>/dev/null; then
-                cat "$THRESHOLD_TMP" >&2 2>/dev/null
-                THRESHOLD_PROBE_STATUS="consistent-but-not-at-target"
-            else
-                # Match expected steady-state at 100; one-line OK.
-                grep "consistent: all collections" "$THRESHOLD_TMP" >&2 2>/dev/null
-                THRESHOLD_PROBE_STATUS="at-target"
-            fi
-            ;;
-        1)
-            # Divergent. Pass full stderr through.
-            {
-                echo ""
-                echo "============================================================"
-                echo "[session-start] MemPalace sync_threshold: DIVERGENT"
-                echo "============================================================"
-                cat "$THRESHOLD_TMP" 2>/dev/null | sed 's/^/  /'
-                echo "------------------------------------------------------------"
-                echo "  Run with backup to converge to the project target (100):"
-                echo "    python3 engine/tools/mempalace_set_sync_threshold.py \\"
-                echo "      --threshold 100 \\"
-                echo "      --backup-dir ~/.mempalace/palace.S-NNNN-pre-threshold-switch"
-                echo "  See ADR 0079 for the threshold-value deliberation."
-                echo "============================================================"
-                echo ""
-            } >&2
-            THRESHOLD_PROBE_STATUS="divergent"
-            ;;
-        *)
-            # Probe error — log and continue. Don't surface noisily;
-            # the substrate may be transiently unhappy and a noisy
-            # surface every boot would dilute signal.
-            log_fail "threshold-probe-exit-$THRESHOLD_EXIT"
-            THRESHOLD_PROBE_STATUS="exit-$THRESHOLD_EXIT"
-            ;;
-    esac
-    rm -f "$THRESHOLD_TMP" 2>/dev/null
-else
-    THRESHOLD_PROBE_STATUS="skipped-prereq-or-mcp"
-fi
-
-# ---------------------------------------------------------------------------
-# Pending mempalace diary writes (per ADR 0056, S-0091 routine-protection
-# refinement)
-# ---------------------------------------------------------------------------
-#
-# Routine sessions whose mempalace diary write is skipped at close
-# append an entry to engine/session/diary_pending_index.json instead of
-# hard-failing (S-0091 routine protection: never block the routine line
-# on mempalace MCP availability). Surface the count + session IDs at
-# every subsequent boot until the user reconnects MCP and runs the
-# deferred-diary recovery procedure (engine/operations/routine-mode-
-# operations.md "Deferred diary recovery").
-#
-# Best-effort: malformed or missing index emits a one-line note and the
-# boot proceeds.
-
-PENDING_DIARY_INDEX="$REPO_ROOT/engine/session/diary_pending_index.json"
-if [ -f "$PENDING_DIARY_INDEX" ] && [ -x "$(command -v python3)" ]; then
-    PENDING_OUTPUT=$(python3 - <<EOF 2>/dev/null
-import json, sys
-try:
-    data = json.load(open("$PENDING_DIARY_INDEX"))
-    pending = data.get("pending", [])
-    if not isinstance(pending, list):
-        sys.exit(0)
-    if not pending:
-        sys.exit(0)
-    ids = [str(e.get("session_id", "?")) for e in pending if isinstance(e, dict)]
-    print(f"{len(ids)}|{','.join(ids)}")
-except (json.JSONDecodeError, OSError):
-    sys.exit(0)
-EOF
-)
-    if [ -n "$PENDING_OUTPUT" ]; then
-        PENDING_COUNT="${PENDING_OUTPUT%%|*}"
-        PENDING_IDS="${PENDING_OUTPUT#*|}"
-        {
-            echo ""
-            echo "============================================================"
-            echo "[session-start] Pending mempalace diary writes: $PENDING_COUNT ($PENDING_IDS)"
-            echo "============================================================"
-            echo "  Routine session(s) closed without a diary write because"
-            echo "  the mempalace MCP substrate was unavailable. The diary"
-            echo "  entries are deferrable, not lost — the recovery"
-            echo "  procedure is at:"
-            echo "    engine/operations/routine-mode-operations.md"
-            echo "    'Deferred diary recovery'"
-            echo ""
-            echo "  When MCP is reconnected (typically restart Claude"
-            echo "  Desktop), open an interactive session, point at the"
-            echo "  pending index, and process each entry: read the"
-            echo "  archived session, author a diary entry from the"
-            echo "  outcome_summary + work_done + mempalace_activity"
-            echo "  fields, call mempalace_diary_write, remove the entry."
-            echo "============================================================"
-            echo ""
-        } >&2
-        log_ok "pending-diary=$PENDING_COUNT"
-    fi
-fi
 
 # ---------------------------------------------------------------------------
 # Issues backlog visibility (per ADR 0048)
@@ -1118,5 +877,5 @@ if [ -f "$SCHEDULED_AUDITS_FILE" ]; then
     fi
 fi
 
-log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=$PERSISTENT_FOUND persistent-warns-annotated=$ANNOTATED_FOUND scheduled=$SCHEDULED_FOUND probe=$PROBE_STATUS mcp=$MCP_PROBE_STATUS threshold=$THRESHOLD_PROBE_STATUS backlog=$BACKLOG_STATUS scope_non_yes=$SCOPE_NON_YES conflict=$CONFLICT_STATUS env_pointer=$ENV_POINTER_STATUS stale_check=$STALE_CHECK_STATUS boot_sweep=$SWEEP_STATUS"
+log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=$PERSISTENT_FOUND persistent-warns-annotated=$ANNOTATED_FOUND scheduled=$SCHEDULED_FOUND probe=$PROBE_STATUS backlog=$BACKLOG_STATUS scope_non_yes=$SCOPE_NON_YES conflict=$CONFLICT_STATUS env_pointer=$ENV_POINTER_STATUS stale_check=$STALE_CHECK_STATUS boot_sweep=$SWEEP_STATUS"
 exit 0

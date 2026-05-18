@@ -1,11 +1,12 @@
-"""Boot-time version telemetry — surfaces the active venv's Python +
-chromadb + mempalace versions plus which venv resolver won.
+"""Boot-time version telemetry — surfaces the active venv's Python
+version plus which venv resolver won.
 
 Per ADR 0080 (engine), S-0147. Closes the visibility gap that drove the
-S-0144→S-0146 MemPalace cold-start confusion arc: knowing "mempalace
-3.3.5" vs "mempalace 3.3.3 from system Python" changes diagnosis
-entirely. ADR 0050's PATH wiring is opaque without a visibility surface;
-this probe gives the AI a fact-anchor at every boot.
+S-0144→S-0146 cold-start confusion arc: knowing which Python / venv
+won at boot changes diagnosis entirely. ADR 0050's PATH wiring is opaque
+without a visibility surface; this probe gives the AI a fact-anchor at
+every boot. Per ADR 0091 (S-0188) the chromadb + mempalace dependencies
+retired; the probe now reports only python + venv classification.
 
 Purpose
 -------
@@ -18,8 +19,8 @@ silently).
 
 Shape
 -----
-``[session-start] Versions: python=3.12.13 chromadb=1.5.9 mempalace=3.3.5
-venv=<path> (worktree-local|main-repo|MISCONFIGURED).``
+``[session-start] Versions: python=3.12.13 venv=<path>
+(worktree-local|main-repo|MISCONFIGURED).``
 
 CLI
 ---
@@ -56,15 +57,6 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Any
-
-
-def _safe_import_version(module_name: str) -> str:
-    """Return ``module.__version__`` or ``'not-installed'`` on ImportError."""
-    try:
-        mod = __import__(module_name)
-    except ImportError:
-        return "not-installed"
-    return str(getattr(mod, "__version__", "unknown"))
 
 
 def _resolve_main_repo(repo: str) -> str | None:
@@ -123,13 +115,9 @@ def gather(repo: str) -> dict[str, Any]:
     classification.
     """
     python_version = sys.version.split()[0]
-    chromadb_version = _safe_import_version("chromadb")
-    mempalace_version = _safe_import_version("mempalace")
     label, venv_path = classify_venv(sys.prefix, repo)
     return {
         "python": python_version,
-        "chromadb": chromadb_version,
-        "mempalace": mempalace_version,
         "venv": venv_path,
         "label": label,
     }
@@ -146,19 +134,14 @@ def format_line(facts: dict[str, Any]) -> str:
         )
     else:
         venv_part = f"venv={facts['venv']} ({label})"
-    return (
-        f"[session-start] Versions: python={facts['python']} "
-        f"chromadb={facts['chromadb']} mempalace={facts['mempalace']} "
-        f"{venv_part}"
-    )
+    return f"[session-start] Versions: python={facts['python']} {venv_part}"
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Boot-time version telemetry per ADR 0080 (engine). "
-            "Surfaces active Python + chromadb + mempalace versions and "
-            "which venv resolver won."
+            "Surfaces active Python version and which venv resolver won."
         ),
     )
     parser.add_argument(
