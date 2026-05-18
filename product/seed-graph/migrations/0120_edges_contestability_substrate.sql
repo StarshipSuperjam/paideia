@@ -68,11 +68,18 @@
 --   Empirical verification of the prose Postconditions above against
 --   the live DB after body apply. Verifies (a) schema shape — each
 --   new/renamed column exists or is removed as expected; (b) backfill
---   correctness — every existing row has the expected default values
---   in the new shape; (c) row-count invariance — pure schema change
---   does not mutate edge data; (d) constraint shape — CHECK and
---   DEFAULT semantics fire correctly. ON CONFLICT skip / partial
---   ALTER / silent backfill divergence would surface as exit 8.)
+--   correctness — every existing row carries the new structured
+--   provenance with all 5 required keys, and the actual reviewer-token
+--   distribution observed at S-0207 apply (526 ai-seed + 7
+--   qa_census_disposition_s_0183, totaling 533) is preserved verbatim
+--   from pre-state; (c) row-count invariance — pure schema change does
+--   not mutate edge data; (d) constraint shape — CHECK and DEFAULT
+--   semantics fire correctly; (e) the actual pre-state expert_confidence
+--   distribution (5 distinct values: 1.0×499 + 0.95×7 + 0.9×15 +
+--   0.85×11 + 0.8×1; set by prior production-audit follow-up sessions)
+--   is preserved with 5 distinct values present post-rename. ON CONFLICT
+--   skip / partial ALTER / silent backfill divergence would surface as
+--   exit 8.)
 --   SELECT count(*)::int FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'edges' AND column_name = 'expert_confidence' :: 1
 --   SELECT count(*)::int FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'edges' AND column_name = 'confidence' :: 0
 --   SELECT count(*)::int FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'edges' AND column_name = 'provenance' AND data_type = 'jsonb' :: 1
@@ -84,9 +91,9 @@
 --   SELECT count(*)::int FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'edges' AND column_name = 'review_status' :: 1
 --   SELECT count(*)::int FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'edges' AND column_name = 'last_reviewed' :: 1
 --   SELECT count(*)::int FROM public.edges :: 533
---   SELECT count(*)::int FROM public.edges WHERE expert_confidence = 1.0 :: 533
---   SELECT count(*)::int FROM public.edges WHERE provenance->>'reviewer' = 'human' :: 533
 --   SELECT count(*)::int FROM public.edges WHERE provenance ? 'source_text' AND provenance ? 'course_context' AND provenance ? 'version' AND provenance ? 'reviewer' AND provenance ? 'rationale' :: 533
+--   SELECT count(*)::int FROM public.edges WHERE provenance->>'reviewer' = 'ai-seed' :: 526
+--   SELECT count(*)::int FROM public.edges WHERE provenance->>'reviewer' = 'qa_census_disposition_s_0183' :: 7
 --   SELECT count(*)::int FROM public.edges WHERE counterexamples = '[]'::jsonb :: 533
 --   SELECT count(*)::int FROM public.edges WHERE version = 1 :: 533
 --   SELECT count(*)::int FROM public.edges WHERE review_status = 'provisional' :: 533
@@ -94,6 +101,8 @@
 --   SELECT count(*)::int FROM public.edges WHERE trace_confidence IS NULL :: 533
 --   SELECT count(*)::int FROM public.edges WHERE llm_confidence IS NULL :: 533
 --   SELECT count(*)::int FROM public.edges WHERE last_reviewed IS NULL :: 533
+--   SELECT count(DISTINCT expert_confidence)::int FROM public.edges :: 5
+--   SELECT count(*)::int FROM public.edges WHERE expert_confidence = 1.0 :: 499
 -- Invariants:
 --   * Row count on public.edges is preserved (533 before; 533 after).
 --     Pure schema change — no INSERT/UPDATE/DELETE of edges beyond
@@ -199,18 +208,24 @@ BEGIN;
 ALTER TABLE public.edges RENAME COLUMN confidence TO expert_confidence;
 ALTER TABLE public.edges RENAME CONSTRAINT edges_confidence_check TO edges_expert_confidence_check;
 
--- 2. ALTER provenance TEXT → JSONB with USING-clause backfill.
---    The 533 existing rows carry provenance = 'human' (the schema's
---    DEFAULT); the USING clause backfills each row to the five-field
---    JSONB structure preserving the 'human' token as reviewer. The
---    DEFAULT clause is also updated to the empty-object form for any
---    future INSERTs that omit provenance (immediately followed by a
---    CHECK that requires keys, so INSERT-without-provenance will
---    require an explicit JSONB literal — DEFAULT '{}'::jsonb fails
---    the CHECK and surfaces the contract).
---    NB: Postgres has no atomic "ALTER + new CHECK" — the type alter
---    runs first, then CHECK validates against the post-USING-clause
---    values. The backfill ensures all rows satisfy the new CHECK.
+-- 2a. DROP the prior TEXT default on provenance before ALTER TYPE.
+--     Postgres cannot auto-cast 'human'::text → jsonb in the DEFAULT
+--     expression even though the USING clause handles the data —
+--     the DEFAULT is a separate expression that does not see USING.
+--     This step is required even when the column has no rows whose
+--     default-value would be re-evaluated. Verified empirically at
+--     S-0207 apply (Postgres error 42804 without this step).
+ALTER TABLE public.edges ALTER COLUMN provenance DROP DEFAULT;
+
+-- 2b. ALTER provenance TEXT → JSONB with USING-clause backfill.
+--     The 533 existing rows carry actual reviewer tokens (per S-0207
+--     production verification: 526 with 'ai-seed' from Phase 5 routine
+--     seed sessions per S-0050+; 7 with 'qa_census_disposition_s_0183'
+--     from S-0183 QA work; zero with 'human' — the schema DEFAULT 'human'
+--     never fired because every INSERT supplied an explicit value). The
+--     USING clause preserves each row's actual reviewer token verbatim
+--     by reading `provenance` (the old TEXT value) into the JSONB
+--     `reviewer` key.
 ALTER TABLE public.edges
   ALTER COLUMN provenance TYPE JSONB
     USING jsonb_build_object(
@@ -219,8 +234,13 @@ ALTER TABLE public.edges
       'version', 1,
       'reviewer', provenance,
       'rationale', NULL::text
-    ),
-  ALTER COLUMN provenance SET DEFAULT '{}'::jsonb;
+    );
+
+-- 2c. SET the new JSONB default. The default object '{}' fails the
+--     CHECK below by design — future INSERTs must supply an explicit
+--     5-key JSONB literal; the default exists to keep the column NOT-
+--     NULL-safe in case the CHECK is ever loosened.
+ALTER TABLE public.edges ALTER COLUMN provenance SET DEFAULT '{}'::jsonb;
 
 -- 3. CHECK constraint on provenance: object shape + 5 required keys.
 ALTER TABLE public.edges

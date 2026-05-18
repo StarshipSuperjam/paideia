@@ -59,8 +59,10 @@
 --   SELECT count(*)::int FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'edges' AND column_name = 'review_status' :: 0
 --   SELECT count(*)::int FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'edges' AND column_name = 'last_reviewed' :: 0
 --   SELECT count(*)::int FROM public.edges :: 533
---   SELECT count(*)::int FROM public.edges WHERE confidence = 1.0 :: 533
---   SELECT count(*)::int FROM public.edges WHERE provenance = 'human' :: 533
+--   SELECT count(DISTINCT confidence)::int FROM public.edges :: 5
+--   SELECT count(*)::int FROM public.edges WHERE confidence = 1.0 :: 499
+--   SELECT count(*)::int FROM public.edges WHERE provenance = 'ai-seed' :: 526
+--   SELECT count(*)::int FROM public.edges WHERE provenance = 'qa_census_disposition_s_0183' :: 7
 -- Invariants:
 --   * Row count on public.edges is preserved (533 before; 533 after).
 --   * UNIQUE(source_id, target_id, edge_type) constraint is preserved.
@@ -95,14 +97,25 @@ BEGIN;
 --    jsonb_typeof/? checks invalid).
 ALTER TABLE public.edges DROP CONSTRAINT edges_provenance_shape_check;
 
--- 2. ALTER provenance JSONB → TEXT with USING-clause back-conversion.
---    Extracts provenance->>'reviewer' to restore the prior single-token
---    value. For all 533 existing rows (all have reviewer = 'human'),
---    the result is 'human' — restoring the prior schema's signal.
---    DEFAULT reverts to 'human' to match the pre-0120 schema.
+-- 2a. DROP the JSONB default before ALTER TYPE.
+--     Same Postgres limitation as the forward direction: '{}'::jsonb
+--     cannot auto-cast to TEXT in the DEFAULT expression. Verified
+--     empirically at S-0207 rollback round-trip exercise.
+ALTER TABLE public.edges ALTER COLUMN provenance DROP DEFAULT;
+
+-- 2b. ALTER provenance JSONB → TEXT with USING-clause back-conversion.
+--     Extracts provenance->>'reviewer' to restore the prior single-
+--     token TEXT value. Round-trip verified at S-0207: post-rollback
+--     yields 526 'ai-seed' + 7 'qa_census_disposition_s_0183' (matching
+--     the actual pre-0120 distribution observed at apply time — not
+--     all 'human' as the original ADR 0097 prose assumed; the 'human'
+--     schema DEFAULT never fired because every Phase 5+ INSERT
+--     supplied an explicit reviewer token).
 ALTER TABLE public.edges
-  ALTER COLUMN provenance TYPE TEXT USING (provenance->>'reviewer'),
-  ALTER COLUMN provenance SET DEFAULT 'human';
+  ALTER COLUMN provenance TYPE TEXT USING (provenance->>'reviewer');
+
+-- 2c. SET the TEXT default back to the prior schema value.
+ALTER TABLE public.edges ALTER COLUMN provenance SET DEFAULT 'human';
 
 -- 3. DROP the 7 new columns. Order does not matter (no FK relationships
 --    among them); listed in reverse-add order for symmetry with the
