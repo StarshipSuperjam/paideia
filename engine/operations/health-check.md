@@ -129,8 +129,8 @@ Each candidate is annotated with axis, signal, last substantive change, and inbo
 
 `tools/validate-history.jsonl` (gitignored, per-clone) — soft-warn category trends, validator runtime drift, hard-fail incidence. Per [ADR 0063](../adr/0063-validator-tiered-runtime-targets-and-regression-soft-warn.md), each record carries four per-phase duration fields against tiered targets:
 
-- **Structural phase** (in-process file/regex checks; no DB, no subprocess) — target **< 500ms**.
-- **Health-probe phase** (external-subprocess probes: chromadb open + repo state + GitHub Issues via `gh`) — target **< 5s**.
+- **Structural phase** (in-process file/regex checks; no DB, no subprocess) — target **< 700ms** (bumped from 500ms at S-0206 third-fire Path C closure; corpus growth 85→92 ADRs + 7→10 structural-phase functions raised steady-state).
+- **Health-probe phase** (external-subprocess probes: repo state + session-dir + GitHub Issues + lockfile freshness + Dependabot PRs) — target **< 5s**.
 - **Graph audit phase** (live-DB consultation per [ADR 0016](../adr/0016-graph-construction-needs-live-validation.md)) — target **< 5s**.
 - **Total runtime** — target **< 11s**.
 

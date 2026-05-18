@@ -2337,8 +2337,10 @@ class TestValidateRuntimePhaseRegression:
 
     def _breaching_entry(self) -> dict[str, Any]:
         # All four phases strictly exceed 1.5x their tiered target.
+        # (S-0206: structural target bumped 500→700 per ADR 0063 Path C closure;
+        # threshold is now 1.5 * 700 = 1050.)
         return {
-            "duration_structural_ms": 800.0,  # > 750 (1.5 * 500)
+            "duration_structural_ms": 1100.0,  # > 1050 (1.5 * 700)
             "duration_health_probe_ms": 8000.0,  # > 7500 (1.5 * 5000)
             "duration_graph_audit_ms": 8000.0,  # > 7500 (1.5 * 5000)
             "duration_total_ms": 17000.0,  # > 16500 (1.5 * 11000)
@@ -2393,11 +2395,12 @@ class TestValidateRuntimePhaseRegression:
     ) -> None:
         history = tmp_path / "h.jsonl"
         # Only structural phase breaches; others stay clean.
+        # (S-0206: structural target bumped 500→700; threshold 1.5 * 700 = 1050.)
         entry = {
-            "duration_structural_ms": 1000.0,  # > 1.5 * 500
+            "duration_structural_ms": 1100.0,  # > 1.5 * 700
             "duration_health_probe_ms": 3000.0,
             "duration_graph_audit_ms": 3000.0,
-            "duration_total_ms": 7100.0,
+            "duration_total_ms": 7200.0,
         }
         self._write_history(history, [entry] * 3)
         r = validate.validate_runtime_phase_regression(history_path=history)

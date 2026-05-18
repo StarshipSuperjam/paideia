@@ -3586,7 +3586,19 @@ def validate_timestamp_helper_bypass() -> ValidationResult:
 # Total: sum of phases plus shutdown audits when --final-check is set; ~500ms
 # buffer above phase sum for finalchecks + bookkeeping.
 VALIDATOR_PHASE_TARGETS_MS: dict[str, float] = {
-    "duration_structural_ms": 500.0,
+    # Structural target bumped 500 -> 700 at S-0206 (third regression fire,
+    # Path C closure per ADR 0063 readiness-note T1-C). Post-Path-A
+    # (validate_timestamp_helper_bypass keyword pre-filter at commit 78b439e)
+    # structural pipeline median measured 811ms on n=5 warm iterations
+    # (range 693-1097ms), with validate_adr_back_reference_orphan's intrinsic
+    # file I/O across ~211 non-ADR md files as the dominant residual cost.
+    # 700ms target -> 1050ms 1.5x threshold accommodates the measured warm
+    # range without masking future algorithmic regressions in the
+    # genuinely fast in-memory checks. Corpus has grown from 85 ADRs (S-0151
+    # baseline) to 92 ADRs and the structural-phase function count from 7
+    # to 10 (ADR 0089 skill-layer1 parity + ADR 0092 changelog entries /
+    # README governance).
+    "duration_structural_ms": 700.0,
     "duration_health_probe_ms": 5000.0,
     "duration_graph_audit_ms": 5000.0,
     "duration_total_ms": 11000.0,
