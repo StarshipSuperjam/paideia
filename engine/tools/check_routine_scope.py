@@ -46,7 +46,15 @@ apparatus the routine itself runs on:
   master-plan-integrity hook enforces this separately)
 - ``engine/session/archive/S-*.json``
 - ``engine/session/register_state.json``
-- ``engine/ENGINE_LOG.md``
+- ``engine/session/diary_pending_index.json`` (per ADR 0056 — routine
+  sessions that skip the engine_memory diary write at close append
+  to this index so the next boot surfaces the deferred-diary count;
+  the close commit must include this update or the entry is lost)
+- ``engine/ENGINE_LOG.md`` (legacy; file moved to
+  ``engine/changelog/_history/`` at S-0198 per ADR 0092 — entry is
+  harmless dead code per ADR 0091 Option B residue acceptance)
+- ``engine/changelog/**/*.md`` (per ADR 0092 — per-session changelog
+  entries written at close in lieu of the retired monolithic ENGINE_LOG.md)
 - ``HANDOFF.md``
 
 Exit codes
