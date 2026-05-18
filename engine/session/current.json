@@ -1,0 +1,14 @@
+{
+  "id": "S-0207",
+  "started_at": "2026-05-18T20:55:00Z",
+  "status": "in_progress",
+  "mode": "interactive",
+  "working_on": "Author product ADR 0097 + migration 0111 + rollback landing Tier-A Cluster 1 contestability substrate (per-edge confidence + provenance JSONB + counterexamples + version + review_status).",
+  "declared_scope": "Land product/adr/0097 (Tier-A Cluster 1 — contestability substrate) carrying an ADR 0084 Load-bearing premises subsection enumerating 6 premises with falsifiers; pair an engine_memory decisions drawer per two-layer recording. Author paired migration product/seed-graph/migrations/0111_edges_contestability_substrate.sql adding 7 new columns (trace_confidence, llm_confidence, disagreement_flag, counterexamples JSONB, version, review_status, last_reviewed) + ALTERing existing 2 columns (confidence → expert_confidence rename; provenance TEXT → JSONB with backfill of 533 existing rows) with full contract header + Postcondition-Assertions block per ADR 0055 Layer 2.5; author paired rollback migration; apply via mcp__supabase__apply_migration and verify end-to-end (assertions pass, rollback round-trip stable). Cascade ADR 0094 + ADR 0095 amending T1-A premises to verified status. Defer graph_versions table + DISAGREEMENT_THRESHOLD value + unguarded-claim validator soft-warn implementation. phase: NA-tier-a-cluster-1",
+  "outcome_summary": null,
+  "scope_delivery": null,
+  "next_session_handle": null,
+  "approved_plan": "/Users/shanekidd/.claude/plans/clever-seeking-wigderson.md",
+  "branch": "claude/interesting-hawking-46ff4e",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/interesting-hawking-46ff4e"
+}
