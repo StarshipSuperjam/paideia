@@ -1,0 +1,93 @@
+{
+  "id": "S-0203",
+  "started_at": "2026-05-18T05:55:14Z",
+  "status": "closed",
+  "mode": "interactive",
+  "working_on": "PDG papers extraction Session \u03b4\u2082 \u2014 tool-stack ADR + learning-outcome taxonomy ADR + Q1/Q2/Q3 + D6 (+ time-permitting D8) adjudications",
+  "declared_scope": "Land product/adr/0095 (tool-stack: Postgres+JSONB confirmed; OSS Apache-2.0 + cost-priced posture raises revisit bar; amends ADR 0017) + product/adr/0096 (learning-outcome taxonomy: 3-level depth + Decoding-the-Disciplines bottleneck moves), each carrying ADR 0084 extraction-step Load-bearing premises subsection + paired engine_memory decisions drawer. Adjudicate Q1 (node_type multi-valued, concept-level \u2014 settles D1+D2), Q2 (individual-only shipped binary; OSS forks not foreclosed), Q3 (per-cluster BYOK execution-surface table), D6 (misconception \u2192 concept-node; closes ADR 0094 T1-B); time-permitting D8 (open-for-revision enums). Defer D3/D4/D5/D7 to Cluster 4/5 cluster-implementation ADR authors. phase: NA-PDG-pre-phase",
+  "outcome_summary": "PDG Session \u03b4\u2082 delivered the full slate per the approved plan. ADR 0095 (decisions drawer 20ecbf7a6e884f4aba5a21d1c3d410bf paired) lands the Phase 6 tool-stack settlement: Postgres+JSONB+recursive CTEs confirmed for Tier-A and beyond; OSS Apache 2.0 + cost-priced posture per ADRs 0065 + 0093 (from S-0128 + per S-0202 respectively) raises the revisit bar to a four-criterion conjunction (demonstrated unfixable Postgres failure + Apache 2.0-compatible alternative + maintainer-cost-neutral + amortizable migration cost); forecloses Neo4j Enterprise/Community + Memgraph BSL + cloud graph DBs + RDF triplestores; admits Apache AGE as only credible Postgres-internal revisit target; amends ADR 0017 in-body (Status stays Accepted on 0017). The framing rests on user pushback at ExitPlanMode rejection captured per pushback drawer 29c4a3794cdf4d778fb1f2a411a11d21 \u2014 without that pushback the plan's softer 'named trigger criterion' framing would have landed instead. The amend-with-elevated-bar pattern is generalized per lesson drawer 0be1206953a747e7860e074785c5f9aa. ADR 0096 (decisions drawer 1ceb8ba01bcf463db708a456de6f80f1) lands the learning-outcome taxonomy: 3-level depth (introductory / analytical / comparative-research) + Decoding-the-Disciplines bottleneck moves as (depth_level, bottleneck_move) tuple. Five Q/D adjudications appended to HANDOFF.md PDG section with paired decisions drawers: Q1+D1+D2 (drawer 6a55cc2ac44a41c9be569f5cf7a043ce \u2014 node_type multi-valued + concept-level per ADR 0008); Q2 (drawer e464bf2da6bd4e019c56292cd8d1f6e7 \u2014 individual-only shipped binary + OSS forks not foreclosed); Q3 (drawer 37ef16131b574eba9c2eb1a6504518ca \u2014 per-cluster BYOK execution-surface table); D6 (drawer ddca2a47d9e148868a5cfb4bfe77d753 \u2014 misconception \u2192 concept-node; closes ADR 0094 T1-B verified per S-0202's premise 3 disposition); D8 (drawer b3b4e9d197e0472cbe9c9f295f74c343 \u2014 per-layer enums open-for-revision via in-body amendment). All four Session \u03b4 foundational ADRs (0093 + 0094 at S-0202; 0095 + 0096 at S-0203) now landed. Bounded housekeeping rode along: stale ENGINE_LOG.md pointers in product/adr/README.md + engine/adr/README.md updated to engine/changelog/<YYYY>/ per ADR 0092 (the noticed-but-deferred item from S-0202's diary). ADR count 94 \u2192 96. Remaining D3/D4/D5/D7 defer to Cluster 4/5 cluster-implementation ADR authors per work-item ownership transfer (D7 to same Cluster 5 ADR as D6). Next session work item is the first Tier-A cluster-implementation ADR (likely Cluster 1 Contestability substrate per ADR 0094 dependency order C1 \u2192 C2 \u2192 C4 \u2192 C3 \u2192 C5); S-0204 is also the cadence-trigger slot for the next health-check audit (user adjudicates audit-now vs Cluster 1 ADR at S-0204 boot).",
+  "outcome_summary_soft_warns": {
+    "expected_future_file_missing": 0,
+    "adr_missing_status": 0,
+    "adr_index_inconsistent": 0,
+    "cross_reference_broken": 0,
+    "state_format": 0,
+    "superseded_adr_currency": 0,
+    "adr_back_reference_orphan": 2,
+    "adr_consequences_deliverable_audit": 0,
+    "repo_config_health": 0,
+    "skill_layer1_parity_drift": 0,
+    "engine_memory_boot_query_skipped": 0,
+    "engine_memory_diary_read_skipped": 0,
+    "engine_memory_diary_write_skipped": 0,
+    "engine_memory_zero_citations_after_search": 1,
+    "outcome_summary_unhandled_defer": 0,
+    "next_session_handle_unknown_issue": 0,
+    "next_session_handle_unknown_session": 0,
+    "next_session_handle_malformed": 0,
+    "changelog_entry_soft_cap": 1,
+    "issue_collision": 6,
+    "edge_evidence_empty": 46,
+    "missing_rigor_score": 358
+  },
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": false,
+    "explanation": "Yes \u2014 full declared scope landed: ADR 0095 + ADR 0096 + Q1+D1+D2 + Q2 + Q3 + D6 + D8 (D8 was the time-permitting item; landed). D3/D4/D5/D7 deferred to Cluster 4/5 cluster-implementation ADR authors per the work-item-ownership-transfer pattern named in the declared scope (not a descope). User pushback at ExitPlanMode rejection reshaped ADR 0095's framing (named trigger criterion \u2192 four-criterion bar foreclosure) mid-plan, but this was caught before slot claim \u2014 scope itself unchanged. Bounded housekeeping (stale ENGINE_LOG.md pointers) rode along per feedback_housekeeping_rides_along memory; not a user-confirmed change."
+  },
+  "next_session_handle": null,
+  "approved_plan": "/Users/shanekidd/.claude/plans/zany-herding-shell.md",
+  "branch": "claude/dazzling-fermi-664739",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/dazzling-fermi-664739",
+  "engine_memory_activity": {
+    "search_calls": 2,
+    "add_drawer_calls": 9,
+    "get_drawer_calls": 0,
+    "list_drawers_calls": 0,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "other_calls": 0,
+    "total_calls": 13,
+    "first_call_ts": "2026-05-18T05:54:48Z",
+    "last_call_ts": "2026-05-18T06:08:44Z",
+    "search_first_ts": "2026-05-18T06:08:42Z",
+    "diary_read_first_ts": "2026-05-18T05:54:48Z",
+    "engine_memory_citations": {
+      "drawer_id_refs": 9,
+      "session_archive_refs": 4,
+      "tag_named_refs": 2,
+      "total": 15
+    }
+  },
+  "side_discoveries": [
+    {
+      "commit": "f5c8202",
+      "marker": "pending",
+      "disposition_type": "acceptable_no_action",
+      "disposition_ref": "",
+      "reasoning": "Phrase 'first known-pending revision (likely bottleneck per F3...)' is descriptive prose about D8 settlement's first-revision-discipline (the known pending revision is a normal Cluster 4 ADR amendment per foundations.md \u00a77.3 recommendation 2). Not a defer; not a TODO; it's the settlement's content."
+    },
+    {
+      "commit": "36149be",
+      "marker": "flagged",
+      "disposition_type": "acceptable_no_action",
+      "disposition_ref": "",
+      "reasoning": "Phrase 'Misconception-flagged concept' uses 'flagged' as 'marked with a flag' (the misconception flag on the concept node via Cluster 4 multi-valued node_type), not 'flagged for follow-up'. Descriptive prose, not a defer."
+    },
+    {
+      "commit": "9c75cde",
+      "marker": "deferred",
+      "disposition_type": "acceptable_no_action",
+      "disposition_ref": "",
+      "reasoning": "Phrase 'web visualizer deferred to Phase 8/9 per same commitment' references ADR 0093 commitment 3's existing deferral that's already tracked there. Not a new defer introduced in this session."
+    },
+    {
+      "commit": "2d55d38",
+      "marker": "deferred",
+      "disposition_type": "addressed_inline",
+      "disposition_ref": "2d55d38",
+      "reasoning": "Phrase 'S-0202 diary noticed-but-deferred item' refers to the prior session's noticed-but-deferred ENGINE_LOG.md stale-pointer item; addressed inline IN THIS commit (rode along per feedback_housekeeping_rides_along memory). Both product/adr/README.md and engine/adr/README.md updated to engine/changelog/<YYYY>/ per ADR 0092."
+    }
+  ],
+  "closed_at": "2026-05-18T06:28:00Z"
+}
