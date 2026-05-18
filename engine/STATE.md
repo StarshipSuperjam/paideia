@@ -34,7 +34,6 @@ Tier-B trigger-gated issues (#22, #24, #79, #82, #83, #84, #85, #115, #117) rema
 
 **Carried open items:**
 
-- **Backup retention** — `~/.mempalace-backup-S-0193-20260517T012057Z.tar.gz` (167MB) preserved per HANDOFF.md; release decision after 5 sessions confirm engine_memory recall is satisfactory and the user signals OK. S-0200 fired engine_memory boot search + diary read cleanly with relevant hits (decisions/96116f03 + 2504e3d4 + b006d0d1 surfaced for PDG walkthrough; lesson drawer authored at close). Count: S-0194 verdict-PASS + S-0195 + S-0196 + S-0199 + S-0200 = 5 post-cutover normal-operation sessions confirming clean engine_memory operation. **User OK-to-delete decision is the remaining gate.**
 - **Worktree-local `engine/.memory/engine_memory.sqlite3` stale files** in pre-S-0193 worktrees — the resolver fix means new sessions read the canonical main-repo file, but worktrees that initialized before S-0193 may carry a local file (harmless, gitignored, can be deleted manually).
 - **Eloquent-taussig worktree's stuck validate.py process** (PID 95852 at S-0200 close; 18h+ runtime, 0.0% CPU, connected to Supabase via TCP socket awaiting response). Defunct process from a prior session that held the postgres connection open; killing it isn't urgent (no shared-state corruption risk) but worth a clean-up sweep when convenient.
 
