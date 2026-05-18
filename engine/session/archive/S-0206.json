@@ -1,0 +1,72 @@
+{
+  "id": "S-0206",
+  "started_at": "2026-05-18T18:11:34Z",
+  "status": "closed",
+  "mode": "interactive",
+  "working_on": "Investigate structural-phase regression \u2014 third fire of validator_runtime_phase_regression (ADR 0063 readiness note T1-A/T1-B closure).",
+  "declared_scope": "Profile the 10 structural-phase sub-checks against the live repo (n=5 warm iterations each via /tmp throwaway harness, S-0151 model); diagnose the dominant contributor(s) since S-0151's 491ms baseline; apply ADR 0084 doubt-driven extraction pass on the chosen disposition path (A optimize hot check / B phase boundary correction / C target adjustment with evidence); land the chosen fix; verify with back-to-back validate runs and pytest. If Path C is chosen, fold ADR 0063 Consequences + update tools-validate-interpretation.md + health-check.md tiered-target prose + readiness-note T1-C closure. phase: NA-engine-validator-perf",
+  "outcome_summary": "Third lifetime fire of validator_runtime_phase_regression closed via Path A (timestamp_helper_bypass keyword pre-filter \u2014 5.3x speedup; commit 78b439e) + Path C (structural target 500\u2192700ms with ADR 0036 fold across ADR 0063 + ops docs + readiness note; commit 7ab46b8). Doubt-driven workflow application 5 paired (ADR 0084; commit 0c2e16b); premise 7 pre-authorized Path C fallback that materialized. Profile harnesses (S-0151 model, n=5 warm) attributed structural-phase cost to validate_repo_structure 1100ms (75%; validate_adr_back_reference_orphan 629ms intrinsic I/O, S-0151 inverted-index at algorithmic ceiling) + validate_timestamp_helper_bypass 331ms (23%; 25x regression since S-0151). Verification: 5/5 runs under new 1050ms threshold, median 570ms. Side-mid-session: killed eloquent-taussig stuck PID per user pushback against design-around. Cold-review pass (Python): 3 file(s), all match contract (one minor 'indirect test coverage' nit, acceptable). engine_memory: 2 drawers (pushback 075289bd, lesson 55671db1) + diary 0c181dd4.",
+  "outcome_summary_soft_warns": {
+    "expected_future_file_missing": 0,
+    "adr_missing_status": 0,
+    "adr_index_inconsistent": 0,
+    "cross_reference_broken": 0,
+    "state_format": 0,
+    "superseded_adr_currency": 0,
+    "adr_back_reference_orphan": 0,
+    "adr_consequences_deliverable_audit": 0,
+    "repo_config_health": 0,
+    "skill_layer1_parity_drift": 0,
+    "engine_memory_boot_query_skipped": 0,
+    "engine_memory_diary_read_skipped": 0,
+    "engine_memory_diary_write_skipped": 0,
+    "engine_memory_zero_citations_after_search": 1,
+    "outcome_summary_unhandled_defer": 0,
+    "next_session_handle_unknown_issue": 0,
+    "next_session_handle_unknown_session": 0,
+    "next_session_handle_malformed": 0,
+    "issue_collision": 6,
+    "missing_rigor_score": 358,
+    "edge_evidence_empty": 46,
+    "validator_runtime_phase_regression": 1
+  },
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": false,
+    "explanation": "Yes \u2014 declared scope was 'profile, diagnose, doubt-driven pass, land chosen fix, verify'; all delivered. Path C (target adjustment) was applied in addition to Path A, but this was pre-authorized by the doubt-driven workflow application 5's RECONCILE on premise 7 (anticipated as the fallback if sustained breach reproduced post-Path-A; declared in the plan's 'If Path C is chosen' clause). ADR 0063 Consequences fold + ops docs (tools-validate-interpretation.md + health-check.md) + readiness-note T1-C closure all completed per the plan."
+  },
+  "next_session_handle": null,
+  "approved_plan": "/Users/shanekidd/.claude/plans/sprightly-moseying-quasar.md",
+  "branch": "claude/beautiful-villani-fd8d2b",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/beautiful-villani-fd8d2b",
+  "side_discoveries": [
+    {
+      "commit": "78b439e",
+      "marker": "follow-up",
+      "disposition_type": "addressed_inline",
+      "disposition_ref": "7ab46b8",
+      "reasoning": "The Path A commit message named that Path C would land in a follow-up commit. Path C (target bump + ADR 0063 fold + ops docs + readiness note) landed as commit 7ab46b8 in this same session, immediately after Path A's commit. No deferral; addressed inline."
+    }
+  ],
+  "engine_memory_activity": {
+    "search_calls": 2,
+    "add_drawer_calls": 2,
+    "get_drawer_calls": 0,
+    "list_drawers_calls": 0,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "other_calls": 0,
+    "total_calls": 6,
+    "first_call_ts": "2026-05-18T17:59:21Z",
+    "last_call_ts": "2026-05-18T20:11:56Z",
+    "search_first_ts": "2026-05-18T17:59:21Z",
+    "diary_read_first_ts": "2026-05-18T17:59:51Z",
+    "engine_memory_citations": {
+      "drawer_id_refs": 0,
+      "session_archive_refs": 0,
+      "tag_named_refs": 0,
+      "total": 0
+    }
+  },
+  "closed_at": "2026-05-18T20:16:48Z"
+}
