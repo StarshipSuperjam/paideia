@@ -62,9 +62,9 @@ Residual mempalace references count at S-0193 close: ~87 across:
 
 **Pickup target:** next interactive session (user direction: "pick this up tomorrow during interactive sessions")
 
-**Worktree path containing uncommitted artifacts:** `.claude/worktrees/quizzical-northcutt-91ea60/`
+**Worktree path containing artifacts (now at HEAD per S-0199):** `engine/build_readiness/pdg_papers_extraction/` (11 substantive files committed at commit `e5c34a2`; the original `quizzical-northcutt-91ea60` worktree has been removed). Session α deliverable `adr_cross_reference_map.md` added at S-0199 (commit `66d9a73`).
 
-**Summary.** Deep extraction of two academic papers on pedagogical dependency graphs (PDGs) is complete. 8 durable artifacts authored in the worktree at `engine/build_readiness/pdg_papers_extraction/` (NOT yet committed — see "Commit posture" below). Plan file at [`~/.claude/plans/there-are-two-papers-parsed-aho.md`](~/.claude/plans/there-are-two-papers-parsed-aho.md) (committed to per-user plan directory, durable across sessions). MemPalace updated with 10 drawers + 16 kg facts capturing this session's deliberations.
+**Summary.** Deep extraction of two academic papers on pedagogical dependency graphs (PDGs) is complete. 12 durable artifacts in `engine/build_readiness/pdg_papers_extraction/` (all committed at HEAD as of S-0199). Plan file at [`~/.claude/plans/there-are-two-papers-parsed-aho.md`](~/.claude/plans/there-are-two-papers-parsed-aho.md) (committed to per-user plan directory, durable across sessions). MemPalace drawers migrated to engine_memory substrate at S-0193 per ADR 0091.
 
 **Top finding (user-confirmed):** the current Paideia graph (380 nodes / 533 edges / 2 edge types) is materially under-modeled at the substrate level. 8 substrate gaps named; 17 integrated clusters of work emerged; 22 adversarial findings (3 critical landed inline in synthesis, 19 carried into Issue bodies).
 
@@ -87,20 +87,16 @@ Residual mempalace references count at S-0193 close: ~87 across:
 4. **Mass-retyping default reversed** — 516 existing `pedagogical_prerequisite` edges retype to `soft_prerequisite` (NOT `hard_prerequisite`) per `paper_1:L162` expert overconfidence finding. Upgrades only after SQA validation with learner-trace evidence.
 5. **Quality-first deliberation posture** — no Issues fire before Session ζ.
 
-**Commit posture.** This session ran in exploration mode (no /start-engine), so the pre-commit hook blocked commits to engine-side paths. Three classes of artifacts:
+**Commit posture (post-S-0199 update).** All artifacts committed at HEAD; `engine/HANDOFF.md` duplicate previously deleted; engine_memory drawers (post-S-0193 migration per ADR 0091) carry the conversational substrate. The Session α deliverable lives at [`engine/build_readiness/pdg_papers_extraction/adr_cross_reference_map.md`](engine/build_readiness/pdg_papers_extraction/adr_cross_reference_map.md).
 
-- **Committed at HEAD (this commit):** root `HANDOFF.md` (this entry).
-- **Persisted in MemPalace (independent of git):** 10 drawers (decisions/lessons/pushback/project) + 16 kg facts. MemPalace search currently returns `Internal error: Error finding id` (the HNSW UNKNOWN state per [Issue #127](https://github.com/StarshipSuperjam/paideia/issues/127), closed at S-0163) — drawers will become searchable when HNSW recall is restored; for now, traverse via `mempalace_list_drawers` with `wing: paideia` filter.
-- **Uncommitted in the worktree** (need /start-engine in next interactive session to commit): `engine/STATE.md` "Next session work item" subsection (rewritten with the pre-phase plan); `engine/HANDOFF.md` (a session-internal handoff doc; content duplicates this section — can be deleted in next session); `engine/build_readiness/pdg_papers_extraction/` directory with 11 substantive artifacts (sub_concerns_checklist, extraction_paper_1, extraction_paper_2, 5 lens_sweep_*.md, synthesis, adversarial_review, issue_drafts).
+**Pre-phase progress:**
 
-**Recommended pickup for next interactive session:**
-
-1. Enter this worktree (`cd .claude/worktrees/quizzical-northcutt-91ea60/`) OR cherry-pick the artifacts to a fresh worktree.
-2. Run `/start-engine` to convert to a build session and claim the slot.
-3. Verify uncommitted artifacts present (`git status`).
-4. Decide: commit the entire artifact bundle as the eager-claim deliverable? Or sub-divide into separate commits per artifact group? (Recommendation: single commit for the bundle since the artifacts are co-designed; subsequent commits land as Session α-ζ proceed.)
-5. Move `engine/HANDOFF.md` content into this root entry (it's duplicative); delete `engine/HANDOFF.md` (it was authored in the wrong location — engine/HANDOFF.md does not exist as a project convention; root HANDOFF.md is the canonical surface).
-6. Begin Session α (cross-reference audit) as the first substantive work in the new build session.
+- ✅ Session α (S-0199) — cross-reference audit complete; `adr_cross_reference_map.md` authored.
+- ⏳ Session β — Kant/phenomenology walk-through against actual Paideia data → `kant_walkthrough.md`.
+- ⏳ Session γ — Foundational reading (Meyer & Land / Middendorf & Pace / Spiro / Falmagne et al.) → `foundations.md`.
+- ⏳ Session δ — Four foundational ADRs (Phase 6 scope; tool-stack; learning-outcome taxonomy; product trajectory confirmation). Per Session α adversarial findings, Session δ must adjudicate three coordination questions BEFORE drafting individual ADRs: `node_type` enum compatibility with ADR 0008 (spans C4/C5/C8); institutional-vs-individual scope under ADR 0065 OSS pivot (spans C15/C16/C17); BYOK execution-surface per cluster (spans C8/C10/C11/C14/C15).
+- ⏳ Session ε — Adversarial residue adjudication (19 deferred findings).
+- ⏳ Session ζ — Synthesis revision + Issue-draft revision. Issues fire only after Session ζ.
 
 **Routine work unchanged.** SQA census (8 of 20 tasks done) continues firing tonight; SQA-09 next. Routine work and PDG-papers work are independent streams.
 
