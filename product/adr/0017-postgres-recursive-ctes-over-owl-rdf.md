@@ -1,6 +1,6 @@
 # ADR 0017 — Postgres + recursive CTEs over OWL/RDF
 
-- **Status:** Accepted
+- **Status:** Accepted (Amended by [ADR 0095](0095-phase-6-tool-stack-postgres-jsonb-confirmed-with-oss-revisit-bar.md) — same substrate conclusion; OSS Apache 2.0 + cost-priced posture per ADRs 0065 + 0093 raises the revisit bar with four explicit criteria; Apache AGE named as the only credible Postgres-internal revisit target)
 - **Date:** 2026-04-09
 - **Deciders:** pre-foundation deliberation; formalized in S-0003
 
@@ -32,6 +32,15 @@ The graph is stored in **Postgres** alongside the rest of the data model. Traver
 - The `validate_graph()` utility (per ADR 0016) connects via `psycopg` directly — no intermediary query layer.
 - This ADR is **revisitable at scale**. The thresholds where Postgres no longer suffices are reasonably well-known; if Paideia approaches them, a Status: Superseded ADR can document the substrate change with the migration plan.
 
+## Amendment (S-0203 per ADR 0095)
+
+[ADR 0095](0095-phase-6-tool-stack-postgres-jsonb-confirmed-with-oss-revisit-bar.md) (Phase 6 tool-stack settlement; S-0203, 2026-05-18) amends this ADR in-body — Status stays Accepted; the substrate conclusion (Postgres + JSONB + recursive CTEs) holds; two structural additions land:
+
+1. **Decisive settlement of `adversarial_review.md` E.10.3's "forcing function never fires" critique.** The original Consequences-section framing ("revisitable at scale; thresholds well-known; supersession ADR documents migration plan") was empirically critiqued during the PDG papers extraction pre-phase as offering no actual forcing function — the threshold for revisiting (analytics-or-trace-informed-revision workflows per Cluster 9's L3.15 finding) is the same trigger as the Phase 7+ work that would benefit from a graph-store, meaning the evaluation would never have a forcing function. ADR 0095 settles the evaluation decisively for Phase 6+ (the answer is Postgres) rather than deferring under a softer trigger.
+2. **OSS-license-compatibility and cost-priced-shipping constraints from [ADR 0065](0065-oss-pivot-and-byok-disposition.md) + [ADR 0093](0093-phase-6-product-trajectory-formalization.md) are now load-bearing.** This ADR predated the OSS-flip (authored 2026-04-09; OSS flip at S-0128 / 2026-05-08); the original Consequences did not carry constraints against commercial-DB licensing (Neo4j Enterprise, AWS Neptune) or copyleft-friction (Neo4j Community GPLv3) because the project's release surface was different. ADR 0095 surfaces these constraints as foreclosing factors for any alternative substrate evaluation and structures them as four-criterion bar (demonstrated unfixable Postgres failure + Apache 2.0-compatible alternative + maintainer-cost-neutral + amortizable migration cost).
+
+ADR 0095 names **Apache AGE** (Apache 2.0 PostgreSQL extension exposing Cypher syntax over an in-Postgres graph store) as the only credible revisit target if recursive-CTE performance becomes the actual bottleneck on Tier-A-redesigned schema (per [ADR 0094](0094-phase-6-scope.md) Phase 6 expansion). Adopting AGE would amend this ADR + ADR 0095, not supersede them — AGE keeps the substrate Postgres-internal.
+
 ## See also
 
 - [`docs/architecture.md`](../docs/architecture.md) — Graph Structure.
@@ -41,3 +50,6 @@ The graph is stored in **Postgres** alongside the rest of the data model. Traver
 - ADR 0015 — Event-sourced learner model (the join target for mastery-filtered traversal).
 - ADR 0020 — Teaching notes separate from summary (entity resolution uses summary, not OWL).
 - `docs/tensions.md` `OQ-DEC1-A` — server-side mastery computation (Phase DEC.1 confirmation).
+- [ADR 0095](0095-phase-6-tool-stack-postgres-jsonb-confirmed-with-oss-revisit-bar.md) — Phase 6 tool-stack settlement; amends this ADR in-body (see "Amendment" section above).
+- [ADR 0065](0065-oss-pivot-and-byok-disposition.md) — OSS pivot and BYOK disposition; commitment 5 (cost-priced shipping) load-bearing for ADR 0095's revisit-bar criterion 3.
+- [ADR 0093](0093-phase-6-product-trajectory-formalization.md) — Phase 6 product-trajectory formalization; commitment 2 (OSS forks not foreclosed) load-bearing for ADR 0095's revisit-bar criterion 2.

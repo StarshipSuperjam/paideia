@@ -87,7 +87,7 @@ The engine collection has **45 ADRs total — all Accepted**. Engine ADRs are ab
 2. Filename: `NNNN-kebab-case-title.md`.
 3. Use the Nygard template from [`../operations/adr-authoring.md`](../operations/adr-authoring.md).
 4. Add a row to the index above in the same commit.
-5. Add an entry to [`../ENGINE_LOG.md`](../ENGINE_LOG.md) under `[Unreleased]` → `Added`.
+5. Add an `Added` line to the current build session's per-session changelog entry at `engine/changelog/<YYYY>/S-NNNN-<topic>.md` (per [ADR 0092](0092-per-session-changelog-directory.md) — supersedes the pre-S-0198 monolithic ENGINE_LOG.md flow).
 6. (If the ADR resolves an open tension) update [`../../product/docs/tensions.md`](../../product/docs/tensions.md).
 7. Capture the conversational reasoning that produced the ADR in a MemPalace `decision`-tagged drawer (verbatim form, recall-by-similarity).
 
@@ -102,5 +102,5 @@ Edge cases settle at the time of authoring or via supersession; the partition is
 - The new ADR carries `Status: Accepted` and a `Supersedes: ADR NNNN` line in the header.
 - The old ADR's `Status:` flips to `Superseded by ADR NNNN` (one-directional pointer).
 - The old ADR file is **not deleted** — the historical reasoning remains queryable.
-- ENGINE_LOG records both: `Added` for the new ADR, `Changed` for the supersession.
+- The per-session changelog entry (per [ADR 0092](0092-per-session-changelog-directory.md)) records both: `Added` for the new ADR, `Changed` for the supersession.
 - Supersession can cross the engine/product partition; the new ADR files in whichever subtree fits its load-bearing reader.
