@@ -82,6 +82,25 @@ These predicates were the v1 registry's two entries; ADR 0098's three-layer taxo
 
 If a reserved entry never gets used by the time the next periodic project health check fires, it should be removed from this list (per [ADR 0022](../../../engine/adr/0022-periodic-project-health-checks.md) audit categories). Reserved is a forward-pointer, not permanent.
 
+## Node-side predicates: `node_type` vocabulary
+
+S-0213 (ADR 0102 + migration 0140) introduces the `node_type TEXT[]` column on `public.nodes` with a 10-value per-element CHECK constraint enforced by `nodes_node_type_valid`. The vocabulary is registered here for parallel structure with the edge-side predicates above. The `undeclared_predicate` validator soft-warn at [`engine/tools/validate.py`](../../../engine/tools/validate.py) stays scoped to `edge_type` at landing — extending to `node_type` is a future-session decision if drift surfaces (the CHECK constraint structurally prevents drift at the database layer).
+
+Per [ADR 0102](../../adr/0102-tier-a-cluster-4-node-schema-redesign.md) Adjudication 2, `node_type` is multi-valued (TEXT[] not TEXT) — kant_walkthrough.md §3.2.1.A surfaced the empirical multi-typing reality (`phenomenology` fits 3 enum values cleanly). A node may carry multiple values, e.g., `node_type = ['threshold_concept', 'bridge_concept', 'disciplinary_practice']`.
+
+| Predicate | Domain | Range | Description |
+|---|---|---|---|
+| `threshold_concept` | `nodes.node_type` element | n/a | A concept whose acquisition transforms how a learner sees the domain. Meyer & Land 2003 framework — confirmed by [`foundations.md`](../../../engine/build_readiness/pdg_papers_extraction/foundations.md) §2 (F1). |
+| `bridge_concept` | `nodes.node_type` element | n/a | A concept bridging two domains the learner already knows. **Synthesis-paper coinage; not literature-stabilized** — per [`foundations.md`](../../../engine/build_readiness/pdg_papers_extraction/foundations.md) §3 (F2 Q1-F2 finding). Star & Griesemer 1989 / Akkerman & Bakker 2011 `boundary_concept` is the closest lit-grounded analogue; rename deferred to a future Cluster 4 sequel session per D8 open-for-revision posture. |
+| `disciplinary_practice` | `nodes.node_type` element | n/a | A method or skill rather than a concept (e.g., the phenomenological reduction, running a controlled experiment). |
+| `text_excerpt` | `nodes.node_type` element | n/a | A passage from a primary text the curriculum anchors against. |
+| `historical_context` | `nodes.node_type` element | n/a | A concept-level entity supplying historical context for adjacent concept-acquisition. **Strict ADR 0008 read** per ADR 0102 Adjudication 3 — admits ONLY concept-level entities. Movement-shaped entities (e.g., `phenomenology`-the-20th-century-movement) route via `tradition_label TEXT[]`, NOT via `node_type=['historical_context']`. |
+| `misconception` | `nodes.node_type` element | n/a | A node that explicitly encodes a misconception. Distinct from the JSONB `misconceptions` field on concept nodes (Cluster 5 wires the full sub-graph). |
+| `comparative_lens` | `nodes.node_type` element | n/a | A framework used to compare two traditions or approaches (e.g., `analytic_vs_continental_philosophy_of_mind`). Distinct from being one of the compared traditions. |
+| `assessment_task` | `nodes.node_type` element | n/a | A node representing an assessment task rather than a concept. Distinct from the JSONB `assessment_items` field on concept nodes. |
+| `subfield` | `nodes.node_type` element | n/a | Field-label nodes (`philosophy_of_mind`, `ethics`, `metaphysics`, etc.). Added at S-0213 per [`foundations.md`](../../../engine/build_readiness/pdg_papers_extraction/foundations.md) §D3 + kant_walkthrough §3.4.1 path (a) — accommodates the existing 380-node corpus's field-label nodes that the original 8-value synthesis enum had no value for. |
+| `unclassified` | `nodes.node_type` element | n/a | **Transitional default** per ADR 0102 Adjudication 1 (schema-only landing). All 380 existing nodes carry `node_type=['unclassified']` post-migration 0140. Per-domain backfill sequel sessions retype to substantive values. Removed from the enum (and the `node_type_unclassified` validator escalated from soft-warn to hard-fail) at the LAST per-domain backfill sequel session via a small follow-up migration. |
+
 ## See also
 
 - [ADR 0098](../../adr/0098-tier-a-cluster-2-edge-type-taxonomy-and-three-relation-layering.md) — Tier-A Cluster 2 edge-type taxonomy + three-relation layering; introduces the per-layer controlled vocabulary + compound CHECK constraint that the current registry reflects.
