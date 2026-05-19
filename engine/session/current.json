@@ -1,0 +1,14 @@
+{
+  "id": "S-0210",
+  "started_at": "2026-05-19T16:29:51Z",
+  "status": "in_progress",
+  "mode": "interactive",
+  "working_on": "Engine-inspired hook installation + close-friction mitigations — port four patterns from the sibling Engine project to attack the recurring close-friction failure class at the root rather than continuing the one-off-fix pattern.",
+  "declared_scope": "Land four targeted Engine ports in one session: (1) migrate hook discovery from filesystem symlink to git config core.hooksPath engine/tools/hooks (verified worktree-root-relative in-session before commit); (2) fix check_settings_sync.py's bidirectional-assumption bug (Issue #154) — detect direction via timestamps + content hash, halt-and-confirm on genuine conflict; (3) add Engine's SKIP_ENGINE_HOOKS=1 audited-bypass mechanism at head of pre-commit hook with audit log at .engine_reports/hook-bypass.log (gitignored); (4) port recover_partial_close.py with 4-state diagnosis (State A: archive + current.json coexist; State B: in-progress; State C: archive present but register flip uncommitted; State D: clean closed) + 3 recovery flags (--remove-active / --land-close / --rollback-archive) using build_lifecycle_push.py's shape-verification pattern. Author engine ADR 0100 with Load-bearing premises per ADR 0084 (criterion #4 fires: Consequences span 6+ surfaces) + decisions drawer + ADR README index row. Update session-shutdown-sequence.md + SKILL.md parity for close-failure recovery subsection. Update session-start.sh to LOUD-reminder when .engine_reports/hook-bypass.log has new entries. Defer suite dispatch + thin-bash pre-commit as Alternatives Considered follow-ups. ADR 0099 observation window is explicitly confounded — new acceptance criterion: 3 clean closes against the combined apparatus. phase: NA-engine-apparatus",
+  "outcome_summary": null,
+  "scope_delivery": null,
+  "next_session_handle": null,
+  "approved_plan": "~/.claude/plans/switching-to-plan-mode-harmonic-candy.md",
+  "branch": "claude/cool-nightingale-e05f66",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/cool-nightingale-e05f66"
+}
