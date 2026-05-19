@@ -31,6 +31,19 @@ set -e
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
+# Source the venv PATH wiring helper per ADR 0050 so bare tool invocations
+# (ruff, python3, mypy, pytest) resolve to the project's pinned versions
+# regardless of git's hook-subprocess PATH. Idempotent — won't duplicate
+# PATH entries. Other hooks (post-*.sh, session-start.sh) already source
+# this; pre-commit historically relied on the parent shell's PATH but
+# auto-format (ADR 0099 Fix C) needs ruff resolved at hook level, not just
+# inside validate.py subprocesses.
+SCRUB_HELPER="$REPO_ROOT/engine/tools/scrub_env.sh"
+if [ -f "$SCRUB_HELPER" ]; then
+    # shellcheck source=../scrub_env.sh
+    source "$SCRUB_HELPER"
+fi
+
 CURRENT_FILE="engine/session/current.json"
 REGISTER_FILE="engine/session/register_state.json"
 

@@ -98,11 +98,56 @@ if [ -z "$ADR_ID" ]; then
     exit 0
 fi
 
+ADR_BASENAME="$(basename "$REL_PATH")"
+
 # Read the ADR's title from the first H1 line. Best-effort; if the file is
 # unreadable (deleted between Edit and hook fire), skip.
 ADR_TITLE=""
 if [ -f "$FILE_PATH" ]; then
     ADR_TITLE="$(head -5 "$FILE_PATH" 2>/dev/null | grep -m1 -E '^# ADR' | sed -E 's/^# ADR [0-9]+ — //' | head -c 200)"
+fi
+
+# ---------------------------------------------------------------------------
+# ADR-README index consistency check (per ADR 0099 Fix D / Issue #153).
+#
+# Every accepted ADR must have a row in its partition's README index per
+# ADR 0037. The validator already enforces this as the `adr_index_inconsistent`
+# soft-warn at commit time; this hook surfaces the same predicate at *write*
+# time so the AI catches the gap in the same authoring cycle.
+#
+# Predicate: look for either `[NNNN](NNNN-title.md)` or `[ADR NNNN](NNNN-title.md)`
+# in the partition's README.md (engine/adr/README.md for engine ADRs,
+# product/adr/README.md for product ADRs). Markdown link syntax preserves
+# the basename verbatim so the lookup is a simple grep.
+#
+# Non-blocking exit-0 posture per ADR 0043. Reminder fires only on miss;
+# silent on hit.
+# ---------------------------------------------------------------------------
+
+# Resolve the partition's README path from the ADR path's prefix.
+ADR_PARTITION="$(echo "$REL_PATH" | cut -d'/' -f1)"  # engine or product
+INDEX_PATH="$REPO_ROOT/$ADR_PARTITION/adr/README.md"
+
+if [ -f "$INDEX_PATH" ]; then
+    # Match either [NNNN](NNNN-title.md) or [ADR NNNN](NNNN-title.md).
+    # The fixed-string fragment matches the basename verbatim; the leading
+    # bracket-pair regex permits both index conventions across engine + product.
+    INDEX_LINE_PATTERN="\[(ADR )?${ADR_ID}\]\(${ADR_BASENAME}\)"
+    if ! grep -qE "$INDEX_LINE_PATTERN" "$INDEX_PATH" 2>/dev/null; then
+        {
+            echo "[adr-index-consistency] ADR $ADR_ID '$ADR_TITLE' written;"
+            echo "  no matching index entry found in $ADR_PARTITION/adr/README.md."
+            echo "  Add a row to the index table in the same commit per the"
+            echo "  'Adding a new ADR' section at the bottom of the README."
+            echo "  validate.py's \`adr_index_inconsistent\` soft-warn will fire at"
+            echo "  commit time otherwise."
+        } >&2
+        log_ok "index-reminder-emitted adr=$ADR_ID partition=$ADR_PARTITION"
+    else
+        log_ok "index-present adr=$ADR_ID partition=$ADR_PARTITION"
+    fi
+else
+    log_fail "index-missing partition=$ADR_PARTITION"
 fi
 
 # Query MemPalace via the CLI. The daemon may be down; treat any non-zero
