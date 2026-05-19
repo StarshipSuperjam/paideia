@@ -938,3 +938,110 @@ def test_main_assertions_block_under_routine_scope_lock(
     assert rc == 0
     out = capsys.readouterr()
     assert "shape verified" in out.err
+
+
+# ---------------------------------------------------------------------------
+# TCP keepalive kwargs (S-0208, Issue #151 re-scope)
+# ---------------------------------------------------------------------------
+#
+# Server-side Supabase logs were clean across the #151 wedge window; the
+# symptom is consistent with a client-side stale socket between
+# cur.execute() returning and cur.fetchall() completing on a connection
+# the server silently dropped. The fix is TCP keepalive on every
+# psycopg.connect call so the kernel surfaces dead-socket errors within
+# ~60s instead of blocking poll() forever. These tests verify every
+# connect site in this module passes the four kwargs.
+
+
+def _make_keepalive_capturing_stub(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    fetchone_return: Any = None,
+) -> list[dict[str, Any]]:
+    """Inject a psycopg stub that captures connect() kwargs for assertion."""
+    captured_kwargs: list[dict[str, Any]] = []
+
+    class _Cur:
+        def execute(self, _sql: str, _params: tuple[Any, ...] | None = None) -> None:
+            pass
+
+        def fetchone(self) -> Any:
+            return fetchone_return
+
+        def __enter__(self) -> _Cur:
+            return self
+
+        def __exit__(self, *_: Any) -> None:
+            pass
+
+    class _Conn:
+        def cursor(self) -> _Cur:
+            return _Cur()
+
+        def __enter__(self) -> _Conn:
+            return self
+
+        def __exit__(self, *_: Any) -> None:
+            pass
+
+    import importlib.machinery  # noqa: PLC0415
+
+    psycopg_stub = type(sys)("psycopg")
+    psycopg_stub.__spec__ = importlib.machinery.ModuleSpec("psycopg", loader=None)
+    psycopg_stub.Error = _StubError  # type: ignore[attr-defined]
+    psycopg_stub.OperationalError = _StubOperationalError  # type: ignore[attr-defined]
+
+    def _connect(*_args: Any, **kwargs: Any) -> _Conn:
+        captured_kwargs.append(kwargs)
+        return _Conn()
+
+    psycopg_stub.connect = _connect  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "psycopg", psycopg_stub)
+    return captured_kwargs
+
+
+def _assert_keepalive_kwargs_present(kwargs: dict[str, Any]) -> None:
+    """All four TCP keepalive params must be set on every psycopg.connect."""
+    assert kwargs.get("keepalives") == 1, (
+        "keepalives=1 must be set; without it the OS does not probe idle "
+        "connections and a silent server-side drop wedges Python"
+    )
+    assert kwargs.get("keepalives_idle") == 30
+    assert kwargs.get("keepalives_interval") == 10
+    assert kwargs.get("keepalives_count") == 3
+
+
+def test_check_already_applied_passes_keepalive_kwargs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured = _make_keepalive_capturing_stub(monkeypatch, fetchone_return=None)
+    check_already_applied("postgresql://stub", "0042_test")
+    assert len(captured) == 1
+    _assert_keepalive_kwargs_present(captured[0])
+
+
+def test_apply_migration_body_passes_keepalive_kwargs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured = _make_keepalive_capturing_stub(monkeypatch)
+    apply_migration_body("postgresql://stub", "BEGIN; COMMIT;")
+    assert len(captured) == 1
+    _assert_keepalive_kwargs_present(captured[0])
+
+
+def test_record_in_schema_migrations_passes_keepalive_kwargs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured = _make_keepalive_capturing_stub(monkeypatch)
+    record_in_schema_migrations("postgresql://stub", "0042_test", "BEGIN; COMMIT;")
+    assert len(captured) == 1
+    _assert_keepalive_kwargs_present(captured[0])
+
+
+def test_verify_postconditions_passes_keepalive_kwargs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured = _make_keepalive_capturing_stub(monkeypatch, fetchone_return=(0,))
+    verify_postconditions("postgresql://stub", [("SELECT 0", 0)])
+    assert len(captured) == 1
+    _assert_keepalive_kwargs_present(captured[0])

@@ -1533,6 +1533,19 @@ class TestReadGraphFromDbTimeouts:
             "also bounded; protects against in-flight query stalls distinct from "
             "the initial connect"
         )
+        # S-0208 (Issue #151 re-scope): TCP keepalive must be passed so
+        # silent server-side idle-connection drops surface to Python as
+        # socket errors instead of poll() sleeping forever. Server-side
+        # logs were clean across the #151 window; the failure mode is
+        # a stale socket between cur.execute() and cur.fetchall() that
+        # the wall-clock watchdog cannot see.
+        assert captured["kwargs"].get("keepalives") == 1, (
+            "keepalives=1 must be set; without it the OS does not probe "
+            "idle connections and a silent server-side drop wedges Python"
+        )
+        assert captured["kwargs"].get("keepalives_idle") == 30
+        assert captured["kwargs"].get("keepalives_interval") == 10
+        assert captured["kwargs"].get("keepalives_count") == 3
 
     def test_watchdog_cancels_in_flight_query_when_wall_clock_cap_exceeded(
         self, monkeypatch: pytest.MonkeyPatch

@@ -138,6 +138,20 @@ POSTCOND_ASSERTIONS_HEADER_RE = re.compile(
 # block into subsequent contract sections that may contain `::` in prose.
 NEXT_SECTION_HEADER_RE = re.compile(r"^--\s+[A-Z][A-Za-z\-]+:\s*$")
 
+# TCP keepalive kwargs passed to every psycopg.connect in this module.
+# Defense against silent server-side idle-connection drops where the
+# kernel still sees the socket as ESTABLISHED and a blocking read sleeps
+# on poll() forever — the failure mode #151 reframes after S-0208's
+# server-log inspection (Supabase postgres logs were clean across the
+# wedge window; symptom is client-side). With these settings, a dead
+# socket is detected within ~60s and psycopg raises instead of hanging.
+_KEEPALIVE_KWARGS = {
+    "keepalives": 1,
+    "keepalives_idle": 30,
+    "keepalives_interval": 10,
+    "keepalives_count": 3,
+}
+
 
 class PostconditionAssertionParseError(ValueError):
     """Raised when the Postcondition-Assertions block is malformed.
@@ -254,6 +268,7 @@ def check_already_applied(db_url: str, migration_name: str) -> tuple[bool | None
             db_url,
             connect_timeout=10,
             options="-c statement_timeout=600000",
+            **_KEEPALIVE_KWARGS,
         ) as conn:
             with conn.cursor() as cur:
                 cur.execute(
@@ -285,6 +300,7 @@ def apply_migration_body(db_url: str, sql_text: str) -> tuple[bool, str]:
             autocommit=True,
             connect_timeout=10,
             options="-c statement_timeout=600000",
+            **_KEEPALIVE_KWARGS,
         ) as conn:
             with conn.cursor() as cur:
                 cur.execute(sql_text)
@@ -315,6 +331,7 @@ def record_in_schema_migrations(
             autocommit=True,
             connect_timeout=10,
             options="-c statement_timeout=600000",
+            **_KEEPALIVE_KWARGS,
         ) as conn:
             with conn.cursor() as cur:
                 cur.execute(
@@ -423,6 +440,7 @@ def verify_postconditions(
         autocommit=True,
         connect_timeout=10,
         options="-c statement_timeout=600000",
+        **_KEEPALIVE_KWARGS,
     ) as conn:
         with conn.cursor() as cur:
             for select_sql, expected_int in assertions:

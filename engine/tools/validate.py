@@ -2115,6 +2115,22 @@ def _read_predicate_manifest(
 # 45 s = server-side 30 s budget + connect 10 s + 5 s margin.
 _GRAPH_AUDIT_WALL_CLOCK_TIMEOUT_S = 45.0
 
+# S-0208 (Issue #151 re-scope): TCP keepalive kwargs for psycopg.connect.
+# Supabase postgres logs were clean across the 24h #151 window — the
+# wedge symptom (ESTABLISHED TCP socket + poll() sleep + Supabase-restart
+# unwedges) is most plausibly a server-side silent idle-connection drop
+# without TCP RST. The 45s wall-clock watchdog above targets the
+# query-execution phase; these kwargs target the post-query idle phase
+# at the kernel layer. With keepalives the OS detects a dead socket in
+# ~60s (idle 30 + 3×interval 10) and surfaces an error to the blocking
+# read() instead of sleeping forever.
+_KEEPALIVE_KWARGS = {
+    "keepalives": 1,
+    "keepalives_idle": 30,
+    "keepalives_interval": 10,
+    "keepalives_count": 3,
+}
+
 
 def _read_graph_from_db(
     connection_string: str,
@@ -2163,7 +2179,7 @@ def _read_graph_from_db(
     import psycopg  # type: ignore[import-not-found,unused-ignore]
     from psycopg.rows import dict_row  # type: ignore[import-not-found,unused-ignore]
 
-    # Three layers of cap (S-0184/0185/0186/0187):
+    # Four layers of cap (S-0184/0185/0186/0187/0208):
     #   1. ``connect_timeout=10`` — bounds the initial connect phase.
     #   2. ``options="-c statement_timeout=30000"`` — server-side cap,
     #      EFFECTIVE ONLY on direct-connection URLs. The Supabase
@@ -2173,12 +2189,17 @@ def _read_graph_from_db(
     #   3. ``wall_clock_timeout_s`` (S-0187) — client-side watchdog
     #      thread that calls ``conn.cancel()`` (PQcancel; protocol-
     #      level query termination) if total time in the block
-    #      exceeds the cap. Layer 3 is the load-bearing protection
-    #      against Supabase pgbouncer's parameter-stripping.
+    #      exceeds the cap.
+    #   4. TCP keepalive kwargs (S-0208, Issue #151 re-scope) — kernel-
+    #      level detection of dead sockets. Addresses the post-query
+    #      idle-phase failure mode the watchdog cannot see (a stale
+    #      socket between cur.execute() returning and cur.fetchall()
+    #      completing). See _KEEPALIVE_KWARGS docstring above.
     with psycopg.connect(
         connection_string,
         connect_timeout=10,
         options="-c statement_timeout=30000",
+        **_KEEPALIVE_KWARGS,
     ) as conn:
         done = threading.Event()
 

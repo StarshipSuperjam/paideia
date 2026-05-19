@@ -571,6 +571,27 @@ Tools that import `psycopg` (currently [`check_target.py`](../tools/check_target
 
 The reexec is silent on success (the venv interpreter takes over without printing). If no `.venv/bin/python3` exists on the walk-up from `engine/tools/` to the filesystem root, the function returns silently and the caller's `import psycopg` raises the original `ImportError` — the prior behavior is preserved for genuinely-broken environments.
 
+## TCP keepalive on psycopg connections
+
+Both [`engine/tools/validate.py`](../tools/validate.py) (the `_read_graph_from_db` call) and [`engine/tools/apply_migration.py`](../tools/apply_migration.py) (its four `psycopg.connect` calls — `check_already_applied`, `apply_migration_body`, `record_in_schema_migrations`, `verify_postconditions`) pass a shared `_KEEPALIVE_KWARGS` constant:
+
+```python
+_KEEPALIVE_KWARGS = {
+    "keepalives": 1,            # enable TCP keepalive (off by default on macOS/Linux)
+    "keepalives_idle": 30,      # start probing after 30s of socket idle
+    "keepalives_interval": 10,  # 10s between probes
+    "keepalives_count": 3,      # drop the connection after 3 failed probes (~60s total)
+}
+```
+
+Landed at S-0208 per [Issue #151](https://github.com/StarshipSuperjam/paideia/issues/151) re-scope. The S-0206 / S-0207 wedge symptom (`validate.py` graph_audit hanging multi-minute on `poll()` against an `ESTABLISHED` socket; only a Supabase restart unwedges) is consistent with **server-side silent idle-connection drop without TCP RST** — Supabase postgres logs were clean across the wedge window per `mcp__supabase__get_logs` inspection at S-0208, ruling out a true pooler wedge. With keepalive enabled, the OS detects a dead socket within ~60s and Python's blocking `read()` returns an error instead of sleeping forever.
+
+Defense-in-depth alongside the existing three timeout layers in `_read_graph_from_db()` (S-0184/0185/0186/0187): `connect_timeout=10` (connect-phase), `options="-c statement_timeout=30000"` (inert against pgbouncer transaction-pool), 45s wall-clock watchdog with `conn.cancel()` (query-execution phase). The watchdog and keepalive target distinct phases — the watchdog cannot catch a hang in `cur.fetchall()` after `cur.execute()` returned but the socket has been silently dropped; keepalive catches exactly that case at the kernel layer.
+
+Regression tests in [`engine/tools/test_apply_migration.py`](../tools/test_apply_migration.py) (4 cases — one per connect site) and [`engine/tools/test_validate.py`](../tools/test_validate.py) (`TestReadGraphFromDbTimeouts::test_connect_called_with_connect_timeout_and_statement_timeout` extended with keepalive assertions) verify the kwargs reach `psycopg.connect`.
+
+**If the hang recurs after S-0208** (Issue #151 criterion #4 observation window): switching `SUPABASE_DB_URL` from the transaction-pool URL to the session-mode pooler URL is the next-level fallback (deployment-side change deferred at S-0208). Session-mode pooling forwards session-level parameters that transaction-mode strips, so `statement_timeout=30000` becomes effective and silent idle drops are less frequent (sessions are held open for the client's duration).
+
 ## See also
 
 - [`session-shutdown-sequence.md`](session-shutdown-sequence.md) — where soft-warn counts get recorded.
