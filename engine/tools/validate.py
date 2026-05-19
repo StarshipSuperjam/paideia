@@ -3015,6 +3015,136 @@ def _write_snapshot(
     )
 
 
+# S-0212 (Issue #151 structural fix, ADR 0101): outer wall-clock cap on
+# the subprocess that runs _read_graph_from_db. Wider than the inner
+# 45s watchdog (_GRAPH_AUDIT_WALL_CLOCK_TIMEOUT_S) because the parent's
+# cap fires only when the inner watchdog AND conn.cancel() both fail to
+# unwedge the psycopg socket — the S-0211 empirical pin (PID 41424
+# dump, .engine_reports/hang-diagnostic-2026-05-19T183424.199794Z-41424.json)
+# showed conn.cancel() can block 6+ minutes against a poisoned socket.
+# Budget: 45s inner watchdog + 10s connect_timeout + 35s margin
+# (subprocess startup + JSON serialize + scheduling slack) = 90s. The
+# margin is dominated by safety, not measured contribution; today's
+# 380×533 corpus serializes in ~50ms on cold caches. Recalibrate if
+# Phase 6's full subdomain set ever pushes the healthy path past the
+# inner watchdog — at which point both caps need rethinking, not just
+# this one.
+_GRAPH_AUDIT_SUBPROCESS_TIMEOUT_S = 90.0
+
+
+def _run_graph_audit_subprocess(
+    connection_string: str,
+    *,
+    timeout_s: float = _GRAPH_AUDIT_SUBPROCESS_TIMEOUT_S,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Run _read_graph_from_db in a subprocess; return (nodes, edges).
+
+    Per [ADR 0101](../adr/0101-subprocess-isolation-for-graph-audit.md).
+    The subprocess boundary exists so the kernel can SIGKILL the
+    psycopg connection when the in-process watchdog cannot — the S-0211
+    empirical pin established that ``conn.cancel()`` itself can wedge
+    against the same poisoned socket the original query wedged on, so
+    no in-process defense escapes. CPython's ``subprocess.run(timeout=)``
+    delivers SIGKILL on timeout; the kernel terminates the process at
+    whatever syscall it is wedged on, bypassing signal handlers.
+
+    Inputs:
+        connection_string: Postgres URL passed to the worker via the
+            ``SUPABASE_DB_URL`` env var.
+        timeout_s: parent-side hard wall-clock cap. On timeout the
+            worker is SIGKILLed and ``subprocess.TimeoutExpired``
+            propagates up; the caller (``validate_graph``) routes
+            that to a ``graph_audit`` hard-fail with the
+            ``graph_audit_subprocess_timeout`` category in the message.
+
+    Returns:
+        ``(nodes, edges)`` matching ``_read_graph_from_db``'s shape.
+
+    Raises:
+        subprocess.TimeoutExpired: outer cap fired; worker SIGKILLed.
+        ImportError: psycopg unavailable inside the subprocess
+            (exit 3). Caller converts to ``graph_audit_skipped``.
+        RuntimeError: worker returned a non-success exit code we
+            cannot route to ``graph_audit_skipped``, or the worker's
+            stdout was unparseable. The caller's
+            ``except Exception`` handler in ``validate_graph()`` lands
+            this as a ``graph_audit`` hard-fail.
+
+    Non-responsibilities:
+        - Does not retry. A wedged subprocess that fires the outer cap
+          will, on retry, fire again; the failure mode is structural
+          to the pooler state, not transient noise. The user's
+          recourse is to address the pooler (server-side intervention
+          or wait for natural recovery), not the validator.
+        - Does not invoke ``capture_hang_diagnostic``. That runs
+          inside the worker's inner watchdog (S-0211); the parent's
+          outer cap simply records the wedge as a hard-fail.
+    """
+    # Set SUPABASE_DB_URL explicitly in the child env so the worker
+    # always picks up the caller's connection_string, even if the
+    # parent's os.environ has a different (or absent) value. Caller
+    # passes the resolved string, not the env var name.
+    env = scrubbed_env()
+    env["SUPABASE_DB_URL"] = connection_string
+
+    # cwd must be REPO_ROOT so ``python3 -m engine.tools.graph_audit_worker``
+    # resolves the package. REPO_ROOT is computed at module load time
+    # from validate.py's own path; works in production and in tests.
+    proc = subprocess.run(
+        [sys.executable, "-m", "engine.tools.graph_audit_worker"],
+        capture_output=True,
+        timeout=timeout_s,
+        env=env,
+        cwd=str(REPO_ROOT),
+        text=True,
+        check=False,
+    )
+
+    if proc.returncode == 0:
+        try:
+            payload = json.loads(proc.stdout)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(
+                f"graph_audit_subprocess_protocol_error: worker emitted "
+                f"unparseable JSON ({exc!s}); stderr={proc.stderr.strip()!r}"
+            ) from exc
+        if (
+            not isinstance(payload, dict)
+            or "nodes" not in payload
+            or "edges" not in payload
+        ):
+            raise RuntimeError(
+                "graph_audit_subprocess_protocol_error: worker payload "
+                "missing 'nodes' or 'edges' key"
+            )
+        return payload["nodes"], payload["edges"]
+
+    if proc.returncode == 3:
+        # Exit-3 = psycopg unavailable inside the subprocess. Raise
+        # ImportError so the caller's existing ``except ImportError``
+        # branch records ``graph_audit_skipped``.
+        raise ImportError(
+            f"psycopg unavailable in graph_audit subprocess "
+            f"(stderr: {proc.stderr.strip()})"
+        )
+
+    # Exit codes 2 / 4 / 5 / any-other-non-zero all route to a
+    # graph_audit hard-fail. The discrimination is in the message
+    # body so future audits can pattern-match the failure mode.
+    if proc.returncode == 2:
+        category = "graph_audit_subprocess_env_violation"
+    elif proc.returncode == 4:
+        category = "graph_audit_subprocess_db_error"
+    elif proc.returncode == 5:
+        category = "graph_audit_subprocess_serialize_error"
+    else:
+        category = "graph_audit_subprocess_unexpected_exit"
+    raise RuntimeError(
+        f"{category}: exit={proc.returncode} "
+        f"stderr={proc.stderr.strip()!r}"
+    )
+
+
 def validate_graph(
     connection_string: str | None = None,
     export_snapshot: Path | None = None,
@@ -3110,7 +3240,31 @@ def validate_graph(
             return r
 
     try:
-        nodes, edges = _read_graph_from_db(conn_str)
+        # S-0212 (Issue #151, ADR 0101): route through the subprocess
+        # wrapper. The inner _read_graph_from_db still runs (inside the
+        # worker) with all its existing inner defenses (connect_timeout,
+        # keepalive, watchdog, diagnostic capture); the wrapper adds the
+        # outer SIGKILL-on-timeout boundary the parent always escapes.
+        nodes, edges = _run_graph_audit_subprocess(conn_str)
+    except subprocess.TimeoutExpired:
+        # Outer wall-clock cap fired; subprocess.run has already
+        # SIGKILLed the worker. The diagnostic file (if the inner
+        # watchdog had a chance to write one) is on-disk under
+        # .engine_reports/hang-diagnostic-*.json; otherwise the wedge
+        # was tight enough that the parent's outer cap fired before
+        # the inner one. Either way, the pre-commit run exits non-zero
+        # and the subsequent commit attempt re-tries cleanly because
+        # the wedged worker is dead.
+        r.add_check("graph_audit")
+        r.hard_fail(
+            f"graph_audit_subprocess_timeout: worker SIGKILLed after "
+            f"{_GRAPH_AUDIT_SUBPROCESS_TIMEOUT_S:.0f}s outer wall-clock "
+            f"cap (Issue #151; ADR 0101). Check "
+            f".engine_reports/hang-diagnostic-*.json for the latest "
+            f"in-process capture; retry the commit — the wedged worker "
+            f"is dead and the next attempt is unblocked."
+        )
+        return r
     except ImportError as exc:
         # psycopg unavailable. Pre-S-0049 this was a hard-fail because
         # SUPABASE_DB_URL was never set automatically — being set meant

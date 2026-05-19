@@ -1813,7 +1813,14 @@ class TestValidateGraphIntegration:
         edges: list[dict[str, Any]],
     ) -> None:
         monkeypatch.setenv("SUPABASE_DB_URL", "postgresql://stub")
-        monkeypatch.setattr(validate, "_read_graph_from_db", lambda _: (nodes, edges))
+        # S-0212 (ADR 0101): validate_graph now routes through the
+        # subprocess wrapper, so tests monkey-patch the wrapper instead
+        # of the inner _read_graph_from_db. The wrapper's signature
+        # matches the inner function (single positional conn_str) so
+        # the lambda shape is unchanged.
+        monkeypatch.setattr(
+            validate, "_run_graph_audit_subprocess", lambda _: (nodes, edges)
+        )
         # Pin the path-aware skip helper to "cannot determine" so the
         # tests are independent of the developer's staged-paths state.
         # The skip path is exercised separately in TestStagedPathsSkip.
@@ -1888,7 +1895,11 @@ class TestValidateGraphIntegration:
         def boom(_: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             raise RuntimeError("connection refused")
 
-        monkeypatch.setattr(validate, "_read_graph_from_db", boom)
+        # S-0212 (ADR 0101): the wrapper raises RuntimeError on worker
+        # DB errors; validate_graph's except-Exception handler routes
+        # to the same graph_audit hard-fail it did pre-S-0212.
+        monkeypatch.setattr(validate, "_run_graph_audit_subprocess", boom)
+        monkeypatch.setattr(validate, "_staged_paths_affect_graph", lambda: None)
         r = validate_graph()
         assert any("DB connection or query failed" in m for m in r.hard_fails)
 
@@ -1992,11 +2003,14 @@ class TestStagedPathsSkip:
 
         def boom(_: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             raise AssertionError(
-                "_read_graph_from_db must not be called when the audit is "
-                "skipped via path-aware gating"
+                "_run_graph_audit_subprocess must not be called when the "
+                "audit is skipped via path-aware gating"
             )
 
-        monkeypatch.setattr(validate, "_read_graph_from_db", boom)
+        # S-0212 (ADR 0101): the path-aware skip happens before the
+        # subprocess wrapper is invoked, so the assertion boom should
+        # never fire.
+        monkeypatch.setattr(validate, "_run_graph_audit_subprocess", boom)
         r = validate_graph()
         assert r.hard_fails == []
         assert "graph_audit_skipped_no_staged_graph_paths" in r.checks_run
@@ -2008,7 +2022,9 @@ class TestStagedPathsSkip:
         """Manual invocation (helper returns None) proceeds with the audit."""
         monkeypatch.setenv("SUPABASE_DB_URL", "postgresql://stub")
         monkeypatch.setattr(validate, "_staged_paths_affect_graph", lambda: None)
-        monkeypatch.setattr(validate, "_read_graph_from_db", lambda _: ([], []))
+        monkeypatch.setattr(
+            validate, "_run_graph_audit_subprocess", lambda _: ([], [])
+        )
         r = validate_graph()
         assert "graph_audit" in r.checks_run
         assert "graph_audit_skipped_no_staged_graph_paths" not in r.checks_run
@@ -2017,13 +2033,227 @@ class TestStagedPathsSkip:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Tests with explicit conn-string never trigger the path-aware skip."""
-        monkeypatch.setattr(validate, "_read_graph_from_db", lambda _: ([], []))
+        monkeypatch.setattr(
+            validate, "_run_graph_audit_subprocess", lambda _: ([], [])
+        )
         # The helper would say "skip" but the explicit connection_string
         # overrides — caller signaled intent to run.
         monkeypatch.setattr(validate, "_staged_paths_affect_graph", lambda: False)
         r = validate_graph(connection_string="postgresql://explicit")
         assert "graph_audit" in r.checks_run
         assert "graph_audit_skipped_no_staged_graph_paths" not in r.checks_run
+
+
+class TestGraphAuditSubprocess:
+    """S-0212 (Issue #151, ADR 0101): subprocess wrapper around the DB read.
+
+    The wrapper exists because the S-0211 diagnostic empirically pinned a
+    failure mode where ``conn.cancel()`` itself wedges against the same
+    poisoned socket the original query wedged on (PID 41424 dump at
+    ``.engine_reports/hang-diagnostic-2026-05-19T183424.199794Z-41424.json``).
+    No in-process defense escapes that — only an OS-level SIGKILL on a
+    child process boundary the parent controls does. The wrapper invokes
+    ``engine.tools.graph_audit_worker`` via ``subprocess.run(timeout=)``
+    and translates worker exit codes to the exception shape
+    ``validate_graph`` expects.
+
+    These tests stub ``subprocess.run`` directly to exercise each
+    exit-code path; the existing ``TestReadGraphFromDbTimeouts`` class
+    continues to cover the inner ``_read_graph_from_db`` in-process
+    (the worker runs that inner function inside the child).
+    """
+
+    def _stub_subprocess_run(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        *,
+        returncode: int = 0,
+        stdout: str = "",
+        stderr: str = "",
+        raise_exc: Exception | None = None,
+        capture_kwargs: dict[str, Any] | None = None,
+    ) -> None:
+        def fake_run(
+            *args: Any, **kwargs: Any
+        ) -> subprocess.CompletedProcess[str]:
+            if capture_kwargs is not None:
+                capture_kwargs.update(kwargs)
+            if raise_exc is not None:
+                raise raise_exc
+            return subprocess.CompletedProcess(
+                args=args[0] if args else [],
+                returncode=returncode,
+                stdout=stdout,
+                stderr=stderr,
+            )
+
+        monkeypatch.setattr("engine.tools.validate.subprocess.run", fake_run)
+
+    def test_happy_path_parses_subprocess_json(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Worker returns JSON; wrapper returns parsed (nodes, edges)."""
+        self._stub_subprocess_run(
+            monkeypatch,
+            returncode=0,
+            stdout='{"nodes":[{"id":"a"}],"edges":[{"id":"e1"}]}',
+        )
+        nodes, edges = validate._run_graph_audit_subprocess(
+            "postgresql://stub"
+        )
+        assert nodes == [{"id": "a"}]
+        assert edges == [{"id": "e1"}]
+
+    def test_subprocess_timeout_propagates(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """subprocess.run raises TimeoutExpired; wrapper lets it propagate."""
+        self._stub_subprocess_run(
+            monkeypatch,
+            raise_exc=subprocess.TimeoutExpired(cmd=["worker"], timeout=90.0),
+        )
+        with pytest.raises(subprocess.TimeoutExpired):
+            validate._run_graph_audit_subprocess(
+                "postgresql://stub", timeout_s=0.01
+            )
+
+    def test_subprocess_psycopg_unavailable_raises_import_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Exit 3 → wrapper raises ImportError so validate_graph records a skip."""
+        self._stub_subprocess_run(
+            monkeypatch,
+            returncode=3,
+            stderr="[graph-audit-worker] psycopg unavailable: ...",
+        )
+        with pytest.raises(ImportError, match="psycopg unavailable"):
+            validate._run_graph_audit_subprocess("postgresql://stub")
+
+    def test_subprocess_db_error_raises_runtime_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Exit 4 → wrapper raises RuntimeError with the worker's stderr."""
+        self._stub_subprocess_run(
+            monkeypatch,
+            returncode=4,
+            stderr="[graph-audit-worker] OperationalError: connection refused",
+        )
+        with pytest.raises(
+            RuntimeError, match="graph_audit_subprocess_db_error"
+        ) as excinfo:
+            validate._run_graph_audit_subprocess("postgresql://stub")
+        # The wrapper preserves the worker's stderr in the exception body
+        # so the parent's hard-fail message carries the original error.
+        assert "connection refused" in str(excinfo.value)
+
+    def test_subprocess_env_violation_raises_runtime_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Exit 2 → parent-contract-violation routes to hard-fail."""
+        self._stub_subprocess_run(
+            monkeypatch,
+            returncode=2,
+            stderr="[graph-audit-worker] SUPABASE_DB_URL env missing ...",
+        )
+        with pytest.raises(
+            RuntimeError, match="graph_audit_subprocess_env_violation"
+        ):
+            validate._run_graph_audit_subprocess("postgresql://stub")
+
+    def test_subprocess_serialize_error_raises_runtime_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Exit 5 → JSON serialization failure routes to hard-fail."""
+        self._stub_subprocess_run(
+            monkeypatch,
+            returncode=5,
+            stderr="[graph-audit-worker] JSON serialization failed: ...",
+        )
+        with pytest.raises(
+            RuntimeError, match="graph_audit_subprocess_serialize_error"
+        ):
+            validate._run_graph_audit_subprocess("postgresql://stub")
+
+    def test_subprocess_unexpected_exit_raises_runtime_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Any non-zero exit code outside the documented set is hard-fail."""
+        self._stub_subprocess_run(monkeypatch, returncode=99, stderr="oops")
+        with pytest.raises(
+            RuntimeError, match="graph_audit_subprocess_unexpected_exit"
+        ):
+            validate._run_graph_audit_subprocess("postgresql://stub")
+
+    def test_subprocess_unparseable_stdout_raises_protocol_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Exit 0 with junk stdout → graph_audit_subprocess_protocol_error."""
+        self._stub_subprocess_run(monkeypatch, returncode=0, stdout="not json")
+        with pytest.raises(
+            RuntimeError, match="graph_audit_subprocess_protocol_error"
+        ):
+            validate._run_graph_audit_subprocess("postgresql://stub")
+
+    def test_subprocess_missing_keys_raises_protocol_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Exit 0 with valid JSON missing 'nodes' or 'edges' is a protocol error."""
+        self._stub_subprocess_run(
+            monkeypatch, returncode=0, stdout='{"nodes":[]}'
+        )
+        with pytest.raises(
+            RuntimeError, match="graph_audit_subprocess_protocol_error"
+        ):
+            validate._run_graph_audit_subprocess("postgresql://stub")
+
+    def test_subprocess_env_propagates_connection_string(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Wrapper sets SUPABASE_DB_URL in child env; GIT_* keys absent."""
+        # Plant a GIT_* var on the parent's env so we can verify it's
+        # stripped by scrubbed_env() before the subprocess inherits.
+        monkeypatch.setenv("GIT_INDEX_FILE", "/tmp/leaked")
+        captured: dict[str, Any] = {}
+        self._stub_subprocess_run(
+            monkeypatch,
+            returncode=0,
+            stdout='{"nodes":[],"edges":[]}',
+            capture_kwargs=captured,
+        )
+        validate._run_graph_audit_subprocess("postgresql://user:pw@h/db")
+        env = captured.get("env", {})
+        assert env.get("SUPABASE_DB_URL") == "postgresql://user:pw@h/db"
+        assert "GIT_INDEX_FILE" not in env, (
+            "scrubbed_env() must strip GIT_* keys (ADR 0045) before "
+            "the subprocess inherits the env"
+        )
+
+    def test_validate_graph_routes_timeout_to_hard_fail(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """End-to-end: TimeoutExpired surfaces as graph_audit hard-fail.
+
+        The hard-fail message must mention ``graph_audit_subprocess_timeout``
+        so future log scrapes can pattern-match the failure mode.
+        """
+        monkeypatch.setenv("SUPABASE_DB_URL", "postgresql://stub")
+        monkeypatch.setattr(validate, "_staged_paths_affect_graph", lambda: None)
+
+        def boom(
+            _: str, **__: Any
+        ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+            raise subprocess.TimeoutExpired(cmd=["worker"], timeout=90.0)
+
+        monkeypatch.setattr(validate, "_run_graph_audit_subprocess", boom)
+        r = validate_graph()
+        assert any(
+            "graph_audit_subprocess_timeout" in m for m in r.hard_fails
+        ), (
+            "validate_graph must record graph_audit_subprocess_timeout when "
+            "the outer wall-clock cap fires; otherwise the failure mode is "
+            "indistinguishable from a DB error and operators can't pattern-"
+            "match the wedge across sessions"
+        )
 
 
 class TestValidateGraphSnapshot:
@@ -2035,7 +2265,11 @@ class TestValidateGraphSnapshot:
         nodes = [_node("a")]
         edges = [_edge("a", "a")]  # self-cycle would fail in audit mode
         monkeypatch.setenv("SUPABASE_DB_URL", "postgresql://stub")
-        monkeypatch.setattr(validate, "_read_graph_from_db", lambda _: (nodes, edges))
+        # S-0212 (ADR 0101): patch the subprocess wrapper, not the inner
+        # function — validate_graph routes through the wrapper now.
+        monkeypatch.setattr(
+            validate, "_run_graph_audit_subprocess", lambda _: (nodes, edges)
+        )
         snapshot = tmp_path / "snapshot.json"
         r = validate_graph(export_snapshot=snapshot)
         assert "graph_export_snapshot" in r.checks_run
@@ -2052,9 +2286,11 @@ class TestMainExportSnapshotMode:
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         monkeypatch.setenv("SUPABASE_DB_URL", "postgresql://stub")
+        # S-0212 (ADR 0101): patch the subprocess wrapper, not the inner
+        # function.
         monkeypatch.setattr(
             validate,
-            "_read_graph_from_db",
+            "_run_graph_audit_subprocess",
             lambda _: ([_node("a")], []),
         )
         path = tmp_path / "snap.json"
@@ -2390,13 +2626,35 @@ class TestAppendHistory:
 class TestMain:
     """main(): exit-code mapping and dispatch between the two modes."""
 
-    def test_default_mode_clean_returns_non_two(self, synthetic_repo: Path) -> None:
+    def test_default_mode_clean_returns_non_two(
+        self, synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Clean repo, default mode: exit code 0 or 1 (no hard-fails)."""
+        # S-0212 (ADR 0101): the synthetic_repo's REPO_ROOT is tmp_path,
+        # which has no engine.tools.graph_audit_worker package. Stub the
+        # wrapper to skip — matches the pre-S-0212 test behavior, where
+        # the inner _read_graph_from_db raised ImportError because
+        # psycopg is absent under system Python in the test env.
+        monkeypatch.setattr(
+            validate,
+            "_run_graph_audit_subprocess",
+            lambda _: (_ for _ in ()).throw(ImportError("psycopg unavailable")),
+        )
         rc = main([])
         assert rc != 2
 
-    def test_default_mode_hard_fail_returns_two(self, synthetic_repo: Path) -> None:
+    def test_default_mode_hard_fail_returns_two(
+        self, synthetic_repo: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Removing a required file forces exit 2."""
+        # Same wrapper stub as the clean test — we're verifying that
+        # missing-file hard-fails surface as rc=2 even when the graph
+        # audit is skipped.
+        monkeypatch.setattr(
+            validate,
+            "_run_graph_audit_subprocess",
+            lambda _: (_ for _ in ()).throw(ImportError("psycopg unavailable")),
+        )
         (synthetic_repo / "README.md").unlink()
         rc = main([])
         assert rc == 2
