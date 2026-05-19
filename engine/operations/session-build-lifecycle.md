@@ -166,19 +166,25 @@ Resolution path (still in boot procedure, no substantive work yet):
 
 The mechanism's collision resistance is in place but not stress-tested by an actual concurrent collision. The first real exercise will likely come during Phase 5 parallel seed-graph build.
 
-### Pre-commit hook symlink
+### Pre-commit hook installation (`core.hooksPath`, per ADR 0100)
 
-The hook itself lives at [`tools/hooks/pre-commit`](../tools/hooks/pre-commit) (tracked). The parent repo's `.git/hooks/pre-commit` is a symlink to that path; worktrees share the parent's `.git/hooks/` directory, so one symlink covers every worktree.
+The hook itself lives at [`tools/hooks/pre-commit`](../tools/hooks/pre-commit) (tracked). Per [ADR 0100](../adr/0100-engine-inspired-hook-installation-and-close-friction-mitigations.md), hook discovery uses `git config core.hooksPath engine/tools/hooks` (set once per clone, stored in main's `.git/config`). Worktrees share main's `.git/config`, so the setting propagates automatically. Each worktree's commits resolve the pre-commit script from its OWN working tree at HEAD — hook-content edits authored in a worktree take effect on the same worktree's next commit, no longer dependent on main's working tree being FF'd first. Cures the S-0209 symlink-staleness lesson at the root.
 
-On a fresh clone, or if `readlink .git/hooks/pre-commit` shows a broken target (for example, a removed worktree), restore the symlink from the parent repo root:
+On a fresh clone, run once from the main repo root:
 
 ```bash
-cd .git/hooks
-rm -f pre-commit
-ln -s ../../tools/hooks/pre-commit pre-commit
+git config --local core.hooksPath engine/tools/hooks
 ```
 
-Verify: `head -3 .git/hooks/pre-commit` resolves and prints the bash shebang plus the Paideia hook header.
+Verify: `git -C <main-repo> config --get core.hooksPath` prints `engine/tools/hooks`. A test commit (even `--allow-empty`) should fire the hook and run `validate.py`.
+
+The pre-S-0210 setup used a relative symlink at `<main>/.git/hooks/pre-commit → ../../engine/tools/hooks/pre-commit`. If you find such a symlink on a clone that pre-dates S-0210, remove it after setting `core.hooksPath`:
+
+```bash
+rm <main-repo>/.git/hooks/pre-commit
+```
+
+If the `core.hooksPath` setting is missing on a clone, Git falls back to `<main>/.git/hooks/` which now lacks `pre-commit` — commits would proceed UNGATED. A future session that finds itself in an ungated state should suspect missing `core.hooksPath` first.
 
 ### Parent-FF refusal on `.claude/settings.json` edits from worktrees
 

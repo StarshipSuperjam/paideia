@@ -380,6 +380,23 @@ The asymmetry: a halted shutdown leaves no upstream close commit (the halt preve
 
 4. **Split state.** Both archive and current files present, or `register_state.json` `current_status` disagrees with which file exists. Reconcile manually — read both, identify which carries the fuller `outcome_summary`, do not delete either blindly. Escalate per [`escalation-criteria.md`](../../../engine/operations/escalation-criteria.md) if the right reconciliation is unclear.
 
+### Mechanical recovery via `recover_partial_close.py`
+
+Per [ADR 0100](../../../engine/adr/0100-engine-inspired-hook-installation-and-close-friction-mitigations.md). [`engine/tools/recover_partial_close.py`](../../../engine/tools/recover_partial_close.py) diagnoses seven shapes and offers three narrow recovery actions, each shape-verified before mutating (refuse on mismatch).
+
+```bash
+python3 engine/tools/recover_partial_close.py             # inspect only
+python3 engine/tools/recover_partial_close.py --remove-active
+python3 engine/tools/recover_partial_close.py --rollback-archive
+python3 engine/tools/recover_partial_close.py --land-close
+```
+
+Scenarios above map to the tool's diagnosis: scenario 1 → `CURRENT_ONLY` (no flag); scenario 2 → `CLOSE_PENDING_REGISTER_FLIP` (use `--land-close`) or `ARCHIVE_ORPHAN_NO_COMMIT` (use `--rollback-archive`); scenario 3 → `CLOSE_CLEAN` (no flag); scenario 4 → `ARCHIVE_AND_CURRENT_*` (use `--remove-active` after manual inspection).
+
+### Close-commit-failed bypass: `SKIP_ENGINE_HOOKS=1` vs `--no-verify`
+
+Per [ADR 0100](../../../engine/adr/0100-engine-inspired-hook-installation-and-close-friction-mitigations.md) Item 3. When a close commit hits a hook hard-fail that cannot be fixed in-context, prefer `SKIP_ENGINE_HOOKS=1 git commit -m "..."` over `--no-verify`. The audited bypass logs to `.engine_reports/hook-bypass.log` (gitignored, per-clone); `session-start.sh` surfaces unread entries as a LOUD reminder at the next session boot. Routine-mode sessions refuse this path per [`routine-mode-operations.md`](../../../engine/operations/routine-mode-operations.md).
+
 ## See also
 
 - [`engine/operations/session-shutdown-sequence.md`](../../../engine/operations/session-shutdown-sequence.md) — Layer 1 source-of-truth prose.

@@ -427,6 +427,43 @@ Concrete trigger condition for the stale-checkout shape: `register_state.json`'s
 
 The recovery procedure is documented for completeness; it has not been exercised on a real interrupted close.
 
+### Mechanical recovery via `recover_partial_close.py`
+
+Per [ADR 0100](../adr/0100-engine-inspired-hook-installation-and-close-friction-mitigations.md). When the working-tree state matches one of seven named shapes, [`engine/tools/recover_partial_close.py`](../tools/recover_partial_close.py) diagnoses the shape mechanically and offers three narrow recovery actions:
+
+```bash
+# Inspect (no mutation) — always safe
+python3 engine/tools/recover_partial_close.py
+python3 engine/tools/recover_partial_close.py --json
+
+# Recovery actions (each shape-verifies before mutating; refuses with
+# exit 2 on shape mismatch)
+python3 engine/tools/recover_partial_close.py --remove-active
+python3 engine/tools/recover_partial_close.py --rollback-archive
+python3 engine/tools/recover_partial_close.py --land-close
+```
+
+Mapping from the scenarios above to the tool's flags:
+
+- Scenario 1 (halted before step 13) → diagnoses as `CURRENT_ONLY`; no recovery flag applies (continue the close from step 1).
+- Scenario 2 (halted between archive and commit) → diagnoses as `CLOSE_PENDING_REGISTER_FLIP` if STATE.md/changelog edits are in the working tree, else `ARCHIVE_ORPHAN_NO_COMMIT`. Use `--land-close` to author the missing commit; or `--rollback-archive` to undo and re-author.
+- Scenario 3 (halted after final commit) → diagnoses as `CLOSE_CLEAN`; no recovery flag applies (run the push manually via `build_lifecycle_push.py close --dry-run` first, then drop `--dry-run`).
+- Scenario 4 (split state) → diagnoses as `ARCHIVE_AND_CURRENT_*`; use `--remove-active` after manual inspection confirms the archive carries the canonical `outcome_summary`.
+
+Each flag refuses on shape mismatch — running the wrong flag produces a clear error, not silent corruption.
+
+### Close-commit-failed bypass: `SKIP_ENGINE_HOOKS=1` vs `--no-verify`
+
+Per [ADR 0100](../adr/0100-engine-inspired-hook-installation-and-close-friction-mitigations.md) Item 3. When a close commit hits a hook hard-fail (validator gate, allowlist refusal) that cannot be fixed in-context mid-close, the project's auditable bypass is **`SKIP_ENGINE_HOOKS=1 git commit -m "..."`** rather than `--no-verify`:
+
+```bash
+SKIP_ENGINE_HOOKS=1 git commit -m "chore(session): close S-NNNN — ..."
+```
+
+Both bypass the pre-commit hook. `SKIP_ENGINE_HOOKS=1` adds an audit-log entry to `.engine_reports/hook-bypass.log` (gitignored, per-clone) with timestamp + branch + user + commit subject; `--no-verify` leaves no trace. `session-start.sh` surfaces unread bypass-log entries as a LOUD attention block at every subsequent session boot, so each bypass is visible to a subsequent session even if the using session never named it.
+
+Routine-mode sessions still refuse this path — every routine-mode bypass is a HANDOFF entry + halt per [`routine-mode-operations.md`](routine-mode-operations.md). Build-mode sessions use the bypass only when (a) the close commit cannot be split via Step 5b's procedure (Fix E of [ADR 0099](../adr/0099-session-close-friction-mitigations.md)) and (b) the underlying gate failure is genuinely transient (e.g., a network-side validate.py wedge per [Issue #151](https://github.com/StarshipSuperjam/paideia/issues/151)) or has been adjudicated by the user. The expected frequency is near-zero in steady state; each use should produce a follow-up Issue if the gate failure represents a real bug.
+
 ## See also
 
 - [`session-build-lifecycle.md`](session-build-lifecycle.md) — open-of-session protocol.

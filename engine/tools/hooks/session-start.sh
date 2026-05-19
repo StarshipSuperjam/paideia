@@ -838,6 +838,67 @@ if [ "$SCOPE_NON_YES" -ge 3 ]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Hook-bypass audit-log surface (.engine_reports/hook-bypass.log)
+# ---------------------------------------------------------------------------
+#
+# Per ADR 0100. The SKIP_ENGINE_HOOKS=1 audited bypass logs each use to
+# .engine_reports/hook-bypass.log (per-clone, gitignored). At every
+# session boot we surface unread entries as a LOUD attention block so
+# every bypass is visible to a subsequent session even if the using
+# session never named it. The "unread" boundary is the most recent
+# closed session's started_at — anything newer surfaces.
+#
+# Best-effort: if jq is missing or the log is unreadable, log fail and
+# continue. The surveillance is informational at boot — never blocking.
+
+HOOK_BYPASS_LOG="$REPO_ROOT/.engine_reports/hook-bypass.log"
+BYPASS_FOUND=0
+
+if [ -s "$HOOK_BYPASS_LOG" ]; then
+    # Find the most recent closed session's started_at to use as the
+    # "unread" boundary. Falls back to "show everything" if no archives.
+    LATEST_ARCHIVE="$(ls -t "$REPO_ROOT/engine/session/archive/"S-*.json 2>/dev/null | head -1)"
+    BOUNDARY_TIMESTAMP=""
+    if [ -n "$LATEST_ARCHIVE" ] && [ -x "$(command -v jq)" ]; then
+        BOUNDARY_TIMESTAMP="$(jq -r '.started_at // empty' "$LATEST_ARCHIVE" 2>/dev/null)"
+    fi
+
+    # Each line shape: [ISO-8601] pre-commit bypass: branch=... user=... subject=...
+    # Filter to lines newer than BOUNDARY_TIMESTAMP. Lexicographic compare
+    # works because ISO-8601 is lex-ordered.
+    if [ -n "$BOUNDARY_TIMESTAMP" ]; then
+        UNREAD_ENTRIES="$(awk -v boundary="$BOUNDARY_TIMESTAMP" '
+            match($0, /^\[([^\]]+)\]/, m) {
+                if (m[1] > boundary) print
+            }
+        ' "$HOOK_BYPASS_LOG" 2>/dev/null)"
+    else
+        # No boundary → show everything (max 5 most-recent entries).
+        UNREAD_ENTRIES="$(tail -5 "$HOOK_BYPASS_LOG" 2>/dev/null)"
+    fi
+
+    if [ -n "$UNREAD_ENTRIES" ]; then
+        UNREAD_COUNT="$(echo "$UNREAD_ENTRIES" | wc -l | tr -d ' ')"
+        {
+            echo ""
+            echo "============================================================"
+            echo "[session-start] HOOK-BYPASS audit: $UNREAD_COUNT unread entry(ies)"
+            echo "  in $HOOK_BYPASS_LOG since last closed session."
+            echo ""
+            echo "$UNREAD_ENTRIES" | sed 's/^/  /'
+            echo ""
+            echo "  Each entry is a SKIP_ENGINE_HOOKS=1 use bypassing pre-commit."
+            echo "  Per ADR 0100, bypass is intended for rare close-friction"
+            echo "  cases only. Review whether each use was legitimate and"
+            echo "  whether the underlying issue should be fixed (Issue / ADR)."
+            echo "============================================================"
+            echo ""
+        } >&2
+        BYPASS_FOUND=1
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 # Scheduled-audit surface (engine/scheduled_audits.json)
 # ---------------------------------------------------------------------------
 #
@@ -877,5 +938,5 @@ if [ -f "$SCHEDULED_AUDITS_FILE" ]; then
     fi
 fi
 
-log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=$PERSISTENT_FOUND persistent-warns-annotated=$ANNOTATED_FOUND scheduled=$SCHEDULED_FOUND probe=$PROBE_STATUS backlog=$BACKLOG_STATUS scope_non_yes=$SCOPE_NON_YES conflict=$CONFLICT_STATUS env_pointer=$ENV_POINTER_STATUS stale_check=$STALE_CHECK_STATUS boot_sweep=$SWEEP_STATUS"
+log_ok "cadence-fires=$CADENCE_FIRES cadence-mode=$CADENCE_TRIGGER_REASON slots-since=${SLOTS_SINCE:-NA} persistent-warns=$PERSISTENT_FOUND persistent-warns-annotated=$ANNOTATED_FOUND scheduled=$SCHEDULED_FOUND probe=$PROBE_STATUS backlog=$BACKLOG_STATUS scope_non_yes=$SCOPE_NON_YES conflict=$CONFLICT_STATUS env_pointer=$ENV_POINTER_STATUS stale_check=$STALE_CHECK_STATUS boot_sweep=$SWEEP_STATUS hook_bypass=$BYPASS_FOUND"
 exit 0

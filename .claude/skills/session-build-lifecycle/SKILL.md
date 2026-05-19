@@ -179,19 +179,25 @@ Resolution (still in boot procedure, no substantive work yet):
 4. Re-run the eager-claim ritual against the new slot. Update `current.json`'s `id` and `working_on`. Commit, FF, push.
 5. Resume substantive work.
 
-### Pre-commit hook symlink
+### Pre-commit hook installation (`core.hooksPath`, per ADR 0100)
 
-The hook itself lives at [`engine/tools/hooks/pre-commit`](../../../engine/tools/hooks/pre-commit) (tracked). The parent repo's `.git/hooks/pre-commit` is a symlink to that path; worktrees share the parent's `.git/hooks/` directory.
+Hook discovery uses `git config core.hooksPath engine/tools/hooks` (set once per clone, stored in main's `.git/config`). Worktrees share main's `.git/config`, so the setting propagates automatically. Each worktree's commits resolve the pre-commit script from its OWN working tree at HEAD — hook-content edits take effect on the authoring worktree's next commit, no longer dependent on main's working tree being FF'd first.
 
-On a fresh clone, or if `readlink .git/hooks/pre-commit` shows a broken target:
+On a fresh clone, run once from the main repo root:
 
 ```bash
-cd .git/hooks
-rm -f pre-commit
-ln -s ../../engine/tools/hooks/pre-commit pre-commit
+git config --local core.hooksPath engine/tools/hooks
 ```
 
-Verify: `head -3 .git/hooks/pre-commit` resolves and prints the bash shebang plus the Paideia hook header.
+Verify: `git -C <main-repo> config --get core.hooksPath` prints `engine/tools/hooks`. A test commit (even `--allow-empty`) should fire the hook and run `validate.py`.
+
+Pre-S-0210 clones used a symlink at `<main>/.git/hooks/pre-commit`. If found, remove it after setting `core.hooksPath`:
+
+```bash
+rm <main-repo>/.git/hooks/pre-commit
+```
+
+If `core.hooksPath` is missing on a clone, Git falls back to `.git/hooks/` (now empty for pre-commit) and commits proceed UNGATED. Suspect missing `core.hooksPath` first if you find yourself in an ungated state.
 
 ### engine_memory capture-hook failure log
 
