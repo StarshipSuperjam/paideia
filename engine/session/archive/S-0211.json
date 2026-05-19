@@ -1,0 +1,44 @@
+{
+  "id": "S-0211",
+  "started_at": "2026-05-19T18:22:29Z",
+  "status": "closed",
+  "mode": "interactive",
+  "working_on": "Issue #151 hypothesis-agnostic diagnostic capture: dump ps/lsof/netstat/thread-stacks/sample to .engine_reports/ when the 45s graph_audit watchdog fires.",
+  "declared_scope": "Add engine/tools/hang_diagnostic.py (best-effort capture module) and wire it into validate.py's _watchdog() to fire on timeout BEFORE conn.cancel(). Unit + integration tests. Comment on Issue #151 + update STATE.md row 54. phase: NA-issue-151",
+  "outcome_summary": "Delivered the S-0211 plan in full per S-0211: hang_diagnostic.py + 12 pytests + validate.py watchdog integration + new pytest + macOS netstat fix discovered same-session via the live-wedge dump and fixed in-context. Plus first-exercise empirical findings landed in-session \u2014 the diagnostic capture fired against a real #151 wedge (PID 41424) during the very commit that introduced it; main thread wedged in psycopg.connection.wait() on pgconn.socket, ESTABLISHED TCP with no keepalive firing, conn.cancel() ITSELF wedged 6+ minutes against the same socket per S-0208 falsification pattern, and only project-internal SQLite Python processes were sibling-live (no suspect non-project Python). The user-hypothesized cross-process Python contamination vector is NOT supported by the captured evidence; the pgbouncer L4-traffic hypothesis per lesson drawer 4e3c8296fbb142679d7de0fcea5b0208 IS empirically supported. Pushback drawer 94e4ea6e43ed4c0a9b97f1a5d3c4c97e captures the hypothesis-agnostic-over-committed-hypothesis-testing rule. Diary at 90afb5d19b684391abce86e31a865f2d. Issue #151 comment posted; STATE.md row 54 updated with revised observation-window guidance from S-0211. Two SKIP_ENGINE_HOOKS=1 bypasses used (user-authorized; ADR 0100 audit trail). Three structural-fix candidates named for the next session (direct DB port 5432; Supavisor session mode; subprocess-level timeout that survives conn.cancel wedge) \u2014 none committed; Cluster 4 carries forward as the next session's default per S-0209 master plan.",
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": true,
+    "explanation": "Full plan delivered AND first-exercise empirical findings landed in-session. Two user-authorized scope confirmations: (1) at session start, user picked 'Investigate Issue #151' from the three work-item options; (2) during execution, the live #151 wedge required two SKIP_ENGINE_HOOKS=1 bypasses to land the fix itself, both explicitly authorized via AskUserQuestion. Same-session bug discovery: macOS netstat-separator fix in hang_diagnostic.py \u2014 fixed in-context per CLAUDE.md 'default to fix-in-context'. No descope; one in-context expansion (the same-session empirical findings recording, which was a bonus over the plan's predicted 'deferred to next session boot' verification step)."
+  },
+  "next_session_handle": null,
+  "outcome_summary_soft_warns": {
+    "issue_collision": 8,
+    "engine_memory_zero_citations_after_search": 1,
+    "timestamp_helper_bypass": 1
+  },
+  "approved_plan": "~/.claude/plans/what-is-next-rippling-abelson.md",
+  "branch": "claude/focused-morse-fb9759",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/focused-morse-fb9759",
+  "engine_memory_activity": {
+    "search_calls": 1,
+    "add_drawer_calls": 2,
+    "get_drawer_calls": 0,
+    "list_drawers_calls": 0,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "other_calls": 0,
+    "total_calls": 5,
+    "first_call_ts": "2026-05-19T18:21:50Z",
+    "last_call_ts": "2026-05-19T18:53:15Z",
+    "search_first_ts": "2026-05-19T18:21:53Z",
+    "diary_read_first_ts": "2026-05-19T18:21:50Z",
+    "engine_memory_citations": {
+      "drawer_id_refs": 3,
+      "session_archive_refs": 3,
+      "tag_named_refs": 1,
+      "total": 7
+    }
+  },
+  "closed_at": "2026-05-19T19:02:55Z"
+}
