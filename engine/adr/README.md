@@ -82,6 +82,7 @@ The engine collection has **45 ADRs total — all Accepted**. Engine ADRs are ab
 | [0092](0092-per-session-changelog-directory.md) | Per-session changelog directory replaces monolithic ENGINE_LOG.md (supersedes ADR 0037 in part) | Accepted |
 | [0099](0099-session-close-friction-mitigations.md) | Session-close friction mitigations (Issue #153) — allowlist expansion + ruff-format auto-apply + post-write hooks + Step 5b orphan-path verification | Accepted |
 | [0100](0100-engine-inspired-hook-installation-and-close-friction-mitigations.md) | Engine-inspired hook installation + close-friction mitigations — core.hooksPath migration + check_settings_sync bidirectional fix (Issue #154) + SKIP_ENGINE_HOOKS audited bypass + recover_partial_close.py | Accepted |
+| [0101](0101-subprocess-isolation-for-graph-audit.md) | Subprocess isolation for graph_audit — parent-side SIGKILL outer cap escapes the S-0211 `conn.cancel()`-wedges-too failure mode (Issue #151 structural fix) | Accepted |
 
 ## Adding a new engine ADR
 
