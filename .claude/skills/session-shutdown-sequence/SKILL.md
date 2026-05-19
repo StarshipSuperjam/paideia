@@ -90,6 +90,28 @@ Record findings in `engine/session/current.json`'s `outcome_summary`:
 
 The pass is fresh-eyes by construction: the sub-agent has no memory of the authoring session's premises and so cannot share its blind spots. Cold-review surfaces premise drift; lint/type/test/SQL-gate checks do not.
 
+### 5b. Verify staged + unstaged paths against the close allowlist (per ADR 0099, Issue #153)
+
+Catch close-time orphan-path refusals before archive — the trap S-0207 and S-0208 closes hit. When step 4 (spot-check) or step 5 (cold-review) surfaces a catch-up edit outside `CLOSE_ALLOWED_GLOBS`, the natural fix container is an earlier in-session commit; the close commit at step 14 will refuse the orphan path otherwise.
+
+1. `git status --porcelain` and `git diff --cached --name-only`. Collect every modified, staged, or untracked path.
+2. Predicate-check each path against `CLOSE_ALLOWED_GLOBS` (operational allowlist + `engine/STATE.md` + `engine/build_readiness/*.md` + `engine/adr/README.md` + `product/adr/README.md`):
+
+   ```bash
+   python3 -c "
+   import sys; sys.path.insert(0, 'engine/tools')
+   import check_routine_scope, routine_lifecycle_push
+   for p in sys.argv[1:]:
+       ok = check_routine_scope.matches_any(p, routine_lifecycle_push.CLOSE_ALLOWED_GLOBS)
+       print(f'{\"OK\" if ok else \"OUT\":>3}  {p}')
+   " <paths>
+   ```
+
+3. Any path marked `OUT` → commit it separately NOW with a conventional commit type (the session is still `in_progress`; pre-commit + validate.py gates run normally; the natural fix path is unblocked).
+4. Once `git status --porcelain` shows only `OK` paths (or is empty), proceed to step 6.
+
+[ADR 0099](../../../engine/adr/0099-session-close-friction-mitigations.md) Fix A widens the allowlist to include the two ADR-README indexes (the most-common orphan-path case from the S-0208 incident); Step 5b catches everything else.
+
 ### 6. Update `engine/STATE.md`
 
 Edit the `## Current` table:

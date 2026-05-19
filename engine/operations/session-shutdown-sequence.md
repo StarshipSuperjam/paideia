@@ -86,6 +86,32 @@ Record findings from each branch in `engine/session/current.json`'s `outcome_sum
 
 The pass is fresh-eyes by construction: the sub-agent has no memory of the authoring session's premises and so cannot share its blind spots. The mechanism targets the compound-drift failure mode — a wrong premise built upon by internally-consistent artifacts that pass automated checks authored against the same premise. Cold-review surfaces premise drift; lint/type/test/SQL-gate checks do not.
 
+### 5b. Verify staged + unstaged paths against the close allowlist (per ADR 0099, Issue #153)
+
+Before the close commit container is built at step 14, the working tree must contain only paths the close-shape allowlist accepts. Steps 4 (spot-check) and 5 (cold-context review) exist to catch judgment mistakes the structural audit at step 3 misses — and when they do, the fix-in-context discipline says apply the fix now. The trap Issue #153 quantified across S-0207 and S-0208 closes: a legitimate catch-up edit (a missing ADR-README index row, a missing CROSS_REFERENCES.md entry, a CLAUDE.md amendment) lands in the close commit container at step 14, the close-shape verifier in `build_lifecycle_push.py` refuses with `close diff touches paths outside the operational allowlist`, and the natural fix container — an earlier in-session commit — is gone because the session is mid-close.
+
+Procedure:
+
+1. Run `git status --porcelain` and `git diff --cached --name-only`. Collect every modified, staged, or untracked path.
+2. For each path, check whether it's in `CLOSE_ALLOWED_GLOBS` (defined in [`engine/tools/routine_lifecycle_push.py`](../tools/routine_lifecycle_push.py)). The set is: `check_routine_scope.OPERATIONAL_ALLOWLIST` (operational session-state files) ∪ `engine/STATE.md` ∪ `engine/build_readiness/*.md` ∪ `engine/adr/README.md` ∪ `product/adr/README.md`. The fastest check is a one-shot Python invocation:
+
+   ```bash
+   python3 -c "
+   import sys; sys.path.insert(0, 'engine/tools')
+   import check_routine_scope, routine_lifecycle_push
+   for p in sys.argv[1:]:
+       ok = check_routine_scope.matches_any(p, routine_lifecycle_push.CLOSE_ALLOWED_GLOBS)
+       print(f'{\"OK\" if ok else \"OUT\":>3}  {p}')
+   " <paths>
+   ```
+
+3. Any path marked `OUT` → commit it separately NOW under a conventional commit type (`docs(...)`, `feat(...)`, `fix(...)` per [`code-discipline.md`](code-discipline.md)). The session is still `in_progress`, so the `pre-commit` + `validate.py` gates run normally and the natural fix container is unblocked. Use the same commit-message footer convention (Co-Authored-By line).
+4. Once `git status --porcelain` shows only paths the predicate marks `OK` (or is empty), proceed to step 6.
+
+Defense-in-depth: [ADR 0099](../adr/0099-session-close-friction-mitigations.md) Fix A expands the allowlist to include `engine/adr/README.md` + `product/adr/README.md` (the most-common orphan-path case the S-0208 incident exposed) so a skipped Step 5b on that specific known case still doesn't fall back to the friction path. Step 5b catches everything else.
+
+The check is procedural, not mechanical — the AI executes the predicate via the snippet above. A mechanical close-readiness verifier (Fix B from Issue #153) is named in [ADR 0099](../adr/0099-session-close-friction-mitigations.md) Alternatives Considered as a deferred follow-up; if the observation window (three consecutive clean closes per Issue #153 acceptance criterion 4) fails to close, Fix B becomes the next escalation.
+
 ### 6. Update `STATE.md`
 
 Edit the `## Current` table:
