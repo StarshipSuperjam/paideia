@@ -1,0 +1,14 @@
+{
+  "id": "S-0208",
+  "started_at": "2026-05-19T03:28:29Z",
+  "status": "in_progress",
+  "mode": "interactive",
+  "working_on": "Close #152 via Cluster 2 ADR + migration + bundled soft-warn; re-scope #151 (server-side clean) and add TCP keepalive to psycopg connects",
+  "declared_scope": "Land (1) Phase 1 — TCP keepalive on validate.py + apply_migration.py psycopg.connect calls + re-scope Issue #151 (server-side logs clean; client-side hang framing) + ops-doc note; (2) Phase 2 — product ADR 0098 (Tier-A Cluster 2: edge-type taxonomy expansion + three-relation layered separation) + migration 0130 + paired rollback + ROUTING.md / PREDICATE_MANIFEST.md / ADR 0061 in-body updates; (3) Phase 3 — `validate_edges_contestability_unguarded_high_confidence` soft-warn implementation per #152 + Cluster 2's `edge_provisional_hard_prerequisite` soft-warn + pytests + ops-doc + close #152. phase: NA-engine-and-product",
+  "outcome_summary": null,
+  "scope_delivery": null,
+  "next_session_handle": null,
+  "approved_plan": "~/.claude/plans/i-need-to-async-book.md",
+  "branch": "claude/serene-kirch-964362",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/serene-kirch-964362"
+}
