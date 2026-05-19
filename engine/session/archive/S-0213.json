@@ -1,0 +1,111 @@
+{
+  "id": "S-0213",
+  "started_at": "2026-05-19T20:15:46Z",
+  "status": "closed",
+  "mode": "interactive",
+  "working_on": "Tier-A Cluster 4 (node schema redesign) per ADR 0094 dependency order C1 \u2192 C2 \u2192 C4 \u2192 C3 \u2192 C5 \u2014 land product ADR 0102 + migration 0140 + paired rollback + three validate.py checks + ROUTING/PREDICATE_MANIFEST/architecture.md amendments.",
+  "declared_scope": "Author product ADR 0102 + paired migration 0140 (+ rollback) adding 14 new columns to public.nodes per synthesis.md \u00a7Cluster 4 \u2014 node_type TEXT[] (9-value enum + 'unclassified' transitional default per plan adjudications 1+2), disciplinary_domain, granularity, audience_tags, canonical_sources, approved_examples, misconceptions, assessment_items, mastery_evidence, accessibility_notes, assumed_background, jargon_load, cultural_specificity, tradition_label TEXT[]. Schema-only this session per Adjudication 1; per-domain node_type backfill defers to sequel sessions. Land three validate.py checks (1 hard-fail + 2 soft-warns) per `feedback_no_pilot_wait_and_see.md`. Amend ROUTING.md (Cluster 4 sub-range claim + S-0213 narrative), PREDICATE_MANIFEST.md (new enum values if applicable), product/docs/architecture.md (Node Schema reference to ADR 0102). phase: NA-product-substrate",
+  "outcome_summary": "Tier-A Cluster 4 (node schema redesign) landed cleanly per ADR 0102 \u2014 14 new columns + 4 CHECK constraints on public.nodes via migration 0140 schema-only; round-trip verified end-to-end (apply \u2192 18 Postcondition-Assertions pass \u2192 rollback \u2192 re-apply stable). Three new validate.py checks (`node_type_unclassified` mode-switched soft-warn, `node_threshold_concept_lacks_assessment_items`, `node_lacks_cultural_specificity`) + 25 new pytests + two latent fix-in-context items (mypy + bandit, both introduced by S-0208/S-0212 SKIP_ENGINE_HOOKS=1 bypasses per ADR 0100). Four plan-mode AskUserQuestion adjudications (schema-only backfill; node_type TEXT[] array; strict ADR 0008 read on historical_context; keep bridge_concept with provenance note). Four resolve-by-recommendation outcomes (D3 subfield 9th enum; D4 tradition_label TEXT[] open; domain \u2194 disciplinary_domain two-level reconciliation; assessment_items JSONB not FK). ADR 0094 T1-A + ADR 0095 T1-A re-verified for the third Tier-A cluster landing; ADR 0094 T1-B partially closed (D1, D2, D3, D4, D8 within Tier-A; D5 to Cluster 2 amendment; D6, D7 to Cluster 5). Orphan-PID-blocker incident empirically observed ADR 0101's named-Tier-3 case (apply_migration port) \u2014 filed Issue #155 as ADR 0101 sequel for server-side wedge cleanup. Pushback drawer 07b19f41 (classifier-override race-condition false-positive + wedge-persistence meta-question). Lesson drawer dc53aea9 (SKIP_ENGINE_HOOKS=1 audited-bypass cost: latent gate failures accumulate across sessions; this session was first non-bypassed Python-edit commit since S-0208 and surfaced two latent issues). Cluster 4 dependency-order pointer to Cluster 3 (0150-0159) OR per-domain Cluster 4 backfill sequels (0141-0149); recommended next session is Issue #155 first to unblock all downstream migration sessions.",
+  "scope_delivery": {
+    "delivered": true,
+    "user_confirmed_changes": false,
+    "explanation": "All declared deliverables landed: ADR 0102 + migration 0140 + paired rollback + applied via mcp__supabase__apply_migration with round-trip verification + 3 validate.py checks + 25 pytests + ROUTING/PREDICATE_MANIFEST/architecture amendments. Two added items not in original declared scope: (a) two latent fix-in-context items on validate.py + test_validate.py (mypy keepalives_*, bandit B108) \u2014 both pre-existing issues per CLAUDE.md fix-in-context default; (b) Issue #155 filing as ADR 0101 sequel after empirical observation of the orphan-PID-blocker class. The orphan-PID incident itself was an in-session blocker the user resolved via Supabase restart; no descope or deferral of declared work."
+  },
+  "next_session_handle": "#155",
+  "outcome_summary_soft_warns": {
+    "expected_future_file_missing": 0,
+    "adr_missing_status": 0,
+    "adr_index_inconsistent": 0,
+    "cross_reference_broken": 0,
+    "state_format": 0,
+    "superseded_adr_currency": 0,
+    "adr_back_reference_orphan": 1,
+    "adr_consequences_deliverable_audit": 0,
+    "repo_config_health": 0,
+    "skill_layer1_parity_drift": 0,
+    "engine_memory_boot_query_skipped": 0,
+    "engine_memory_diary_read_skipped": 0,
+    "engine_memory_diary_write_skipped": 0,
+    "engine_memory_zero_citations_after_search": 1,
+    "outcome_summary_unhandled_defer": 0,
+    "next_session_handle_unknown_issue": 0,
+    "next_session_handle_unknown_session": 0,
+    "next_session_handle_malformed": 0,
+    "issue_collision": 8,
+    "missing_rigor_score": 358,
+    "edge_evidence_empty": 46,
+    "edge_contestability_unguarded_high_confidence": 533,
+    "edge_provisional_hard_prerequisite": 0,
+    "node_type_unclassified": 380,
+    "node_threshold_concept_lacks_assessment_items": 0,
+    "node_lacks_cultural_specificity": 380
+  },
+  "side_discoveries": [
+    {
+      "commit": "686bbb2",
+      "marker": "follow-up",
+      "disposition_type": "addressed_inline",
+      "disposition_ref": "ADR 0102 Decision \u00a7Backfill commitments + ad78d9e ROUTING amendment",
+      "reasoning": "The follow-up migration referenced (dropping 'unclassified' from the CHECK constraint vocabulary) is the LAST per-domain backfill sequel session's responsibility per ADR 0102 Decision \u00a7Backfill commitments. Documented in ADR + ROUTING + PREDICATE_MANIFEST + STATE.md `Cluster 4 ADR 0102 carry-forward items` block."
+    },
+    {
+      "commit": "52fa1be",
+      "marker": "flagged",
+      "disposition_type": "acceptable_no_action",
+      "disposition_ref": "",
+      "reasoning": "False positive \u2014 'flagged' appears inside the phrase 'forward-flagged' referencing the S-0207/S-0208 ROUTING narrative entries' explicit forward-flag for the C4=0140-0149 sub-range. No deferral or follow-up implied."
+    },
+    {
+      "commit": "52fa1be",
+      "marker": "follow-up",
+      "disposition_type": "addressed_inline",
+      "disposition_ref": "Issue #155",
+      "reasoning": "The 'Worth a follow-up Issue: ADR 0101 amendment for server-side wedge cleanup' commit-body marker is realized as Issue #155 filed at this session's close. The migration commit message text named the follow-up explicitly; the close commit's audit catches it."
+    },
+    {
+      "commit": "ac0c170",
+      "marker": "follow-up",
+      "disposition_type": "addressed_inline",
+      "disposition_ref": "686bbb2",
+      "reasoning": "The 'Implementation lands in a follow-up commit (this commit covers the ADR + index row)' marker refers to the validate.py implementation commit which DID land in the same session at commit 686bbb2. Explicit fix-in-session; no cross-session deferral."
+    },
+    {
+      "commit": "ac0c170",
+      "marker": "pending",
+      "disposition_type": "acceptable_no_action",
+      "disposition_ref": "Issue #115",
+      "reasoning": "References Issue #115's title text ('historical_node_as_prereq_source validator soft-warn pending node-class schema extension'). The schema is now landed at S-0213; Issue #115 commentary (next session) can update the status. Not a new deferral; the 'pending' word is part of the Issue's own title."
+    },
+    {
+      "commit": "ac0c170",
+      "marker": "follow-up",
+      "disposition_type": "handoff_section",
+      "disposition_ref": "Issue #115",
+      "reasoning": "The 'soft-warn promotion remains a follow-up that consumes the per-domain-backfilled columns' references the Issue #115 promotion path. Tracked in the Issue; the per-domain backfill sequel sessions consume the new schema; the soft-warn promotion is a sub-task of those sequels OR a dedicated post-backfill session. STATE.md `Carried open items` block names this."
+    }
+  ],
+  "approved_plan": "/Users/shanekidd/.claude/plans/read-yo-start-cluster-twinkly-lampson.md",
+  "branch": "claude/beautiful-faraday-ff01df",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/beautiful-faraday-ff01df",
+  "engine_memory_activity": {
+    "search_calls": 2,
+    "add_drawer_calls": 3,
+    "get_drawer_calls": 0,
+    "list_drawers_calls": 0,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "other_calls": 0,
+    "total_calls": 7,
+    "first_call_ts": "2026-05-19T19:58:43Z",
+    "last_call_ts": "2026-05-19T21:30:33Z",
+    "search_first_ts": "2026-05-19T19:58:43Z",
+    "diary_read_first_ts": "2026-05-19T19:58:45Z",
+    "engine_memory_citations": {
+      "drawer_id_refs": 0,
+      "session_archive_refs": 2,
+      "tag_named_refs": 0,
+      "total": 2
+    }
+  },
+  "closed_at": "2026-05-19T21:40:26Z"
+}
