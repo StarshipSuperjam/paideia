@@ -257,15 +257,18 @@ def capture_hang_diagnostic(label: str, pid: int | None = None) -> Path | None:
     }
 
     # netstat: on macOS the BSD netstat lacks the GNU -E regex flag,
-    # so do the grep client-side. On Linux either should work; using
-    # the same pipeline gives us identical output shape across
-    # platforms.
+    # so do the grep client-side. macOS netstat -an renders addresses
+    # in dot-separated form (``192.168.1.5.51480``) while Linux netstat
+    # uses colon (``192.168.1.5:51480``); accept both. Empirically
+    # confirmed at S-0211 first-exercise (PID 41424 wedge dump) — the
+    # initial colon-only grep produced empty output despite an
+    # established TCP to ``ec2-...:postgresql`` per lsof.
     raw_netstat = _run_command(["netstat", "-an"])
     if raw_netstat is not None:
         snapshot["netstat_supabase"] = "\n".join(
             line
             for line in raw_netstat.splitlines()
-            if ":5432" in line or ":6543" in line
+            if any(token in line for token in (":5432", ":6543", ".5432", ".6543"))
         )
 
     # sample: macOS-only. Runs a 2s call-stack sample with -mayDie so
