@@ -145,13 +145,16 @@ The product collection has **45 ADRs total — 41 Accepted plus 4 Superseded** (
 
 > Session δ₂ (S-0203) lands the third and fourth of Session δ's four foundational ADRs (tool-stack settlement + learning-outcome taxonomy) alongside Q1/Q2/Q3/D6 coordination + schema-item adjudications captured in `HANDOFF.md`. All four Session δ foundational ADRs (0093, 0094, 0095, 0096) are now landed. ADR 0095 amends [ADR 0017](0017-postgres-recursive-ctes-over-owl-rdf.md) in-body (Status stays Accepted on 0017; substrate conclusion unchanged; revisit bar raised and OSS-license-compatibility constraint added). ADR 0096 is open-for-revision via in-body amendment per its load-bearing premise 5 (additive revisions amend; structural revisions supersede).
 
-### Phase 6 Tier-A cluster-implementation ADRs (ADR 0097, first of the cluster set)
+### Phase 6 Tier-A cluster-implementation ADRs (ADRs 0097-0098, first two of the cluster set)
 
 | ADR | Title | Status |
 |---|---|---|
 | [0097](0097-tier-a-cluster-1-contestability-substrate.md) | Tier-A Cluster 1: Contestability substrate (per-edge confidence + provenance JSONB + counterexamples + version + review_status + last_reviewed) | Accepted |
+| [0098](0098-tier-a-cluster-2-edge-type-taxonomy-and-three-relation-layering.md) | Tier-A Cluster 2: Edge-type taxonomy expansion + three-relation layered separation | Accepted |
 
-> Session S-0207 lands the first Tier-A cluster-implementation ADR per [ADR 0094](0094-phase-6-scope.md) dependency order C1 → C2 → C4 → C3 → C5. The companion migration at [`product/seed-graph/migrations/0120_edges_contestability_substrate.sql`](../seed-graph/migrations/0120_edges_contestability_substrate.sql) commits 9 column-level changes to `public.edges` (1 rename + 1 ALTER TYPE with backfill + 7 ADD COLUMNs). ADR 0097's landing closes ADR 0094 T1-A and ADR 0095 T1-A — both Consequences sections amended in-body. Cluster 2 (edge-type taxonomy expansion + three-relation layered separation) is the natural next at the dependency order, claiming ADR slot 0098+ and migration sub-range 0130-0139.
+> Session S-0207 lands the first Tier-A cluster-implementation ADR per [ADR 0094](0094-phase-6-scope.md) dependency order C1 → C2 → C4 → C3 → C5. The companion migration at [`product/seed-graph/migrations/0120_edges_contestability_substrate.sql`](../seed-graph/migrations/0120_edges_contestability_substrate.sql) commits 9 column-level changes to `public.edges` (1 rename + 1 ALTER TYPE with backfill + 7 ADD COLUMNs). ADR 0097's landing closes ADR 0094 T1-A and ADR 0095 T1-A — both Consequences sections amended in-body.
+>
+> Session S-0208 lands Cluster 2 (ADR 0098 + migration `0130_edges_three_relation_layering.sql` + paired rollback). Commits the structural separation of `pedagogical_dependence` / `conceptual_relatedness` / `historical_influence` layers + the per-layer controlled-vocabulary `edge_type` (16-pair compound CHECK constraint on `(edge_layer, edge_type)`). Retypes 516 `pedagogical_prerequisite` → `(pedagogical_dependence, soft_prerequisite)` per epistemic-conservatism premise; 17 `historical_influence` → `(historical_influence, influenced_by)`. Round-trip verified end-to-end. Re-verifies ADR 0094 T1-A + ADR 0095 T1-A at landing. Cluster 4 (node schema redesign per synthesis §Cluster 4) is the natural next at the dependency order, claiming migration sub-range 0140-0149.
 
 ## Adding a new product ADR
 
