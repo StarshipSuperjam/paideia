@@ -202,12 +202,43 @@ if [ -f engine/tools/gitleaks.toml ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Run code-discipline gates against staged Python files under engine/
-# (Layer 2 of ADR 0038 — ruff, mypy --strict, pytest, test_presence)
+# Auto-apply ruff format to staged Python files (per ADR 0099 Fix C / Issue
+# #153). Run `ruff format` against the staged set BEFORE validate.py
+# --code-gates runs `ruff format --check`. Re-stage any files ruff modified.
+# The downstream --code-gates step still runs --check as defense-in-depth;
+# if the auto-apply did its job, --check passes silently.
+#
+# Eliminates the late-discovered "Would reformat: foo.py" hard-fail class at
+# commit time that Issue #153 quantified as one of three convergent friction
+# modes at session close. Zero judgment surface — `ruff format` is
+# deterministic under the pinned ruff version (per ADR 0064 lockfile);
+# intentional bumps go through `uv lock --upgrade ruff` with explicit review.
+#
+# Known interaction with `git add -p` partial staging: ruff format runs
+# against the full file, not just the staged hunk, so reformatting the
+# unstaged portion can happen. Consistent with the project's monolithic
+# commit posture and matches how `ruff format --check` behaves at the file
+# level today.
 # ---------------------------------------------------------------------------
 
 STAGED_PY=$(git diff --cached --name-only --diff-filter=ACMR \
     | grep -E '^engine/.*\.py$' || true)
+
+if [ -n "$STAGED_PY" ]; then
+    if command -v ruff >/dev/null 2>&1; then
+        # shellcheck disable=SC2086
+        ruff format $STAGED_PY >/dev/null 2>&1 || true
+        # `git add` is a no-op for unchanged files, so re-staging the original
+        # set is safe and idempotent. Surface the re-stage count for visibility.
+        # shellcheck disable=SC2086
+        git add $STAGED_PY
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# Run code-discipline gates against staged Python files under engine/
+# (Layer 2 of ADR 0038 — ruff, mypy --strict, pytest, test_presence)
+# ---------------------------------------------------------------------------
 
 if [ -n "$STAGED_PY" ] && [ -f engine/tools/validate.py ]; then
     STATUS=0
