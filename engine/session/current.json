@@ -1,0 +1,14 @@
+{
+  "id": "S-0212",
+  "started_at": "2026-05-19T19:14:13Z",
+  "status": "in_progress",
+  "mode": "interactive",
+  "working_on": "Issue #151 structural fix — subprocess-level timeout for graph_audit",
+  "declared_scope": "Refactor validate.py's graph_audit phase to invoke _read_graph_from_db via a subprocess (engine/tools/graph_audit_worker.py) with a parent-side hard wall-clock timeout that survives conn.cancel()'s own wedge (the S-0211 empirical pin). Author engine ADR 0101 with Load-bearing premises per ADR 0084 extraction step (call-boundary changes from in-process to subprocess + IPC contract — criterion #4 fires). Retain existing 45s in-process watchdog, TCP keepalive (S-0208), and connect_timeout (S-0186) as inner defense-in-depth layers; subprocess SIGKILL becomes the outer layer the parent can always escape. Add pytest coverage for happy-path / timeout / worker-error / malformed-stdout paths. Author first-exercise readiness note per ADR 0053. Update Issue #151 with the structural-fix landing and revised closure criterion. phase: NA-engine",
+  "outcome_summary": null,
+  "scope_delivery": null,
+  "next_session_handle": null,
+  "approved_plan": null,
+  "branch": "claude/keen-ramanujan-7663bf",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/keen-ramanujan-7663bf"
+}
