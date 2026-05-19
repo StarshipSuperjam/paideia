@@ -80,6 +80,7 @@ The engine collection has **45 ADRs total — all Accepted**. Engine ADRs are ab
 | [0090](0090-phase-6-recall-substrate-decision.md) | Phase-6 recall-substrate decision: MemPalace preserved with active maintenance + upstream coordination | Superseded by ADR 0091 |
 | [0091](0091-engine-memory-substrate-sqlite-fts5.md) | Engine-memory substrate: SQLite + FTS5 (replaces MemPalace; supersedes ADR 0090) | Accepted |
 | [0092](0092-per-session-changelog-directory.md) | Per-session changelog directory replaces monolithic ENGINE_LOG.md (supersedes ADR 0037 in part) | Accepted |
+| [0099](0099-session-close-friction-mitigations.md) | Session-close friction mitigations (Issue #153) — allowlist expansion + ruff-format auto-apply + post-write hooks + Step 5b orphan-path verification | Accepted |
 
 ## Adding a new engine ADR
 
