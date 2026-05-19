@@ -1998,7 +1998,43 @@ GRAPH_SOFT_WARN_CATEGORIES = (
     #   without SQA-validated expert confidence surface here).
     "edge_contestability_unguarded_high_confidence",
     "edge_provisional_hard_prerequisite",
+    # S-0213: three checks landing with Cluster 4 (ADR 0102 + migration
+    # 0140 — public.nodes schema redesign adding 14 columns). All three
+    # consume the new node-side columns the migration added.
+    # - node_type_unclassified: fires on any node with
+    #   node_type=['unclassified'] (the transitional default post-
+    #   migration 0140 per Adjudication 1 schema-only landing). Severity
+    #   is mode-switched at module constant NODE_TYPE_UNCLASSIFIED_FIRE_MODE
+    #   — 'soft_warn' this session (expected fires: 380, entire corpus);
+    #   the LAST per-domain backfill sequel session escalates to
+    #   'hard_fail' AND drops 'unclassified' from the enum via a small
+    #   follow-up migration. Listed in GRAPH_SOFT_WARN_CATEGORIES so the
+    #   trend canon registers the category regardless of mode.
+    # - node_threshold_concept_lacks_assessment_items: fires on nodes
+    #   where 'threshold_concept' = ANY(node_type) AND assessment_items
+    #   = '[]'::jsonb. Per paper_1:L136 / synthesis line 169.
+    #   Post-migration expected fires: 0 (no node carries threshold_concept
+    #   at landing; all are 'unclassified'). Future fires surface
+    #   threshold-classified nodes lacking direct diagnostics.
+    # - node_lacks_cultural_specificity: fires on nodes where
+    #   cultural_specificity IS NULL. Equity-metadata gate per synthesis
+    #   line 171. Post-migration expected fires: 380 (column added
+    #   nullable; all 380 existing rows are NULL pending backfill).
+    "node_type_unclassified",
+    "node_threshold_concept_lacks_assessment_items",
+    "node_lacks_cultural_specificity",
 )
+
+# S-0213 (ADR 0102 Decision + Adjudication 1): severity mode for the
+# node_type_unclassified check. Initial value 'soft_warn' this session
+# because schema-only landing means all 380 rows carry the transitional
+# 'unclassified' default; hard-failing today would block every commit.
+# The LAST per-domain backfill sequel session (the one that completes
+# node_type classification for the final subdomain) edits this constant
+# to 'hard_fail' AND lands a small follow-up migration dropping
+# 'unclassified' from the nodes_node_type_valid CHECK constraint's
+# vocabulary. Per ADR 0102 Consequences "node_type_unclassified" entry.
+NODE_TYPE_UNCLASSIFIED_FIRE_MODE: str = "soft_warn"
 
 # Canonical top-level discipline labels for the
 # top_level_discipline_label_as_prereq_source soft-warn (Issue #62
@@ -2146,21 +2182,20 @@ def _read_predicate_manifest(
 # 45 s = server-side 30 s budget + connect 10 s + 5 s margin.
 _GRAPH_AUDIT_WALL_CLOCK_TIMEOUT_S = 45.0
 
-# S-0208 (Issue #151 re-scope): TCP keepalive kwargs for psycopg.connect.
+# S-0208 (Issue #151 re-scope): TCP keepalive parameters for psycopg.connect
+# are now passed inline at the connect() call site rather than via a dict-
+# unpack (S-0213 — venv mypy rejected the dict-unpack form). Documentation
+# lives here at the source-of-record location for the rationale.
+#
 # Supabase postgres logs were clean across the 24h #151 window — the
 # wedge symptom (ESTABLISHED TCP socket + poll() sleep + Supabase-restart
 # unwedges) is most plausibly a server-side silent idle-connection drop
 # without TCP RST. The 45s wall-clock watchdog above targets the
-# query-execution phase; these kwargs target the post-query idle phase
-# at the kernel layer. With keepalives the OS detects a dead socket in
-# ~60s (idle 30 + 3×interval 10) and surfaces an error to the blocking
-# read() instead of sleeping forever.
-_KEEPALIVE_KWARGS = {
-    "keepalives": 1,
-    "keepalives_idle": 30,
-    "keepalives_interval": 10,
-    "keepalives_count": 3,
-}
+# query-execution phase; the inline keepalives target the post-query idle
+# phase at the kernel layer. With keepalives the OS detects a dead socket
+# in ~60s (idle 30 + 3×interval 10) and surfaces an error to the blocking
+# read() instead of sleeping forever. Inline values: keepalives=1,
+# keepalives_idle=30, keepalives_interval=10, keepalives_count=3.
 
 
 def _read_graph_from_db(
@@ -2190,7 +2225,10 @@ def _read_graph_from_db(
     Returns:
         ``(nodes, edges)``. ``nodes`` carry id, label, domain,
         summary, teaching_notes, rigor_score_computed,
-        confidence_level, status. ``edges`` carry id, source_id,
+        confidence_level, status, node_type, assessment_items,
+        cultural_specificity (the last three added at S-0213 per
+        ADR 0102 — Cluster 4 node-schema redesign — for the three
+        new validator checks). ``edges`` carry id, source_id,
         target_id, edge_type, evidence.
 
     Non-responsibilities:
@@ -2222,11 +2260,13 @@ def _read_graph_from_db(
     #      thread that calls ``conn.cancel()`` (PQcancel; protocol-
     #      level query termination) if total time in the block
     #      exceeds the cap.
-    #   4. TCP keepalive kwargs (S-0208, Issue #151 re-scope) — kernel-
-    #      level detection of dead sockets. Addresses the post-query
-    #      idle-phase failure mode the watchdog cannot see (a stale
-    #      socket between cur.execute() returning and cur.fetchall()
-    #      completing). See _KEEPALIVE_KWARGS docstring above.
+    #   4. TCP keepalive kwargs (S-0208, Issue #151 re-scope; expanded
+    #      inline at S-0213) — kernel-level detection of dead sockets.
+    #      Addresses the post-query idle-phase failure mode the watchdog
+    #      cannot see (a stale socket between cur.execute() returning
+    #      and cur.fetchall() completing). See the rationale comment
+    #      block above the module-level _GRAPH_AUDIT_WALL_CLOCK_TIMEOUT_S
+    #      definition for the detection-window math.
     #   5. Hang-diagnostic capture (S-0211, Issue #151 next vector) —
     #      hypothesis-agnostic observability. The watchdog calls
     #      ``capture_hang_diagnostic('graph_audit_watchdog')`` BEFORE
@@ -2237,11 +2277,26 @@ def _read_graph_from_db(
     #      L4-traffic structural hypothesis and STATE.md row 54 records
     #      the user's cross-process Python contamination hypothesis. At
     #      the next recurrence, the diagnostic file pins which is right.
+    # The keepalives_* keyword arguments flow into libpq via psycopg's
+    # arbitrary-keyword forwarding. The psycopg stubs enumerate only the
+    # named kwargs (autocommit, context, row_factory, cursor_factory)
+    # but the kwargs DO work at runtime (S-0208 verified live). Expanded
+    # inline rather than via the prior `**_KEEPALIVE_KWARGS` dict-unpack
+    # form because mypy with venv stubs (S-0213 surface) rejected the
+    # dict-unpack as wrong-typed against the enumerated kwargs even
+    # though the keepalives_* names ultimately pass straight through.
+    # Latent typing gap from the S-0208 keepalive landing was masked by
+    # S-0211 + S-0212 SKIP_ENGINE_HOOKS=1 bypasses; surfaced cleanly at
+    # S-0213 when this session's Cluster 4 validator commit hit
+    # pre-commit with the mypy gate engaged.
     with psycopg.connect(
         connection_string,
         connect_timeout=10,
         options="-c statement_timeout=30000",
-        **_KEEPALIVE_KWARGS,
+        keepalives=1,
+        keepalives_idle=30,
+        keepalives_interval=10,
+        keepalives_count=3,
     ) as conn:
         done = threading.Event()
 
@@ -2290,7 +2345,8 @@ def _read_graph_from_db(
             with conn.cursor(row_factory=dict_row) as cur:
                 cur.execute(
                     "SELECT id, label, domain, summary, teaching_notes, "
-                    "rigor_score_computed, confidence_level, status "
+                    "rigor_score_computed, confidence_level, status, "
+                    "node_type, assessment_items, cultural_specificity "
                     "FROM public.nodes"
                 )
                 nodes = [dict(r) for r in cur.fetchall()]
@@ -2786,6 +2842,128 @@ def _detect_edges_provisional_hard_prerequisite(
     return sorted(findings)
 
 
+def _detect_nodes_unclassified(
+    nodes: list[dict[str, Any]],
+) -> list[str]:
+    """Return ``node_id`` for nodes whose ``node_type`` array consists
+    solely of the transitional ``'unclassified'`` sentinel.
+
+    Per [ADR 0102](../../product/adr/0102-tier-a-cluster-4-node-schema-redesign.md)
+    Adjudication 1 (schema-only landing) + the
+    ``node_type_unclassified`` validator-soft-warn entry in ADR 0102
+    Consequences. Post-migration-0140 expected fires: 380 (the entire
+    corpus carries the default until per-domain backfill sequel
+    sessions retype). The check surfaces the count every commit during
+    the transition window; per ADR 0102 Decision the count drives
+    toward zero as Cluster 4 sequel sessions land.
+
+    A node with ``node_type=['unclassified']`` (exact match) fires;
+    nodes with ``node_type=['unclassified', 'subfield']`` or any other
+    non-singleton-unclassified array do NOT fire (the array form per
+    ADR 0102 Adjudication 2 permits transitional + classified
+    coexistence during a per-domain backfill session — a node may be
+    partially classified before final retype).
+
+    Handles array values delivered from psycopg as Python lists; the
+    JSONB-style ``'[\"unclassified\"]'`` string form is NOT expected
+    (TEXT[] decodes as ``list[str]``). Treats missing/None as
+    not-fired (the column is NOT NULL post-migration; an audit run
+    against a pre-migration snapshot with no node_type column would
+    skip cleanly rather than fire on every node).
+
+    Returns sorted list for deterministic test ordering.
+    """
+    findings: list[str] = []
+    for n in nodes:
+        nt = n.get("node_type")
+        if nt is None:
+            continue
+        if not isinstance(nt, list):
+            # Defense-in-depth: an unexpected scalar (e.g., a pre-S-0213
+            # snapshot with node_type as TEXT not TEXT[]) should not fire.
+            continue
+        if nt == ["unclassified"]:
+            nid = n.get("id")
+            findings.append(str(nid) if nid is not None else "")
+    return sorted(findings)
+
+
+def _detect_nodes_threshold_concept_lacks_assessment_items(
+    nodes: list[dict[str, Any]],
+) -> list[str]:
+    """Return ``node_id`` for nodes typed ``threshold_concept`` (any
+    array position) whose ``assessment_items`` JSONB array is empty.
+
+    Per [ADR 0102](../../product/adr/0102-tier-a-cluster-4-node-schema-redesign.md)
+    Consequences + ``paper_1:L136`` / synthesis line 169 (threshold
+    concepts must have direct assessment items to support the
+    teaching-app diagnostic loop). Post-migration-0140 expected fires:
+    0 (no node carries ``threshold_concept`` at landing; all are
+    ``'unclassified'``). Future fires surface threshold-classified
+    nodes lacking direct diagnostics; disposition per ADR 0102: backfill
+    the assessment_items, or downgrade the node from threshold_concept
+    if no diagnostic exists.
+
+    Handles ``node_type`` as Python list (psycopg TEXT[] decoding) and
+    ``assessment_items`` as either Python list (psycopg JSONB-array
+    decoding) or JSON string ``'[]'`` (test fixtures). Treats absent/
+    None as not-fired.
+
+    Returns sorted list for deterministic test ordering.
+    """
+    findings: list[str] = []
+    for n in nodes:
+        nt = n.get("node_type")
+        if not isinstance(nt, list) or "threshold_concept" not in nt:
+            continue
+        ai = n.get("assessment_items")
+        # Empty JSONB array surfaces from psycopg as Python list [];
+        # tests may pass a JSON string '[]' or omit the key entirely.
+        # Treat absent/None as empty (the structural concern is no
+        # recorded assessment items, regardless of representation).
+        if ai not in (None, [], "[]", ""):
+            continue
+        nid = n.get("id")
+        findings.append(str(nid) if nid is not None else "")
+    return sorted(findings)
+
+
+def _detect_nodes_lacks_cultural_specificity(
+    nodes: list[dict[str, Any]],
+) -> list[str]:
+    """Return ``node_id`` for nodes whose ``cultural_specificity`` field
+    is NULL.
+
+    Per [ADR 0102](../../product/adr/0102-tier-a-cluster-4-node-schema-redesign.md)
+    Consequences + synthesis line 171 ("equity metadata gate"). Post-
+    migration-0140 expected fires: 380 (column added nullable; all 380
+    existing rows are NULL pending per-domain backfill).
+
+    Fires on Python None (the psycopg NULL decoding). Per ADR 0102
+    premise 7 + Tier-2 readiness criterion T2-B, the check fires on
+    ``IS NULL`` only (not on empty string or whitespace) — if per-domain
+    backfill discovers genuinely culture-agnostic nodes (e.g., pure
+    formal logic constructs) for which cultural_specificity should be
+    NULL, a future ADR 0102 amendment introduces a
+    ``cultural_specificity_not_applicable BOOLEAN`` suppressor.
+
+    Returns sorted list for deterministic test ordering.
+    """
+    findings: list[str] = []
+    for n in nodes:
+        # Use `in` rather than `.get()` so a node dict that legitimately
+        # omits the key (pre-S-0213 snapshot) is treated as "no signal"
+        # rather than fired. Post-migration the key is always present
+        # with NULL or a populated string.
+        if "cultural_specificity" not in n:
+            continue
+        cs = n["cultural_specificity"]
+        if cs is None:
+            nid = n.get("id")
+            findings.append(str(nid) if nid is not None else "")
+    return sorted(findings)
+
+
 def _detect_top_level_discipline_label_as_prereq_source(
     nodes: list[dict[str, Any]],
     edges: list[dict[str, Any]],
@@ -3140,8 +3318,7 @@ def _run_graph_audit_subprocess(
     else:
         category = "graph_audit_subprocess_unexpected_exit"
     raise RuntimeError(
-        f"{category}: exit={proc.returncode} "
-        f"stderr={proc.stderr.strip()!r}"
+        f"{category}: exit={proc.returncode} stderr={proc.stderr.strip()!r}"
     )
 
 
@@ -3153,7 +3330,7 @@ def validate_graph(
 
     Connects to the live Supabase DB via psycopg, runs three hard-fail
     checks (duplicate node IDs, dangling edge references, prerequisite
-    cycles via Kosaraju SCC) plus twelve soft-warn categories
+    cycles via Kosaraju SCC) plus fifteen soft-warn categories
     (undeclared_predicate, attribute_shape_inconsistency,
     missing_rigor_score, render_readiness_violation,
     synthetic_review_queue, orphan_leaf,
@@ -3161,10 +3338,18 @@ def validate_graph(
     top_level_discipline_label_as_prereq_source,
     prereq_direction_summary_inconsistency,
     edge_contestability_unguarded_high_confidence,
-    edge_provisional_hard_prerequisite), and returns a categorized
+    edge_provisional_hard_prerequisite,
+    node_type_unclassified,
+    node_threshold_concept_lacks_assessment_items,
+    node_lacks_cultural_specificity), and returns a categorized
     result. Categories 8-10 landed at S-0146 from the S-0122 audit
     (Issue #62; per engine/build_readiness/phase_5_audit_system_input.md);
-    categories 11-12 landed at S-0208 alongside Cluster 2 (ADR 0098 + #152).
+    categories 11-12 landed at S-0208 alongside Cluster 2 (ADR 0098 + #152);
+    categories 13-15 landed at S-0213 alongside Cluster 4 (ADR 0102 +
+    migration 0140). The node_type_unclassified category is mode-
+    switched at NODE_TYPE_UNCLASSIFIED_FIRE_MODE — 'soft_warn' this
+    session; the LAST per-domain backfill sequel session escalates to
+    'hard_fail' AND drops 'unclassified' from the enum.
 
     Connection string resolution: the explicit ``connection_string``
     argument wins; otherwise the ``SUPABASE_DB_URL`` environment
@@ -3393,6 +3578,36 @@ def validate_graph(
             f"expert_confidence={ec} reason='hard_prerequisite typed with "
             f"low expert_confidence; requires SQA validation before "
             f"routing use'",
+        )
+
+    # S-0213 (ADR 0102 Cluster 4 node-schema redesign deliverables).
+    # node_type_unclassified is severity-mode-switched at the module
+    # constant NODE_TYPE_UNCLASSIFIED_FIRE_MODE per Adjudication 1.
+    unclassified_findings = _detect_nodes_unclassified(nodes)
+    for nid in unclassified_findings:
+        msg = (
+            f'node_id={nid!r} reason=\'node_type=["unclassified"]; per '
+            f"ADR 0102 Adjudication 1 schema-only landing; per-domain "
+            f"backfill defers to Cluster 4 sequel sessions'"
+        )
+        if NODE_TYPE_UNCLASSIFIED_FIRE_MODE == "hard_fail":
+            r.hard_fail(f"node_type_unclassified: {msg}")
+        else:
+            r.soft_warn("node_type_unclassified", msg)
+
+    for nid in _detect_nodes_threshold_concept_lacks_assessment_items(nodes):
+        r.soft_warn(
+            "node_threshold_concept_lacks_assessment_items",
+            f"node_id={nid!r} reason='threshold_concept node lacks direct "
+            f"diagnostics per paper_1:L136 / synthesis line 169; backfill "
+            f"assessment_items OR downgrade node from threshold_concept'",
+        )
+
+    for nid in _detect_nodes_lacks_cultural_specificity(nodes):
+        r.soft_warn(
+            "node_lacks_cultural_specificity",
+            f"node_id={nid!r} reason='cultural_specificity IS NULL; equity-"
+            f"metadata gate per synthesis line 171'",
         )
 
     return r

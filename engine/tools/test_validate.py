@@ -2022,9 +2022,7 @@ class TestStagedPathsSkip:
         """Manual invocation (helper returns None) proceeds with the audit."""
         monkeypatch.setenv("SUPABASE_DB_URL", "postgresql://stub")
         monkeypatch.setattr(validate, "_staged_paths_affect_graph", lambda: None)
-        monkeypatch.setattr(
-            validate, "_run_graph_audit_subprocess", lambda _: ([], [])
-        )
+        monkeypatch.setattr(validate, "_run_graph_audit_subprocess", lambda _: ([], []))
         r = validate_graph()
         assert "graph_audit" in r.checks_run
         assert "graph_audit_skipped_no_staged_graph_paths" not in r.checks_run
@@ -2033,9 +2031,7 @@ class TestStagedPathsSkip:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Tests with explicit conn-string never trigger the path-aware skip."""
-        monkeypatch.setattr(
-            validate, "_run_graph_audit_subprocess", lambda _: ([], [])
-        )
+        monkeypatch.setattr(validate, "_run_graph_audit_subprocess", lambda _: ([], []))
         # The helper would say "skip" but the explicit connection_string
         # overrides — caller signaled intent to run.
         monkeypatch.setattr(validate, "_staged_paths_affect_graph", lambda: False)
@@ -2073,9 +2069,7 @@ class TestGraphAuditSubprocess:
         raise_exc: Exception | None = None,
         capture_kwargs: dict[str, Any] | None = None,
     ) -> None:
-        def fake_run(
-            *args: Any, **kwargs: Any
-        ) -> subprocess.CompletedProcess[str]:
+        def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
             if capture_kwargs is not None:
                 capture_kwargs.update(kwargs)
             if raise_exc is not None:
@@ -2098,9 +2092,7 @@ class TestGraphAuditSubprocess:
             returncode=0,
             stdout='{"nodes":[{"id":"a"}],"edges":[{"id":"e1"}]}',
         )
-        nodes, edges = validate._run_graph_audit_subprocess(
-            "postgresql://stub"
-        )
+        nodes, edges = validate._run_graph_audit_subprocess("postgresql://stub")
         assert nodes == [{"id": "a"}]
         assert edges == [{"id": "e1"}]
 
@@ -2113,9 +2105,7 @@ class TestGraphAuditSubprocess:
             raise_exc=subprocess.TimeoutExpired(cmd=["worker"], timeout=90.0),
         )
         with pytest.raises(subprocess.TimeoutExpired):
-            validate._run_graph_audit_subprocess(
-                "postgresql://stub", timeout_s=0.01
-            )
+            validate._run_graph_audit_subprocess("postgresql://stub", timeout_s=0.01)
 
     def test_subprocess_psycopg_unavailable_raises_import_error(
         self, monkeypatch: pytest.MonkeyPatch
@@ -2155,9 +2145,7 @@ class TestGraphAuditSubprocess:
             returncode=2,
             stderr="[graph-audit-worker] SUPABASE_DB_URL env missing ...",
         )
-        with pytest.raises(
-            RuntimeError, match="graph_audit_subprocess_env_violation"
-        ):
+        with pytest.raises(RuntimeError, match="graph_audit_subprocess_env_violation"):
             validate._run_graph_audit_subprocess("postgresql://stub")
 
     def test_subprocess_serialize_error_raises_runtime_error(
@@ -2189,21 +2177,15 @@ class TestGraphAuditSubprocess:
     ) -> None:
         """Exit 0 with junk stdout → graph_audit_subprocess_protocol_error."""
         self._stub_subprocess_run(monkeypatch, returncode=0, stdout="not json")
-        with pytest.raises(
-            RuntimeError, match="graph_audit_subprocess_protocol_error"
-        ):
+        with pytest.raises(RuntimeError, match="graph_audit_subprocess_protocol_error"):
             validate._run_graph_audit_subprocess("postgresql://stub")
 
     def test_subprocess_missing_keys_raises_protocol_error(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Exit 0 with valid JSON missing 'nodes' or 'edges' is a protocol error."""
-        self._stub_subprocess_run(
-            monkeypatch, returncode=0, stdout='{"nodes":[]}'
-        )
-        with pytest.raises(
-            RuntimeError, match="graph_audit_subprocess_protocol_error"
-        ):
+        self._stub_subprocess_run(monkeypatch, returncode=0, stdout='{"nodes":[]}')
+        with pytest.raises(RuntimeError, match="graph_audit_subprocess_protocol_error"):
             validate._run_graph_audit_subprocess("postgresql://stub")
 
     def test_subprocess_env_propagates_connection_string(
@@ -2212,7 +2194,11 @@ class TestGraphAuditSubprocess:
         """Wrapper sets SUPABASE_DB_URL in child env; GIT_* keys absent."""
         # Plant a GIT_* var on the parent's env so we can verify it's
         # stripped by scrubbed_env() before the subprocess inherits.
-        monkeypatch.setenv("GIT_INDEX_FILE", "/tmp/leaked")
+        # The "/tmp/leaked" string is a sentinel test value (verified
+        # NOT present in the child env), not an actual tmpdir usage —
+        # bandit B108 false-positive is suppressed per the rule-skip
+        # discipline in ADR 0068.
+        monkeypatch.setenv("GIT_INDEX_FILE", "/tmp/leaked")  # nosec B108
         captured: dict[str, Any] = {}
         self._stub_subprocess_run(
             monkeypatch,
@@ -2246,9 +2232,7 @@ class TestGraphAuditSubprocess:
 
         monkeypatch.setattr(validate, "_run_graph_audit_subprocess", boom)
         r = validate_graph()
-        assert any(
-            "graph_audit_subprocess_timeout" in m for m in r.hard_fails
-        ), (
+        assert any("graph_audit_subprocess_timeout" in m for m in r.hard_fails), (
             "validate_graph must record graph_audit_subprocess_timeout when "
             "the outer wall-clock cap fires; otherwise the failure mode is "
             "indistinguishable from a DB error and operators can't pattern-"
@@ -3695,3 +3679,277 @@ class TestEdgesProvisionalHardPrerequisite:
         assert (
             "edge_provisional_hard_prerequisite" in validate.GRAPH_SOFT_WARN_CATEGORIES
         )
+
+
+# ---------------------------------------------------------------------------
+# Cluster 4 (ADR 0102; S-0213) — three node-schema-redesign checks
+# ---------------------------------------------------------------------------
+
+
+class TestNodesUnclassified:
+    """_detect_nodes_unclassified: fires on nodes whose node_type array
+    consists solely of the transitional 'unclassified' sentinel. Per
+    ADR 0102 Adjudication 1 (schema-only landing) + Consequences
+    "node_type_unclassified" entry. Severity is mode-switched at module
+    constant NODE_TYPE_UNCLASSIFIED_FIRE_MODE (this session 'soft_warn';
+    LAST sequel session escalates to 'hard_fail')."""
+
+    def _node(
+        self,
+        nid: str = "n1",
+        node_type: list[str] | None = None,
+    ) -> dict[str, Any]:
+        out: dict[str, Any] = {"id": nid}
+        if node_type is not None:
+            out["node_type"] = node_type
+        return out
+
+    def test_fires_on_singleton_unclassified(self) -> None:
+        nodes = [self._node(nid="phenomenology", node_type=["unclassified"])]
+        findings = validate._detect_nodes_unclassified(nodes)
+        assert findings == ["phenomenology"]
+
+    def test_does_not_fire_on_classified_singleton(self) -> None:
+        nodes = [self._node(node_type=["threshold_concept"])]
+        findings = validate._detect_nodes_unclassified(nodes)
+        assert findings == []
+
+    def test_does_not_fire_on_partial_classification(self) -> None:
+        """A node mid-backfill may carry ['unclassified', 'subfield'];
+        the check only fires on exact singleton-unclassified per ADR 0102
+        Adjudication 2 (array form permits transitional + classified
+        coexistence during per-domain backfill)."""
+        nodes = [self._node(node_type=["unclassified", "subfield"])]
+        findings = validate._detect_nodes_unclassified(nodes)
+        assert findings == []
+
+    def test_does_not_fire_on_classified_multi(self) -> None:
+        """The phenomenology multi-typing case post-backfill: 3 enum
+        values, no 'unclassified'."""
+        nodes = [
+            self._node(
+                nid="phenomenology",
+                node_type=[
+                    "threshold_concept",
+                    "bridge_concept",
+                    "disciplinary_practice",
+                ],
+            )
+        ]
+        findings = validate._detect_nodes_unclassified(nodes)
+        assert findings == []
+
+    def test_does_not_fire_when_node_type_absent(self) -> None:
+        """Pre-S-0213 snapshot or test fixture omitting node_type
+        should not fire (the column is NOT NULL post-migration; absent
+        means the audit is running against a snapshot without the
+        Cluster 4 schema in place)."""
+        nodes = [{"id": "legacy"}]
+        findings = validate._detect_nodes_unclassified(nodes)
+        assert findings == []
+
+    def test_does_not_fire_on_scalar_node_type(self) -> None:
+        """Defense-in-depth: a scalar 'unclassified' (vs ['unclassified'])
+        from a malformed source should not fire — the post-migration
+        type is TEXT[] strictly."""
+        nodes = [self._node(node_type=None) | {"node_type": "unclassified"}]
+        findings = validate._detect_nodes_unclassified(nodes)
+        assert findings == []
+
+    def test_sorted_output_stable_across_input_order(self) -> None:
+        nodes = [
+            self._node(nid="zeta", node_type=["unclassified"]),
+            self._node(nid="alpha", node_type=["unclassified"]),
+            self._node(nid="mu", node_type=["unclassified"]),
+        ]
+        findings = validate._detect_nodes_unclassified(nodes)
+        assert findings == ["alpha", "mu", "zeta"]
+
+    def test_registered_in_graph_soft_warn_categories(self) -> None:
+        assert "node_type_unclassified" in validate.GRAPH_SOFT_WARN_CATEGORIES
+
+    def test_fire_mode_constant_default_is_soft_warn(self) -> None:
+        """At ADR 0102 landing the default is 'soft_warn'. The LAST
+        per-domain backfill sequel session flips to 'hard_fail'."""
+        assert validate.NODE_TYPE_UNCLASSIFIED_FIRE_MODE == "soft_warn"
+
+
+class TestNodesThresholdConceptLacksAssessmentItems:
+    """_detect_nodes_threshold_concept_lacks_assessment_items: fires
+    on nodes typed threshold_concept (any array position) whose
+    assessment_items JSONB array is empty. Per ADR 0102 Consequences +
+    paper_1:L136 / synthesis line 169."""
+
+    def _threshold_node(
+        self,
+        nid: str = "n1",
+        assessment_items: Any = None,
+        extra_types: list[str] | None = None,
+    ) -> dict[str, Any]:
+        node_type = ["threshold_concept"]
+        if extra_types:
+            node_type.extend(extra_types)
+        return {
+            "id": nid,
+            "node_type": node_type,
+            "assessment_items": (
+                assessment_items if assessment_items is not None else []
+            ),
+        }
+
+    def test_fires_on_threshold_with_empty_assessment_items_list(self) -> None:
+        nodes = [self._threshold_node(nid="intentionality", assessment_items=[])]
+        findings = validate._detect_nodes_threshold_concept_lacks_assessment_items(
+            nodes
+        )
+        assert findings == ["intentionality"]
+
+    def test_fires_on_threshold_with_empty_assessment_items_string(self) -> None:
+        """Test fixture may pass '[]' as JSON string; production
+        psycopg returns Python list. Both should fire."""
+        nodes = [self._threshold_node(assessment_items="[]")]
+        findings = validate._detect_nodes_threshold_concept_lacks_assessment_items(
+            nodes
+        )
+        assert len(findings) == 1
+
+    def test_does_not_fire_on_threshold_with_populated_assessment_items(
+        self,
+    ) -> None:
+        nodes = [
+            self._threshold_node(
+                assessment_items=[
+                    {
+                        "type": "diagnostic",
+                        "prompt": "Identify the phenomenological reduction",
+                        "expected_response_form": "short_answer",
+                        "rationale": "Tests acquisition of the core method",
+                    }
+                ],
+            )
+        ]
+        findings = validate._detect_nodes_threshold_concept_lacks_assessment_items(
+            nodes
+        )
+        assert findings == []
+
+    def test_does_not_fire_on_non_threshold_concept(self) -> None:
+        nodes = [
+            {
+                "id": "n1",
+                "node_type": ["disciplinary_practice"],
+                "assessment_items": [],
+            }
+        ]
+        findings = validate._detect_nodes_threshold_concept_lacks_assessment_items(
+            nodes
+        )
+        assert findings == []
+
+    def test_fires_when_threshold_concept_appears_in_multi_type(self) -> None:
+        """The phenomenology case: threshold_concept is one of three
+        types; empty assessment_items still fires."""
+        nodes = [
+            self._threshold_node(
+                nid="phenomenology",
+                assessment_items=[],
+                extra_types=["bridge_concept", "disciplinary_practice"],
+            )
+        ]
+        findings = validate._detect_nodes_threshold_concept_lacks_assessment_items(
+            nodes
+        )
+        assert findings == ["phenomenology"]
+
+    def test_does_not_fire_when_node_type_absent(self) -> None:
+        nodes = [{"id": "legacy", "assessment_items": []}]
+        findings = validate._detect_nodes_threshold_concept_lacks_assessment_items(
+            nodes
+        )
+        assert findings == []
+
+    def test_does_not_fire_when_assessment_items_absent(self) -> None:
+        """A node without the assessment_items key (pre-Cluster-4
+        snapshot) is treated as empty AND fires — the structural
+        concern is no recorded items, not the absence of the key.
+        Post-migration the key is always present."""
+        nodes = [{"id": "n1", "node_type": ["threshold_concept"]}]
+        findings = validate._detect_nodes_threshold_concept_lacks_assessment_items(
+            nodes
+        )
+        assert findings == ["n1"]
+
+    def test_sorted_output_stable_across_input_order(self) -> None:
+        nodes = [
+            self._threshold_node(nid="zeta"),
+            self._threshold_node(nid="alpha"),
+        ]
+        findings = validate._detect_nodes_threshold_concept_lacks_assessment_items(
+            nodes
+        )
+        assert findings == ["alpha", "zeta"]
+
+    def test_registered_in_graph_soft_warn_categories(self) -> None:
+        assert (
+            "node_threshold_concept_lacks_assessment_items"
+            in validate.GRAPH_SOFT_WARN_CATEGORIES
+        )
+
+
+class TestNodesLacksCulturalSpecificity:
+    """_detect_nodes_lacks_cultural_specificity: fires on nodes whose
+    cultural_specificity field is NULL. Per ADR 0102 Consequences +
+    synthesis line 171 (equity-metadata gate)."""
+
+    def test_fires_on_null_cultural_specificity(self) -> None:
+        nodes = [{"id": "phenomenology", "cultural_specificity": None}]
+        findings = validate._detect_nodes_lacks_cultural_specificity(nodes)
+        assert findings == ["phenomenology"]
+
+    def test_does_not_fire_on_populated_string(self) -> None:
+        nodes = [
+            {
+                "id": "phenomenology",
+                "cultural_specificity": "Western_continental_philosophy",
+            }
+        ]
+        findings = validate._detect_nodes_lacks_cultural_specificity(nodes)
+        assert findings == []
+
+    def test_does_not_fire_when_key_absent(self) -> None:
+        """Pre-S-0213 snapshot or test fixture omitting the column
+        should not fire — the field is added at Cluster 4; pre-Cluster-4
+        snapshots are out of scope."""
+        nodes = [{"id": "legacy"}]
+        findings = validate._detect_nodes_lacks_cultural_specificity(nodes)
+        assert findings == []
+
+    def test_fires_on_all_null_in_mixed_corpus(self) -> None:
+        nodes: list[dict[str, Any]] = [
+            {"id": "n1", "cultural_specificity": None},
+            {"id": "n2", "cultural_specificity": "Western_philosophy"},
+            {"id": "n3", "cultural_specificity": None},
+            {"id": "n4"},  # absent key — does not fire
+        ]
+        findings = validate._detect_nodes_lacks_cultural_specificity(nodes)
+        assert findings == ["n1", "n3"]
+
+    def test_does_not_fire_on_empty_string(self) -> None:
+        """Per ADR 0102 premise 7: fires on IS NULL only, not on empty
+        string. The premise notes that empty-string semantics are
+        ambiguous; backfill discipline is to populate with substantive
+        content or leave NULL (the explicit signal of 'pending backfill')."""
+        nodes = [{"id": "n1", "cultural_specificity": ""}]
+        findings = validate._detect_nodes_lacks_cultural_specificity(nodes)
+        assert findings == []
+
+    def test_sorted_output_stable_across_input_order(self) -> None:
+        nodes = [
+            {"id": "zeta", "cultural_specificity": None},
+            {"id": "alpha", "cultural_specificity": None},
+        ]
+        findings = validate._detect_nodes_lacks_cultural_specificity(nodes)
+        assert findings == ["alpha", "zeta"]
+
+    def test_registered_in_graph_soft_warn_categories(self) -> None:
+        assert "node_lacks_cultural_specificity" in validate.GRAPH_SOFT_WARN_CATEGORIES
