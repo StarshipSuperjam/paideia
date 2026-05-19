@@ -1707,6 +1707,101 @@ class TestReadGraphFromDbTimeouts:
             "in-flight reads"
         )
 
+    def test_watchdog_invokes_capture_before_cancel(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """S-0211 (Issue #151): diagnostic capture fires before conn.cancel.
+
+        The S-0208 TCP keepalive mitigation was falsified mid-session
+        when a recurrence wedged past both the 45s watchdog and the
+        ~60s keepalive window. Every wedge to date has been reconstructed
+        cold from ``ps`` evidence; no strace / lsof / call-stack data
+        has been captured at the moment of hang. The S-0211 capture
+        closes that gap by dumping diagnostic state inside the watchdog
+        BEFORE issuing PQcancel — so even if cancellation itself wedges
+        (the symptom that falsified S-0208's mitigation), the snapshot
+        still lands at ``.engine_reports/hang-diagnostic-*.json``.
+
+        Regression guard: capture must fire on the cancellation path
+        AND must fire before cancel. Ordering matters because
+        ``conn.cancel()`` may take seconds against a wedged socket or
+        wedge the watchdog thread entirely.
+        """
+        call_order: list[str] = []
+        cursor_unblocked = threading.Event()
+
+        def fake_capture(label: str, pid: int | None = None) -> Path | None:
+            call_order.append(f"capture({label})")
+            return None
+
+        class _BlockingCursor:
+            def __enter__(self) -> "_BlockingCursor":
+                return self
+
+            def __exit__(self, *_: Any) -> None:
+                pass
+
+            def execute(self, _sql: str) -> None:
+                if not cursor_unblocked.wait(timeout=10.0):
+                    raise AssertionError(
+                        "execute() blocked past 10s without watchdog cancel"
+                    )
+                raise RuntimeError("query cancelled by watchdog (simulated)")
+
+            def fetchall(self) -> list[dict[str, Any]]:  # pragma: no cover
+                return []
+
+        class _StubConn:
+            def __enter__(self) -> "_StubConn":
+                return self
+
+            def __exit__(self, *_: Any) -> None:
+                pass
+
+            def cursor(self, **_kwargs: Any) -> _BlockingCursor:
+                return _BlockingCursor()
+
+            def cancel(self) -> None:
+                call_order.append("cancel()")
+                cursor_unblocked.set()
+
+        def stub_connect(_connection_string: str, **_kwargs: Any) -> _StubConn:
+            return _StubConn()
+
+        import sys as _sys
+
+        psycopg_stub = type(_sys)("psycopg")
+        psycopg_stub.connect = stub_connect  # type: ignore[attr-defined]
+        rows_stub = type(_sys)("psycopg.rows")
+
+        def _dict_row(_cursor: object) -> object:
+            return None
+
+        rows_stub.dict_row = _dict_row  # type: ignore[attr-defined]
+        monkeypatch.setitem(_sys.modules, "psycopg", psycopg_stub)
+        monkeypatch.setitem(_sys.modules, "psycopg.rows", rows_stub)
+        monkeypatch.setattr(validate, "capture_hang_diagnostic", fake_capture)
+
+        with pytest.raises(RuntimeError, match="query cancelled by watchdog"):
+            validate._read_graph_from_db(
+                "postgresql://user:pw@host/db", wall_clock_timeout_s=0.5
+            )
+
+        # Capture must fire exactly once, and before cancel.
+        assert "capture(graph_audit_watchdog)" in call_order, (
+            "Watchdog must call capture_hang_diagnostic on the cancellation "
+            "path; without the capture every #151 recurrence remains "
+            "reconstructed cold from ps evidence (the S-0211 gap)"
+        )
+        capture_idx = call_order.index("capture(graph_audit_watchdog)")
+        cancel_idx = call_order.index("cancel()")
+        assert capture_idx < cancel_idx, (
+            "capture MUST fire BEFORE cancel. conn.cancel() may wedge "
+            "against a stale socket (the S-0208 falsification shape); "
+            "capturing first guarantees the diagnostic file lands even "
+            "when cancellation itself fails"
+        )
+
 
 class TestValidateGraphIntegration:
     """validate_graph end-to-end with a monkey-patched DB reader."""

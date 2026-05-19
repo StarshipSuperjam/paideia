@@ -168,6 +168,7 @@ from _venv_reexec import ensure_venv_python  # noqa: E402
 if __name__ == "__main__":
     ensure_venv_python()
 
+from hang_diagnostic import capture_hang_diagnostic  # noqa: E402  # Issue #151
 from scrub_env import scrubbed_env  # noqa: E402
 from timestamps import emit_micros  # noqa: E402  # ADR 0058
 
@@ -2209,7 +2210,8 @@ def _read_graph_from_db(
     import psycopg  # type: ignore[import-not-found,unused-ignore]
     from psycopg.rows import dict_row  # type: ignore[import-not-found,unused-ignore]
 
-    # Four layers of cap (S-0184/0185/0186/0187/0208):
+    # Four layers of cap (S-0184/0185/0186/0187/0208) plus one
+    # diagnostic-capture layer (S-0211):
     #   1. ``connect_timeout=10`` — bounds the initial connect phase.
     #   2. ``options="-c statement_timeout=30000"`` — server-side cap,
     #      EFFECTIVE ONLY on direct-connection URLs. The Supabase
@@ -2225,6 +2227,16 @@ def _read_graph_from_db(
     #      idle-phase failure mode the watchdog cannot see (a stale
     #      socket between cur.execute() returning and cur.fetchall()
     #      completing). See _KEEPALIVE_KWARGS docstring above.
+    #   5. Hang-diagnostic capture (S-0211, Issue #151 next vector) —
+    #      hypothesis-agnostic observability. The watchdog calls
+    #      ``capture_hang_diagnostic('graph_audit_watchdog')`` BEFORE
+    #      ``conn.cancel()`` to dump ps/lsof/netstat/thread-stacks/
+    #      sample to ``.engine_reports/hang-diagnostic-<ts>-<pid>.json``.
+    #      The S-0208 keepalive mitigation was empirically falsified
+    #      mid-session; lesson drawer ``c8f90de5`` records a pgbouncer
+    #      L4-traffic structural hypothesis and STATE.md row 54 records
+    #      the user's cross-process Python contamination hypothesis. At
+    #      the next recurrence, the diagnostic file pins which is right.
     with psycopg.connect(
         connection_string,
         connect_timeout=10,
@@ -2246,6 +2258,19 @@ def _read_graph_from_db(
             # as a ``graph_audit`` hard-fail with the cancellation
             # message.
             if not done.wait(wall_clock_timeout_s):
+                # S-0211 (Issue #151): capture diagnostic BEFORE
+                # cancelling. ``conn.cancel()`` issues PQcancel which
+                # can take seconds-to-tens-of-seconds to complete
+                # against a wedged socket (or wedge the watchdog
+                # thread itself per the S-0208 falsification); the
+                # capture happens first so we always get the snapshot
+                # even if cancellation fails. Best-effort throughout —
+                # capture failure does not block cancellation, and
+                # cancellation failure does not block exit.
+                try:
+                    capture_hang_diagnostic("graph_audit_watchdog")
+                except Exception:  # noqa: BLE001  # daemon thread; swallow
+                    pass
                 try:
                     conn.cancel()
                 except Exception:  # noqa: BLE001  # daemon thread; swallow
