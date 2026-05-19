@@ -31,6 +31,31 @@ set -e
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
+# ---------------------------------------------------------------------------
+# SKIP_ENGINE_HOOKS=1 audited bypass (per ADR 0100, ported from Engine).
+# ---------------------------------------------------------------------------
+# Auditable alternative to `--no-verify`. Logs every bypass to
+# .engine_reports/hook-bypass.log (gitignored) with timestamp, branch, user
+# email, and commit subject. Use only when fix-in-context isn't possible
+# mid-close and the legitimate fix is otherwise blocked (close-shape
+# allowlist refusing a same-commit orphan path, etc.). Routine sessions
+# refuse this path per routine-mode-operations.md — every routine bypass
+# is a HANDOFF + halt.
+if [ "${SKIP_ENGINE_HOOKS:-0}" = "1" ]; then
+    ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    mkdir -p "$REPO_ROOT/.engine_reports" 2>/dev/null || true
+    branch="$(git branch --show-current 2>/dev/null || echo unknown)"
+    user="$(git config user.email 2>/dev/null || echo unknown)"
+    # Read the commit subject from the message file git passes ($1 for commit-msg
+    # hooks; pre-commit doesn't get the message — read it from the prepared file
+    # at COMMIT_EDITMSG via the index).
+    subj="$(head -n1 "$REPO_ROOT/.git/COMMIT_EDITMSG" 2>/dev/null | tr '\n' ' ' | cut -c1-200)"
+    echo "[$ts] pre-commit bypass: branch=$branch user=$user subject=$subj" \
+        >> "$REPO_ROOT/.engine_reports/hook-bypass.log" 2>/dev/null || true
+    echo "[pre-commit] SKIP_ENGINE_HOOKS=1 — bypass logged to .engine_reports/hook-bypass.log" >&2
+    exit 0
+fi
+
 # Source the venv PATH wiring helper per ADR 0050 so bare tool invocations
 # (ruff, python3, mypy, pytest) resolve to the project's pinned versions
 # regardless of git's hook-subprocess PATH. Idempotent — won't duplicate

@@ -73,3 +73,10 @@ engine/.memory/*
 # MCP-call-during-plan-mode pattern that pre-S-0194 sessions hadn't
 # exercised.
 engine/session/current_engine_memory.jsonl
+
+# Hook-bypass audit log per ADR 0100 (Engine pattern). Per-clone state,
+# never tracked. The SKIP_ENGINE_HOOKS=1 escape hatch logs every bypass
+# here with timestamp + branch + user + subject. session-start.sh reads
+# the file at boot and surfaces new entries as a LOUD reminder so each
+# bypass is adjudicated in a subsequent session.
+.engine_reports/
