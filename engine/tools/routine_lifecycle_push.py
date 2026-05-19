@@ -142,6 +142,20 @@ CLOSE_ALLOWED_GLOBS: tuple[str, ...] = (
     # the directory's contract is markdown empirical records + gate
     # reports per ADR 0040 + ADR 0053 (no Python, no JSON).
     "engine/build_readiness/*.md",
+    # Per ADR 0099 (Issue #153, S-0209): the close-time spot-check + cold-
+    # review steps legitimately catch a missing ADR-README index row for an
+    # ADR that landed earlier in this same session (the S-0208 close
+    # incident — product ADR 0098 landed at b45655b but the README index
+    # row didn't, surfacing as ``adr_index_inconsistent`` at the close
+    # commit). These two README files are operationally coupled to the
+    # session lifecycle in the same way ``engine/STATE.md`` is: every
+    # accepted ADR landing in the session requires a same-commit index row
+    # per the "Adding a new ADR" procedure in both READMEs. Bounded scope:
+    # only the two index files themselves; arbitrary edits elsewhere under
+    # ``engine/adr/`` or ``product/adr/`` (ADR file authoring) still
+    # require their own in-session commits.
+    "engine/adr/README.md",
+    "product/adr/README.md",
 )
 
 

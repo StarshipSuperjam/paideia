@@ -594,6 +594,18 @@ def test_close_allowed_globs_derived_from_canonical_operational_allowlist() -> N
         "(Issue #139: first-exercise readiness notes carry session-tied "
         "empirical records appended at close per ADR 0053)"
     )
+    assert "engine/adr/README.md" in close_set, (
+        "CLOSE_ALLOWED_GLOBS must include engine/adr/README.md "
+        "(ADR 0099 / Issue #153: close-time spot-check + cold-review "
+        "legitimately catch missing ADR-README index rows for ADRs "
+        "authored earlier in the session; the README is operationally "
+        "coupled to session lifecycle in the same way STATE.md is)"
+    )
+    assert "product/adr/README.md" in close_set, (
+        "CLOSE_ALLOWED_GLOBS must include product/adr/README.md "
+        "(ADR 0099 / Issue #153: same shape as engine/adr/README.md "
+        "for the product-side ADR partition per ADR 0037)"
+    )
 
 
 def test_close_accepts_build_readiness_md_edit(tmp_path: Path) -> None:
@@ -661,6 +673,60 @@ def test_close_accepts_changelog_md_edit(tmp_path: Path) -> None:
     )
     ok, reason = verify_close_shape(clone, "origin", "main")
     assert ok, f"close-with-changelog-entry rejected: {reason}"
+
+
+def test_close_accepts_adr_readme_edit(tmp_path: Path) -> None:
+    """ADR 0099 / Issue #153: A close commit that touches engine/adr/README.md
+    or product/adr/README.md must be accepted, not refused as out-of-allowlist.
+
+    The S-0207 + S-0208 close incidents both surfaced this orphan-path case —
+    an ADR landed earlier in the session but its README index row didn't
+    (caught by the close-time spot-check + cold-review steps, but the close
+    commit container then refused the catch-up edit). The two READMEs are
+    operationally coupled to the session lifecycle in the same way STATE.md is.
+    """
+    _origin, clone = _make_origin_with_clone(tmp_path)
+    _make_eager_claim_commit(clone)
+    _git(["push"], clone)
+
+    sess_dir = clone / "engine" / "session"
+    state = json.loads((sess_dir / "register_state.json").read_text())
+    state["current_status"] = "closed"
+    (sess_dir / "register_state.json").write_text(json.dumps(state) + "\n")
+    archive_dir = sess_dir / "archive"
+    archive_dir.mkdir(exist_ok=True)
+    (archive_dir / "S-0060.json").write_text(json.dumps({"id": "S-0060"}) + "\n")
+    (sess_dir / "current.json").unlink()
+    (sess_dir / "current_plan.md").unlink()
+    # Touch both ADR README index files as part of close (the S-0208 pattern —
+    # a same-session-authored ADR's index row that the close commit absorbs).
+    engine_adr_readme = clone / "engine" / "adr" / "README.md"
+    engine_adr_readme.parent.mkdir(parents=True, exist_ok=True)
+    engine_adr_readme.write_text(
+        "# Engine ADR index\n\n"
+        "| ADR | Title | Status |\n"
+        "|---|---|---|\n"
+        "| [0099](0099-test.md) | Test entry | Accepted |\n"
+    )
+    product_adr_readme = clone / "product" / "adr" / "README.md"
+    product_adr_readme.parent.mkdir(parents=True, exist_ok=True)
+    product_adr_readme.write_text(
+        "# Product ADR index\n\n"
+        "| ADR | Title | Status |\n"
+        "|---|---|---|\n"
+        "| [0100](0100-test.md) | Test entry | Accepted |\n"
+    )
+    _git(["add", "-A"], clone)
+    _git(
+        [
+            "commit",
+            "-m",
+            "chore(session): close S-0060 — with ADR README index updates",
+        ],
+        clone,
+    )
+    ok, reason = verify_close_shape(clone, "origin", "main")
+    assert ok, f"close-with-adr-readme-edit rejected: {reason}"
 
 
 def test_close_detects_rename_as_add_plus_delete(tmp_path: Path) -> None:
