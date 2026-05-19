@@ -1981,6 +1981,22 @@ GRAPH_SOFT_WARN_CATEGORIES = (
     "edge_evidence_empty",
     "top_level_discipline_label_as_prereq_source",
     "prereq_direction_summary_inconsistency",
+    # S-0208: two soft-warns landing with the Cluster 2 vocabulary +
+    # Cluster 1 contestability substrate. Both consume the per-edge
+    # contestability columns ADR 0097 / migration 0120 added.
+    # - edge_contestability_unguarded_high_confidence (Issue #152;
+    #   ADR 0097 Consequences-deliverable): fires on edges claiming
+    #   high authoritative status without recorded counterexamples
+    #   or provenance rationale. Post-Cluster-2 expected fires: ~17
+    #   (the historical_influence edges retained expert_confidence=1.0
+    #   from prior production-audit follow-ups).
+    # - edge_provisional_hard_prerequisite (ADR 0098 Consequences-
+    #   deliverable): fires on edges typed as hard_prerequisite with
+    #   low expert_confidence. Post-Cluster-2 expected fires: 0 (all
+    #   516 retyped to soft_prerequisite; future manual hard-typings
+    #   without SQA-validated expert confidence surface here).
+    "edge_contestability_unguarded_high_confidence",
+    "edge_provisional_hard_prerequisite",
 )
 
 # Canonical top-level discipline labels for the
@@ -2040,9 +2056,23 @@ ATTRIBUTE_SHAPE_MINORITY_THRESHOLD = 0.30
 # default is the missing_rigor_score signal.
 RIGOR_SCORE_DEFAULT = 0.5
 
-# The structural prerequisite predicate (gate T2-G; per
-# 0003_edges.sql:54 column default and architecture.md:182).
-PREREQUISITE_EDGE_TYPE = "pedagogical_prerequisite"
+# Edge-type values that count as strict prereqs for the validator's
+# topology checks (cycle detection, missing rigor, dangling cross-bridge
+# evidence, orphan leaves, etc.). Pre-S-0208 this was a single value
+# `pedagogical_prerequisite` per gate T2-G + 0003_edges.sql:54. Cluster 2
+# migration 0130 (per ADR 0098) retyped all 516 production edges to
+# `soft_prerequisite` under the new pedagogical_dependence layer with
+# the per-layer compound CHECK; future SQA-validated edges may use
+# `hard_prerequisite`. The tuple lists the strict-prereq sub-types
+# (not the other 8 pedagogical_dependence sub-types like helpful_bridge
+# or assessed_before, which carry weaker semantics). `pedagogical_prerequisite`
+# is retained for backward compatibility with test fixtures that pre-date
+# the Cluster 2 vocab; no production row carries it post-migration 0130.
+PREREQUISITE_EDGE_TYPES = (
+    "soft_prerequisite",
+    "hard_prerequisite",
+    "pedagogical_prerequisite",  # retained for test-fixture back-compat
+)
 
 
 def _read_predicate_manifest(
@@ -2240,7 +2270,9 @@ def _read_graph_from_db(
                 )
                 nodes = [dict(r) for r in cur.fetchall()]
                 cur.execute(
-                    "SELECT id, source_id, target_id, edge_type, evidence FROM public.edges"
+                    "SELECT id, source_id, target_id, edge_type, edge_layer, "
+                    "evidence, expert_confidence, counterexamples, provenance "
+                    "FROM public.edges"
                 )
                 edges = [dict(r) for r in cur.fetchall()]
         finally:
@@ -2308,7 +2340,7 @@ def _detect_prerequisite_cycles(
     self_loops: set[str] = set()
     nodes_in_subgraph: set[str] = set()
     for e in edges:
-        if e.get("edge_type") != PREREQUISITE_EDGE_TYPE:
+        if e.get("edge_type") not in PREREQUISITE_EDGE_TYPES:
             continue
         s = e.get("source_id")
         t = e.get("target_id")
@@ -2441,7 +2473,7 @@ def _detect_missing_rigor_score(
     """
     inbound_prereq: set[str] = set()
     for e in edges:
-        if e.get("edge_type") != PREREQUISITE_EDGE_TYPE:
+        if e.get("edge_type") not in PREREQUISITE_EDGE_TYPES:
             continue
         t = e.get("target_id")
         if t is not None:
@@ -2502,7 +2534,7 @@ def _detect_orphan_leaves(
     has_inbound: set[str] = set()
     has_outbound: set[str] = set()
     for e in edges:
-        if e.get("edge_type") != PREREQUISITE_EDGE_TYPE:
+        if e.get("edge_type") not in PREREQUISITE_EDGE_TYPES:
             continue
         s = e.get("source_id")
         t = e.get("target_id")
@@ -2546,7 +2578,7 @@ def _detect_suspicious_cross_domain_ratio(
 
     counts: dict[str, dict[str, int]] = {}
     for e in edges:
-        if e.get("edge_type") != PREREQUISITE_EDGE_TYPE:
+        if e.get("edge_type") not in PREREQUISITE_EDGE_TYPES:
             continue
         s = e.get("source_id")
         t = e.get("target_id")
@@ -2597,7 +2629,7 @@ def _detect_edge_evidence_empty(
     }
     findings: list[tuple[str, str, str]] = []
     for e in edges:
-        if e.get("edge_type") != PREREQUISITE_EDGE_TYPE:
+        if e.get("edge_type") not in PREREQUISITE_EDGE_TYPES:
             continue
         s = e.get("source_id")
         t = e.get("target_id")
@@ -2612,6 +2644,120 @@ def _detect_edge_evidence_empty(
             continue
         eid = e.get("id")
         findings.append((str(eid) if eid is not None else "", str(s), str(t)))
+    return sorted(findings)
+
+
+# S-0208: contestability-substrate-aware soft-warn helpers.
+# Both detectors consume Cluster 1 columns added by migration 0120
+# (expert_confidence REAL; counterexamples JSONB array; provenance JSONB
+# object with five keys). The _read_graph_from_db SELECT was extended at
+# S-0208 to fetch these columns; pre-S-0208 callers that monkey-patch
+# _read_graph_from_db with stub data must include these keys (or omit
+# them — both detectors handle absent keys as "treat as missing", which
+# is the safe default).
+
+# Expert-confidence bands per ADR 0097 enum convention (low=0-0.4,
+# medium=0.4-0.7, high=0.7-1.0). The "high" threshold is the lower bound
+# of the high band; the "low" threshold is the upper bound of the low band.
+_EXPERT_CONFIDENCE_HIGH_THRESHOLD = 0.7
+_EXPERT_CONFIDENCE_LOW_THRESHOLD = 0.4
+
+
+def _detect_edges_contestability_unguarded_high_confidence(
+    edges: list[dict[str, Any]],
+) -> list[tuple[str, str, str, float]]:
+    """Return ``(edge_id, source_id, target_id, expert_confidence)`` for
+    edges claiming high authoritative status without recorded counter-
+    examples or provenance rationale.
+
+    Per [Issue #152](https://github.com/StarshipSuperjam/paideia/issues/152)
+    and [ADR 0097](../../product/adr/0097-tier-a-cluster-1-contestability-substrate.md)
+    Consequences-deliverable; synthesis.md §Cluster 1 line 70 framing.
+    An edge with ``expert_confidence >= 0.7`` (high band per ADR 0097
+    enum convention) AND ``counterexamples = []`` AND ``provenance.rationale``
+    null or empty is the "atomic contestability substrate" failure mode
+    from synthesis top-level finding 3: high confidence without recorded
+    exceptions or justification is structurally unguarded.
+
+    Implementation deferred from S-0207 (ADR 0097 landing) until post-
+    Cluster-2 retyping at S-0208 so the warn fires on a meaningful
+    subset rather than the entire seed corpus. Post-migration-0130
+    expected fires: ~17 (the historical_influence edges retained
+    expert_confidence=1.0 from prior production-audit follow-ups).
+
+    Returns sorted list for deterministic test ordering.
+    """
+    findings: list[tuple[str, str, str, float]] = []
+    for e in edges:
+        ec = e.get("expert_confidence")
+        if ec is None or ec < _EXPERT_CONFIDENCE_HIGH_THRESHOLD:
+            continue
+        counterexamples = e.get("counterexamples")
+        # Empty JSONB array surfaces from psycopg as Python list []; tests
+        # may pass a JSON string '[]' or omit the key entirely. Treat
+        # absent/None as empty (the structural concern is no recorded
+        # counterexamples, regardless of representation).
+        if counterexamples not in (None, [], "[]", ""):
+            continue
+        provenance = e.get("provenance") or {}
+        if isinstance(provenance, dict):
+            rationale = provenance.get("rationale")
+        else:
+            rationale = None
+        if rationale is not None and str(rationale).strip() != "":
+            continue
+        eid = e.get("id")
+        s = e.get("source_id")
+        t = e.get("target_id")
+        findings.append(
+            (
+                str(eid) if eid is not None else "",
+                str(s) if s is not None else "",
+                str(t) if t is not None else "",
+                float(ec),
+            )
+        )
+    return sorted(findings)
+
+
+def _detect_edges_provisional_hard_prerequisite(
+    edges: list[dict[str, Any]],
+) -> list[tuple[str, str, str, float]]:
+    """Return ``(edge_id, source_id, target_id, expert_confidence)`` for
+    edges typed as ``hard_prerequisite`` with ``expert_confidence < 0.4``
+    (low band per ADR 0097 enum convention).
+
+    Per [ADR 0098](../../product/adr/0098-tier-a-cluster-2-edge-type-taxonomy-and-three-relation-layering.md)
+    Consequences-deliverable. The threshold rationale per ADR 0098
+    premise 6 + paper_1:L162 framing: experts overstate necessity, so
+    hard-typed + low-confidence is the structurally suspect combination
+    (a "provisional hard prereq" needing SQA validation before use in
+    routing). Disposition: SQA review per Cluster 7 pipeline.
+
+    Post-migration-0130 expected fires: 0 — all 516 retyped to
+    soft_prerequisite. Future manual hard-typings without SQA-validated
+    expert confidence surface here.
+
+    Returns sorted list for deterministic test ordering.
+    """
+    findings: list[tuple[str, str, str, float]] = []
+    for e in edges:
+        if e.get("edge_type") != "hard_prerequisite":
+            continue
+        ec = e.get("expert_confidence")
+        if ec is None or ec >= _EXPERT_CONFIDENCE_LOW_THRESHOLD:
+            continue
+        eid = e.get("id")
+        s = e.get("source_id")
+        t = e.get("target_id")
+        findings.append(
+            (
+                str(eid) if eid is not None else "",
+                str(s) if s is not None else "",
+                str(t) if t is not None else "",
+                float(ec),
+            )
+        )
     return sorted(findings)
 
 
@@ -2650,7 +2796,7 @@ def _detect_top_level_discipline_label_as_prereq_source(
 
     prereq_targets_by_source: dict[str, list[str]] = {}
     for e in edges:
-        if e.get("edge_type") != PREREQUISITE_EDGE_TYPE:
+        if e.get("edge_type") not in PREREQUISITE_EDGE_TYPES:
             continue
         s = e.get("source_id")
         t = e.get("target_id")
@@ -2722,7 +2868,7 @@ def _detect_prereq_direction_summary_inconsistency(
     findings: list[tuple[str, str, str, str]] = []
     phrase_alternation = "|".join(re.escape(p) for p in reversal_phrases)
     for e in edges:
-        if e.get("edge_type") != PREREQUISITE_EDGE_TYPE:
+        if e.get("edge_type") not in PREREQUISITE_EDGE_TYPES:
             continue
         s = e.get("source_id")
         t = e.get("target_id")
@@ -2852,15 +2998,18 @@ def validate_graph(
 
     Connects to the live Supabase DB via psycopg, runs three hard-fail
     checks (duplicate node IDs, dangling edge references, prerequisite
-    cycles via Kosaraju SCC) plus ten soft-warn categories
+    cycles via Kosaraju SCC) plus twelve soft-warn categories
     (undeclared_predicate, attribute_shape_inconsistency,
     missing_rigor_score, render_readiness_violation,
     synthetic_review_queue, orphan_leaf,
     suspicious_cross_domain_ratio, edge_evidence_empty,
     top_level_discipline_label_as_prereq_source,
-    prereq_direction_summary_inconsistency), and returns a categorized
-    result. The latter three landed at S-0146 from the S-0122 audit
-    (Issue #62; per engine/build_readiness/phase_5_audit_system_input.md).
+    prereq_direction_summary_inconsistency,
+    edge_contestability_unguarded_high_confidence,
+    edge_provisional_hard_prerequisite), and returns a categorized
+    result. Categories 8-10 landed at S-0146 from the S-0122 audit
+    (Issue #62; per engine/build_readiness/phase_5_audit_system_input.md);
+    categories 11-12 landed at S-0208 alongside Cluster 2 (ADR 0098 + #152).
 
     Connection string resolution: the explicit ``connection_string``
     argument wins; otherwise the ``SUPABASE_DB_URL`` environment
@@ -3046,6 +3195,25 @@ def validate_graph(
         r.soft_warn(
             "prereq_direction_summary_inconsistency",
             f"edge_id={eid!r} source={src!r} target={tgt!r} matched_phrase={phrase!r}",
+        )
+
+    for eid, src, tgt, ec in _detect_edges_contestability_unguarded_high_confidence(
+        edges
+    ):
+        r.soft_warn(
+            "edge_contestability_unguarded_high_confidence",
+            f"edge_id={eid!r} source={src!r} target={tgt!r} "
+            f"expert_confidence={ec} reason='high confidence + empty "
+            f"counterexamples + null rationale'",
+        )
+
+    for eid, src, tgt, ec in _detect_edges_provisional_hard_prerequisite(edges):
+        r.soft_warn(
+            "edge_provisional_hard_prerequisite",
+            f"edge_id={eid!r} source={src!r} target={tgt!r} "
+            f"expert_confidence={ec} reason='hard_prerequisite typed with "
+            f"low expert_confidence; requires SQA validation before "
+            f"routing use'",
         )
 
     return r

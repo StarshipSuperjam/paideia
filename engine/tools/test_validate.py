@@ -3061,3 +3061,284 @@ class TestValidateChangelogReadmeGovernance:
         r = validate.validate_changelog_readme_governance(repo_root=tmp_path)
         assert r.hard_fails, "expected hard-fail above hard cap"
         assert any("hard cap" in msg for msg in r.hard_fails)
+
+
+# ---------------------------------------------------------------------------
+# Cluster 2 vocabulary regression — PREREQUISITE_EDGE_TYPES (S-0208)
+# ---------------------------------------------------------------------------
+#
+# Pre-S-0208: single-value `PREREQUISITE_EDGE_TYPE = "pedagogical_prerequisite"`
+# used in 8 graph-audit check sites. Cluster 2 migration 0130 retyped all
+# 516 production edges to `soft_prerequisite`; the validator's hard-fail
+# cycle detection + 7 topology-aware soft-warns silently broke (every
+# node became an "orphan_leaf" because the validator no longer recognized
+# any edge as a prereq). The PREREQUISITE_EDGE_TYPES tuple now includes
+# the strict-prereq sub-types (`hard_prerequisite`, `soft_prerequisite`)
+# plus `pedagogical_prerequisite` for test-fixture back-compat. These
+# tests verify the recognition extends to all three values.
+
+
+class TestPrerequisiteEdgeTypesRecognition:
+    """The validator's prereq topology checks recognize all members of
+    PREREQUISITE_EDGE_TYPES, not just the legacy `pedagogical_prerequisite`."""
+
+    def test_soft_prerequisite_treated_as_prereq_by_cycle_detection(self) -> None:
+        edges = [
+            {
+                "source_id": "a",
+                "target_id": "b",
+                "edge_type": "soft_prerequisite",
+            },
+            {
+                "source_id": "b",
+                "target_id": "a",
+                "edge_type": "soft_prerequisite",
+            },
+        ]
+        cycles = validate._detect_prerequisite_cycles(edges)
+        assert cycles, (
+            "soft_prerequisite must be recognized as a prereq edge type "
+            "post-Cluster-2; cycle detection should fire on the A↔B loop"
+        )
+
+    def test_hard_prerequisite_treated_as_prereq_by_cycle_detection(self) -> None:
+        edges = [
+            {
+                "source_id": "a",
+                "target_id": "b",
+                "edge_type": "hard_prerequisite",
+            },
+            {
+                "source_id": "b",
+                "target_id": "a",
+                "edge_type": "hard_prerequisite",
+            },
+        ]
+        cycles = validate._detect_prerequisite_cycles(edges)
+        assert cycles
+
+    def test_helpful_bridge_not_treated_as_prereq(self) -> None:
+        """Non-strict pedagogical_dependence sub-types are not prereqs
+        for the topology checks; helpful_bridge / co_requisite / etc.
+        carry weaker semantics."""
+        edges = [
+            {
+                "source_id": "a",
+                "target_id": "b",
+                "edge_type": "helpful_bridge",
+            },
+            {
+                "source_id": "b",
+                "target_id": "a",
+                "edge_type": "helpful_bridge",
+            },
+        ]
+        cycles = validate._detect_prerequisite_cycles(edges)
+        assert cycles == [], (
+            "helpful_bridge is not in PREREQUISITE_EDGE_TYPES; cycles "
+            "via helpful_bridge should not fire prereq-cycle detection"
+        )
+
+    def test_legacy_pedagogical_prerequisite_still_recognized_for_test_fixtures(
+        self,
+    ) -> None:
+        """Test-fixture back-compat — pre-Cluster-2 tests use this value."""
+        edges = [
+            {
+                "source_id": "a",
+                "target_id": "b",
+                "edge_type": "pedagogical_prerequisite",
+            },
+            {
+                "source_id": "b",
+                "target_id": "a",
+                "edge_type": "pedagogical_prerequisite",
+            },
+        ]
+        cycles = validate._detect_prerequisite_cycles(edges)
+        assert cycles
+
+
+# ---------------------------------------------------------------------------
+# edge_contestability_unguarded_high_confidence (Issue #152; S-0208)
+# ---------------------------------------------------------------------------
+
+
+class TestEdgesContestabilityUnguardedHighConfidence:
+    """_detect_edges_contestability_unguarded_high_confidence: fires when
+    an edge claims expert_confidence >= 0.7 (high band per ADR 0097
+    enum convention) AND has empty counterexamples AND null/empty
+    provenance.rationale. Per Issue #152 + ADR 0097 Consequences-deliverable."""
+
+    def _edge_with_contestability(
+        self,
+        eid: str = "e1",
+        source: str = "src",
+        target: str = "tgt",
+        expert_confidence: float | None = 1.0,
+        counterexamples: list[Any] | str | None = None,
+        provenance: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        edge: dict[str, Any] = {
+            "id": eid,
+            "source_id": source,
+            "target_id": target,
+            "edge_type": "soft_prerequisite",
+            "edge_layer": "pedagogical_dependence",
+            "expert_confidence": expert_confidence,
+            "counterexamples": counterexamples if counterexamples is not None else [],
+            "provenance": provenance
+            if provenance is not None
+            else {
+                "source_text": None,
+                "course_context": None,
+                "version": 1,
+                "reviewer": "ai-seed",
+                "rationale": None,
+            },
+        }
+        return edge
+
+    def test_fires_on_high_conf_empty_counterexamples_null_rationale(self) -> None:
+        edges = [self._edge_with_contestability()]
+        findings = validate._detect_edges_contestability_unguarded_high_confidence(
+            edges
+        )
+        assert len(findings) == 1
+        eid, src, tgt, ec = findings[0]
+        assert eid == "e1"
+        assert src == "src"
+        assert tgt == "tgt"
+        assert ec == 1.0
+
+    def test_does_not_fire_when_counterexamples_populated(self) -> None:
+        edges = [
+            self._edge_with_contestability(
+                counterexamples=[{"description": "A known exception"}]
+            )
+        ]
+        findings = validate._detect_edges_contestability_unguarded_high_confidence(
+            edges
+        )
+        assert findings == []
+
+    def test_does_not_fire_when_rationale_populated(self) -> None:
+        edges = [
+            self._edge_with_contestability(
+                provenance={
+                    "source_text": None,
+                    "course_context": None,
+                    "version": 1,
+                    "reviewer": "ai-seed",
+                    "rationale": "Author verified against SEP-canonical exposition.",
+                }
+            )
+        ]
+        findings = validate._detect_edges_contestability_unguarded_high_confidence(
+            edges
+        )
+        assert findings == []
+
+    def test_does_not_fire_below_high_confidence_threshold(self) -> None:
+        edges = [self._edge_with_contestability(expert_confidence=0.6)]
+        findings = validate._detect_edges_contestability_unguarded_high_confidence(
+            edges
+        )
+        assert findings == []
+
+    def test_does_not_fire_when_expert_confidence_is_none(self) -> None:
+        edges = [self._edge_with_contestability(expert_confidence=None)]
+        findings = validate._detect_edges_contestability_unguarded_high_confidence(
+            edges
+        )
+        assert findings == []
+
+    def test_fires_at_threshold_boundary(self) -> None:
+        """0.7 is the high-band lower bound; an edge AT 0.7 fires."""
+        edges = [self._edge_with_contestability(expert_confidence=0.7)]
+        findings = validate._detect_edges_contestability_unguarded_high_confidence(
+            edges
+        )
+        assert len(findings) == 1
+
+    def test_registered_in_graph_soft_warn_categories(self) -> None:
+        assert (
+            "edge_contestability_unguarded_high_confidence"
+            in validate.GRAPH_SOFT_WARN_CATEGORIES
+        )
+
+
+# ---------------------------------------------------------------------------
+# edge_provisional_hard_prerequisite (ADR 0098; S-0208)
+# ---------------------------------------------------------------------------
+
+
+class TestEdgesProvisionalHardPrerequisite:
+    """_detect_edges_provisional_hard_prerequisite: fires when an edge
+    is typed `hard_prerequisite` AND has expert_confidence < 0.4 (low
+    band per ADR 0097 enum convention). Per ADR 0098 Consequences-
+    deliverable; rationale per ADR 0098 premise 6 + paper_1:L162 framing
+    (experts overstate necessity, so hard-typed + low-confidence is
+    structurally suspect)."""
+
+    def _hard_prereq_edge(
+        self,
+        eid: str = "e1",
+        expert_confidence: float | None = 0.2,
+    ) -> dict[str, Any]:
+        return {
+            "id": eid,
+            "source_id": "src",
+            "target_id": "tgt",
+            "edge_type": "hard_prerequisite",
+            "edge_layer": "pedagogical_dependence",
+            "expert_confidence": expert_confidence,
+        }
+
+    def test_fires_on_hard_prereq_with_low_confidence(self) -> None:
+        edges = [self._hard_prereq_edge(expert_confidence=0.3)]
+        findings = validate._detect_edges_provisional_hard_prerequisite(edges)
+        assert len(findings) == 1
+        eid, _src, _tgt, ec = findings[0]
+        assert eid == "e1"
+        assert ec == 0.3
+
+    def test_does_not_fire_on_soft_prerequisite(self) -> None:
+        edges = [
+            {
+                "id": "e1",
+                "source_id": "src",
+                "target_id": "tgt",
+                "edge_type": "soft_prerequisite",
+                "expert_confidence": 0.1,
+            }
+        ]
+        findings = validate._detect_edges_provisional_hard_prerequisite(edges)
+        assert findings == []
+
+    def test_does_not_fire_on_hard_prereq_with_medium_confidence(self) -> None:
+        edges = [self._hard_prereq_edge(expert_confidence=0.5)]
+        findings = validate._detect_edges_provisional_hard_prerequisite(edges)
+        assert findings == []
+
+    def test_does_not_fire_on_hard_prereq_with_high_confidence(self) -> None:
+        edges = [self._hard_prereq_edge(expert_confidence=0.9)]
+        findings = validate._detect_edges_provisional_hard_prerequisite(edges)
+        assert findings == []
+
+    def test_does_not_fire_when_confidence_at_low_threshold_boundary(self) -> None:
+        """0.4 is the low-band upper bound; an edge AT 0.4 does NOT fire
+        (the check is strict less-than the low_threshold)."""
+        edges = [self._hard_prereq_edge(expert_confidence=0.4)]
+        findings = validate._detect_edges_provisional_hard_prerequisite(edges)
+        assert findings == []
+
+    def test_does_not_fire_when_expert_confidence_none(self) -> None:
+        edges = [self._hard_prereq_edge(expert_confidence=None)]
+        findings = validate._detect_edges_provisional_hard_prerequisite(edges)
+        assert findings == []
+
+    def test_registered_in_graph_soft_warn_categories(self) -> None:
+        assert (
+            "edge_provisional_hard_prerequisite" in validate.GRAPH_SOFT_WARN_CATEGORIES
+        )
