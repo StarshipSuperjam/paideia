@@ -1,0 +1,49 @@
+{
+  "id": "S-0210",
+  "started_at": "2026-05-19T16:29:51Z",
+  "status": "in_progress",
+  "mode": "interactive",
+  "working_on": "Engine-inspired hook installation + close-friction mitigations \u2014 port four patterns from the sibling Engine project to attack the recurring close-friction failure class at the root rather than continuing the one-off-fix pattern.",
+  "declared_scope": "Land four targeted Engine ports in one session: (1) migrate hook discovery from filesystem symlink to git config core.hooksPath engine/tools/hooks (verified worktree-root-relative in-session before commit); (2) fix check_settings_sync.py's bidirectional-assumption bug (Issue #154) \u2014 detect direction via timestamps + content hash, halt-and-confirm on genuine conflict; (3) add Engine's SKIP_ENGINE_HOOKS=1 audited-bypass mechanism at head of pre-commit hook with audit log at .engine_reports/hook-bypass.log (gitignored); (4) port recover_partial_close.py with 4-state diagnosis (State A: archive + current.json coexist; State B: in-progress; State C: archive present but register flip uncommitted; State D: clean closed) + 3 recovery flags (--remove-active / --land-close / --rollback-archive) using build_lifecycle_push.py's shape-verification pattern. Author engine ADR 0100 with Load-bearing premises per ADR 0084 (criterion #4 fires: Consequences span 6+ surfaces) + decisions drawer + ADR README index row. Update session-shutdown-sequence.md + SKILL.md parity for close-failure recovery subsection. Update session-start.sh to LOUD-reminder when .engine_reports/hook-bypass.log has new entries. Defer suite dispatch + thin-bash pre-commit as Alternatives Considered follow-ups. ADR 0099 observation window is explicitly confounded \u2014 new acceptance criterion: 3 clean closes against the combined apparatus. phase: NA-engine-apparatus",
+  "outcome_summary": "All four targeted Engine ports landed cleanly in 6 commits + push to origin/main (FF'd to parent at each push). Item 1 (core.hooksPath migration) verified empirically in-session against Git 2.50: relative path resolves worktree-root-relative from both worktree root AND a subdirectory. Setting applied to main repo's .git/config; relative symlink removed. Item 2 (check_settings_sync.py direction-aware fix) closes Issue #154; 22 pytests cover all six direction signals + Issue #154 scenario reproduced end-to-end. Item 3 (SKIP_ENGINE_HOOKS=1 audited bypass) writes timestamp + branch + user + commit subject to .engine_reports/hook-bypass.log (per-clone, gitignored); session-start.sh's new LOUD reminder surfaces unread entries at next session boot. Item 4 (recover_partial_close.py) ports Engine's pattern with 7-state diagnosis + 3 recovery flags (--remove-active / --rollback-archive / --land-close); 19 pytests pass + 1 skip (fixture pre-condition not reachable). Engine ADR 0100 carries 5 load-bearing premises per ADR 0084 extraction step (criterion #4 fires: 8 surfaces); decisions drawer d9fa77ea4f3c4610bb8c1948b692a606 captures the conversational reasoning. Skill \u2194 Layer-1 parity validator runs clean. validate.py --final-check: 0 hard-fails; new engine_memory_zero_citations_after_search soft-warn expected to clear at step 12 once this outcome_summary cites drawer IDs (drawers cited herein: decisions d9fa77ea, pushback d52f88181f694c90bc85c453822d9045, lesson ce7eee79c46c47d18a5977c586c01d0e, diary 978801b8620442a99f5318acc86d8cf8; search returned context from S-0207/S-0208/S-0209 diary entries that fed the plan). Cold-review subagent verdict: SHIP (no contract drift, no mechanical issues; both NEW Python tools verified against their docstring contracts). Engine ADR 0099 observation window (3 clean closes per criterion 4) is confounded by this work; ADR 0100 explicitly redefines the criterion to 3 clean closes against the combined ADR 0099 + ADR 0100 apparatus \u2014 S-0210 = sample 1 of revised criterion. Deferred follow-ups named in ADR 0100 Alternatives Considered: suite dispatch (validate.py --suite pre-commit/pre-close, equivalent to ADR 0099's Fix B at architecture depth); thin pre-commit hook (225 \u2192 20 LOC bash); Engine's install_git_hooks.sh pattern (rejected for this session \u2014 core.hooksPath is strictly simpler). Pushback drawer d52f8818 (self-reframe: when user pushes back on a binary tradeoff with 'I need to see the tradeoffs flushed out better' the frame is mis-named; re-investigate the premise before producing more detail on the existing frame). Lesson drawer ce7eee79 (Git 2.50 resolves relative core.hooksPath worktree-root-relative \u2014 empirically verified in-session; Git documentation is ambiguous on this so the test was load-bearing). Cluster 4 (Node schema redesign per ADR 0094 dependency order C1 \u2192 C2 \u2192 C4 \u2192 C3 \u2192 C5) carries forward to S-0211 \u2014 second diversion in a row (S-0209 also diverted from Cluster 4 to address Issue #153); the close-friction class is now structurally addressed at the architectural root rather than via continued one-off patches.",
+  "scope_delivery": "yes",
+  "next_session_handle": "Cluster 4 (Node schema redesign) \u2014 second carry-forward in a row (deferred from S-0209 to address Issue #153 ADR 0099; deferred from S-0210 to address close-friction root cause ADR 0100). Cluster 4 work item details in engine/STATE.md 'Next session work item' block. ADR 0099 + ADR 0100 combined observation window opens with S-0210 as sample 1 of 3 clean closes needed.",
+  "outcome_summary_soft_warns": {
+    "issue_collision": 9,
+    "missing_rigor_score": 358,
+    "edge_evidence_empty": 46,
+    "edge_contestability_unguarded_high_confidence": 533
+  },
+  "side_discoveries": [
+    {
+      "commit": "ea19581",
+      "marker": "pending",
+      "disposition_type": "acceptable_no_action",
+      "disposition_ref": "",
+      "reasoning": "The string 'pending' appears in engine/tools/recover_partial_close.py's docstring + --land-close help text as a description of what the recovery flag operates on ('pending close artifacts', 'pending register flip'). It is descriptive language for the tool's intended behavior, not a deferred TODO marker. No action needed; the audit's regex matched the literal word but the semantic context is benign."
+    }
+  ],
+  "approved_plan": "~/.claude/plans/switching-to-plan-mode-harmonic-candy.md",
+  "branch": "claude/cool-nightingale-e05f66",
+  "worktree": "/Users/shanekidd/Documents/Claude_Files/Paideia/.claude/worktrees/cool-nightingale-e05f66",
+  "engine_memory_activity": {
+    "search_calls": 1,
+    "add_drawer_calls": 3,
+    "get_drawer_calls": 0,
+    "list_drawers_calls": 0,
+    "diary_read_calls": 1,
+    "diary_write_calls": 1,
+    "other_calls": 0,
+    "total_calls": 6,
+    "first_call_ts": "2026-05-19T16:29:16Z",
+    "last_call_ts": "2026-05-19T16:52:28Z",
+    "search_first_ts": "2026-05-19T16:29:16Z",
+    "diary_read_first_ts": "2026-05-19T16:29:18Z",
+    "engine_memory_citations": {
+      "drawer_id_refs": 5,
+      "session_archive_refs": 1,
+      "tag_named_refs": 0,
+      "total": 6
+    }
+  }
+}
