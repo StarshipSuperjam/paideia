@@ -14,7 +14,7 @@ requires-python = ">=3.12"
 # the matching lockfile regeneration.
 dependencies = [
     # Code-discipline gate stack per ADR 0038 (Layer 2 mechanical gates).
-    "ruff>=0.15.12",
+    "ruff>=0.15.14",
     "mypy>=2.1.0",
     "pytest>=9.0.3",
 
